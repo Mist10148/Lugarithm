@@ -5,8 +5,9 @@ using TMPro;
 
 /// <summary>
 /// Drives the Main Menu screen.
-/// Wires up New Game / Continue / Settings / Quit buttons
-/// and shows/hides the settings panel.
+/// Wires up New Game / Continue / Settings / Quit buttons and shows/hides the
+/// settings panel. Settings are read from / written to <see cref="SettingsManager"/>
+/// (applied live), and scene loads route through <see cref="SceneTransitionManager"/>.
 /// </summary>
 public class MainMenuManager : MonoBehaviour
 {
@@ -29,19 +30,17 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField] private TMP_Text difficultyLabel;   // Shows "EASY — Block Mode" or "HARD — Code Mode"
 
     [Header("Scene Names")]
+    [Tooltip("Scene loaded for a fresh run / first town leg.")]
     [SerializeField] private string firstTownSceneName = "Drive_Oton"; // placeholder
-
-    // -------------------------------------------------------------------------
-    // Prefs keys (keep in sync with SettingsManager when that exists)
-    private const string PREF_BLOCK_MODE     = "pref_block_mode";
-    private const string PREF_MUSIC_VOLUME   = "pref_music_vol";
-    private const string PREF_SFX_VOLUME     = "pref_sfx_vol";
+    [Tooltip("One scene per town leg, indexed by currentTownIndex (0 = Oton). " +
+             "Falls back to the first town scene if empty or out of range.")]
+    [SerializeField] private string[] townSceneNames;
 
     // -------------------------------------------------------------------------
 
     void Start()
     {
-        // Gray out Continue if there's no save
+        // Gray out Continue if there's no active run.
         continueButton.interactable = SaveSystem.HasSave();
 
         // Wire buttons
@@ -54,8 +53,8 @@ public class MainMenuManager : MonoBehaviour
         if (settingsPanel != null)
             settingsPanel.SetActive(false);
 
-        // Load saved settings into the settings panel controls
-        LoadSettingsIntoUI();
+        // Bind the settings controls to SettingsManager
+        BindSettingsControls();
     }
 
     // -------------------------------------------------------------------------
@@ -63,14 +62,13 @@ public class MainMenuManager : MonoBehaviour
 
     void OnNewGame()
     {
-        SaveSystem.ClearSave();
-        SceneManager.LoadScene(firstTownSceneName);
+        SaveSystem.StartNewRun();        // resets progress, keeps settings
+        LoadScene(firstTownSceneName);
     }
 
     void OnContinue()
     {
-        // TODO: Read save file and route to correct scene/town
-        SceneManager.LoadScene(firstTownSceneName);
+        LoadScene(SceneForCurrentTown());
     }
 
     void OnOpenSettings()
@@ -82,7 +80,8 @@ public class MainMenuManager : MonoBehaviour
     /// <summary>Called by the Settings panel's Close button.</summary>
     public void OnCloseSettings()
     {
-        SaveSettingsFromUI();
+        // Settings persist live through SettingsManager as the controls change,
+        // so closing just hides the panel.
         if (settingsPanel != null)
             settingsPanel.SetActive(false);
     }
@@ -97,42 +96,45 @@ public class MainMenuManager : MonoBehaviour
     }
 
     // -------------------------------------------------------------------------
-    // Settings helpers
+    // Settings binding
 
-    void LoadSettingsIntoUI()
+    void BindSettingsControls()
     {
+        SettingsManager settings = SettingsManager.Instance;
+
         if (blockModeToggle != null)
         {
-            bool isBlockMode = PlayerPrefs.GetInt(PREF_BLOCK_MODE, 1) == 1;
-            blockModeToggle.isOn = isBlockMode;
+            bool isBlockMode = settings != null ? settings.BlockMode : true;
+            blockModeToggle.SetIsOnWithoutNotify(isBlockMode);
             UpdateDifficultyLabel(isBlockMode);
 
-            // Update label whenever the toggle changes
             blockModeToggle.onValueChanged.AddListener(isOn =>
             {
+                if (SettingsManager.Instance != null)
+                    SettingsManager.Instance.BlockMode = isOn;
                 UpdateDifficultyLabel(isOn);
             });
         }
 
         if (musicVolumeSlider != null)
-            musicVolumeSlider.value = PlayerPrefs.GetFloat(PREF_MUSIC_VOLUME, 0.8f);
+        {
+            musicVolumeSlider.SetValueWithoutNotify(settings != null ? settings.MusicVolume : 0.8f);
+            musicVolumeSlider.onValueChanged.AddListener(v =>
+            {
+                if (SettingsManager.Instance != null)
+                    SettingsManager.Instance.MusicVolume = v;
+            });
+        }
 
         if (sfxVolumeSlider != null)
-            sfxVolumeSlider.value = PlayerPrefs.GetFloat(PREF_SFX_VOLUME, 0.8f);
-    }
-
-    void SaveSettingsFromUI()
-    {
-        if (blockModeToggle != null)
-            PlayerPrefs.SetInt(PREF_BLOCK_MODE, blockModeToggle.isOn ? 1 : 0);
-
-        if (musicVolumeSlider != null)
-            PlayerPrefs.SetFloat(PREF_MUSIC_VOLUME, musicVolumeSlider.value);
-
-        if (sfxVolumeSlider != null)
-            PlayerPrefs.SetFloat(PREF_SFX_VOLUME, sfxVolumeSlider.value);
-
-        PlayerPrefs.Save();
+        {
+            sfxVolumeSlider.SetValueWithoutNotify(settings != null ? settings.SfxVolume : 0.8f);
+            sfxVolumeSlider.onValueChanged.AddListener(v =>
+            {
+                if (SettingsManager.Instance != null)
+                    SettingsManager.Instance.SfxVolume = v;
+            });
+        }
     }
 
     void UpdateDifficultyLabel(bool isBlockMode)
@@ -141,5 +143,29 @@ public class MainMenuManager : MonoBehaviour
         difficultyLabel.text = isBlockMode
             ? "EASY  —  Block Mode"
             : "HARD  —  Code Mode";
+    }
+
+    // -------------------------------------------------------------------------
+    // Scene routing
+
+    string SceneForCurrentTown()
+    {
+        int index = SaveSystem.Current.currentTownIndex;
+        if (townSceneNames != null && index >= 0 && index < townSceneNames.Length
+            && !string.IsNullOrEmpty(townSceneNames[index]))
+        {
+            return townSceneNames[index];
+        }
+
+        // Fallback until per-town scenes are authored.
+        return firstTownSceneName;
+    }
+
+    void LoadScene(string sceneName)
+    {
+        if (SceneTransitionManager.Instance != null)
+            SceneTransitionManager.Instance.TransitionTo(sceneName);
+        else
+            SceneManager.LoadScene(sceneName);
     }
 }

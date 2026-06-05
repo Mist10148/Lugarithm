@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -41,12 +42,24 @@ public class SplashScreenManager : MonoBehaviour
     void Update()
     {
         // Any key / mouse click skips the splash
-        if (!_skipped && Input.anyKeyDown)
+        if (!_skipped && AnySkipPressed())
         {
             _skipped = true;
             StopAllCoroutines();
             GoToMainMenu();
         }
+    }
+
+    /// <summary>
+    /// True on the frame the player presses any key, the left mouse button, or a
+    /// gamepad button. Uses the Input System package (the project's active input
+    /// handler) — the legacy UnityEngine.Input class throws under that backend.
+    /// </summary>
+    static bool AnySkipPressed()
+    {
+        return (Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame)
+            || (Mouse.current    != null && Mouse.current.leftButton.wasPressedThisFrame)
+            || (Gamepad.current  != null && Gamepad.current.buttonSouth.wasPressedThisFrame);
     }
 
     // -------------------------------------------------------------------------
@@ -94,6 +107,11 @@ public class SplashScreenManager : MonoBehaviour
 
     void GoToMainMenu()
     {
-        SceneManager.LoadScene(nextSceneName);
+        // Route through the transition manager when present so the scene swap
+        // matches every other transition; fall back to a hard load otherwise.
+        if (SceneTransitionManager.Instance != null)
+            SceneTransitionManager.Instance.TransitionTo(nextSceneName);
+        else
+            SceneManager.LoadScene(nextSceneName);
     }
 }
