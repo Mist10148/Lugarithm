@@ -42,11 +42,11 @@ This document breaks development into phases. Phases are sequential at the macro
 - [ ] Document scoring formula (repair puzzle + town puzzle + dialogue weights)
 
 ### Tech Decisions
-- [ ] Choose Unity LTS version and confirm 2D URP or built-in pipeline
-- [ ] Decide Code Mode scripting language (Lua / Python subset / custom)
-- [ ] Decide AI provider for dialogue and chatbot; prototype Unity integration
-- [ ] Confirm online vs. offline stance for AI features
-- [ ] Set up version control (Git repo, branching strategy, .gitignore for Unity)
+- [x] Choose Unity LTS version and confirm 2D URP or built-in pipeline
+- [x] Decide Code Mode scripting language (Lua / Python subset / custom)
+- [x] Decide AI provider for dialogue and chatbot; prototype Unity integration
+- [x] Confirm online vs. offline stance for AI features
+- [x] Set up version control (Git repo, branching strategy, .gitignore for Unity)
 
 ### Art & Audio Direction
 - [ ] Define visual style: color palette, character art style, background treatment
