@@ -26,6 +26,18 @@ public class SaveData
     public List<LevelScore> bestScores     = new List<LevelScore>();
 
     // -------------------------------------------------------------------------
+    // Journal helpers
+
+    public bool HasPage(int pageId)
+        => collectedJournalPages != null && collectedJournalPages.Contains(pageId);
+
+    public void UnlockPage(int pageId)
+    {
+        if (collectedJournalPages == null) collectedJournalPages = new List<int>();
+        if (!collectedJournalPages.Contains(pageId)) collectedJournalPages.Add(pageId);
+    }
+
+    // -------------------------------------------------------------------------
     // Settings (persist independently of run progress)
 
     public GameSettings settings = new GameSettings();

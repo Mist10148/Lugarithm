@@ -85,6 +85,11 @@ public static class CodeDriveSceneBuilder
                                                         "▤ Workspace", new Vector2(170f, 42f), 20f);
         UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-10f, -58f), new Vector2(170f, 42f));
 
+        Button journalToggle = UIFactory.CreateButton(canvas.transform, "JournalToggle",
+                                                      "Journal", new Vector2(170f, 42f), 20f);
+        UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-10f, -108f), new Vector2(170f, 42f));
+        journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
+
         Button commands = UIFactory.CreateButton(canvas.transform, "CommandsButton",
                                                  "Commands ?", new Vector2(160f, 42f), 20f);
         UIFactory.Place(commands, new Vector2(1f, 1f), new Vector2(-190f, -58f), new Vector2(160f, 42f));

@@ -78,6 +78,13 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
 
+        // Journal toggle (below Exit)
+        Button journalToggle = UIFactory.CreateButton(canvas.transform, "JournalToggle",
+                                                      "Journal", new Vector2(130f, 44f), 20f);
+        UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-24f, -136f),
+                        new Vector2(130f, 44f));
+        journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
+
         // --- Orchestrator ------------------------------------------------------------
 
         var controllerGo = new GameObject("DriveController");

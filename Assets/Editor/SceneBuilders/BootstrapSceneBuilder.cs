@@ -41,6 +41,9 @@ public static class BootstrapSceneBuilder
         SceneBuilderUtil.Wire(transition, "fadeGroup",    fadeGroup);
         SceneBuilderUtil.Wire(transition, "loadingPanel", loading.gameObject);
 
+        // --- Almanac overlay (persistent DontDestroyOnLoad book) ----------------
+        AlmanacOverlayBuilder.Build(null);
+
         // --- Splash --------------------------------------------------------------
 
         var splashCanvas = UIFactory.CreateCanvas("SplashCanvas", 10);

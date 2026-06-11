@@ -42,12 +42,13 @@ public static class MainMenuSceneBuilder
 
         var column = UIFactory.CreateRect(canvas.transform, "Buttons",
                                           new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-        UIFactory.Place(column, new Vector2(0.5f, 0.5f), new Vector2(0f, -110f), new Vector2(340f, 330f));
+        UIFactory.Place(column, new Vector2(0.5f, 0.5f), new Vector2(0f, -110f), new Vector2(340f, 408f));
         UIFactory.AddVerticalLayout(column, 16f, align: TextAnchor.MiddleCenter);
 
         Button newGame  = UIFactory.CreateButton(column, "NewGameButton",  "New Game", new Vector2(320f, 62f));
         Button cont     = UIFactory.CreateButton(column, "ContinueButton", "Continue", new Vector2(320f, 62f));
         Button settings = UIFactory.CreateButton(column, "SettingsButton", "Settings", new Vector2(320f, 62f));
+        Button journal  = UIFactory.CreateButton(column, "JournalButton",  "Journal",  new Vector2(320f, 62f));
         Button quit     = UIFactory.CreateButton(column, "QuitButton",     "Quit",     new Vector2(320f, 62f));
 
         // --- Version tag -------------------------------------------------------------
@@ -65,6 +66,7 @@ public static class MainMenuSceneBuilder
         SceneBuilderUtil.Wire(manager, "newGameButton",        newGame);
         SceneBuilderUtil.Wire(manager, "continueButton",       cont);
         SceneBuilderUtil.Wire(manager, "settingsButton",       settings);
+        SceneBuilderUtil.Wire(manager, "journalButton",        journal);
         SceneBuilderUtil.Wire(manager, "quitButton",           quit);
         SceneBuilderUtil.Wire(manager, "settingsPanel",        settingsPanel);
         SceneBuilderUtil.Wire(manager, "levelSelectSceneName", "LevelSelect");

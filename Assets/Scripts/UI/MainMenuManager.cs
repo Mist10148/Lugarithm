@@ -18,6 +18,7 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField] private Button newGameButton;
     [SerializeField] private Button continueButton;
     [SerializeField] private Button settingsButton;
+    [SerializeField] private Button journalButton;
     [SerializeField] private Button quitButton;
 
     [Header("Panels")]
@@ -37,6 +38,7 @@ public class MainMenuManager : MonoBehaviour
         newGameButton.onClick.AddListener(OnNewGame);
         continueButton.onClick.AddListener(OnContinue);
         settingsButton.onClick.AddListener(OnOpenSettings);
+        journalButton?.onClick.AddListener(OnOpenJournal);
         quitButton.onClick.AddListener(OnQuit);
     }
 
@@ -58,6 +60,11 @@ public class MainMenuManager : MonoBehaviour
     {
         if (settingsPanel != null)
             settingsPanel.Open();
+    }
+
+    void OnOpenJournal()
+    {
+        AlmanacManager.Instance?.Open();
     }
 
     void OnQuit()
