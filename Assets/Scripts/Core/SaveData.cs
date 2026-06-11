@@ -13,12 +13,17 @@ public class SaveData
     //  hasActiveRun stays false until the player starts a New Game, which lets
     //  the Main Menu's Continue button key off progress (not file existence)
     //  while settings still get saved.
+    //
+    //  currentLevelIndex is the "unlock frontier": level N is unlocked iff
+    //  N <= currentLevelIndex. 0 = Tutorial, 1 = Iloilo City (Molo), 2 = Oton,
+    //  3 = Tigbauan, 4 = Miag-ao, 5 = San Joaquin. Completing the last level
+    //  pushes the frontier to 6 so IsCompleted(5) still reads true.
 
     public bool      hasActiveRun          = false;
-    public int       currentTownIndex      = 0;            // 0 = Oton ... 4 = San Joaquin
+    public int       currentLevelIndex     = 0;
     public List<int> collectedJournalPages = new List<int>();
     public int       currency              = 0;
-    public List<TownScore> bestScores      = new List<TownScore>();
+    public List<LevelScore> bestScores     = new List<LevelScore>();
 
     // -------------------------------------------------------------------------
     // Settings (persist independently of run progress)
@@ -26,21 +31,23 @@ public class SaveData
     public GameSettings settings = new GameSettings();
 }
 
-/// <summary>Best recorded score for a single town, keyed by town index.</summary>
+/// <summary>Best recorded score for a single level, keyed by level index.</summary>
 [Serializable]
-public class TownScore
+public class LevelScore
 {
-    public int townIndex;
+    public int levelIndex;
     public int score;
 }
 
 /// <summary>
 /// Player-configurable settings. Mirrors the Settings table in the PRD (§9).
-/// Defaults: Block Mode, 80% volumes, Normal dialogue speed, subtitles on.
+/// Defaults: Manual Mode, Block Mode, 80% volumes, Normal dialogue speed,
+/// subtitles on.
 /// </summary>
 [Serializable]
 public class GameSettings
 {
+    public bool  manualMode    = true;                     // true = Manual, false = Automation
     public bool  blockMode     = true;                     // true = Easy/Block, false = Hard/Code
     public float musicVolume   = 0.8f;
     public float sfxVolume     = 0.8f;

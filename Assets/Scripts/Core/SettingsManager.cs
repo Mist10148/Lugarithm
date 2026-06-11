@@ -49,6 +49,12 @@ public class SettingsManager : MonoBehaviour
     // -------------------------------------------------------------------------
     // Typed properties (get from save, set persists + applies)
 
+    public bool ManualMode
+    {
+        get => S.manualMode;
+        set { S.manualMode = value; Persist(); }
+    }
+
     public bool BlockMode
     {
         get => S.blockMode;

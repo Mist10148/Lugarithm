@@ -1,3 +1,5 @@
 ﻿<Solution>
-  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="Lugarithm.Runtime.csproj" />
+  <Project Path="Lugarithm.Editor.csproj" />
+  <Project Path="Lugarithm.EditModeTests.csproj" />
 </Solution>

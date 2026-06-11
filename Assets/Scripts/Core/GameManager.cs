@@ -17,6 +17,12 @@ public class GameManager : MonoBehaviour
 
     public int PendingCurrency { get; set; }
 
+    /// <summary>
+    /// Level chosen on the Level Select screen; the drive scenes read this to
+    /// know which leg to build. 0 = Tutorial ... 5 = San Joaquin.
+    /// </summary>
+    public int SelectedLevelIndex { get; set; }
+
     // -------------------------------------------------------------------------
 
     void Awake()
@@ -51,13 +57,31 @@ public class GameManager : MonoBehaviour
         SaveSystem.AutoSave();
     }
 
-    /// <summary>Records a best score for a town (keeps the higher of old/new).</summary>
-    public void RecordTownScore(int townIndex, int score)
+    /// <summary>Records a best score for a level (keeps the higher of old/new).</summary>
+    public void RecordLevelScore(int levelIndex, int score)
     {
-        TownScore entry = SaveSystem.Current.bestScores.Find(s => s.townIndex == townIndex);
+        LevelScore entry = SaveSystem.Current.bestScores.Find(s => s.levelIndex == levelIndex);
         if (entry == null)
-            SaveSystem.Current.bestScores.Add(new TownScore { townIndex = townIndex, score = score });
+            SaveSystem.Current.bestScores.Add(new LevelScore { levelIndex = levelIndex, score = score });
         else if (score > entry.score)
             entry.score = score;
+    }
+
+    /// <summary>Best recorded score for a level, or 0 if it has none yet.</summary>
+    public int GetBestScore(int levelIndex)
+    {
+        LevelScore entry = SaveSystem.Current.bestScores.Find(s => s.levelIndex == levelIndex);
+        return entry != null ? entry.score : 0;
+    }
+
+    /// <summary>
+    /// Finishes a leg: records the score, advances the unlock frontier, and
+    /// commits pending currency to the save (the auto-save point).
+    /// </summary>
+    public void CompleteLevel(int levelIndex, int score)
+    {
+        RecordLevelScore(levelIndex, score);
+        ProgressionRules.CompleteLevel(SaveSystem.Current, levelIndex);
+        SaveProgress();
     }
 }

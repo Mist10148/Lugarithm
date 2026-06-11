@@ -1,0 +1,81 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+/// <summary>
+/// Manual Mode HUD: speedometer needle, fuel bar, currency counter, and the
+/// Passenger Status Ribbon (a pool of <see cref="PassengerChip"/>s).
+/// </summary>
+public class ManualHudController : MonoBehaviour
+{
+    [Header("Dashboard")]
+    [SerializeField] private RectTransform speedNeedle;
+    [SerializeField] private Image         fuelFill;
+    [SerializeField] private TMP_Text      currencyLabel;
+
+    [Header("Passenger Ribbon")]
+    [SerializeField] private PassengerChip[] chips;
+
+    [Header("Needle sweep (degrees)")]
+    [SerializeField] private float needleMinAngle = 115f;
+    [SerializeField] private float needleMaxAngle = -115f;
+
+    JeepneyController _jeepney;
+    int _shownCurrency = int.MinValue;
+
+    // -------------------------------------------------------------------------
+
+    public void Init(JeepneyController jeepney)
+    {
+        _jeepney = jeepney;
+
+        if (chips != null)
+            foreach (PassengerChip chip in chips)
+                if (chip != null) chip.Hide();
+    }
+
+    void Update()
+    {
+        if (_jeepney != null)
+        {
+            if (speedNeedle != null)
+            {
+                float angle = Mathf.Lerp(needleMinAngle, needleMaxAngle, _jeepney.CurrentSpeed01);
+                speedNeedle.localRotation = Quaternion.Euler(0f, 0f, angle);
+            }
+
+            if (fuelFill != null)
+            {
+                fuelFill.fillAmount = _jeepney.Fuel01;
+                fuelFill.color = _jeepney.Fuel01 > 0.25f
+                    ? new Color(0.95f, 0.65f, 0.15f)
+                    : new Color(0.9f, 0.2f, 0.15f);
+            }
+        }
+
+        int pending = GameManager.Instance != null ? GameManager.Instance.PendingCurrency : 0;
+        if (pending != _shownCurrency && currencyLabel != null)
+        {
+            _shownCurrency = pending;
+            currencyLabel.text = $"₱ {pending}";
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Ribbon
+
+    /// <summary>Claims a free chip for a boarding passenger (null if the ribbon is full).</summary>
+    public PassengerChip ClaimChip(string text, Color tint)
+    {
+        if (chips == null) return null;
+
+        foreach (PassengerChip chip in chips)
+        {
+            if (chip == null || chip.InUse) continue;
+            chip.Show(text, tint);
+            return chip;
+        }
+
+        return null;
+    }
+}
