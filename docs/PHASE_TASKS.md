@@ -1,9 +1,9 @@
 # Lugarithm — Phase Tasks
 
 > **Status:** DRAFT
-> **Version:** 0.1
+> **Version:** 0.2
 > **Team:** Cyfer
-> **Last Updated:** June 4, 2026
+> **Last Updated:** June 11, 2026
 
 This document breaks development into phases. Phases are sequential at the macro level but individual tasks within a phase can run in parallel. All estimates are rough and subject to revision.
 
@@ -15,13 +15,13 @@ This document breaks development into phases. Phases are sequential at the macro
 |-------|------|-------|
 | 0 | Pre-Production | Design lock, asset pipeline, tech decisions |
 | 1 | Foundation | Core Unity systems, scene structure, save/load |
-| 2 | Drive System | Scrolling drive, breakdown triggers, passenger framework |
-| 3 | Repair Puzzles | Block Mode + Code Mode puzzle engine |
-| 4 | Town 1 — Oton | First full town: puzzle, passenger, journal page, artifact |
-| 5 | AI Integration | Dynamic dialogue, Almanac chatbot, post-level analytics |
-| 6 | Towns 2–5 | Tigbauan, Guimbal, Miagao, San Joaquin |
-| 7 | Gacha & Progression | Currency, pulls, jeepney customization, vehicle unlocks |
-| 8 | Level Variety Layer | Tour guide levels, special challenge levels |
+| 2 | Manual Mode Drive System | Real-time driving, WASD, fare collection, breakdown minigames |
+| 3 | Automation Mode + Puzzle Engine | Code workspace, block/text editor, puzzle library |
+| 4 | Tutorial + Town 1 — Iloilo City (Molo) | Full tutorial + first town vertical slice |
+| 5 | AI Integration | All five AI systems connected to real game content |
+| 6 | Towns 2–5 | Oton, Tigbauan, Miag-ao, San Joaquin |
+| 7 | Gacha & Progression | Currency, badges, pulls, jeepney customization |
+| 8 | Level Variety Layer | Tour Guide format, Special Challenges |
 | 9 | Polish & QA | Audio, UI, playtesting, bug fixes, localization |
 | 10 | Ship Prep | Build pipeline, platform submission, final QA |
 
@@ -29,30 +29,40 @@ This document breaks development into phases. Phases are sequential at the macro
 
 ## Phase 0 — Pre-Production
 
-> Goal: Lock enough design to begin building. Resolve all blockers in [PRD Open Questions](./PRD.md#12-open-questions) that affect Phase 1–3.
+> Goal: Lock enough design to begin building. Resolve all blockers in [PRD Open Questions](./PRD.md#13-open-questions) that affect Phases 1–4.
 
 ### Design
-- [ ] Finalize five-town journey map and narrative beats per town
-- [ ] Write passenger profiles (name, personality, backstory, knowledge scope, relationship to father)
-- [ ] Write first drafts of all five journal pages (what the son actually reads)
+- [ ] Finalize 6-stop journey structure: Tutorial → Iloilo City (Molo) → Oton → Tigbauan → Miag-ao → San Joaquin; confirm Guimbal as drive-through only
+- [ ] Write passenger profiles (name, personality, backstory, knowledge scope, relationship to father) — one per leg, five total
+- [ ] Write first drafts of all five journal Heritage Pages (father's voice; each town's story)
+- [ ] Write first drafts of all five Coding Reference entries (one concept per town, plain language)
 - [ ] Define Artifact Cards — one per town (object, 2-sentence description, visual style reference)
-- [ ] Assign level format to each town (Passenger as Guide / Player as Tour Guide / Special)
-- [ ] Define repair puzzle types needed across five towns (sequencing, conditionals, loops, etc.)
-- [ ] Define town puzzle concepts for Tigbauan, Guimbal, San Joaquin *(Oton and Miagao are drafted)*
-- [ ] Document scoring formula (repair puzzle + town puzzle + dialogue weights)
+- [ ] Assign level format to each town (Passenger as Guide / Player as Tour Guide / Special Challenge)
+- [ ] Define repair minigame types per mode:
+  - Manual Mode: pattern-matching or topological routing (non-code)
+  - Automation Mode: code-based logic puzzle (block or text)
+- [ ] Finalize town puzzle concepts for all five towns (see PRD Section 5.5)
+- [ ] Document scoring formula (repair minigame + town puzzle + dialogue choice weights)
+- [ ] Define badge system: names confirmed (Anak ng Molo, Panday ng Dagat, Mangangukit, UNESCO Keeper, Tagapagtanggol); define visual style
+- [ ] Define full gacha pool: heritage cosmetics per town confirmed, general cosmetics, performance upgrades, vehicles
+- [ ] Write cutscene briefs for CS-00 through CS-08
 
 ### Tech Decisions
 - [x] Choose Unity LTS version and confirm 2D URP or built-in pipeline
-- [x] Decide Code Mode scripting language (Lua / Python subset / custom)
-- [x] Decide AI provider for dialogue and chatbot; prototype Unity integration
-- [x] Confirm online vs. offline stance for AI features
+- [x] Confirm Unity UI (Screen Space – Overlay) for Automation Mode workspace canvas
 - [x] Set up version control (Git repo, branching strategy, .gitignore for Unity)
+- [ ] Decide scripting language / syntax for Text Editor mode (Python subset / custom pseudocode)
+- [ ] Decide LLM provider for dialogue, post-level analytics, Co-Pilot hints, and Vibe Coding
+- [ ] Decide RAG pipeline provider/architecture for Heritage Oracle (Almanac chatbot)
+- [ ] Confirm online-required vs. offline-capable stance for all AI features
+- [ ] Prototype Vibe Coding feasibility: declarative string → compiled block sequence
 
 ### Art & Audio Direction
-- [ ] Define visual style: color palette, character art style, background treatment
-- [ ] Reference board for jeepney design (base + customization categories)
-- [ ] Define audio direction: music genre, SFX tone, passenger voice style
-- [ ] List all asset categories needed (backgrounds, UI, characters, puzzles, artifacts)
+- [ ] Define visual style: color palette, character art style, isometric background treatment
+- [ ] Reference board for jeepney design (base model + all customization slots including heritage cosmetics)
+- [ ] Define badge visual style: size, framing, iconography per town
+- [ ] Define audio direction: music genre, SFX tone, regional folk influences per town
+- [ ] List all asset categories (backgrounds per segment, UI panels, characters, puzzle art, artifact cards, badges, gacha reveal screen)
 
 ### Production
 - [ ] Set up task tracking
@@ -63,22 +73,23 @@ This document breaks development into phases. Phases are sequential at the macro
 
 ## Phase 1 — Foundation
 
-> Goal: A bootable Unity project with scene navigation, a working save system, and a UI framework everything else can sit inside.
+> Goal: A bootable Unity project with scene navigation, a working save system, and a UI framework for everything else to sit inside.
 
 ### Project Setup
-- [ ] Initialize Unity project with correct settings (2D, target platforms, render pipeline)
-- [ ] Set up scene structure: Main Menu, Game (Drive + Town), Almanac, Gacha, Settings
+- [ ] Initialize Unity project (2D, target platforms, render pipeline)
+- [ ] Set up scene structure: Main Menu, Manual Mode Drive, Automation Mode Drive, Town Scene, Almanac, Gacha, Settings
 - [ ] Implement scene transition system (fade in/out, loading screen)
 - [ ] Implement persistent GameManager (carries state across scenes)
 
 ### Save System
-- [ ] Define save data schema (current town, journal pages collected, inventory, best scores, settings)
-- [ ] Implement local save/load (JSON or Unity's serialization — TBD)
+- [ ] Define save data schema: current level, unlocked Heritage Pages, unlocked Coding Reference entries, inventory, badges earned, best scores per town, gameplay mode preference, settings
+- [ ] Implement local save/load (JSON or Unity serialization — TBD)
 - [ ] Auto-save on town completion
-- [ ] Manual save slot or single-file? *(TBD — mark as open)*
+- [ ] Single save file for v1 *(confirm or open)*
 
 ### Settings Screen
-- [ ] Repair Puzzle Mode toggle (Block / Code) — persisted to save
+- [ ] Gameplay Mode toggle (Manual Mode / Automation Mode) — persisted to save
+- [ ] Automation Mode interface toggle (Block Interface / Text Editor) — persisted
 - [ ] Dialogue Speed selector
 - [ ] Subtitles toggle
 - [ ] Volume sliders (Music, SFX)
@@ -86,176 +97,304 @@ This document breaks development into phases. Phases are sequential at the macro
 
 ### Main Menu
 - [ ] New Game / Continue / Settings / Quit
-- [ ] Basic placeholder art (can be swapped later)
+- [ ] Basic placeholder art (swappable later)
 
 ### UI Framework
-- [ ] Define and implement UI style guide (fonts, button styles, panel colors)
+- [ ] Define and implement UI style guide (fonts, button styles, panel colors; pixel art / retro isometric aesthetic)
 - [ ] Reusable dialog box component (used throughout)
 - [ ] Reusable notification/toast component
+- [ ] Coin Drawer UI component shell (populated in Phase 2)
+- [ ] Code workspace panel shell (populated in Phase 3)
 
 ---
 
-## Phase 2 — Drive System
+## Phase 2 — Manual Mode Drive System
 
-> Goal: A drivable coastal segment with a talking passenger, breakdown triggers, and a placeholder repair puzzle hook.
+> Goal: A fully playable Manual Mode drive segment — real-time driving with drift physics, passenger boarding, and fare collection — with a working breakdown minigame and drive completion flow.
 
-### Background & Scroll
+### World & Jeepney
 - [ ] Implement parallax scrolling background (sky, mountains, coast, road layers)
 - [ ] Placeholder background art for one drive segment (Iloilo City → Oton)
-- [ ] Jeepney sprite on road (base model, no customization yet)
-- [ ] Jeepney driving animation (idle jiggle, speed variation)
+- [ ] Jeepney sprite (base model, no customization yet)
+- [ ] Jeepney driving animation (idle jiggle, speed variation, drift lean)
+- [ ] Implement low-friction drift physics: velocity momentum retention, slippery surface dynamics
+- [ ] WASD / Arrow key driving controls
 
-### Passenger Framework
-- [ ] Passenger data model (character profile, dialogue intent map, portrait)
+### Manual Mode HUD
+- [ ] Analog-style dial speedometer (dashboard, bottom center)
+- [ ] Oscillating fuel tank meter
+- [ ] Digital currency counter
+- [ ] Passenger Status Ribbon (top left): count, drop-off zone flags, real-time satisfaction countdown timers
+- [ ] Interactive Coin Drawer: grid panel for currency token combinations; click to aggregate change; validation against correct amount
+
+### Passenger Framework *(Shared — used by both modes)*
+- [ ] Passenger data model (character profile, dialogue intent map, portrait, knowledge scope)
 - [ ] Passenger portrait + dialogue box UI component
-- [ ] Dialogue intent selection UI (player picks a general topic, not exact words)
-- [ ] Scripted dialogue fallback system (static lines if AI is unavailable)
+- [ ] Dialogue intent selection UI (player picks general topic, not exact words)
+- [ ] Scripted dialogue fallback system (static lines if AI unavailable)
 - [ ] Hook for AI dialogue (stubbed — connected in Phase 5)
 
-### Breakdown System
-- [ ] Breakdown event data model (type, trigger condition, puzzle reference)
+### Passenger Flow — Manual Mode
+- [ ] Boarding logic: entry flags detected, seat assignment tracked
+- [ ] Drop-off zone detection and passenger exit
+- [ ] Satisfaction timer: depletes if player ignores passenger prompts
+- [ ] Fare token generation: cash tokens appear in Coin Drawer when a passenger pays
+- [ ] Change validation: player selects denominations; compare to correct change amount
+
+### Breakdown System *(Shared)*
+- [ ] Breakdown event data model (type, trigger condition, minigame reference)
 - [ ] Scripted breakdown trigger points per drive segment
-- [ ] Visual/audio warning cue (dashboard flicker, audio chug) before breakdown fires
-- [ ] Breakdown interrupts drive, launches puzzle scene, returns to drive on completion
-- [ ] Breakdown frequency scales per town (harder in later towns)
+- [ ] Visual/audio warning cue (dashboard flicker, engine chug) before breakdown fires
+- [ ] Breakdown interrupts drive → launches minigame scene → returns to drive on completion
+- [ ] Breakdown frequency scales per town (harder later)
+
+#### Manual Mode Breakdown Minigame
+- [ ] Non-code pattern-matching puzzle (e.g., rapid component matching)
+- [ ] OR topological routing puzzle (reconnect a broken path)
+- [ ] Soft timer: expiry reduces currency, run continues
+- [ ] Score output fed to progression system
 
 ### Drive Completion
 - [ ] Drive ends → arrival cutscene → town scene loads
-- [ ] Currency earned during drive is tallied and passed to progression system
+- [ ] Currency earned during drive tallied and passed to progression system
 
 ---
 
-## Phase 3 — Repair Puzzle Engine
+## Phase 3 — Automation Mode + Puzzle Engine
 
-> Goal: A fully functional repair puzzle system in both Block Mode and Code Mode, with scoring and analytics output.
+> Goal: A fully functional Automation Mode — block interface + text editor — with shared puzzle core, scoring, analytics stub, and a complete puzzle library for the Tutorial and Iloilo City (Molo) levels.
+
+### Automation Mode World
+- [ ] Route maps to discrete, node-based isometric tilemap grid
+- [ ] Grid-aligned jeepney sprite (step-by-step, deterministic movement)
+- [ ] Left ~40% screen viewport: game sandbox with tilemap
+- [ ] Right ~60% screen viewport: code/block workspace panel (dual-tabbed)
+
+### Block Interface
+- [ ] Block types: action blocks (`moveForward`, `turnLeft`, `turnRight`), condition blocks (`if`/`while`), loop blocks
+- [ ] Drag-and-drop block canvas (Scratch-style vertical layout group)
+- [ ] Block snapping and sequence reordering
+- [ ] Run sequence button → animated step-by-step playback on tilemap
+- [ ] Visual feedback: correct/incorrect steps highlighted on canvas and grid
+- [ ] Error messages in plain English (no jargon)
+
+### Text Editor *(Advanced Toggle)*
+- [ ] Text input with syntax highlighting (lightweight Python/pseudocode)
+- [ ] Parser for chosen scripting language *(TBD from Phase 0)*
+- [ ] Runtime executor (sandboxed — runs player code safely)
+- [ ] Readable error messages for syntax and logic failures
+- [ ] Currency multiplier applied vs. Block Interface score
+
+### Execution Control Bar
+- [ ] Run / Pause / Reset buttons
+- [ ] Playback Speed Slider (1×, 2×, 5×)
+
+### Variable Monitor & Console
+- [ ] Real-time execution state log
+- [ ] Active tile coordinate display
+- [ ] Index limits display
+- [ ] Syntax/logic debugging tips
+
+### Automation Mode Breakdown Minigame
+- [ ] Code-based breakdown repair puzzle (same workspace pipeline)
+- [ ] Distinct visual context (engine schematic, not road grid)
+- [ ] Soft timer; score penalty on expiry
 
 ### Shared Puzzle Core
 - [ ] Puzzle data model: problem type, correct solution, optimal solution, available elements
 - [ ] Puzzle state machine: Idle → Active → Running → Result
-- [ ] Soft timer: counts down, dents score on expiry, does not end run
+- [ ] Soft timer with score dent on expiry
 - [ ] Solution validator: checks player solution against correct solution
-- [ ] Score calculator: factors in time, steps used vs. optimal, retries
+- [ ] Score calculator: time taken + steps vs. optimal + retries
 - [ ] "Replay this puzzle" flow
 
-### Block Mode (Easy)
-- [ ] Block types: action block, condition block, loop block (start with minimum viable set)
-- [ ] Drag-and-drop block canvas
-- [ ] Block snapping and sequence reordering
-- [ ] Run sequence button → animated playback
-- [ ] Visual feedback for correct/incorrect steps
-- [ ] Error messages (plain English, no syntax terms)
-
-### Code Mode (Hard)
-- [ ] Text input field with syntax highlighting (basic — TBD on library)
-- [ ] Parser for chosen scripting language
-- [ ] Runtime executor (sandboxed — runs player code safely)
-- [ ] Readable error messages for syntax and logic failures
-- [ ] Currency multiplier applied vs. Block Mode score
-
-### Analytics Screen (stub)
+### Analytics Screen *(Stub — full AI powers connected in Phase 5)*
 - [ ] Layout: player solution vs. optimal solution, side-by-side
-- [ ] Score, time, currency earned display
-- [ ] Full AI-powered breakdown connected in Phase 5
+- [ ] Score, time, and currency earned display
+- [ ] "Replay this puzzle" button
 
 ### Puzzle Library — Phase 3 Scope
-- [ ] Implement puzzle types: sequencing (required), conditionals (required), loops (if time permits)
-- [ ] Build enough puzzles for Oton drive segment (2–3 puzzles)
+- [ ] **Tutorial puzzles:**
+  - [ ] Code: linear navigation (moveForward, turnLeft, turnRight — no conditionals)
+  - [ ] Non-code: fare token pattern-matching (coin drawer)
+- [ ] **Iloilo City (Molo) puzzles:**
+  - [ ] Code: maze escape with conditional logic (`while !atDestination`, `if frontIsClear`)
+  - [ ] Non-code: non-intersecting transit hub connections (flow puzzle — link colored nodes without path crossings)
+- [ ] **Oton drive puzzles (2–3, for Phase 4):**
+  - [ ] List indexing: cargo log sorting at the market
+  - [ ] Array access: retrieve item by index from a manifest
 
 ---
 
-## Phase 4 — Town 1: Oton
+## Phase 4 — Tutorial + Town 1: Iloilo City (Molo)
 
-> Goal: A complete, playable end-to-end run through the first town. This is the vertical slice — everything else is built on this proof of concept.
+> Goal: A complete, playable end-to-end run through the tutorial and first town. This is the vertical slice — everything else is built on this proof of concept.
 
-### Passenger: Oton Leg
-- [ ] Write and implement Oton passenger (character, scripted fallback dialogue, knowledge scope)
+### Tutorial Segment
+- [ ] Implement CS-00 (Prologue — The Inheritance)
+- [ ] Implement CS-01 (The Journal — Discovery in the Garage)
+- [ ] Implement CS-02 (Departure — The Road Calls)
+- [ ] Tutorial drive: restricted block menu (moveForward, turnLeft, turnRight only)
+- [ ] Tutorial Manual Mode: basic WASD driving on short intro segment
+- [ ] Tutorial minigame: fare token pattern-matching (Coin Drawer)
+- [ ] Tutorial completes → transitions to Iloilo City level
+
+### Passenger: Iloilo City Leg
+- [ ] Write and implement Passenger 1 (character, scripted fallback dialogue, Molo heritage knowledge scope)
 - [ ] Integrate with passenger framework from Phase 2
-- [ ] Drive segment Iloilo City → Oton: background art, breakdowns, dialogue triggers
+- [ ] Drive segment background art for Iloilo City interior → Molo area
+- [ ] Breakdown trigger points for this leg
+- [ ] Passenger dialogue triggers and intent options
 
-### Town Scene: Oton
-- [ ] Oton town scene layout (street view, puzzle area, NPC placement)
-- [ ] Puzzle implementation: Oton Gold Mask assembly
-  - [ ] Fragment sprites + interaction
-  - [ ] Assembly validation logic
-  - [ ] Hint system (3 levels of hints before showing solution)
-  - [ ] Heritage summary on completion
+### Town Scene: Iloilo City (Molo)
+- [ ] Molo Plaza town scene layout (street view, puzzle area, NPC placement)
+- [ ] Puzzle 1 — Automation Mode: maze escape (conditional wall-following logic)
+- [ ] Puzzle 2 — Non-code flow puzzle: non-intersecting transit hub connections
+  - [ ] Grid layout with colored hub nodes
+  - [ ] Line draw and path non-intersection validation
+  - [ ] Heritage framing: Molo's district routes and layout
 - [ ] Passenger assists during puzzle (scripted role)
+- [ ] Implement CS-03 (Molo Arrival) + CS-03b (Molo Completion)
 
-### Journal & Almanac (stub)
-- [ ] Journal page 1 unlocked on town completion
-- [ ] Almanac screen: shows unlocked pages, placeholder for chatbot
-- [ ] Artifact Card 1 displayed on completion screen
+### Journal & Almanac *(Stub)*
+- [ ] Heritage Page 1 unlocked: grandmother's story; women's heritage in Molo
+- [ ] Coding Reference entry 1: conditionals (`if`/`while`) — plain language + annotated example
+- [ ] Almanac screen: shows unlocked pages with placeholder chatbot panel
+- [ ] Artifact Card 1: Molo Church / textile heritage imagery
+
+### Rewards
+- [ ] Badge unlock: Anak ng Molo — animation + profile display
+- [ ] Cosmetic unlock: Floral side panel decorations (added to gacha pool)
 
 ### First Full Run
-- [ ] Playtest: Main Menu → Drive → Oton Puzzle → Journal page → Almanac → Results
-- [ ] Score, currency, and basic progression carried through correctly
-- [ ] All Phase 3 puzzles integrated into Oton drive segment
+- [ ] Playtest: Main Menu → Tutorial → Molo Drive → Molo Puzzle → Journal page → Almanac → Results
+- [ ] Score, currency, badge, and basic progression carried correctly through the full flow
+- [ ] Both Manual Mode and Automation Mode tested end-to-end for the Molo leg
 
 ---
 
 ## Phase 5 — AI Integration
 
-> Goal: All three AI features functional and connected to real game content.
+> Goal: All five AI systems functional and connected to real game content.
 
-### 5.1 Dynamic Passenger Dialogue
+### 5.1 Context-Aware Procedural Generator
+- [ ] Build player profile tracker (pacing, accuracy, exploration style — persisted to save)
+- [ ] Artifact spawn logic: near main path for struggling profiles; maze-locked zone for completionists
+- [ ] Connect spawn system to heritage artifact placement in all completed town scenes
+- [ ] Test: artifact placement visibly adapts between two distinct player profiles
+
+### 5.2 Living Story Engine — Dynamic Passenger Dialogue
 - [ ] Finalize LLM provider integration in Unity
 - [ ] Build prompt templates for each passenger (character voice + historical constraints)
-- [ ] Ground-truth fact set per town provided to model (prevents hallucination)
-- [ ] Runtime generation: player picks intent → AI generates response
+- [ ] Author Lore Books per town (curated heritage fact sets; model must not go beyond these)
+- [ ] Implement player intent → AI response pipeline
+- [ ] Track dialogue choices, player actions, and relationship score for contextual generation
 - [ ] Fallback to scripted lines on failure / timeout
 - [ ] Test all five passengers: tone consistency, historical accuracy, no spoilers for unvisited towns
 
-### 5.2 Almanac Chatbot
-- [ ] Connect chatbot to unlocked journal pages only (context window restricted by save state)
+### 5.3 Virtual Coding Mentor — Post-Level Analytics (Full)
+- [ ] AI generates natural-language explanation of player solution vs. optimal
+- [ ] Efficiency score calculation and display
+- [ ] Hoverable tooltip system: AI explains *why* optimal is better (fewer steps, less memory, etc.)
+- [ ] Separate prompt paths for Block Interface and Text Editor explanations
+- [ ] Replace Phase 3 analytics stub with full AI-powered version
+- [ ] Test: analytics accurate and readable across all puzzle types built so far
+
+### 5.4 Heritage Oracle — Almanac AI Chatbot
+- [ ] Set up RAG pipeline: dual index (heritage facts + coding guide entries)
+- [ ] Connect chatbot to unlocked journal pages only (save state gates context window)
 - [ ] Chatbot UI: chat interface inside Almanac screen
-- [ ] Hint mode: contextual hints for current active puzzle
-- [ ] Lore mode: answer questions about heritage and characters
-- [ ] Tone guidelines enforced in system prompt
+- [ ] Heritage & spoiler gating: in-world response for unvisited towns
+- [ ] Coding companion mode: answers concept questions from Coding Reference without revealing puzzle solutions
+- [ ] Tone and style guidelines enforced in system prompt
 - [ ] Test: chatbot cannot reference a town the player has not visited
 
-### 5.3 Post-Level Analytics (full)
-- [ ] AI generates natural-language breakdown of player's solution vs. optimal
-- [ ] Displayed on analytics screen (from Phase 3 stub)
-- [ ] Separate prompts for Block Mode and Code Mode explanations
-- [ ] Test: analytics are accurate and readable across all puzzle types built so far
+### 5.5 Co-Pilot & Vibe Coding
+- [ ] **Co-Pilot (Progressive Hint System):**
+  - [ ] Hint request button integrated into puzzle UI
+  - [ ] Tier 1 response: nudge pointing out a logical flaw
+  - [ ] Tier 2 response: concept/function explanation
+  - [ ] Tier 3 response: pseudocode guidance
+  - [ ] Test: three tiers work correctly across all puzzle types built so far
+- [ ] **Vibe Coding / Autopilot:**
+  - [ ] Text input field for declarative intent strings
+  - [ ] AI compiles declarative string → valid, executable block structure
+  - [ ] Compiled blocks execute on tilemap grid
+  - [ ] Ambiguous/impossible inputs return plain-language feedback
+  - [ ] Test: common declarative prompts produce correct executable sequences
 
 ---
 
 ## Phase 6 — Towns 2–5
 
-> Goal: Build the remaining four towns. Each town follows the same structure as Oton (Phase 4) but with its own format, puzzle, passenger, and heritage content.
+> Goal: Build the remaining four towns. Each follows the same structure as Iloilo City (Phase 4) with its own format, puzzle, passenger, and heritage content.
 
 > **Prerequisite:** Level format per town confirmed in Phase 0.
 
-### Per-Town Checklist (repeat for Tigbauan, Guimbal, Miagao, San Joaquin)
+### Per-Town Checklist *(repeat for Oton, Tigbauan, Miag-ao, San Joaquin)*
 - [ ] Drive segment background art
-- [ ] Breakdown puzzles for this leg (2–3 per town, escalating difficulty)
-- [ ] Passenger: character, scripted fallback, knowledge scope, AI prompt template
+- [ ] Breakdown minigames for this leg (2–3, escalating difficulty)
+- [ ] Passenger: character, scripted fallback, knowledge scope, AI prompt template + Lore Book
 - [ ] Town scene layout
-- [ ] Town puzzle implementation
+- [ ] Town puzzle implementation (see town-specific notes below)
 - [ ] Heritage summary and Artifact Card
-- [ ] Journal page content and unlock
-- [ ] End-of-game sequence (San Joaquin only): father's story resolved, player has full Almanac
+- [ ] Journal: Heritage Page content + Coding Reference entry for the new concept
+- [ ] Cutscenes: Arrival + Completion
+- [ ] Badge unlock animation + cosmetic unlock
 
-### Town-Specific Notes
+---
 
-**Tigbauan**
-- [ ] Town puzzle concept to be finalized in Phase 0
-- [ ] Heritage: Spanish colonial settlement
+### Oton (Level 2)
 
-**Guimbal**
-- [ ] Town puzzle concept to be finalized in Phase 0
-- [ ] Heritage: Coastal culture and local traditions
+- [ ] **Coding concept:** list indexing + array sorting (cargo logs at the market)
+- [ ] **Town puzzle:** Oton Gold Mask assembly
+  - [ ] Fragment sprites + interaction
+  - [ ] Assembly validation (correct order)
+  - [ ] Heritage summary on completion: death mask significance, Katagman Festival
+- [ ] **Heritage:** Oton Gold Mask (13g hammered gold, eyepiece + nose piece), pre-colonial burial customs, Katagman Festival (gold-colored paper coverings), maritime trade with China, Batiano River as ancient trading port
+- [ ] CS-04 (Arrival: elderly fisherman + connection to the page) + CS-04b (Completion: great-grandfather built jeepneys by hand)
+- [ ] Badge: **Panday ng Dagat** · Cosmetic: Anchor decal
 
-**Miagao**
-- [ ] Town puzzle: restore a section of the Miagao Church facade (UNESCO site)
-- [ ] Heritage: Folk-baroque carvings, fort-church history
+---
 
-**San Joaquin**
-- [ ] Town puzzle concept to be finalized in Phase 0
-- [ ] Heritage: Battle of San Joaquin facade relief
-- [ ] Final journal page: explains why father scattered the pages
+### Tigbauan (Level 3)
+
+- [ ] **Coding concept:** function parameters + iterative counters + pattern repetition (weaving sequences)
+- [ ] **Town puzzle:** Hablon weave pattern reconstruction using function/loop logic
+  - [ ] Weave grid: player programs repeating pattern from a color/step reference
+  - [ ] Validation: output matches target pattern
+  - [ ] Heritage framing: Hablon weaving as coded instruction
+- [ ] **Heritage:** Hablon handloom weaving (*habol* = "to weave"; piña, cotton, jusi fibers; plaid/stripe/checkered patterns), WWII Panay Landing Memorial, First Ambush Marker (Barangay Namocon, 1942 ambush), Bantayan Watch Tower, Churrigueresque church (San Juan de Sahagun, 1867, coral stone, National Cultural Treasure)
+- [ ] CS-05 (Arrival: young girl + stone carving stories) + CS-05b (Completion: ancestor helped carve the church)
+- [ ] Badge: **Mangangukit** · Cosmetic: Decorative coral-stone trim
+
+---
+
+### Miag-ao (Level 4)
+
+- [ ] **Coding concept:** multiple tracking variables + nested conditionals
+- [ ] **Town puzzle:** restore Miag-ao Church facade section (nested conditional tile placement)
+  - [ ] Facade tile grid with damaged sections
+  - [ ] Player uses nested logic to place correct tile types by position
+  - [ ] Heritage framing: each tile represents a carving element (coconut tree, native flora)
+- [ ] **Heritage:** UNESCO Church (completed 1797, initially a defensive watchtower against coastal raiders), bas-relief facade — coconut tree as tree of life, St. Christopher in local clothing carrying Child Jesus, native flora + fauna carvings, fusion of Spanish/Chinese/Muslim/local traditions, Hablon cooperatives in Indag-an village
+- [ ] CS-06 (Arrival: elderly woman recognizes journal) + CS-06b (Completion: family's connection to the region)
+- [ ] Badge: **UNESCO Keeper** · Cosmetic: Golden sandstone paint
+
+---
+
+### San Joaquin (Level 5)
+
+- [ ] **Coding concept:** multi-variable constraints (fuel caps, indexed arrays, prioritized safety paths)
+- [ ] **Town puzzle:** navigate to the Campo Santo cemetery under multi-variable constraints
+  - [ ] Route grid with fuel limits, restricted paths, and indexed checkpoints
+  - [ ] Player writes logic satisfying all constraints simultaneously
+  - [ ] Heritage framing: finding the final page at Campo Santo
+- [ ] **Heritage:** *Rendicion de Tetuan* bas-relief (Battle of Tetouan 1861; carved on Fr. Santaren's instruction as tribute to his father who fought), Campo Santo Spanish-era baroque cemetery (National Cultural Treasure 2015), Augustinian convent ruins + kiln + round water well, sea-facing complex layout
+- [ ] CS-07 (Arrival: Campo Santo cemetery search) + CS-07b (Completion: father's final message — why he scattered the pages)
+- [ ] CS-08 (Epilogue — journey ends; jeepney carries family's full visual story; complete Almanac)
 - [ ] Credits sequence
+- [ ] Badge: **Tagapagtanggol** · Cosmetic: Full battle-scene mural
 
 ---
 
@@ -266,78 +405,88 @@ This document breaks development into phases. Phases are sequential at the macro
 ### Currency System
 - [ ] Finalize currency name *(TBD)*
 - [ ] Implement currency ledger (earn, spend, display)
-- [ ] Connect all earn sources: repair puzzles, town puzzles, dialogue score
-- [ ] Code Mode multiplier applied correctly
+- [ ] Connect all earn sources: repair minigames, town puzzles, dialogue choice scoring
+- [ ] Text Editor multiplier applied correctly vs. Block Interface
+
+### Badge System
+- [ ] Badge data model (ID, name, town, visual asset, unlock condition)
+- [ ] Badge display on player profile and Almanac screen
+- [ ] Badge unlock animation on town completion
+- [ ] All five badges implemented and testable end-to-end: Anak ng Molo, Panday ng Dagat, Mangangukit, UNESCO Keeper, Tagapagtanggol
+- [ ] Badge display visible on jeepney skin preview
 
 ### Gacha System
-- [ ] Define full gacha pool: cosmetics, performance upgrades, vehicles
+- [ ] Define and finalize full gacha pool: heritage cosmetics (5 town-specific), general aesthetics, performance upgrades, vehicles
 - [ ] Build gacha pull UI (pull animation, reveal screen)
 - [ ] Implement pity system (guaranteed rare at N pulls — N TBD)
-- [ ] Duplicate handling (convert to currency TBD)
-- [ ] Inventory screen: shows owned items
+- [ ] Duplicate handling (convert to currency — TBD)
+- [ ] Inventory screen: shows all owned items with preview
 
 ### Jeepney Customization
-- [ ] Customization data model (which slots exist: paint, lights, mudflaps, hood ornament, etc.)
+- [ ] Customization data model (slots: paint, lights, mudflaps, hood ornament, side panels, mural, etc.)
 - [ ] Apply cosmetics to jeepney sprite at runtime
 - [ ] Customization preview screen in garage
 - [ ] Unlocked vehicles selectable before starting a run
+- [ ] Badge display rendered on jeepney in preview and during drives
 
 ### Town Select / Replay
 - [ ] Town select screen (unlocked after first full completion)
-- [ ] Shows best score per town
+- [ ] Shows best score per town, badge earned, and completion status
 - [ ] Replay a single leg or the full route
 
 ---
 
 ## Phase 8 — Level Variety Layer
 
-> Goal: Implement the non-default level formats (Player as Tour Guide, Special Challenges) and assign them to the appropriate towns.
+> Goal: Implement non-default level formats (Player as Tour Guide, Special Challenges) assigned in Phase 0.
 
-> **Prerequisite:** Level format assignments confirmed in Phase 0. Towns those formats apply to must be built in Phase 6.
+> **Prerequisite:** Level format assignments confirmed in Phase 0. Towns using those formats must be built in Phase 6.
 
 ### Player as Tour Guide Format
-- [ ] Design tourist NPC group (behavior, dialogue triggers)
-- [ ] Tour stop system: player walks tourist group to heritage sites in the correct order
-- [ ] Explanation prompt at each stop: player selects correct heritage description
-- [ ] Artifact received on arrival at final stop
+- [ ] Tourist NPC group (behavior, movement, dialogue triggers)
+- [ ] Tour stop system: player leads tourists to heritage sites in the correct order
+- [ ] Explanation prompt at each stop: player selects the correct heritage description from options
+- [ ] Artifact received on arrival at the final stop
 - [ ] Score based on accuracy and order of explanations
 
 ### Special Challenge Format
-- [ ] Define what "special challenge" means for each town it applies to *(TBD in Phase 0)*
-- [ ] Implement per-town special challenge
+- [ ] Define per-town special challenge *(TBD in Phase 0)*
+- [ ] Implement each assigned special challenge
 - [ ] Unlock condition (high score gate, story trigger, or always available)
 
 ### Integration
-- [ ] All level formats confirmed and playable in assigned towns
-- [ ] Transitions between formats feel consistent with the rest of the game
+- [ ] All level formats confirmed and playable in their assigned towns
+- [ ] Transitions between formats consistent with overall game feel
 - [ ] Analytics screen adapted to work with all level formats
 
 ---
 
 ## Phase 9 — Polish & QA
 
-> Goal: The game feels finished. Audio is in. UI is consistent. Bugs are fixed. Players understand what to do.
+> Goal: The game feels finished. Audio is in. UI is consistent. Bugs are fixed. Players know what to do.
 
 ### Audio
-- [ ] Music: compose/source tracks for menu, each drive segment, each town, puzzle tension
-- [ ] SFX: jeepney engine, breakdown warning, block snapping, UI interactions, town ambience
+- [ ] Music: compose/source tracks for menu, each drive segment, each town (regional folk influences where appropriate), puzzle tension moments
+- [ ] SFX: jeepney engine, breakdown warning, block snapping, Coin Drawer clicks, UI interactions, town ambience
 - [ ] Audio mixing pass (music vs. SFX vs. dialogue balance)
 
 ### UI & UX
-- [ ] Full UI art pass (replace all placeholder panels, buttons, icons)
-- [ ] Onboarding: first-time tutorial for drive, repair puzzles (both modes), and town puzzles
+- [ ] Full UI art pass (replace all placeholder panels, buttons, icons with final assets)
+- [ ] First-time onboarding for both drive modes, repair minigames, and town puzzles
 - [ ] Consistent typography and layout across all screens
-- [ ] Loading screens with heritage facts or flavor text
+- [ ] Loading screens with heritage facts or in-world flavor text
+- [ ] Almanac visual polish: journal page feel, Coding Reference formatting, chatbot panel
+- [ ] Badge display polish: profile screen, jeepney preview
 
 ### Playtesting
 - [ ] Internal playtest: full run, note all friction points
 - [ ] External playtest (5–10 players): track completion rate, confusion moments, fun moments
+- [ ] Verify AI dialogue historical accuracy against Lore Books and heritage research
 - [ ] Revise based on feedback
-- [ ] Verify AI dialogue accuracy with heritage consultant if possible
 
 ### Bug Fixing
 - [ ] All critical path bugs fixed (cannot complete a town, save corruption, crash on launch)
-- [ ] Medium bugs fixed (wrong score displayed, gacha UI glitch, etc.)
+- [ ] Medium bugs fixed (wrong score displayed, gacha UI glitch, badge not unlocking, etc.)
 - [ ] Low bugs triaged (fix, defer, or accept)
 
 ### Localization *(if in scope)*
@@ -368,7 +517,7 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
                                                      ▼
                                                 Phase 5 (AI)
                                                      │
-                                              Phase 6 (AI hooks)
+                                              Phase 6 (AI hooks live)
 
 Phase 4 ──► Phase 7 (progression loop needs one complete town)
 
