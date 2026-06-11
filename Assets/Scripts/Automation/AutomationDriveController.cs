@@ -33,6 +33,15 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private BlockPaletteController palette;
     [SerializeField] private CodeEditorController   codeEditor;
 
+    [Header("CodeDrive overlay (optional)")]
+    [Tooltip("Derive the tile grid from the level's manual route instead of auto.gridMap.")]
+    [SerializeField] private bool       deriveGridFromRoute;
+    [SerializeField] private Button     workspaceToggleButton;
+    [SerializeField] private GameObject workspaceRoot;
+    [SerializeField] private Button     readmeButton;
+    [SerializeField] private GameObject readmePanel;
+    [SerializeField] private Button     readmeCloseButton;
+
     [Header("Control Bar")]
     [SerializeField] private Button runButton;
     [SerializeField] private Button pauseButton;
@@ -73,12 +82,23 @@ public class AutomationDriveController : MonoBehaviour
         if (GameManager.Instance != null)
             GameManager.Instance.PendingCurrency = 0;
 
-        // World
-        GridModel grid = GridModel.Parse(_def.gridMap, out List<string> mapErrors);
+        // World — either the authored puzzle grid, or one derived from the
+        // manual route so this scene mirrors the manual drive on tiles.
+        string[] gridMap   = _def.gridMap;
+        int      startFacing = _def.startFacing;
+        if (deriveGridFromRoute && _level.manual != null &&
+            _level.manual.waypoints != null && _level.manual.waypoints.Length >= 2)
+        {
+            RouteToGrid.Result derived = RouteToGrid.FromManualRoute(_level.manual);
+            gridMap     = derived.Map;
+            startFacing = derived.StartFacing;
+        }
+
+        GridModel grid = GridModel.Parse(gridMap, out List<string> mapErrors);
         foreach (string problem in mapErrors)
             if (console != null) console.Error("map: " + problem);
 
-        var sim = new AgentSim(grid, _level.fares, _def.startFacing);
+        var sim = new AgentSim(grid, _level.fares, startFacing);
 
         if (worldView != null)
         {
@@ -90,7 +110,7 @@ public class AutomationDriveController : MonoBehaviour
 
         if (exec != null)
         {
-            exec.Init(grid, sim, agentView, worldView, _def, _def.startFacing);
+            exec.Init(grid, sim, agentView, worldView, _def, startFacing);
             exec.OnStepDone     += HandleStepDone;
             exec.OnRuntimeError += HandleRuntimeError;
             exec.OnFinished     += HandleFinished;
@@ -109,6 +129,19 @@ public class AutomationDriveController : MonoBehaviour
 
         if (blocksTabButton != null) blocksTabButton.onClick.AddListener(() => SetTab(false));
         if (codeTabButton   != null) codeTabButton.onClick.AddListener(() => SetTab(true));
+
+        // CodeDrive overlays: the workspace toggles visibility (it never switches
+        // editor type — that's settings-only); the README panel opens on demand.
+        if (workspaceToggleButton != null && workspaceRoot != null)
+            workspaceToggleButton.onClick.AddListener(() =>
+                workspaceRoot.SetActive(!workspaceRoot.activeSelf));
+
+        if (readmePanel != null) readmePanel.SetActive(false);
+        if (readmeButton != null && readmePanel != null)
+            readmeButton.onClick.AddListener(() =>
+                readmePanel.SetActive(!readmePanel.activeSelf));
+        if (readmeCloseButton != null && readmePanel != null)
+            readmeCloseButton.onClick.AddListener(() => readmePanel.SetActive(false));
 
         // Control bar
         if (runButton    != null) runButton.onClick.AddListener(OnRun);
@@ -310,7 +343,7 @@ public class AutomationDriveController : MonoBehaviour
                         GameManager.Instance.CompleteLevel(_levelIndex, score);
                     LoadScene("LevelSelect");
                 },
-                onReplay: () => LoadScene("AutomationDrive"));
+                onReplay: () => LoadScene(SceneManager.GetActiveScene().name));
         }
         else
         {

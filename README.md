@@ -52,6 +52,8 @@ Drive the jeepney in real-time. WASD controls on a continuous 2.5D isometric roa
 #### Automation Mode
 Step out of the driver's seat and into a programming workspace. The route maps to a discrete, node-based isometric tilemap grid on the left (~40% of the screen). The right side (~60%) is your code canvas — choose between drag-and-drop blocks (no syntax, Scratch-style) or a lightweight text editor (Python/pseudocode). Write logic to automate movement, fare calculation, and passenger routing; execution plays out step-by-step on the grid. An execution control bar lets you run, pause, reset, or speed up playback (1×, 2×, 5×).
 
+> **Command reference:** see [`docs/AutomationCommands.md`](docs/AutomationCommands.md) for the full list of actions, conditions, and control-flow syntax used in both the Block Interface and the Code Editor.
+
 ### Coding Concepts Per Town
 
 | Level | Town | Programming Focus |

@@ -12,7 +12,7 @@ public static class BuildPipelineEntry
 {
     static readonly string[] SceneNames =
     {
-        "Bootstrap", "MainMenu", "LevelSelect", "ManualDrive", "AutomationDrive",
+        "Bootstrap", "MainMenu", "LevelSelect", "ManualDrive", "AutomationDrive", "CodeDrive",
     };
 
     // -------------------------------------------------------------------------
@@ -22,12 +22,14 @@ public static class BuildPipelineEntry
     public static void BuildAll()
     {
         PlaceholderArtGenerator.GenerateAll();
+        MonospaceFontGenerator.Generate();
 
         BootstrapSceneBuilder.Build();
         MainMenuSceneBuilder.Build();
         LevelSelectSceneBuilder.Build();
         ManualDriveSceneBuilder.Build();
         AutomationDriveSceneBuilder.Build();
+        CodeDriveSceneBuilder.Build();
 
         UpdateBuildSettings();
         AssetDatabase.SaveAssets();
@@ -55,6 +57,9 @@ public static class BuildPipelineEntry
 
     [MenuItem("Lugarithm/Build Scene/AutomationDrive")]
     public static void BuildAutomationDrive() => AutomationDriveSceneBuilder.Build();
+
+    [MenuItem("Lugarithm/Build Scene/CodeDrive")]
+    public static void BuildCodeDrive() => CodeDriveSceneBuilder.Build();
 
     // -------------------------------------------------------------------------
     // Batch mode

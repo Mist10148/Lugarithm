@@ -25,7 +25,7 @@ public class LevelSelectManager : MonoBehaviour
     [Header("Scene Names")]
     [SerializeField] private string mainMenuSceneName   = "MainMenu";
     [SerializeField] private string manualSceneName     = "ManualDrive";
-    [SerializeField] private string automationSceneName = "AutomationDrive";
+    [SerializeField] private string automationSceneName = "CodeDrive";
 
     // -------------------------------------------------------------------------
 

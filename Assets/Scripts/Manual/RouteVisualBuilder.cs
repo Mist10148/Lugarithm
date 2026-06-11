@@ -46,25 +46,24 @@ public static class RouteVisualBuilder
 
     static void BuildRoad(Transform parent, ManualRouteDefinition def, float totalLength)
     {
-        Sprite roadSprite = Resources.Load<Sprite>("Placeholders/road_tile");
+        Sprite roadSprite = Resources.Load<Sprite>("Placeholders/iso_ground_path");
         var roadRoot = new GameObject("Road");
         roadRoot.transform.SetParent(parent, false);
 
-        const float step = 1.0f;
+        // Lay iso path tiles densely along the projected polyline so the road
+        // reads as a continuous diagonal ribbon.
+        const float step = 0.5f;
         for (float d = 0f; d <= totalLength; d += step)
         {
-            Vector2 point     = RouteMath.PointAt(def.waypoints, d);
-            Vector2 direction = RouteMath.DirectionAt(def.waypoints, d);
+            Vector2 point = RouteMath.PointAt(def.waypoints, d);
 
             var tile = new GameObject("RoadTile");
             tile.transform.SetParent(roadRoot.transform, false);
-            tile.transform.position = point;
-            tile.transform.rotation = Quaternion.FromToRotation(Vector3.up, direction);
-            tile.transform.localScale = new Vector3(def.roadHalfWidth * 2f, 1.25f, 1f);
+            tile.transform.position = IsoProjection.Project(point);
 
             var sr = tile.AddComponent<SpriteRenderer>();
             sr.sprite = roadSprite;
-            sr.sortingOrder = -50;
+            sr.sortingOrder = -50;   // flat ground layer, under signs/peeps/jeepney
         }
     }
 
@@ -73,29 +72,32 @@ public static class RouteVisualBuilder
     {
         Vector2 position  = def.waypoints[stop.waypointIndex];
         Vector2 direction = RouteDirectionAtWaypoint(def.waypoints, stop.waypointIndex);
-        Vector2 side      = new Vector2(direction.y, -direction.x); // right of travel
 
+        // Logical trigger zone — stays on the flat plane so it collides with the
+        // logical jeepney body exactly as before.
         var go = new GameObject($"Stop_{index}_{stop.stopName}");
         go.transform.SetParent(parent, false);
         go.transform.position = position;
+        go.transform.rotation = Quaternion.FromToRotation(Vector3.up, direction);
 
         var collider = go.AddComponent<BoxCollider2D>();
         collider.isTrigger = true;
         collider.size = new Vector2(def.roadHalfWidth * 2f + 5f, 7f);
-        go.transform.rotation = Quaternion.FromToRotation(Vector3.up, direction);
 
         var zone = go.AddComponent<StopZone>();
         zone.StopIndex     = index;
         zone.StopName      = stop.stopName;
         zone.IsDestination = stop.isDestination;
 
-        // Sign at the roadside (green-tinted for the destination).
+        // Sign visual at the roadside, projected (parented to the unrotated
+        // worldRoot so the billboard sprite stays upright).
+        Vector2 signLogical = go.transform.TransformPoint(new Vector3(def.roadHalfWidth + 1.1f, 0f, 0f));
         var sign = new GameObject("Sign");
-        sign.transform.SetParent(go.transform, false);
-        sign.transform.localPosition = new Vector3(def.roadHalfWidth + 1.1f, 0f, 0f);
+        sign.transform.SetParent(parent, false);
+        sign.transform.position = IsoProjection.Project(signLogical);
         var signSr = sign.AddComponent<SpriteRenderer>();
         signSr.sprite = Resources.Load<Sprite>("Placeholders/stop_sign");
-        signSr.sortingOrder = 6;
+        signSr.sortingOrder = IsoProjection.SortOrder(signLogical) + 2;
         if (stop.isDestination)
             signSr.color = new Color(0.45f, 1f, 0.5f);
 

@@ -20,5 +20,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/AutomationDrive.unity
     guid: f92d9126fd7e6674c9b56eaa2a0939dd
+  - enabled: 1
+    path: Assets/Scenes/CodeDrive.unity
+    guid: b9083fae239384d46820ac60589f854d
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}

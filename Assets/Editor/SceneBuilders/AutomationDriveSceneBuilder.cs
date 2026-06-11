@@ -123,7 +123,7 @@ public static class AutomationDriveSceneBuilder
         var blockPanel = UIFactory.CreateRect(workspace, "BlockPanel",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
                                               new Vector2(242f, 260f), new Vector2(-14f, -118f));
-        BlockCanvasController blockCanvas = BuildBlockCanvas(blockPanel);
+        BlockCanvasController blockCanvas = BuildBlockCanvas(blockPanel, (RectTransform)canvas.transform);
 
         // Code panel (line numbers + input + lint)
         var codePanel = UIFactory.CreateRect(workspace, "CodePanel",
@@ -188,21 +188,37 @@ public static class AutomationDriveSceneBuilder
     // -------------------------------------------------------------------------
     // Block canvas
 
-    static BlockCanvasController BuildBlockCanvas(RectTransform parent)
+    internal static BlockCanvasController BuildBlockCanvas(RectTransform parent, RectTransform dragLayer)
     {
         ScrollRect scroll = UIFactory.CreateScrollView(parent, "CanvasScroll",
                                                        Vector2.zero, Vector2.one,
                                                        out RectTransform content);
+        // Leave a strip at the bottom for the trash zone.
+        ((RectTransform)scroll.transform).offsetMin = new Vector2(0f, 44f);
+
+        // Trash zone (drag a block here to delete it).
+        var trash = UIFactory.CreatePanel(parent, "TrashZone",
+                                          new Vector2(0f, 0f), new Vector2(1f, 0f),
+                                          new Color(0.30f, 0.12f, 0.12f, 0.92f));
+        trash.offsetMin = new Vector2(0f, 4f);
+        trash.offsetMax = new Vector2(0f, 40f);
+        var trashLabel = UIFactory.CreateText(trash, "Label", "🗑  drag a block here to delete",
+                                              18f, new Color(0.92f, 0.6f, 0.55f),
+                                              TextAlignmentOptions.Center);
+        trashLabel.rectTransform.offsetMin = Vector2.zero;
+        trashLabel.rectTransform.offsetMax = Vector2.zero;
 
         // Templates live inactive under the panel root.
-        BlockRowView rowTemplate = BuildBlockRowTemplate(parent);
-        RectTransform cursorTemplate = BuildCursorTemplate(parent);
+        BlockRowView  rowTemplate  = BuildBlockRowTemplate(parent);
+        BlockDropSlot slotTemplate = BuildSlotTemplate(parent);
 
         var canvasCtrl = parent.gameObject.AddComponent<BlockCanvasController>();
-        SceneBuilderUtil.Wire(canvasCtrl, "content",        content);
-        SceneBuilderUtil.Wire(canvasCtrl, "scrollRect",     scroll);
-        SceneBuilderUtil.Wire(canvasCtrl, "rowTemplate",    rowTemplate);
-        SceneBuilderUtil.Wire(canvasCtrl, "cursorTemplate", cursorTemplate);
+        SceneBuilderUtil.Wire(canvasCtrl, "content",      content);
+        SceneBuilderUtil.Wire(canvasCtrl, "scrollRect",   scroll);
+        SceneBuilderUtil.Wire(canvasCtrl, "rowTemplate",  rowTemplate);
+        SceneBuilderUtil.Wire(canvasCtrl, "slotTemplate", slotTemplate);
+        SceneBuilderUtil.Wire(canvasCtrl, "trashZone",    trash);
+        SceneBuilderUtil.Wire(canvasCtrl, "dragLayer",    dragLayer);
 
         return canvasCtrl;
     }
@@ -219,9 +235,6 @@ public static class AutomationDriveSceneBuilder
         bg.type   = Image.Type.Sliced;
         bg.color  = new Color(0.22f, 0.30f, 0.42f, 1f);
 
-        var selectButton = row.gameObject.AddComponent<Button>();
-        selectButton.targetGraphic = bg;
-
         var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
         layout.spacing = 4f;
         layout.padding = new RectOffset(6, 6, 4, 4);
@@ -236,83 +249,117 @@ public static class AutomationDriveSceneBuilder
         var spacerLayout = spacer.gameObject.AddComponent<LayoutElement>();
         spacerLayout.preferredWidth = 0f;
 
-        // Label (flexible)
+        // Label (the keyword / action name)
         var label = UIFactory.CreateText(row, "Label", "moveForward()", 20f,
                                          UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
         var labelLayout = label.gameObject.AddComponent<LayoutElement>();
-        labelLayout.flexibleWidth = 1f;
+        labelLayout.preferredWidth  = 150f;
+        labelLayout.flexibleWidth   = 1f;
         labelLayout.preferredHeight = 36f;
 
-        Button cond    = MakeRowButton(row, "CondButton",     "cond ⟳", 74f);
-        Button not     = MakeRowButton(row, "NotButton",      "not",    48f);
-        Button addIn   = MakeRowButton(row, "AddInsideButton", "+in",   52f);
-        Button addElse = MakeRowButton(row, "AddElseButton",  "+else",  62f);
-        Button up      = MakeRowButton(row, "UpButton",       "▲",      36f);
-        Button down    = MakeRowButton(row, "DownButton",     "▼",      36f);
-        Button del     = MakeRowButton(row, "DeleteButton",   "✕",      36f);
+        // Condition chip (containers only) — click to cycle the query
+        Button cond = MakeRowButton(row, "CondButton", "frontIsClear()", 168f);
+        var condLabel = cond.GetComponentInChildren<TMP_Text>();
+        cond.image.color = new Color(0.20f, 0.24f, 0.34f, 1f);
+
+        Button not = MakeRowButton(row, "NotButton", "not", 50f);
+        Button del = MakeRowButton(row, "DeleteButton", "✕", 36f);
 
         var view = row.gameObject.AddComponent<BlockRowView>();
         SceneBuilderUtil.Wire(view, "background",      bg);
         SceneBuilderUtil.Wire(view, "indentSpacer",    spacerLayout);
         SceneBuilderUtil.Wire(view, "label",           label);
-        SceneBuilderUtil.Wire(view, "selectButton",    selectButton);
         SceneBuilderUtil.Wire(view, "conditionButton", cond);
+        SceneBuilderUtil.Wire(view, "conditionLabel",  condLabel);
         SceneBuilderUtil.Wire(view, "notButton",       not);
         SceneBuilderUtil.Wire(view, "notFace",         not.image);
-        SceneBuilderUtil.Wire(view, "addInsideButton", addIn);
-        SceneBuilderUtil.Wire(view, "addElseButton",   addElse);
-        SceneBuilderUtil.Wire(view, "upButton",        up);
-        SceneBuilderUtil.Wire(view, "downButton",      down);
         SceneBuilderUtil.Wire(view, "deleteButton",    del);
 
         row.gameObject.SetActive(false);
         return view;
     }
 
-    static RectTransform BuildCursorTemplate(RectTransform parent)
+    static BlockDropSlot BuildSlotTemplate(RectTransform parent)
     {
-        var cursor = UIFactory.CreateRect(parent, "CursorTemplate",
-                                          new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-        cursor.sizeDelta = new Vector2(620f, 14f);
+        var slot = UIFactory.CreateRect(parent, "SlotTemplate",
+                                        new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+        slot.sizeDelta = new Vector2(620f, 12f);
 
-        var layout = cursor.gameObject.AddComponent<LayoutElement>();
-        layout.preferredHeight = 14f;
+        var layout = slot.gameObject.AddComponent<LayoutElement>();
+        layout.preferredHeight = 12f;
 
-        var bar = UIFactory.CreatePanel(cursor, "Bar", new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
-                                        new Color(0.95f, 0.65f, 0.15f, 0.85f));
-        bar.offsetMin = new Vector2(4f, -2f);
-        bar.offsetMax = new Vector2(-4f, 2f);
+        var bar = UIFactory.CreatePanel(slot, "Bar", new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
+                                        new Color(0.50f, 0.55f, 0.62f, 0.45f));
+        bar.offsetMin = new Vector2(6f, -3f);
+        bar.offsetMax = new Vector2(-6f, 3f);
         bar.GetComponent<Image>().raycastTarget = false;
 
-        cursor.gameObject.SetActive(false);
-        return cursor;
+        var view = slot.gameObject.AddComponent<BlockDropSlot>();
+        SceneBuilderUtil.Wire(view, "bar", bar.GetComponent<Image>());
+
+        slot.gameObject.SetActive(false);
+        return view;
     }
 
     // -------------------------------------------------------------------------
     // Code editor
 
-    static CodeEditorController BuildCodeEditor(RectTransform parent)
+    internal static CodeEditorController BuildCodeEditor(RectTransform parent)
     {
+        // Gutter background (line-number column)
+        var gutter = UIFactory.CreatePanel(parent, "Gutter",
+                                           new Vector2(0f, 0f), new Vector2(0f, 1f),
+                                           new Color(0.05f, 0.06f, 0.08f, 1f));
+        gutter.offsetMin = new Vector2(0f, 36f);
+        gutter.offsetMax = new Vector2(46f, 0f);
+
         var lineNumbers = UIFactory.CreateText(parent, "LineNumbers", "1", 22f,
                                                UIFactory.TextDim, TextAlignmentOptions.TopRight);
         lineNumbers.rectTransform.anchorMin = new Vector2(0f, 0f);
         lineNumbers.rectTransform.anchorMax = new Vector2(0f, 1f);
-        lineNumbers.rectTransform.offsetMin = new Vector2(0f, 36f);
-        lineNumbers.rectTransform.offsetMax = new Vector2(44f, -8f);
+        lineNumbers.rectTransform.offsetMin = new Vector2(0f, 44f);
+        lineNumbers.rectTransform.offsetMax = new Vector2(40f, -8f);
 
         TMP_InputField input = UIFactory.CreateMultilineInput(parent, "CodeInput",
                                                               Vector2.zero, Vector2.one, 22f);
         var inputRt = (RectTransform)input.transform;
         inputRt.offsetMin = new Vector2(52f, 36f);
         inputRt.offsetMax = new Vector2(0f, 0f);
+        var inputBg = input.GetComponent<Image>();
+        if (inputBg != null) inputBg.color = new Color(0.07f, 0.08f, 0.11f, 1f);
+
+        // Syntax-highlight overlay, glyph-aligned over the input's text.
+        var highlight = UIFactory.CreateText(input.textViewport, "Highlight", "", 22f,
+                                             UIFactory.TextBright, TextAlignmentOptions.TopLeft);
+        highlight.rectTransform.anchorMin = Vector2.zero;
+        highlight.rectTransform.anchorMax = Vector2.one;
+        highlight.rectTransform.offsetMin = Vector2.zero;
+        highlight.rectTransform.offsetMax = Vector2.zero;
+        highlight.enableWordWrapping = false;
+        highlight.raycastTarget = false;
+        highlight.richText = true;
+        highlight.transform.SetAsFirstSibling();
 
         var lint = UIFactory.CreateText(parent, "LintLabel", "", 17f,
                                         UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(lint, new Vector2(0f, 0f), new Vector2(8f, 4f), new Vector2(800f, 28f));
+        lint.richText = true;
+
+        // Monospace font (The Farmer Was Replaced look). Optional — falls back to
+        // the default font when the asset hasn't been generated.
+        var mono = Resources.Load<TMP_FontAsset>("Fonts/CodeMono");
+        if (mono != null)
+        {
+            if (input.textComponent != null) input.textComponent.font = mono;
+            highlight.font   = mono;
+            lineNumbers.font = mono;
+            if (input.placeholder is TMP_Text placeholder) placeholder.font = mono;
+        }
 
         var editor = parent.gameObject.AddComponent<CodeEditorController>();
         SceneBuilderUtil.Wire(editor, "input",       input);
         SceneBuilderUtil.Wire(editor, "lineNumbers", lineNumbers);
+        SceneBuilderUtil.Wire(editor, "highlight",   highlight);
         SceneBuilderUtil.Wire(editor, "lintLabel",   lint);
 
         return editor;
@@ -321,7 +368,7 @@ public static class AutomationDriveSceneBuilder
     // -------------------------------------------------------------------------
     // Console
 
-    static ConsoleController BuildConsole(RectTransform workspace)
+    internal static ConsoleController BuildConsole(RectTransform workspace)
     {
         var frame = UIFactory.CreateRect(workspace, "Console",
                                          new Vector2(0f, 0f), new Vector2(1f, 0f),
@@ -348,7 +395,7 @@ public static class AutomationDriveSceneBuilder
     // -------------------------------------------------------------------------
     // Results overlay
 
-    static AutomationResultsPanel BuildResults(Canvas canvas)
+    internal static AutomationResultsPanel BuildResults(Canvas canvas)
     {
         var overlay = UIFactory.CreatePanel(canvas.transform, "ResultsOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.78f));
@@ -409,7 +456,7 @@ public static class AutomationDriveSceneBuilder
 
     // -------------------------------------------------------------------------
 
-    static Button MakeBarButton(RectTransform bar, string name, string label, float width)
+    internal static Button MakeBarButton(RectTransform bar, string name, string label, float width)
     {
         Button button = UIFactory.CreateButton(bar, name, label, new Vector2(width, 44f), 22f);
         UIFactory.SetLayoutSize(button, width, 44f);

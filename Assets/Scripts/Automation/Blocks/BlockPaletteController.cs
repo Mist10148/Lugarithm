@@ -4,7 +4,8 @@ using TMPro;
 
 /// <summary>
 /// Block Mode palette: one button per block the current level allows
-/// (LevelDefinition.allowedBlocks). Clicking inserts at the canvas cursor.
+/// (LevelDefinition.allowedBlocks). Drag a button onto the canvas to drop a new
+/// block at a slot; clicking it appends to the end as a fallback.
 /// </summary>
 public class BlockPaletteController : MonoBehaviour
 {
@@ -32,18 +33,14 @@ public class BlockPaletteController : MonoBehaviour
 
             var face = button.targetGraphic as Image;
             if (face != null)
-                face.color = IsContainer(blockType)
-                    ? new Color(0.34f, 0.26f, 0.46f)
-                    : new Color(0.22f, 0.30f, 0.42f);
+                face.color = BlockCanvasController.CategoryColor(blockType);
 
+            button.gameObject.AddComponent<PaletteDragSource>().Setup(canvas, blockType);
             button.onClick.AddListener(() => canvas.InsertBlock(blockType));
         }
     }
 
     // -------------------------------------------------------------------------
-
-    static bool IsContainer(BlockType type) =>
-        type == BlockType.If || type == BlockType.IfElse || type == BlockType.While;
 
     static string PaletteLabel(BlockType type)
     {

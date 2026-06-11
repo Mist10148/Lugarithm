@@ -29,6 +29,19 @@ public static class PlaceholderArtGenerator
     static readonly Color DialDark     = new Color(0.10f, 0.11f, 0.14f);
     static readonly Color TickWhite    = new Color(0.92f, 0.92f, 0.88f);
 
+    // Isometric tilemap palette (Automation world)
+    static readonly Color PathTan      = new Color(0.55f, 0.46f, 0.33f);
+    static readonly Color PathTanDark  = new Color(0.46f, 0.38f, 0.27f);
+    static readonly Color WaterBlue    = new Color(0.28f, 0.52f, 0.68f);
+    static readonly Color WaterRipple  = new Color(0.44f, 0.67f, 0.81f);
+    static readonly Color HedgeTop     = new Color(0.24f, 0.42f, 0.26f);
+    static readonly Color HedgeTopHi   = new Color(0.32f, 0.53f, 0.33f);
+    static readonly Color HedgeLeft    = new Color(0.17f, 0.31f, 0.19f);
+    static readonly Color HedgeRight   = new Color(0.11f, 0.22f, 0.13f);
+    static readonly Color StartBlue    = new Color(0.35f, 0.55f, 0.95f);
+    static readonly Color DestGreen    = new Color(0.35f, 0.85f, 0.45f);
+    static readonly Color StopAmber    = new Color(0.95f, 0.75f, 0.25f);
+
     // -------------------------------------------------------------------------
 
     public static void GenerateAll()
@@ -50,6 +63,15 @@ public static class PlaceholderArtGenerator
 
         // Automation-mode world
         Make("iso_jeepney", 48, 32, 64, IsoJeepney);
+
+        // Isometric tilemap tiles (64×32 diamond footprint; wall is a raised block)
+        Make("iso_ground_grass", 64, 32, 64, (x, y, w, h) => IsoGround(x, y, w, h, GrassGreen, 0));
+        Make("iso_ground_path",  64, 32, 64, (x, y, w, h) => IsoGround(x, y, w, h, PathTan, 1));
+        Make("iso_water",        64, 32, 64, (x, y, w, h) => IsoGround(x, y, w, h, WaterBlue, 2));
+        Make("iso_wall",         64, 48, 64, IsoWall, pivot: new Vector2(0.5f, 32f / 48f));
+        Make("iso_start",        64, 32, 64, (x, y, w, h) => IsoMarker(x, y, w, h, StartBlue));
+        Make("iso_dest",         64, 32, 64, (x, y, w, h) => IsoMarker(x, y, w, h, DestGreen));
+        Make("iso_stop",         64, 32, 64, (x, y, w, h) => IsoMarker(x, y, w, h, StopAmber));
 
         // HUD bits
         Make("dial", 96, 96, 64, Dial);
@@ -119,6 +141,81 @@ public static class PlaceholderArtGenerator
         if (d > 1f) return Color.clear;
         if (d < 0.45f) return JeepneyRoof;
         return JeepneyRed;
+    }
+
+    // -------------------------------------------------------------------------
+    // Isometric tiles
+
+    /// <summary>A diamond-top ground tile (grass / path / water variants).</summary>
+    static Color IsoGround(int x, int y, int w, int h, Color baseCol, int variant)
+    {
+        float cx = w * 0.5f, cy = h * 0.5f;
+        float dx = Mathf.Abs(x - cx + 0.5f) / (w * 0.5f);
+        float dy = Mathf.Abs(y - cy + 0.5f) / (h * 0.5f);
+        float d = dx + dy;
+        if (d > 1f) return Color.clear;
+
+        Color c = baseCol;
+        switch (variant)
+        {
+            case 0: if (((x * 7 + y * 13) % 31) == 0) c = baseCol * 0.82f;          break; // grass speckle
+            case 1: if (((x * 5 + y * 11) % 23) == 0) c = PathTanDark;              break; // path pebbles
+            case 2: if (((y / 2) % 3 == 0) && ((x + y) % 7 < 2) && d < 0.85f) c = WaterRipple; break; // ripples
+        }
+        if (d > 0.88f) c *= 0.72f;                                                          // edge rim
+
+        return new Color(c.r, c.g, c.b, 1f);
+    }
+
+    /// <summary>A path tile with a centered round marker (start / dest / stop).</summary>
+    static Color IsoMarker(int x, int y, int w, int h, Color marker)
+    {
+        Color ground = IsoGround(x, y, w, h, PathTan, 1);
+        if (ground.a < 0.5f) return Color.clear;
+
+        float cx = w * 0.5f, cy = h * 0.5f;
+        float ddx = x - cx + 0.5f;
+        float ddy = (y - cy + 0.5f) * 2f;            // un-squash the iso so the dot is round
+        float rr = ddx * ddx + ddy * ddy;
+        float r = w * 0.22f;
+
+        if (rr <= r * r)                     return new Color(marker.r, marker.g, marker.b, 1f);
+        if (rr <= (r * 1.3f) * (r * 1.3f))   return new Color(marker.r * 0.7f, marker.g * 0.7f, marker.b * 0.7f, 1f);
+        return ground;
+    }
+
+    /// <summary>A raised hedge/wall block: diamond cap + two shaded side faces.</summary>
+    static Color IsoWall(int x, int y, int w, int h)
+    {
+        float cx = w * 0.5f;
+        const float topHalfH = 16f;
+        float topHalfW = w * 0.5f;
+        float topCy = h - topHalfH;                  // cap centered in the top 32px
+
+        float ax = Mathf.Abs(x - cx + 0.5f) / topHalfW;       // 0 center … 1 edge
+        float ay = Mathf.Abs(y - topCy + 0.5f) / topHalfH;
+
+        // Diamond cap
+        if (ax + ay <= 1f)
+        {
+            Color c = (y > topCy) ? HedgeTopHi : HedgeTop;
+            if (((x * 7 + y * 5) % 17) == 0) c *= 0.86f;
+            return new Color(c.r, c.g, c.b, 1f);
+        }
+
+        // Side faces hang from the cap's lower silhouette down to the base
+        if (ax <= 1f)
+        {
+            float yEdge = topCy - topHalfH * (1f - ax);
+            if (y < yEdge && y >= 2)
+            {
+                Color side = (x < cx) ? HedgeLeft : HedgeRight;
+                if ((y % 4) == 0) side *= 0.9f;
+                return new Color(side.r, side.g, side.b, 1f);
+            }
+        }
+
+        return Color.clear;
     }
 
     static Color Dial(int x, int y, int w, int h)

@@ -59,7 +59,7 @@ public class ManualDriveController : MonoBehaviour
         jeepney.TeleportTo(start, angle);
 
         if (cameraFollow != null)
-            cameraFollow.SnapTo(jeepney.transform);
+            cameraFollow.SnapToWorld(IsoProjection.Project(start));
 
         // Systems
         _tracker = new DriveScoreTracker();

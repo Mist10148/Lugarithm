@@ -10,12 +10,6 @@ public class GridWorldView : MonoBehaviour
     public const float TileW = 1f;
     public const float TileH = 0.5f;
 
-    static readonly Color RoadColor  = new Color(0.58f, 0.58f, 0.62f);
-    static readonly Color WallColor  = new Color(0.20f, 0.22f, 0.28f);
-    static readonly Color StartColor = new Color(0.35f, 0.55f, 0.95f);
-    static readonly Color DestColor  = new Color(0.35f, 0.85f, 0.45f);
-    static readonly Color StopColor  = new Color(0.95f, 0.75f, 0.25f);
-
     GridModel _grid;
     readonly System.Collections.Generic.Dictionary<Vector2Int, SpriteRenderer> _stopMarkers =
         new System.Collections.Generic.Dictionary<Vector2Int, SpriteRenderer>();
@@ -31,8 +25,12 @@ public class GridWorldView : MonoBehaviour
         for (int i = transform.childCount - 1; i >= 0; i--)
             Destroy(transform.GetChild(i).gameObject);
 
-        Sprite diamond = Resources.Load<Sprite>("Placeholders/diamond");
-        Sprite peep    = Resources.Load<Sprite>("Placeholders/peep");
+        Sprite grass = Resources.Load<Sprite>("Placeholders/iso_ground_grass");
+        Sprite wall  = Resources.Load<Sprite>("Placeholders/iso_wall");
+        Sprite start = Resources.Load<Sprite>("Placeholders/iso_start");
+        Sprite dest  = Resources.Load<Sprite>("Placeholders/iso_dest");
+        Sprite stop  = Resources.Load<Sprite>("Placeholders/iso_stop");
+        Sprite peep  = Resources.Load<Sprite>("Placeholders/peep");
 
         for (int y = 0; y < grid.Height; y++)
         {
@@ -41,13 +39,14 @@ public class GridWorldView : MonoBehaviour
                 var cell = grid.Get(x, y);
                 var tile = new GameObject($"Tile_{x}_{y}");
                 tile.transform.SetParent(transform, false);
-                tile.transform.localPosition = IsoLocal(x, y) +
-                    (cell == GridModel.Cell.Wall ? new Vector3(0f, 0.14f, 0f) : Vector3.zero);
+                tile.transform.localPosition = IsoLocal(x, y);
 
                 var sr = tile.AddComponent<SpriteRenderer>();
-                sr.sprite = diamond;
+                sr.sprite = TileSprite(cell, grass, wall, start, dest, stop);
+                // Walls are raised blocks; sort them just above their own cell so
+                // their body draws over the floor behind and the cell in front
+                // (higher x+y) still occludes the wall's lower-front edge.
                 sr.sortingOrder = x + y;
-                sr.color = TileColor(cell);
 
                 // A waiting peep stands on each passenger stop.
                 if (cell == GridModel.Cell.Stop)
@@ -62,6 +61,19 @@ public class GridWorldView : MonoBehaviour
                     _stopMarkers[new Vector2Int(x, y)] = peepSr;
                 }
             }
+        }
+    }
+
+    static Sprite TileSprite(GridModel.Cell cell, Sprite grass, Sprite wall,
+                             Sprite start, Sprite dest, Sprite stop)
+    {
+        switch (cell)
+        {
+            case GridModel.Cell.Wall:        return wall;
+            case GridModel.Cell.Start:       return start;
+            case GridModel.Cell.Destination: return dest;
+            case GridModel.Cell.Stop:        return stop;
+            default:                         return grass;
         }
     }
 
@@ -83,7 +95,7 @@ public class GridWorldView : MonoBehaviour
 
     public static Vector3 IsoLocal(int x, int y)
     {
-        return new Vector3((x - y) * TileW * 0.5f, -(x + y) * TileH * 0.5f, 0f);
+        return IsoProjection.Project(new Vector2(x, y));
     }
 
     public Vector3 CellToWorld(Vector2Int cell)
@@ -134,17 +146,5 @@ public class GridWorldView : MonoBehaviour
         float halfHeight = (max.y - min.y) * 0.5f + 1.2f;
         float halfWidth  = (max.x - min.x) * 0.5f + 1.2f;
         cam.orthographicSize = Mathf.Max(halfHeight, halfWidth / Mathf.Max(0.1f, cam.aspect));
-    }
-
-    static Color TileColor(GridModel.Cell cell)
-    {
-        switch (cell)
-        {
-            case GridModel.Cell.Wall:        return WallColor;
-            case GridModel.Cell.Start:       return StartColor;
-            case GridModel.Cell.Destination: return DestColor;
-            case GridModel.Cell.Stop:        return StopColor;
-            default:                         return RoadColor;
-        }
     }
 }

@@ -61,7 +61,7 @@ public static class LevelSelectSceneBuilder
         SceneBuilderUtil.Wire(manager, "settingsPanel",       settingsPanel);
         SceneBuilderUtil.Wire(manager, "mainMenuSceneName",   "MainMenu");
         SceneBuilderUtil.Wire(manager, "manualSceneName",     "ManualDrive");
-        SceneBuilderUtil.Wire(manager, "automationSceneName", "AutomationDrive");
+        SceneBuilderUtil.Wire(manager, "automationSceneName", "CodeDrive");
 
         SceneBuilderUtil.SaveScene(scene, "LevelSelect");
     }
