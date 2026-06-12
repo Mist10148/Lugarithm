@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -22,6 +23,9 @@ public class LevelSelectManager : MonoBehaviour
     [Header("Panels")]
     [SerializeField] private SettingsPanel settingsPanel;
 
+    [Header("Wallet")]
+    [SerializeField] private TMP_Text walletLabel;
+
     [Header("Scene Names")]
     [SerializeField] private string mainMenuSceneName   = "MainMenu";
     [SerializeField] private string manualSceneName     = "ManualDrive";
@@ -41,6 +45,9 @@ public class LevelSelectManager : MonoBehaviour
             });
 
         RefreshEntries();
+
+        if (walletLabel != null)
+            walletLabel.text = $"₱ {SaveSystem.Current.currency}";
     }
 
     // -------------------------------------------------------------------------

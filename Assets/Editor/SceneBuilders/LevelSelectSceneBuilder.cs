@@ -31,6 +31,12 @@ public static class LevelSelectSceneBuilder
                                        24f, UIFactory.TextDim);
         UIFactory.Place(sub, new Vector2(0.5f, 1f), new Vector2(0f, -118f), new Vector2(1000f, 40f));
 
+        // Wallet total (top-right of header area)
+        var wallet = UIFactory.CreateText(canvas.transform, "WalletLabel",
+                                          "₱ 0", 30f, UIFactory.Accent,
+                                          TextAlignmentOptions.MidlineRight);
+        UIFactory.Place(wallet, new Vector2(1f, 1f), new Vector2(-32f, -68f), new Vector2(360f, 44f));
+
         // --- Entry rows -------------------------------------------------------------
 
         var column = UIFactory.CreateRect(canvas.transform, "Entries",
@@ -59,6 +65,7 @@ public static class LevelSelectSceneBuilder
         SceneBuilderUtil.Wire(manager, "backButton",          back);
         SceneBuilderUtil.Wire(manager, "settingsButton",      settings);
         SceneBuilderUtil.Wire(manager, "settingsPanel",       settingsPanel);
+        SceneBuilderUtil.Wire(manager, "walletLabel",         wallet);
         SceneBuilderUtil.Wire(manager, "mainMenuSceneName",   "MainMenu");
         SceneBuilderUtil.Wire(manager, "manualSceneName",     "ManualDrive");
         SceneBuilderUtil.Wire(manager, "automationSceneName", "CodeDrive");

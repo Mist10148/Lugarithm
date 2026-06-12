@@ -83,6 +83,7 @@ public class GameManager : MonoBehaviour
         RecordLevelScore(levelIndex, score);
         ProgressionRules.CompleteLevel(SaveSystem.Current, levelIndex);
         SaveSystem.Current.UnlockPage(levelIndex);
+        SaveSystem.Current.EarnBadge(levelIndex);
         SaveProgress();
     }
 }

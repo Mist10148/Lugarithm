@@ -391,7 +391,10 @@ public class AutomationDriveController : MonoBehaviour
                 {
                     if (GameManager.Instance != null)
                         GameManager.Instance.CompleteLevel(_levelIndex, score);
-                    LoadScene("LevelSelect");
+                    if (BadgeUnlockManager.Instance != null)
+                        BadgeUnlockManager.Instance.Show(_levelIndex, () => LoadScene("LevelSelect"));
+                    else
+                        LoadScene("LevelSelect");
                 },
                 onReplay: () => LoadScene(SceneManager.GetActiveScene().name));
         }

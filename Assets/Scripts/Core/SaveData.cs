@@ -24,6 +24,7 @@ public class SaveData
     public List<int> collectedJournalPages = new List<int>();
     public int       currency              = 0;
     public List<LevelScore> bestScores     = new List<LevelScore>();
+    public List<int> earnedBadges          = new List<int>();
 
     // -------------------------------------------------------------------------
     // Journal helpers
@@ -35,6 +36,18 @@ public class SaveData
     {
         if (collectedJournalPages == null) collectedJournalPages = new List<int>();
         if (!collectedJournalPages.Contains(pageId)) collectedJournalPages.Add(pageId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Badge helpers
+
+    public bool HasBadge(int levelIndex)
+        => earnedBadges != null && earnedBadges.Contains(levelIndex);
+
+    public void EarnBadge(int levelIndex)
+    {
+        if (earnedBadges == null) earnedBadges = new List<int>();
+        if (!earnedBadges.Contains(levelIndex)) earnedBadges.Add(levelIndex);
     }
 
     // -------------------------------------------------------------------------

@@ -44,6 +44,9 @@ public static class BootstrapSceneBuilder
         // --- Almanac overlay (persistent DontDestroyOnLoad book) ----------------
         AlmanacOverlayBuilder.Build(null);
 
+        // --- Badge unlock overlay (persistent DontDestroyOnLoad) ----------------
+        BadgeUnlockBuilder.Build();
+
         // --- Splash --------------------------------------------------------------
 
         var splashCanvas = UIFactory.CreateCanvas("SplashCanvas", 10);
