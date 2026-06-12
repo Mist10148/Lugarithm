@@ -271,10 +271,10 @@ public class PassengerManager : MonoBehaviour
         Vector2 logicalWorld = (Vector2)(zone.transform.position +
                                          zone.transform.right * (_route.roadHalfWidth + 1.6f));
         var peep = new GameObject("ExitingPeep");
-        peep.transform.position = IsoProjection.Project(logicalWorld);
+        peep.transform.position = logicalWorld;
         var sr = peep.AddComponent<SpriteRenderer>();
         sr.sprite = Resources.Load<Sprite>("Placeholders/peep");
-        sr.sortingOrder = IsoProjection.SortOrder(logicalWorld) + 1;
+        sr.sortingOrder = 5;
         sr.color = tint;
         Destroy(peep, 6f);
     }

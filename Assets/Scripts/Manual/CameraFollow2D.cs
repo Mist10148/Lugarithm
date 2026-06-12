@@ -13,7 +13,7 @@ public class CameraFollow2D : MonoBehaviour
     [SerializeField] private float smoothTime = 0.32f;
     [SerializeField] private float velocityLead = 0.28f;
 
-    [Tooltip("Logical physics body used for velocity-lead; its velocity is iso-projected.")]
+    [Tooltip("Logical physics body used for velocity-lead.")]
     [SerializeField] private Rigidbody2D leadBody;
 
     private Vector3 _velocity;
@@ -31,11 +31,9 @@ public class CameraFollow2D : MonoBehaviour
     {
         if (target == null) return;
 
-        // The target follows an isometric projection, so its lead must be the
-        // logical velocity projected through the same perspective.
         Vector3 lead = Vector3.zero;
         if (leadBody != null)
-            lead = (Vector3)IsoProjection.ProjectVector(leadBody.linearVelocity * velocityLead);
+            lead = (Vector3)(leadBody.linearVelocity * velocityLead);
         else if (_targetBody != null)
             lead = (Vector3)(_targetBody.linearVelocity * velocityLead);
 
@@ -58,7 +56,7 @@ public class CameraFollow2D : MonoBehaviour
         }
     }
 
-    /// <summary>Snaps the camera to a world position (already iso-projected).</summary>
+    /// <summary>Snaps the camera to a world position.</summary>
     public void SnapToWorld(Vector3 worldPos)
     {
         transform.position = new Vector3(worldPos.x, worldPos.y, transform.position.z);

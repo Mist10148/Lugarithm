@@ -25,26 +25,20 @@ public class StopZone : MonoBehaviour
 
     // -------------------------------------------------------------------------
 
-    /// <summary>
-    /// Spawns placeholder peeps lined up beside the stop sign. The offsets are
-    /// computed on the flat logical plane (relative to this zone), then iso-
-    /// projected; peeps are top-level so the rotated zone doesn't tilt them.
-    /// </summary>
+    /// <summary>Spawns placeholder peeps lined up beside the stop sign.</summary>
     public void SpawnWaitingPeeps(int count, Vector2 startLocal, Vector2 stepDirection)
     {
         Sprite peepSprite = Resources.Load<Sprite>("Placeholders/peep");
 
         for (int i = 0; i < count; i++)
         {
-            Vector2 local        = startLocal + stepDirection * (0.75f * i);
-            Vector2 logicalWorld = transform.TransformPoint(local);
-
             var peep = new GameObject($"Peep_{i}");
-            peep.transform.position = IsoProjection.Project(logicalWorld);
+            peep.transform.SetParent(transform, false);
+            peep.transform.localPosition = (Vector3)(startLocal + stepDirection * (0.75f * i));
 
             var sr = peep.AddComponent<SpriteRenderer>();
             sr.sprite = peepSprite;
-            sr.sortingOrder = IsoProjection.SortOrder(logicalWorld) + 1;
+            sr.sortingOrder = 5;
             sr.color = PeepColor(StopIndex * 7 + i);
 
             _waitingPeeps.Add(peep);

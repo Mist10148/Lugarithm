@@ -33,8 +33,7 @@ public static class ManualDriveSceneBuilder
 
         var worldRoot = new GameObject("WorldRoot");
 
-        // Jeepney — logical physics body on the flat plane (no renderer); the
-        // isometric visual below follows it through IsoProjection.
+        // Jeepney — physics body + top-down sprite in one GameObject.
         var jeepneyGo = new GameObject("Jeepney");
 
         var rb = jeepneyGo.AddComponent<Rigidbody2D>();
@@ -47,18 +46,13 @@ public static class ManualDriveSceneBuilder
         var box = jeepneyGo.AddComponent<BoxCollider2D>();
         box.size = new Vector2(0.95f, 1.9f);
 
+        var jeepneySr = jeepneyGo.AddComponent<SpriteRenderer>();
+        jeepneySr.sprite       = SceneBuilderUtil.LoadPlaceholder("jeepney_top");
+        jeepneySr.sortingOrder = 10;
+
         var jeepney = jeepneyGo.AddComponent<JeepneyController>();
 
-        // Isometric visual that follows the logical body.
-        var jeepneyVisual = new GameObject("JeepneyVisual");
-        var jeepneyVisualSr = jeepneyVisual.AddComponent<SpriteRenderer>();
-        jeepneyVisualSr.sprite       = SceneBuilderUtil.LoadPlaceholder("iso_jeepney");
-        jeepneyVisualSr.sortingOrder = 10;
-        var jeepneyFollow = jeepneyVisual.AddComponent<IsoFollower>();
-        SceneBuilderUtil.Wire(jeepneyFollow, "source",      jeepneyGo.transform);
-        SceneBuilderUtil.Wire(jeepneyFollow, "sortingBias", 4);
-
-        SceneBuilderUtil.Wire(follow, "target",   jeepneyVisual.transform);
+        SceneBuilderUtil.Wire(follow, "target",   jeepneyGo.transform);
         SceneBuilderUtil.Wire(follow, "leadBody", rb);
 
         // --- HUD --------------------------------------------------------------------

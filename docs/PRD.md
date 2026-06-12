@@ -98,7 +98,7 @@ The game functions as an interactive living museum: heritage is delivered throug
 
 ### 5.1 Drive System — Shared Requirements
 
-**Description:** The drive between towns plays as a scrolling 2D/isometric scene. Both gameplay modes cover the same route content. The player chooses their mode via Settings; it applies at the start of each leg.
+**Description:** The drive between towns plays as a scrolling 2D scene — top-down in Manual Mode and isometric tilemap in Automation Mode. Both gameplay modes cover the same route content. The player chooses their mode via Settings; it applies at the start of each leg.
 
 **Shared Requirements:**
 - Background represents the Iloilo coastal highway with parallax layers (sky, mountains, coast, road)
@@ -112,7 +112,7 @@ The game functions as an interactive living museum: heritage is delivered throug
 
 ### 5.2 Manual Gameplay Mode
 
-**Description:** The player manages real-time control of the jeepney on a seamless, continuous 2.5D isometric world. Driving requires active steering under low-friction conditions (drift physics). The player simultaneously handles passenger boarding and fare collection from the jeepney's dashboard.
+**Description:** The player manages real-time control of the jeepney on a seamless, continuous top-down 2D world. Driving requires active steering under low-friction conditions (drift physics). The player simultaneously handles passenger boarding and fare collection from the jeepney's dashboard.
 
 **Requirements:**
 - **Driving Controls:** WASD / Arrow keys with velocity momentum retention and drift physics simulating slippery road dynamics
