@@ -40,15 +40,20 @@ public class CodeEditorController : MonoBehaviour
 
     void Start()
     {
-        if (input != null)
+        if (input != null && input.textComponent != null)
         {
             // The raw text stays in the input (for the caret/selection) but is
             // drawn transparent — the highlight overlay supplies the colors.
-            if (input.textComponent != null)
-            {
-                Color c = input.textComponent.color;
-                input.textComponent.color = new Color(c.r, c.g, c.b, 0f);
-            }
+            Color c = input.textComponent.color;
+            input.textComponent.color = new Color(c.r, c.g, c.b, 0f);
+
+            // Lay the raw text out literally so the caret lands exactly where the
+            // overlay draws each glyph (the overlay escapes '<' via <noparse>).
+            input.textComponent.richText = false;
+        }
+
+        if (input != null)
+        {
             input.onValueChanged.AddListener(_ =>
             {
                 _dirty = true;
@@ -60,6 +65,7 @@ public class CodeEditorController : MonoBehaviour
 
         RefreshLineNumbers();
         RefreshHighlight();
+        SyncHighlightToInput();
     }
 
     void Update()
@@ -72,6 +78,38 @@ public class CodeEditorController : MonoBehaviour
             _dirty = false;
             Lint();
         }
+    }
+
+    // Keep the colour overlay glyph-for-glyph on top of the input's text every
+    // frame. TMP_InputField shifts its text component to seat the caret and to
+    // scroll; without mirroring, the colours drift onto a different line than
+    // the caret (the "types above the cursor line" bug).
+    void LateUpdate()
+    {
+        SyncHighlightToInput();
+    }
+
+    void SyncHighlightToInput()
+    {
+        if (highlight == null || input == null || input.textComponent == null) return;
+
+        TMP_Text src = input.textComponent;
+        RectTransform s = src.rectTransform;
+        RectTransform h = highlight.rectTransform;
+
+        h.anchorMin        = s.anchorMin;
+        h.anchorMax        = s.anchorMax;
+        h.pivot            = s.pivot;
+        h.sizeDelta        = s.sizeDelta;
+        h.anchoredPosition = s.anchoredPosition;
+
+        highlight.margin           = src.margin;
+        highlight.fontSize         = src.fontSize;
+        highlight.alignment        = src.alignment;
+        highlight.lineSpacing      = src.lineSpacing;
+        highlight.characterSpacing = src.characterSpacing;
+        highlight.textWrappingMode  = src.textWrappingMode;
+        if (src.font != null && highlight.font != src.font) highlight.font = src.font;
     }
 
     // -------------------------------------------------------------------------

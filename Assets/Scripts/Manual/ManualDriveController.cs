@@ -20,9 +20,17 @@ public class ManualDriveController : MonoBehaviour
     [Header("UI")]
     [SerializeField] private ManualHudController  hud;
     [SerializeField] private CoinDrawerController coinDrawer;
-    [SerializeField] private PatternMatchMinigame minigame;
     [SerializeField] private DriveResultsPanel    resultsPanel;
     [SerializeField] private ToastNotification    toast;
+
+    [Header("Breakdown minigames (randomized)")]
+    [SerializeField] private PatternMatchMinigame engineRepairMinigame; // non-code · engine
+    [SerializeField] private RefuelMinigame       refuelMinigame;       // non-code · fuel
+    [SerializeField] private CodeFixMinigame      codeFixMinigame;      // code · either
+
+    [Header("Town gate (non-code, required to advance)")]
+    [SerializeField] private FlowConnectMinigame  flowPuzzle;
+    [SerializeField] private CrateStackMinigame   cratePuzzle;
 
     // -------------------------------------------------------------------------
 
@@ -33,6 +41,7 @@ public class ManualDriveController : MonoBehaviour
     PassengerManager  _passengers;
     BreakdownController _breakdown;
     float _startTime;
+    float _legElapsed;
     bool  _finished;
 
     void Start()
@@ -77,7 +86,8 @@ public class ManualDriveController : MonoBehaviour
 
         _breakdown = GetComponent<BreakdownController>();
         if (_breakdown != null)
-            _breakdown.Init(jeepney, minigame, toast, _tracker,
+            _breakdown.Init(jeepney, engineRepairMinigame, refuelMinigame, codeFixMinigame,
+                            toast, _tracker,
                             _ctx.TotalLength, _def.manual.breakdownAtRouteFraction);
 
         _startTime = Time.time;
@@ -113,10 +123,45 @@ public class ManualDriveController : MonoBehaviour
     {
         _finished = true;
         jeepney.InputLocked = true;
+        _legElapsed = Time.time - _startTime;   // freeze drive time before the gate
 
-        float elapsed  = Time.time - _startTime;
-        int   score    = _tracker.ComputeScore(elapsed, _def.manual.parTimeSeconds);
-        int   bonus    = ScoreCalculator.CurrencyFor(score);
+        // The town gate (non-code Mini-Game 2) must be solved before results.
+        bool shown = ShowTownGate(2000 + _levelIndex, result =>
+        {
+            _tracker.AddSatisfaction(result.Score);   // fold the gate score into the leg
+            ShowResults();
+        });
+
+        if (shown)
+        {
+            if (toast != null)
+                toast.Show($"Arrived at {_def.displayName} — clear the gate to finish the leg.");
+        }
+        else
+        {
+            ShowResults();
+        }
+    }
+
+    /// <summary>Shows the level's required non-code town puzzle. False when there is none.</summary>
+    bool ShowTownGate(int seed, System.Action<MinigameResult> onDone)
+    {
+        switch (_def.townPuzzle)
+        {
+            case TownPuzzleKind.FlowConnect:
+                if (flowPuzzle  != null) { flowPuzzle.Show(seed, onDone);  return true; }
+                break;
+            case TownPuzzleKind.CrateStack:
+                if (cratePuzzle != null) { cratePuzzle.Show(seed, onDone); return true; }
+                break;
+        }
+        return false;
+    }
+
+    void ShowResults()
+    {
+        int score = _tracker.ComputeScore(_legElapsed, _def.manual.parTimeSeconds);
+        int bonus = ScoreCalculator.CurrencyFor(score);
 
         if (GameManager.Instance != null)
             GameManager.Instance.PendingCurrency += bonus;
@@ -129,7 +174,7 @@ public class ManualDriveController : MonoBehaviour
         {
             resultsPanel.Show(
                 $"LEG COMPLETE  —  {_def.displayName}",
-                _tracker.BuildBreakdownText(elapsed),
+                _tracker.BuildBreakdownText(_legElapsed),
                 score, earnedTotal,
                 onContinue: () =>
                 {

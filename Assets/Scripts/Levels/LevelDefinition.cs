@@ -18,6 +18,21 @@ public class LevelDefinition
     public ManualRouteDefinition     manual;
     public AutomationPuzzleDefinition auto;
     public FareTable                 fares = new FareTable();
+
+    /// <summary>
+    /// The required non-code town puzzle shown on arrival, before results — the
+    /// gate that must be solved to advance. None for levels without one (the
+    /// Tutorial's non-code beat is the in-drive Coin Drawer).
+    /// </summary>
+    public TownPuzzleKind townPuzzle = TownPuzzleKind.None;
+}
+
+/// <summary>Which on-arrival non-code town puzzle a level gates advancement on.</summary>
+public enum TownPuzzleKind
+{
+    None,
+    FlowConnect,   // Non-Intersecting Connections (Molo)
+    CrateStack,    // Market Crate Stacking (Oton)
 }
 
 /// <summary>One passenger stop along a manual route, pinned to a waypoint.</summary>
@@ -77,6 +92,13 @@ public class AutomationPuzzleDefinition
 
     /// <summary>When true, winning needs every passenger picked up and dropped at D.</summary>
     public bool requireAllPassengersDelivered = true;
+
+    /// <summary>
+    /// When true, the routed CodeDrive scene uses this <see cref="gridMap"/> as-is
+    /// instead of deriving a grid from the manual route — used for levels whose
+    /// code puzzle is a standalone maze (e.g. Oton) rather than a route mirror.
+    /// </summary>
+    public bool useAuthoredGrid = false;
 }
 
 /// <summary>Fare pricing for a leg (PHP). Base covers the first stop.</summary>

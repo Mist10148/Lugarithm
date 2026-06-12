@@ -55,6 +55,10 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private StateMonitorController monitor;
     [SerializeField] private AutomationResultsPanel results;
 
+    [Header("Town gate (non-code, required to advance)")]
+    [SerializeField] private FlowConnectMinigame flowPuzzle;
+    [SerializeField] private CrateStackMinigame  cratePuzzle;
+
     // -------------------------------------------------------------------------
 
     LevelDefinition _level;
@@ -64,6 +68,7 @@ public class AutomationDriveController : MonoBehaviour
     bool _lastRunWasCode;
     int  _runCount;
     int  _lastExecutedLine;
+    int  _townPuzzleBonus;
     float _startTime;
     bool  _won;
 
@@ -86,7 +91,7 @@ public class AutomationDriveController : MonoBehaviour
         // manual route so this scene mirrors the manual drive on tiles.
         string[] gridMap   = _def.gridMap;
         int      startFacing = _def.startFacing;
-        if (deriveGridFromRoute && _level.manual != null &&
+        if (deriveGridFromRoute && !_def.useAuthoredGrid && _level.manual != null &&
             _level.manual.waypoints != null && _level.manual.waypoints.Length >= 2)
         {
             RouteToGrid.Result derived = RouteToGrid.FromManualRoute(_level.manual);
@@ -129,6 +134,11 @@ public class AutomationDriveController : MonoBehaviour
 
         if (blocksTabButton != null) blocksTabButton.onClick.AddListener(() => SetTab(false));
         if (codeTabButton   != null) codeTabButton.onClick.AddListener(() => SetTab(true));
+
+        // The Block/Code setting is the source of truth — switch the active editor
+        // window live when it changes (no in-scene tabs needed).
+        if (SettingsManager.Instance != null)
+            SettingsManager.Instance.OnSettingsChanged += ApplyEditorModeFromSettings;
 
         // CodeDrive overlays: the workspace toggles visibility (it never switches
         // editor type — that's settings-only); the README panel opens on demand.
@@ -184,6 +194,17 @@ public class AutomationDriveController : MonoBehaviour
             face.color = active
                 ? new Color(0.85f, 0.55f, 0.12f)
                 : new Color(0.18f, 0.22f, 0.30f);
+    }
+
+    void ApplyEditorModeFromSettings()
+    {
+        SetTab(codeActive: !SaveSystem.Current.settings.blockMode);
+    }
+
+    void OnDestroy()
+    {
+        if (SettingsManager.Instance != null)
+            SettingsManager.Instance.OnSettingsChanged -= ApplyEditorModeFromSettings;
     }
 
     // -------------------------------------------------------------------------
@@ -292,7 +313,7 @@ public class AutomationDriveController : MonoBehaviour
         if (win)
         {
             _won = true;
-            ShowResults();
+            BeginResults();
             return;
         }
 
@@ -307,6 +328,34 @@ public class AutomationDriveController : MonoBehaviour
     // -------------------------------------------------------------------------
     // Results
 
+    /// <summary>Runs the required non-code town gate (if any) before results.</summary>
+    void BeginResults()
+    {
+        bool shown = ShowTownGate(2000 + _levelIndex, result =>
+        {
+            _townPuzzleBonus = result.Score;
+            ShowResults();
+        });
+
+        if (!shown) ShowResults();
+        else if (console != null) console.Info("puzzle solved — now clear the town gate to finish the leg.");
+    }
+
+    /// <summary>Shows the level's required non-code town puzzle. False when there is none.</summary>
+    bool ShowTownGate(int seed, System.Action<MinigameResult> onDone)
+    {
+        switch (_level.townPuzzle)
+        {
+            case TownPuzzleKind.FlowConnect:
+                if (flowPuzzle  != null) { flowPuzzle.Show(seed, onDone);  return true; }
+                break;
+            case TownPuzzleKind.CrateStack:
+                if (cratePuzzle != null) { cratePuzzle.Show(seed, onDone); return true; }
+                break;
+        }
+        return false;
+    }
+
     void ShowResults()
     {
         AgentSim sim = exec.Sim;
@@ -314,7 +363,8 @@ public class AutomationDriveController : MonoBehaviour
         int retries = Mathf.Max(0, _runCount - 1);
 
         int score = ScoreCalculator.AutomationScore(
-            sim.StepsUsed, _def.parSteps, elapsed, _def.softTimerSeconds, retries, _lastRunWasCode);
+            sim.StepsUsed, _def.parSteps, elapsed, _def.softTimerSeconds, retries, _lastRunWasCode)
+            + _townPuzzleBonus;
 
         int earned = sim.FaresCollected + ScoreCalculator.CurrencyFor(score);
         if (GameManager.Instance != null)

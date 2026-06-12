@@ -4,19 +4,12 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-/// <summary>Outcome of a repair minigame.</summary>
-public class MinigameResult
-{
-    public int  Score;
-    public bool TimedOut;
-    public int  Mistakes;
-}
-
 /// <summary>
-/// Manual Mode breakdown repair: a target sequence of five colored parts is
-/// shown; click the matching parts on the 3×3 grid in order before the soft
-/// timer empties. Expiry only costs score — the run always continues
-/// (PRD §5.4). Reusable for any future non-code repair event.
+/// Manual Mode breakdown repair (non-code, engine fault): a target sequence of
+/// five colored parts is shown; click the matching parts on the 3×3 grid in
+/// order before the soft timer empties. Expiry only costs score — the run
+/// always continues (PRD §5.4). The dispatcher reaches for this on an engine
+/// fault when the random interface roll lands on "non-code".
 /// </summary>
 public class PatternMatchMinigame : MonoBehaviour
 {
@@ -41,7 +34,11 @@ public class PatternMatchMinigame : MonoBehaviour
         new Color(0.90f, 0.55f, 0.20f),   // filter orange
     };
 
+    static readonly Color FeedbackGood = new Color(0.45f, 0.85f, 0.45f);
+    static readonly Color FeedbackBad  = new Color(0.92f, 0.45f, 0.40f);
+
     Action<MinigameResult> _onDone;
+    string _title;
     readonly List<int> _sequence = new List<int>();   // indices into PartColors
     int[] _gridParts;
     int   _progress;
@@ -78,9 +75,14 @@ public class PatternMatchMinigame : MonoBehaviour
     // -------------------------------------------------------------------------
 
     /// <summary>Opens the minigame; <paramref name="onDone"/> fires exactly once.</summary>
-    public void Show(int seed, Action<MinigameResult> onDone)
+    public void Show(int seed, Action<MinigameResult> onDone) => Show(seed, null, onDone);
+
+    /// <summary>As <see cref="Show(int, Action{MinigameResult})"/> with a custom
+    /// fault headline (e.g. "ENGINE OVERHEAT" vs "BELT SNAPPED").</summary>
+    public void Show(int seed, string title, Action<MinigameResult> onDone)
     {
         _onDone    = onDone;
+        _title     = title;
         _progress  = 0;
         _mistakes  = 0;
         _timer     = softTimerSeconds;
@@ -112,7 +114,10 @@ public class PatternMatchMinigame : MonoBehaviour
             _gridParts[i] = bag[i];
 
         RefreshVisuals();
-        if (titleLabel    != null) titleLabel.text    = "ENGINE TROUBLE!  Fit the parts in order:";
+        if (titleLabel != null)
+            titleLabel.text = string.IsNullOrEmpty(_title)
+                ? "ENGINE TROUBLE!  Fit the parts in order:"
+                : _title;
         if (feedbackLabel != null) feedbackLabel.text = "";
         if (root          != null) root.SetActive(true);
     }
@@ -146,7 +151,11 @@ public class PatternMatchMinigame : MonoBehaviour
         if (_gridParts[index] == _sequence[_progress])
         {
             _progress++;
-            if (feedbackLabel != null) feedbackLabel.text = "Fitted!";
+            if (feedbackLabel != null)
+            {
+                feedbackLabel.text  = _progress >= _sequence.Count ? "Fixed!" : "Fitted!";
+                feedbackLabel.color = FeedbackGood;
+            }
             RefreshVisuals();
 
             if (_progress >= _sequence.Count)
@@ -155,7 +164,11 @@ public class PatternMatchMinigame : MonoBehaviour
         else
         {
             _mistakes++;
-            if (feedbackLabel != null) feedbackLabel.text = "Wrong part!";
+            if (feedbackLabel != null)
+            {
+                feedbackLabel.text  = "Wrong part!";
+                feedbackLabel.color = FeedbackBad;
+            }
         }
     }
 

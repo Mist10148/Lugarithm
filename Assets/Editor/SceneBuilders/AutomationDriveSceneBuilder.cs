@@ -154,6 +154,10 @@ public static class AutomationDriveSceneBuilder
         // Results overlay (full screen)
         AutomationResultsPanel results = BuildResults(canvas);
 
+        // Town gates (non-code, required to advance) — the level picks one.
+        FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
+        CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
+
         // --- Orchestrator -------------------------------------------------------------------
 
         var controllerGo = new GameObject("AutomationController");
@@ -181,8 +185,85 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "console",        console);
         SceneBuilderUtil.Wire(controller, "monitor",        monitor);
         SceneBuilderUtil.Wire(controller, "results",        results);
+        SceneBuilderUtil.Wire(controller, "flowPuzzle",     flowPuzzle);
+        SceneBuilderUtil.Wire(controller, "cratePuzzle",    cratePuzzle);
 
         SceneBuilderUtil.SaveScene(scene, "AutomationDrive");
+    }
+
+    // -------------------------------------------------------------------------
+    // Dedicated editor windows (Block / Code) — shared by CodeDrive + Maze so a
+    // run shows exactly one editor in its own titled, floating panel, chosen by
+    // the Block/Code setting. The palette lives *inside* the block window, so
+    // Code mode shows no block UI at all.
+
+    /// <summary>A titled floating panel; <paramref name="content"/> is the body below the title bar.</summary>
+    internal static RectTransform BuildWindow(RectTransform parent, string name, string title,
+                                              out RectTransform content)
+    {
+        var window = UIFactory.CreatePanel(parent, name, Vector2.zero, Vector2.one, UIFactory.PanelDark);
+        window.offsetMin = Vector2.zero;
+        window.offsetMax = Vector2.zero;
+
+        var bar = UIFactory.CreatePanel(window, "TitleBar", new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                        new Color(0.06f, 0.07f, 0.10f, 1f));
+        bar.offsetMin = new Vector2(0f, -34f);
+        bar.offsetMax = Vector2.zero;
+        var titleText = UIFactory.CreateText(bar, "Title", title, 18f, UIFactory.Accent,
+                                             TextAlignmentOptions.MidlineLeft);
+        titleText.rectTransform.offsetMin = new Vector2(14f, 0f);
+        titleText.rectTransform.offsetMax = new Vector2(-14f, 0f);
+
+        content = UIFactory.CreateRect(window, "Content", Vector2.zero, Vector2.one,
+                                       Vector2.zero, new Vector2(0f, -34f));
+        return window;
+    }
+
+    /// <summary>Scratch-style block window: palette column + drag-and-drop canvas.</summary>
+    internal static RectTransform BuildBlockWindow(RectTransform parent, RectTransform dragLayer,
+                                                   out BlockPaletteController palette,
+                                                   out BlockCanvasController canvas)
+    {
+        RectTransform window = BuildWindow(parent, "BlockWindow", "BLOCKS — drag to build",
+                                           out RectTransform content);
+
+        var paletteFrame = UIFactory.CreatePanel(content, "Palette",
+                                                 new Vector2(0f, 0f), new Vector2(0f, 1f),
+                                                 UIFactory.PanelDarker);
+        paletteFrame.offsetMin = new Vector2(8f, 8f);
+        paletteFrame.offsetMax = new Vector2(222f, -8f);
+
+        var paletteHeader = UIFactory.CreateText(paletteFrame, "Header", "PALETTE", 18f, UIFactory.TextDim);
+        UIFactory.Place(paletteHeader, new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(190f, 26f));
+
+        var paletteContent = UIFactory.CreateRect(paletteFrame, "Content",
+                                                  Vector2.zero, Vector2.one,
+                                                  new Vector2(8f, 8f), new Vector2(-8f, -36f));
+        UIFactory.AddVerticalLayout(paletteContent, 8f, align: TextAnchor.UpperCenter);
+
+        Button paletteTemplate = UIFactory.CreateButton(paletteContent, "PaletteButtonTemplate",
+                                                        "block", new Vector2(190f, 46f), 21f);
+        paletteTemplate.gameObject.SetActive(false);
+
+        palette = paletteFrame.gameObject.AddComponent<BlockPaletteController>();
+        SceneBuilderUtil.Wire(palette, "content",        paletteContent);
+        SceneBuilderUtil.Wire(palette, "buttonTemplate", paletteTemplate);
+
+        var canvasArea = UIFactory.CreateRect(content, "BlockCanvasArea",
+                                              new Vector2(0f, 0f), new Vector2(1f, 1f),
+                                              new Vector2(230f, 8f), new Vector2(-8f, -8f));
+        canvas = BuildBlockCanvas(canvasArea, dragLayer);
+
+        return window;
+    }
+
+    /// <summary>"The Farmer Was Replaced"-style code window: gutter + input + lint.</summary>
+    internal static RectTransform BuildCodeWindow(RectTransform parent, out CodeEditorController editor)
+    {
+        RectTransform window = BuildWindow(parent, "CodeWindow", "CODE — type to program",
+                                           out RectTransform content);
+        editor = BuildCodeEditor(content);
+        return window;
     }
 
     // -------------------------------------------------------------------------

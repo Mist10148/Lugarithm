@@ -102,39 +102,16 @@ public static class CodeDriveSceneBuilder
         workspace.offsetMin = new Vector2(0f, 0f);
         workspace.offsetMax = new Vector2(0f, -110f);
 
-        // Palette column
-        var paletteFrame = UIFactory.CreatePanel(workspace, "Palette",
-                                                 new Vector2(0f, 0f), new Vector2(0f, 1f),
-                                                 UIFactory.PanelDark);
-        paletteFrame.offsetMin = new Vector2(14f, 260f);
-        paletteFrame.offsetMax = new Vector2(234f, -10f);
-
-        var paletteHeader = UIFactory.CreateText(paletteFrame, "Header", "BLOCKS", 20f, UIFactory.TextDim);
-        UIFactory.Place(paletteHeader, new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(200f, 28f));
-
-        var paletteContent = UIFactory.CreateRect(paletteFrame, "Content",
-                                                  Vector2.zero, Vector2.one,
-                                                  new Vector2(8f, 8f), new Vector2(-8f, -40f));
-        UIFactory.AddVerticalLayout(paletteContent, 8f, align: TextAnchor.UpperCenter);
-
-        Button paletteTemplate = UIFactory.CreateButton(paletteContent, "PaletteButtonTemplate",
-                                                        "block", new Vector2(196f, 46f), 21f);
-        paletteTemplate.gameObject.SetActive(false);
-
-        var paletteCtrl = paletteFrame.gameObject.AddComponent<BlockPaletteController>();
-        SceneBuilderUtil.Wire(paletteCtrl, "content",        paletteContent);
-        SceneBuilderUtil.Wire(paletteCtrl, "buttonTemplate", paletteTemplate);
-
-        // Block + code panels
-        var blockPanel = UIFactory.CreateRect(workspace, "BlockPanel",
+        // Editor windows: Block and Code each in their own titled floating panel,
+        // stacked in the same area. The active editor is chosen by the Block/Code
+        // setting (the controller shows exactly one), so Code mode shows no blocks.
+        var editorArea = UIFactory.CreateRect(workspace, "EditorArea",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(242f, 260f), new Vector2(-14f, -10f));
-        BlockCanvasController blockCanvas = AutomationDriveSceneBuilder.BuildBlockCanvas(blockPanel, canvasRoot);
-
-        var codePanel = UIFactory.CreateRect(workspace, "CodePanel",
-                                             new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                             new Vector2(242f, 260f), new Vector2(-14f, -10f));
-        CodeEditorController codeEditor = AutomationDriveSceneBuilder.BuildCodeEditor(codePanel);
+                                              new Vector2(8f, 258f), new Vector2(-8f, -8f));
+        RectTransform blockPanel = AutomationDriveSceneBuilder.BuildBlockWindow(
+            editorArea, canvasRoot, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
+        RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
+            editorArea, out CodeEditorController codeEditor);
 
         // Monitor + console
         var monitorLine = UIFactory.CreatePanel(workspace, "Monitor",
@@ -158,6 +135,10 @@ public static class CodeDriveSceneBuilder
         // --- Results overlay --------------------------------------------------------
 
         AutomationResultsPanel results = AutomationDriveSceneBuilder.BuildResults(canvas);
+
+        // Town gates (non-code, required to advance) — the level picks one.
+        FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
+        CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
 
         // --- Orchestrator -----------------------------------------------------------
 
@@ -190,6 +171,8 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "console",      console);
         SceneBuilderUtil.Wire(controller, "monitor",      monitor);
         SceneBuilderUtil.Wire(controller, "results",      results);
+        SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
+        SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
 
         SceneBuilderUtil.SaveScene(scene, "CodeDrive");
     }

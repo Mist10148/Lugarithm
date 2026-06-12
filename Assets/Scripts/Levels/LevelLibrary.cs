@@ -28,7 +28,7 @@ public static class LevelLibrary
         switch (index)
         {
             case 1:  return Level1Molo();
-            case 2:  return Stub(2);
+            case 2:  return Oton();
             case 3:  return Stub(3);
             case 4:  return Stub(4);
             case 5:  return Stub(5);
@@ -124,6 +124,7 @@ public static class LevelLibrary
             displayName = Names[1],
             hasContent  = true,
             fares       = new FareTable(),
+            townPuzzle  = TownPuzzleKind.FlowConnect,   // Molo: non-intersecting transit links
 
             manual = new ManualRouteDefinition
             {
@@ -200,6 +201,56 @@ public static class LevelLibrary
                     "        pickUp()\n" +
                     "        collectFare()\n" +
                     "dropOff()\n",
+            },
+        };
+    }
+
+    // -------------------------------------------------------------------------
+    // Level 2 — Oton: code gate is a maze (Reeborg-style), non-code gate stacks
+    // market crates. Minimal playable leg; heritage content lands in a later pass.
+
+    static LevelDefinition Oton()
+    {
+        // The automation puzzle is a curated perfect maze (verified solvable by
+        // the wall-follower in MazeLibraryTests); flag it so CodeDrive uses this
+        // grid as-is rather than deriving one from the manual route.
+        AutomationPuzzleDefinition maze = MazeLibrary.Get(3);
+        maze.useAuthoredGrid = true;
+        maze.goalText =
+            "Oton back-lanes: program the jeepney out of the maze to the market (D). " +
+            "Keep one hand on the wall — while not atDestination(), feel along it with if / else.";
+
+        return new LevelDefinition
+        {
+            levelIndex  = 2,
+            displayName = Names[2],
+            hasContent  = true,
+            fares       = new FareTable(),
+            townPuzzle  = TownPuzzleKind.CrateStack,
+            auto        = maze,
+
+            manual = new ManualRouteDefinition
+            {
+                waypoints = new[]
+                {
+                    new Vector2(0f, 0f),
+                    new Vector2(0f, 28f),
+                    new Vector2(16f, 40f),
+                    new Vector2(16f, 70f),
+                    new Vector2(2f, 84f),
+                    new Vector2(2f, 112f),
+                },
+                roadHalfWidth = 3f,
+                seatCapacity  = 8,
+                breakdownAtRouteFraction = 0.5f,
+                parTimeSeconds = 200f,
+                stops = new[]
+                {
+                    new ManualStopDefinition { stopName = "Molo Boundary", waypointIndex = 0, waitingPassengers = 0 },
+                    new ManualStopDefinition { stopName = "Batiano River", waypointIndex = 1, waitingPassengers = 2 },
+                    new ManualStopDefinition { stopName = "Poblacion",     waypointIndex = 3, waitingPassengers = 2 },
+                    new ManualStopDefinition { stopName = "Oton Market",   waypointIndex = 5, isDestination = true },
+                },
             },
         };
     }

@@ -98,6 +98,28 @@ public class Level1SolutionTests
     }
 
     // -------------------------------------------------------------------------
+    // Level 2 (Oton) — code gate is an authored maze, solved by the wall-follower
+
+    [Test]
+    public void OtonMaze_UsesAuthoredGrid_AndIsSolvedByItsSolution()
+    {
+        var def = LevelLibrary.Get(2).auto;
+        Assert.IsTrue(def.useAuthoredGrid, "Oton must use its authored maze grid, not a route mirror");
+
+        var sim = RunSolution(def, out var last);
+
+        Assert.IsNull(last.RuntimeError,
+            last.RuntimeError != null ? last.RuntimeError.ToString() : null);
+        Assert.IsTrue(sim.IsWin(def), sim.DescribeGoalGap(def) ?? "Oton maze should be solved");
+    }
+
+    [Test]
+    public void Oton_HasACrateStackTownGate()
+    {
+        Assert.AreEqual(TownPuzzleKind.CrateStack, LevelLibrary.Get(2).townPuzzle);
+    }
+
+    // -------------------------------------------------------------------------
     // Library shape
 
     [Test]
@@ -115,13 +137,14 @@ public class Level1SolutionTests
 
         Assert.IsTrue(LevelLibrary.Get(0).hasContent);
         Assert.IsTrue(LevelLibrary.Get(1).hasContent);
-        Assert.IsFalse(LevelLibrary.Get(2).hasContent);
+        Assert.IsTrue(LevelLibrary.Get(2).hasContent);   // Oton is now playable
+        Assert.IsFalse(LevelLibrary.Get(3).hasContent);
     }
 
     [Test]
     public void PlayableLevels_HaveManualRoutesWithOneDestination()
     {
-        foreach (int i in new[] { 0, 1 })
+        foreach (int i in new[] { 0, 1, 2 })
         {
             ManualRouteDefinition route = LevelLibrary.Get(i).manual;
             Assert.IsNotNull(route, $"level {i} needs a manual route");
