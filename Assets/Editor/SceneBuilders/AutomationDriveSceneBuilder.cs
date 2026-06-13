@@ -157,6 +157,7 @@ public static class AutomationDriveSceneBuilder
         // Town gates (non-code, required to advance) — the level picks one.
         FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
+        DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(canvas.transform);
 
         // --- Orchestrator -------------------------------------------------------------------
 
@@ -187,6 +188,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "results",        results);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",     flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",    cratePuzzle);
+        SceneBuilderUtil.Wire(controller, "dialogue",       dialogue);
 
         SceneBuilderUtil.SaveScene(scene, "AutomationDrive");
     }

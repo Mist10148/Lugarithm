@@ -59,6 +59,9 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private FlowConnectMinigame flowPuzzle;
     [SerializeField] private CrateStackMinigame  cratePuzzle;
 
+    [Header("Dialogue")]
+    [SerializeField] private DialogueController dialogue;
+
     // -------------------------------------------------------------------------
 
     LevelDefinition _level;
@@ -169,6 +172,50 @@ public class AutomationDriveController : MonoBehaviour
         if (monitor != null) monitor.ShowIdle();
 
         _startTime = Time.time;
+
+        PlayBoardingDialogue();
+    }
+
+    void PlayBoardingDialogue()
+    {
+        if (dialogue == null) return;
+
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex);
+        if (convo == null) return;
+
+        dialogue.OnEvent += HandleDialogueEvent;
+        dialogue.Play(convo, () =>
+        {
+            dialogue.OnEvent -= HandleDialogueEvent;
+        });
+    }
+
+    void HandleDialogueEvent(DialogueEventKind kind, string payload)
+    {
+        switch (kind)
+        {
+            case DialogueEventKind.DrivingTutorial:
+            case DialogueEventKind.FareTutorial:
+            case DialogueEventKind.Breakdown:
+            case DialogueEventKind.Maintenance:
+                StartCoroutine(ResumeDialogueAfter(1.5f));
+                break;
+
+            case DialogueEventKind.Arrive:
+            case DialogueEventKind.Advance:
+            case DialogueEventKind.TutorialComplete:
+            case DialogueEventKind.Continue:
+            default:
+                StartCoroutine(ResumeDialogueAfter(0.1f));
+                break;
+        }
+    }
+
+    System.Collections.IEnumerator ResumeDialogueAfter(float seconds)
+    {
+        yield return new WaitForSeconds(seconds);
+        if (dialogue != null)
+            dialogue.ResumeAfterEvent();
     }
 
     // -------------------------------------------------------------------------
@@ -334,11 +381,30 @@ public class AutomationDriveController : MonoBehaviour
         bool shown = ShowTownGate(2000 + _levelIndex, result =>
         {
             _townPuzzleBonus = result.Score;
-            ShowResults();
+            PlayRevealThenResults();
         });
 
-        if (!shown) ShowResults();
+        if (!shown) PlayRevealThenResults();
         else if (console != null) console.Info("puzzle solved — now clear the town gate to finish the leg.");
+    }
+
+    void PlayRevealThenResults()
+    {
+        if (dialogue == null)
+        {
+            ShowResults();
+            return;
+        }
+
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex);
+        if (convo == null || convo.journalPageId < 0 || convo.journalPageId >= JournalPageLibrary.Pages.Count)
+        {
+            ShowResults();
+            return;
+        }
+
+        JournalPageDefinition page = JournalPageLibrary.Pages[convo.journalPageId];
+        dialogue.PlayReveal(convo, page, ShowResults);
     }
 
     /// <summary>Shows the level's required non-code town puzzle. False when there is none.</summary>

@@ -1,0 +1,360 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+/// <summary>
+/// Runtime UI controller for the branching passenger dialogue system.
+/// Drives a DialogueRuntime against a built overlay, fires gameplay events,
+/// and handles both the boarding/hub flow and the completion reveal.
+/// </summary>
+public class DialogueController : MonoBehaviour
+{
+    [Header("Dialogue Bar")]
+    [SerializeField] private GameObject     root;
+    [SerializeField] private DialogBox      dialogBox;
+    [SerializeField] private GameObject     continueIndicator;
+    [SerializeField] private RectTransform  choiceContainer;
+    [SerializeField] private Button         choiceButtonTemplate;
+
+    [Header("Reveal / Cutscene")]
+    [SerializeField] private GameObject     revealRoot;
+    [SerializeField] private TMP_Text       revealBody;
+    [SerializeField] private TMP_Text       journalCard;
+
+    public event Action<DialogueEventKind, string> OnEvent;
+
+    DialogueRuntime _runtime;
+    Action          _onFinished;
+    Action          _onRevealDone;
+    bool            _waitingForRevealAdvance;
+    bool            _revealingJournalCard;
+    bool            _subscribedToSettings;
+    bool            _choiceClickedThisFrame;
+
+    // Reusable choice button pool.
+    readonly List<Button> _activeChoices = new List<Button>();
+
+    void OnEnable()
+    {
+        if (SettingsManager.Instance != null && !_subscribedToSettings)
+        {
+            SettingsManager.Instance.OnSettingsChanged += ApplySettings;
+            _subscribedToSettings = true;
+        }
+        ApplySettings();
+    }
+
+    void OnDisable()
+    {
+        if (SettingsManager.Instance != null && _subscribedToSettings)
+        {
+            SettingsManager.Instance.OnSettingsChanged -= ApplySettings;
+            _subscribedToSettings = false;
+        }
+    }
+
+    void Update()
+    {
+        if (_runtime == null || _runtime.IsFinished) return;
+
+        if (_choiceClickedThisFrame)
+        {
+            _choiceClickedThisFrame = false;
+            return;
+        }
+
+        bool advancePressed = Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
+        if (!advancePressed) return;
+
+        // Reveal flow uses the same advance input.
+        if (_waitingForRevealAdvance)
+        {
+            if (dialogBox != null && dialogBox.IsRevealing)
+            {
+                dialogBox.Advance();
+            }
+            else if (_revealingJournalCard)
+            {
+                FinishReveal();
+            }
+            else
+            {
+                AdvanceRevealLine();
+            }
+            return;
+        }
+
+        if (dialogBox != null && dialogBox.IsRevealing)
+        {
+            dialogBox.Advance();
+            return;
+        }
+
+        if (_runtime.AvailableChoices().Count > 0)
+            return; // player must pick a choice button
+
+        if (_runtime.IsAwaitingEventClear)
+            return; // waiting for the drive controller to clear the event
+
+        StepRuntime();
+    }
+
+    // -------------------------------------------------------------------------
+    // Public API
+
+    /// <summary>
+    /// Plays the boarding beat and topic hub for a level.
+    /// </summary>
+    public void Play(DialogueConversation convo, Action onFinished)
+    {
+        _onFinished = onFinished;
+        _runtime = new DialogueRuntime(convo);
+        _runtime.Begin();
+        _waitingForRevealAdvance = false;
+        _revealingJournalCard = false;
+
+        if (revealRoot != null) revealRoot.SetActive(false);
+        ShowDialogueRoot(true);
+        RefreshView();
+    }
+
+    /// <summary>
+    /// Plays the completion reveal + journal page card, then invokes onDone.
+    /// </summary>
+    public void PlayReveal(DialogueConversation convo, JournalPageDefinition page, Action onDone)
+    {
+        _onRevealDone = onDone;
+        _runtime = new DialogueRuntime(convo);
+        _runtime.Begin();
+        _waitingForRevealAdvance = true;
+        _revealingJournalCard = false;
+
+        if (revealRoot != null)
+        {
+            revealRoot.SetActive(true);
+            if (journalCard != null && page != null)
+            {
+                journalCard.text =
+                    $"<b>{page.heritageTitle}</b>\n\n" +
+                    $"{page.heritageBody}\n\n" +
+                    $"<color=#9EA0A2><i>{page.artifactCardDescription}</i></color>";
+            }
+            if (revealBody != null) revealBody.text = "";
+        }
+
+        ShowDialogueRoot(true);
+        ClearChoices();
+        ShowFirstRevealLine();
+    }
+
+    /// <summary>
+    /// Resumes after a gameplay event has been handled. Call from the drive controller.
+    /// </summary>
+    public void ResumeAfterEvent()
+    {
+        if (_runtime == null) return;
+        _runtime.ClearEvent();
+        RefreshView();
+    }
+
+    /// <summary>
+    /// Skips the current typewriter reveal if any.
+    /// </summary>
+    public void SkipReveal()
+    {
+        if (dialogBox != null) dialogBox.Advance();
+    }
+
+    // -------------------------------------------------------------------------
+
+    void ShowDialogueRoot(bool show)
+    {
+        if (root != null)
+            root.SetActive(show && (SettingsManager.Instance == null || SettingsManager.Instance.Subtitles));
+    }
+
+    void ApplySettings()
+    {
+        if (dialogBox == null) return;
+
+        float cps = 45f;
+        if (SettingsManager.Instance != null)
+        {
+            switch (SettingsManager.Instance.DialogueSpeed)
+            {
+                case DialogueSpeed.Slow:    cps = 22f;  break;
+                case DialogueSpeed.Normal:  cps = 45f;  break;
+                case DialogueSpeed.Fast:    cps = 95f;  break;
+                case DialogueSpeed.Instant: cps = 0f;   break;
+            }
+        }
+
+        dialogBox.CharsPerSecond = cps;
+        dialogBox.UseTypewriter = cps > 0f;
+
+        if (root != null && _runtime != null && !_waitingForRevealAdvance)
+            root.SetActive(SettingsManager.Instance == null || SettingsManager.Instance.Subtitles);
+    }
+
+    void RefreshView()
+    {
+        if (_runtime == null) return;
+
+        if (_runtime.IsFinished)
+        {
+            HideAll();
+            _onFinished?.Invoke();
+            _onFinished = null;
+            return;
+        }
+
+        if (_runtime.IsAwaitingEventClear)
+        {
+            FirePendingEvent();
+            return;
+        }
+
+        IReadOnlyList<DialogueChoice> choices = _runtime.AvailableChoices();
+        if (choices.Count > 0)
+        {
+            ShowChoices(choices);
+            return;
+        }
+
+        if (_runtime.Current != null)
+        {
+            ClearChoices();
+            ShowLine(_runtime.Current);
+        }
+    }
+
+    void StepRuntime()
+    {
+        if (_runtime == null) return;
+
+        bool hasMore = _runtime.AdvanceLine();
+        if (hasMore)
+            RefreshView();
+        else
+            RefreshView(); // will finish
+    }
+
+    void ShowLine(DialogueLine line)
+    {
+        if (dialogBox != null)
+            dialogBox.Show(line.speaker, line.text);
+    }
+
+    void FirePendingEvent()
+    {
+        if (_runtime.PendingEvent == DialogueEventKind.None) return;
+
+        ClearChoices();
+        if (dialogBox != null) dialogBox.Hide();
+
+        OnEvent?.Invoke(_runtime.PendingEvent, _runtime.Conversation.nodes[_runtime.CurrentNodeId].eventPayload);
+    }
+
+    void ShowChoices(IReadOnlyList<DialogueChoice> choices)
+    {
+        if (dialogBox != null) dialogBox.Hide();
+        ClearChoices();
+
+        if (choiceContainer == null || choiceButtonTemplate == null) return;
+        choiceContainer.gameObject.SetActive(true);
+
+        foreach (DialogueChoice choice in choices)
+        {
+            Button btn = Instantiate(choiceButtonTemplate, choiceContainer);
+            btn.gameObject.SetActive(true);
+            var label = btn.GetComponentInChildren<TMP_Text>(true);
+            if (label != null) label.text = choice.label;
+
+            DialogueChoice captured = choice;
+            btn.onClick.AddListener(() => OnChoiceClicked(captured));
+            _activeChoices.Add(btn);
+        }
+    }
+
+    void ClearChoices()
+    {
+        foreach (Button btn in _activeChoices)
+        {
+            if (btn != null) Destroy(btn.gameObject);
+        }
+        _activeChoices.Clear();
+        if (choiceContainer != null) choiceContainer.gameObject.SetActive(false);
+    }
+
+    void OnChoiceClicked(DialogueChoice choice)
+    {
+        if (_runtime == null) return;
+        _choiceClickedThisFrame = true;
+        _runtime.Choose(choice.target);
+        RefreshView();
+    }
+
+    void HideAll()
+    {
+        ClearChoices();
+        if (dialogBox != null) dialogBox.Hide();
+        if (root != null) root.SetActive(false);
+    }
+
+    // -------------------------------------------------------------------------
+    // Reveal flow
+
+    int _revealLineIndex;
+
+    void ShowFirstRevealLine()
+    {
+        _revealLineIndex = 0;
+        ShowCurrentRevealLine();
+    }
+
+    void ShowCurrentRevealLine()
+    {
+        if (_runtime == null || _runtime.Conversation.revealLines == null) return;
+
+        if (_revealLineIndex < _runtime.Conversation.revealLines.Length)
+        {
+            DialogueLine line = _runtime.Conversation.revealLines[_revealLineIndex];
+            ShowLine(line);
+            if (revealBody != null)
+                revealBody.text = $"<color=#EAEADC>{line.text}</color>";
+        }
+        else
+        {
+            ShowJournalCard();
+        }
+    }
+
+    void AdvanceRevealLine()
+    {
+        _revealLineIndex++;
+        ShowCurrentRevealLine();
+    }
+
+    void ShowJournalCard()
+    {
+        _revealingJournalCard = true;
+        if (dialogBox != null)
+        {
+            string badgeName = BadgeLibrary.Get(_runtime.Conversation.levelIndex)?.badgeName ?? "Badge";
+            dialogBox.Show("", $"Earned: {badgeName}");
+        }
+    }
+
+    void FinishReveal()
+    {
+        HideAll();
+        if (revealRoot != null) revealRoot.SetActive(false);
+        _onRevealDone?.Invoke();
+        _onRevealDone = null;
+        _waitingForRevealAdvance = false;
+        _revealingJournalCard = false;
+    }
+}

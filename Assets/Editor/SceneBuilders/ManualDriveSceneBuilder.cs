@@ -68,6 +68,7 @@ public static class ManualDriveSceneBuilder
         ToastNotification toast = BuildToast(canvas);
         FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
+        DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(canvas.transform);
 
         // Exit (top-right, under currency)
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(130f, 44f));
@@ -102,6 +103,7 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "toast",        toast);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
+        SceneBuilderUtil.Wire(controller, "dialogue",     dialogue);
 
         SceneBuilderUtil.SaveScene(scene, "ManualDrive");
     }

@@ -17,8 +17,8 @@ public static class BadgeLibrary
     {
         new BadgeDefinition { levelIndex = 0, badgeName = "Bagong Simula",     townName = "Tutorial",            description = "Every journey starts with a single turn of the key." },
         new BadgeDefinition { levelIndex = 1, badgeName = "Anak ng Molo",      townName = "Iloilo City (Molo)",  description = "You walked the streets where the matriarchs still stand." },
-        new BadgeDefinition { levelIndex = 2, badgeName = "Panday ng Dagat",   townName = "Oton",                description = "The Batiano River remembers every hull that crossed it." },
-        new BadgeDefinition { levelIndex = 3, badgeName = "Mangangukit",       townName = "Tigbauan",            description = "Coral stone holds the names of those who carved them." },
+        new BadgeDefinition { levelIndex = 2, badgeName = "Panday ng Dagat",   townName = "Oton",                description = "The frame outlasts the smith, and the sea remembers every hull." },
+        new BadgeDefinition { levelIndex = 3, badgeName = "Mangangukit",       townName = "Tigbauan",            description = "The pattern outlives the hands that set it." },
         new BadgeDefinition { levelIndex = 4, badgeName = "UNESCO Keeper",     townName = "Miag-ao",             description = "A coconut tree carved in stone outlasts a hundred seasons." },
         new BadgeDefinition { levelIndex = 5, badgeName = "Tagapagtanggol",    townName = "San Joaquin",         description = "You found the last page. The road was always the answer." },
     };

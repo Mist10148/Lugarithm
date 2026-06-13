@@ -32,6 +32,9 @@ public class ManualDriveController : MonoBehaviour
     [SerializeField] private FlowConnectMinigame  flowPuzzle;
     [SerializeField] private CrateStackMinigame   cratePuzzle;
 
+    [Header("Dialogue")]
+    [SerializeField] private DialogueController dialogue;
+
     // -------------------------------------------------------------------------
 
     LevelDefinition   _def;
@@ -94,6 +97,53 @@ public class ManualDriveController : MonoBehaviour
 
         if (toast != null && _ctx.DestinationZone != null)
             toast.Show($"{_def.displayName}:  drive to {_ctx.DestinationZone.StopName} — stop at the signs for passengers");
+
+        PlayBoardingDialogue();
+    }
+
+    void PlayBoardingDialogue()
+    {
+        if (dialogue == null) return;
+
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex);
+        if (convo == null) return;
+
+        dialogue.OnEvent += HandleDialogueEvent;
+        dialogue.Play(convo, () =>
+        {
+            dialogue.OnEvent -= HandleDialogueEvent;
+        });
+    }
+
+    void HandleDialogueEvent(DialogueEventKind kind, string payload)
+    {
+        // For the working seam, gameplay events are acknowledged and the dialogue
+        // resumes after a short pause. The full wiring (driving/fare tutorials,
+        // breakdown pauses) is left open for the next pass.
+        switch (kind)
+        {
+            case DialogueEventKind.DrivingTutorial:
+            case DialogueEventKind.FareTutorial:
+            case DialogueEventKind.Breakdown:
+            case DialogueEventKind.Maintenance:
+                StartCoroutine(ResumeDialogueAfter(1.5f));
+                break;
+
+            case DialogueEventKind.Arrive:
+            case DialogueEventKind.Advance:
+            case DialogueEventKind.TutorialComplete:
+            case DialogueEventKind.Continue:
+            default:
+                StartCoroutine(ResumeDialogueAfter(0.1f));
+                break;
+        }
+    }
+
+    System.Collections.IEnumerator ResumeDialogueAfter(float seconds)
+    {
+        yield return new WaitForSeconds(seconds);
+        if (dialogue != null)
+            dialogue.ResumeAfterEvent();
     }
 
     // -------------------------------------------------------------------------
@@ -129,7 +179,7 @@ public class ManualDriveController : MonoBehaviour
         bool shown = ShowTownGate(2000 + _levelIndex, result =>
         {
             _tracker.AddSatisfaction(result.Score);   // fold the gate score into the leg
-            ShowResults();
+            PlayRevealThenResults();
         });
 
         if (shown)
@@ -139,8 +189,27 @@ public class ManualDriveController : MonoBehaviour
         }
         else
         {
-            ShowResults();
+            PlayRevealThenResults();
         }
+    }
+
+    void PlayRevealThenResults()
+    {
+        if (dialogue == null)
+        {
+            ShowResults();
+            return;
+        }
+
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex);
+        if (convo == null || convo.journalPageId < 0 || convo.journalPageId >= JournalPageLibrary.Pages.Count)
+        {
+            ShowResults();
+            return;
+        }
+
+        JournalPageDefinition page = JournalPageLibrary.Pages[convo.journalPageId];
+        dialogue.PlayReveal(convo, page, ShowResults);
     }
 
     /// <summary>Shows the level's required non-code town puzzle. False when there is none.</summary>

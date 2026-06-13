@@ -19,6 +19,9 @@ public class DialogBox : MonoBehaviour
     [SerializeField] private bool  useTypewriter = true;
     [SerializeField] private float charsPerSecond = 40f;
 
+    public bool UseTypewriter { get => useTypewriter; set => useTypewriter = value; }
+    public float CharsPerSecond { get => charsPerSecond; set => charsPerSecond = value; }
+
     private Coroutine _revealRoutine;
     private string    _fullText = "";
     private bool      _isRevealing;
