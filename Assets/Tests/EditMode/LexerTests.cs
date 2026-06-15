@@ -121,11 +121,129 @@ public class LexerTests
     [Test]
     public void KeywordsAreRecognized()
     {
-        var tokens = Lexer.Tokenize("while if else not\n", out _);
+        var tokens = Lexer.Tokenize("while if elif else for repeat def return break continue not and or in True False None\n", out _);
 
-        Assert.AreEqual(TokenType.KeywordWhile, tokens[0].Type);
-        Assert.AreEqual(TokenType.KeywordIf,    tokens[1].Type);
-        Assert.AreEqual(TokenType.KeywordElse,  tokens[2].Type);
-        Assert.AreEqual(TokenType.KeywordNot,   tokens[3].Type);
+        Assert.AreEqual(TokenType.KeywordWhile,    tokens[0].Type);
+        Assert.AreEqual(TokenType.KeywordIf,       tokens[1].Type);
+        Assert.AreEqual(TokenType.KeywordElif,     tokens[2].Type);
+        Assert.AreEqual(TokenType.KeywordElse,     tokens[3].Type);
+        Assert.AreEqual(TokenType.KeywordFor,      tokens[4].Type);
+        Assert.AreEqual(TokenType.KeywordRepeat,   tokens[5].Type);
+        Assert.AreEqual(TokenType.KeywordDef,      tokens[6].Type);
+        Assert.AreEqual(TokenType.KeywordReturn,   tokens[7].Type);
+        Assert.AreEqual(TokenType.KeywordBreak,    tokens[8].Type);
+        Assert.AreEqual(TokenType.KeywordContinue, tokens[9].Type);
+        Assert.AreEqual(TokenType.KeywordNot,      tokens[10].Type);
+        Assert.AreEqual(TokenType.KeywordAnd,      tokens[11].Type);
+        Assert.AreEqual(TokenType.KeywordOr,       tokens[12].Type);
+        Assert.AreEqual(TokenType.KeywordIn,       tokens[13].Type);
+        Assert.AreEqual(TokenType.KeywordTrue,     tokens[14].Type);
+        Assert.AreEqual(TokenType.KeywordFalse,    tokens[15].Type);
+        Assert.AreEqual(TokenType.KeywordNone,     tokens[16].Type);
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 1 — literals and punctuation
+
+    [Test]
+    public void NumberLiteral_TokenizesIntAndFloat()
+    {
+        var tokens = Lexer.Tokenize("123 45.67\n", out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        Assert.AreEqual(TokenType.Number, tokens[0].Type);
+        Assert.AreEqual("123", tokens[0].Text);
+        Assert.AreEqual(TokenType.Number, tokens[1].Type);
+        Assert.AreEqual("45.67", tokens[1].Text);
+    }
+
+    [Test]
+    public void StringLiteral_TokenizesWithEscapes()
+    {
+        var tokens = Lexer.Tokenize("\"Para\"\n", out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        Assert.AreEqual(TokenType.String, tokens[0].Type);
+        Assert.AreEqual("Para", tokens[0].Text);
+    }
+
+    [Test]
+    public void StringLiteral_EscapesAreDecoded()
+    {
+        var tokens = Lexer.Tokenize("\"a\\nb\\tc\"\n", out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        Assert.AreEqual(TokenType.String, tokens[0].Type);
+        Assert.AreEqual("a\nb\tc", tokens[0].Text);
+    }
+
+    [Test]
+    public void UnterminatedString_IsReported()
+    {
+        Lexer.Tokenize("\"hello\n", out var errors);
+
+        Assert.AreEqual(1, errors.Count);
+        StringAssert.Contains("string", errors[0].Message);
+        StringAssert.Contains("closed", errors[0].Message);
+    }
+
+    [Test]
+    public void CommaAndAssign_Tokenize()
+    {
+        var types = Types("x = 5, y\n", out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        CollectionAssert.AreEqual(new[]
+        {
+            TokenType.Identifier, TokenType.Assign, TokenType.Number,
+            TokenType.Comma, TokenType.Identifier,
+            TokenType.Newline, TokenType.EndOfFile,
+        }, types);
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 2 — operators
+
+    [Test]
+    public void Operators_Tokenize()
+    {
+        var types = Types("+ - * / // % ** == != < > <= >=\n", out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        CollectionAssert.AreEqual(new[]
+        {
+            TokenType.Plus, TokenType.Minus, TokenType.Star, TokenType.Slash,
+            TokenType.SlashSlash, TokenType.Percent, TokenType.StarStar,
+            TokenType.EqEq, TokenType.NotEq, TokenType.Lt, TokenType.Gt,
+            TokenType.Le, TokenType.Ge,
+            TokenType.Newline, TokenType.EndOfFile,
+        }, types);
+    }
+
+    [Test]
+    public void BracketsBracesDot_Tokenize()
+    {
+        var types = Types("[ ] { } .\n", out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        CollectionAssert.AreEqual(new[]
+        {
+            TokenType.LBracket, TokenType.RBracket,
+            TokenType.LBrace, TokenType.RBrace,
+            TokenType.Dot,
+            TokenType.Newline, TokenType.EndOfFile,
+        }, types);
+    }
+
+    [Test]
+    public void NotIn_TokenizesAsTwoKeywords()
+    {
+        var types = Types("x not in y\n", out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        Assert.AreEqual(TokenType.Identifier, types[0]);
+        Assert.AreEqual(TokenType.KeywordNot, types[1]);
+        Assert.AreEqual(TokenType.KeywordIn,  types[2]);
+        Assert.AreEqual(TokenType.Identifier, types[3]);
     }
 }

@@ -88,6 +88,9 @@ public class AutomationPuzzleDefinition
     /// <summary>Condition queries offered on if/while blocks for this level.</summary>
     public string[] allowedQueries;
 
+    /// <summary>Value reporters (e.g. seatsLeft, position) offered in this level.</summary>
+    public string[] allowedReporters;
+
     public int   parSteps;
     public float softTimerSeconds = 300f;
 

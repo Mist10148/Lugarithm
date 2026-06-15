@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -19,6 +20,9 @@ public class AgentActionResult
     public bool DroppedOff;
     public int  DeliveredCount;
     public int  FareCollected;
+
+    /// <summary>Value returned by a value-returning action (e.g. collectFare).</summary>
+    public Value ReturnValue;
 }
 
 /// <summary>
@@ -95,6 +99,9 @@ public class AgentSim : IAgentApi
     /// <summary>Pending primitive moves from a nav macro, drained one per visual step.</summary>
     public bool HasPendingMoves => _pending.Count > 0;
     public string DequeueMove() => _pending.Dequeue();
+
+    /// <summary>Seat capacity; reporters read this as the world state.</summary>
+    public int SeatCapacity = 8;
 
     /// <summary>
     /// Switches to ride mode: each passenger boards at <see cref="GridRide.origin"/>
@@ -244,12 +251,17 @@ public class AgentSim : IAgentApi
                     int amount      = UnpaidFares * FareMath.ComputeFare(1, _fares);
                     FaresCollected += amount;
                     r.FareCollected = amount;
+                    r.ReturnValue   = Value.Int(amount);
                     UnpaidFares     = 0;
                 }
                 else
                 {
                     r.Warning = "no fares to collect right now.";
                 }
+                break;
+
+            case "wait":
+                // Idle tick — nothing changes.
                 break;
 
             case "driveToNextStop":
@@ -319,6 +331,7 @@ public class AgentSim : IAgentApi
         {
             FaresCollected += amount;
             r.FareCollected = amount;
+            r.ReturnValue   = Value.Int(amount);
             UnpaidFares     = 0;
         }
         else
@@ -370,7 +383,34 @@ public class AgentSim : IAgentApi
             case "atDestination": return Position == _grid.DestPos;
             case "hasPassengerAboard": return PassengersAboard > 0;
             case "atRequestedStop":    return AtRequestedStop();
+            case "atGoal":             return Position == _grid.DestPos;
+            case "isMarked":           return false;
+            case "passengerWaiting":   return _grid.Get(Position) == GridModel.Cell.Stop && RemainingWaiting > 0;
+            case "isFull":             return PassengersAboard >= SeatCapacity;
             default:              return false;
+        }
+    }
+
+    // Reporters (IAgentApi)
+
+    public Value ReadReporter(string name, IReadOnlyList<Value> args)
+    {
+        switch (name)
+        {
+            case "seatsLeft":           return Value.Int(Math.Max(0, SeatCapacity - PassengersAboard));
+            case "passengerCount":      return Value.Int(PassengersAboard);
+            case "distanceTraveled":    return Value.Int(StepsUsed);
+            case "distanceToDestination":
+            {
+                int dist = GridPathfinder.Path(_grid, Position, _grid.DestPos)?.Count ?? 0;
+                return Value.Int(dist);
+            }
+            case "position":            return Value.Tuple(new[] { Value.Int(Position.x), Value.Int(Position.y) });
+            case "passengerType":       return Value.Str("regular");
+            case "fareOwed":            return Value.Int(UnpaidFares * FareMath.ComputeFare(1, _fares));
+            case "currentStop":         return Value.Str("");
+            case "nextStop":            return Value.Str("");
+            default:                    return Value.None;
         }
     }
 

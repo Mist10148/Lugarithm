@@ -153,6 +153,9 @@ public class ExecutionController : MonoBehaviour
             }
 
             AgentActionResult result = _sim.Apply(step.ActionName);
+            if (!string.IsNullOrEmpty(step.BindResultTo))
+                _vm.DeliverActionResult(result.ReturnValue);
+
             OnStepDone?.Invoke(result, step);
 
             float duration = baseStepSeconds / Speed;

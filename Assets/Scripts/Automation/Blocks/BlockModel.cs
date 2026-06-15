@@ -121,9 +121,9 @@ public static class BlockProgram
                 continue;
             }
 
-            ExprNode condition = new QueryExpr { Name = node.Query };
+            ExprNode condition = new CallExpr { Name = node.Query };
             if (node.Negate)
-                condition = new NotExpr { Operand = condition };
+                condition = new UnaryExpr { Op = TokenType.KeywordNot, Operand = condition };
 
             if (node.Body.Count == 0)
             {

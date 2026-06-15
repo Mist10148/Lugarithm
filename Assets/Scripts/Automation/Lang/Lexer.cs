@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 
 /// <summary>
 /// Line-based lexer for the Python-style automation language.
@@ -93,9 +94,126 @@ public static class Lexer
 
             if (c == ' ' || c == '\t') { pos++; continue; }
 
-            if (c == '(') { tokens.Add(new Token(TokenType.LParen, "(", lineNo)); pos++; continue; }
-            if (c == ')') { tokens.Add(new Token(TokenType.RParen, ")", lineNo)); pos++; continue; }
-            if (c == ':') { tokens.Add(new Token(TokenType.Colon,  ":", lineNo)); pos++; continue; }
+            if (c == '(') { tokens.Add(new Token(TokenType.LParen,   "(", lineNo)); pos++; continue; }
+            if (c == ')') { tokens.Add(new Token(TokenType.RParen,   ")", lineNo)); pos++; continue; }
+            if (c == '[') { tokens.Add(new Token(TokenType.LBracket, "[", lineNo)); pos++; continue; }
+            if (c == ']') { tokens.Add(new Token(TokenType.RBracket, "]", lineNo)); pos++; continue; }
+            if (c == '{') { tokens.Add(new Token(TokenType.LBrace,   "{", lineNo)); pos++; continue; }
+            if (c == '}') { tokens.Add(new Token(TokenType.RBrace,   "}", lineNo)); pos++; continue; }
+            if (c == ':') { tokens.Add(new Token(TokenType.Colon,    ":", lineNo)); pos++; continue; }
+            if (c == ',') { tokens.Add(new Token(TokenType.Comma,    ",", lineNo)); pos++; continue; }
+            if (c == '.') { tokens.Add(new Token(TokenType.Dot,      ".", lineNo)); pos++; continue; }
+            if (c == '+') { tokens.Add(new Token(TokenType.Plus,   "+", lineNo)); pos++; continue; }
+            if (c == '%') { tokens.Add(new Token(TokenType.Percent,"%", lineNo)); pos++; continue; }
+
+            if (c == '-')
+            {
+                tokens.Add(new Token(TokenType.Minus, "-", lineNo));
+                pos++;
+                continue;
+            }
+
+            if (c == '*')
+            {
+                if (pos + 1 < line.Length && line[pos + 1] == '*')
+                {
+                    tokens.Add(new Token(TokenType.StarStar, "**", lineNo));
+                    pos += 2;
+                }
+                else
+                {
+                    tokens.Add(new Token(TokenType.Star, "*", lineNo));
+                    pos++;
+                }
+                continue;
+            }
+
+            if (c == '/')
+            {
+                if (pos + 1 < line.Length && line[pos + 1] == '/')
+                {
+                    tokens.Add(new Token(TokenType.SlashSlash, "//", lineNo));
+                    pos += 2;
+                }
+                else
+                {
+                    tokens.Add(new Token(TokenType.Slash, "/", lineNo));
+                    pos++;
+                }
+                continue;
+            }
+
+            if (c == '=')
+            {
+                if (pos + 1 < line.Length && line[pos + 1] == '=')
+                {
+                    tokens.Add(new Token(TokenType.EqEq, "==", lineNo));
+                    pos += 2;
+                }
+                else
+                {
+                    tokens.Add(new Token(TokenType.Assign, "=", lineNo));
+                    pos++;
+                }
+                continue;
+            }
+
+            if (c == '!')
+            {
+                if (pos + 1 < line.Length && line[pos + 1] == '=')
+                {
+                    tokens.Add(new Token(TokenType.NotEq, "!=", lineNo));
+                    pos += 2;
+                }
+                else
+                {
+                    errors.Add(new LangError(lineNo, $"I don't understand the character '{c}' here."));
+                    pos++;
+                }
+                continue;
+            }
+
+            if (c == '<')
+            {
+                if (pos + 1 < line.Length && line[pos + 1] == '=')
+                {
+                    tokens.Add(new Token(TokenType.Le, "<=", lineNo));
+                    pos += 2;
+                }
+                else
+                {
+                    tokens.Add(new Token(TokenType.Lt, "<", lineNo));
+                    pos++;
+                }
+                continue;
+            }
+
+            if (c == '>')
+            {
+                if (pos + 1 < line.Length && line[pos + 1] == '=')
+                {
+                    tokens.Add(new Token(TokenType.Ge, ">=", lineNo));
+                    pos += 2;
+                }
+                else
+                {
+                    tokens.Add(new Token(TokenType.Gt, ">", lineNo));
+                    pos++;
+                }
+                continue;
+            }
+
+            if (c == '"' || c == '\'')
+            {
+                pos = ScanString(line, pos, lineNo, tokens, errors);
+                continue;
+            }
+
+            if (char.IsDigit(c))
+            {
+                pos = ScanNumber(line, pos, lineNo, tokens);
+                continue;
+            }
 
             if (char.IsLetter(c) || c == '_')
             {
@@ -113,14 +231,88 @@ public static class Lexer
         }
     }
 
+    static int ScanNumber(string line, int pos, int lineNo, List<Token> tokens)
+    {
+        int start = pos;
+        bool sawDot = false;
+        while (pos < line.Length && (char.IsDigit(line[pos]) || line[pos] == '.'))
+        {
+            if (line[pos] == '.')
+            {
+                if (sawDot) break;
+                sawDot = true;
+            }
+            pos++;
+        }
+        tokens.Add(new Token(TokenType.Number, line.Substring(start, pos - start), lineNo));
+        return pos;
+    }
+
+    static int ScanString(string line, int start, int lineNo,
+                          List<Token> tokens, List<LangError> errors)
+    {
+        char quote = line[start];
+        int pos = start + 1;
+        var sb = new StringBuilder();
+
+        while (pos < line.Length && line[pos] != quote)
+        {
+            if (line[pos] == '\\' && pos + 1 < line.Length)
+            {
+                char esc = line[pos + 1];
+                switch (esc)
+                {
+                    case 'n':  sb.Append('\n'); break;
+                    case 't':  sb.Append('\t'); break;
+                    case '\\': sb.Append('\\'); break;
+                    case '"':  sb.Append('"');  break;
+                    case '\'': sb.Append('\''); break;
+                    default:
+                        sb.Append('\\').Append(esc);
+                        break;
+                }
+                pos += 2;
+            }
+            else
+            {
+                sb.Append(line[pos]);
+                pos++;
+            }
+        }
+
+        if (pos >= line.Length)
+        {
+            errors.Add(new LangError(lineNo,
+                $"this string started with '{quote}' but never closed — add a matching '{quote}' at the end."));
+            tokens.Add(new Token(TokenType.String, sb.ToString(), lineNo));
+            return pos;
+        }
+
+        tokens.Add(new Token(TokenType.String, sb.ToString(), lineNo));
+        return pos + 1; // skip closing quote
+    }
+
     static TokenType KeywordType(string word)
     {
         switch (word)
         {
-            case "while": return TokenType.KeywordWhile;
-            case "if":    return TokenType.KeywordIf;
-            case "else":  return TokenType.KeywordElse;
-            case "not":   return TokenType.KeywordNot;
+            case "while":  return TokenType.KeywordWhile;
+            case "if":     return TokenType.KeywordIf;
+            case "elif":   return TokenType.KeywordElif;
+            case "else":   return TokenType.KeywordElse;
+            case "for":    return TokenType.KeywordFor;
+            case "repeat": return TokenType.KeywordRepeat;
+            case "def":    return TokenType.KeywordDef;
+            case "return": return TokenType.KeywordReturn;
+            case "break":  return TokenType.KeywordBreak;
+            case "continue":return TokenType.KeywordContinue;
+            case "not":    return TokenType.KeywordNot;
+            case "and":    return TokenType.KeywordAnd;
+            case "or":     return TokenType.KeywordOr;
+            case "in":     return TokenType.KeywordIn;
+            case "True":   return TokenType.KeywordTrue;
+            case "False":  return TokenType.KeywordFalse;
+            case "None":   return TokenType.KeywordNone;
             default:      return TokenType.Identifier;
         }
     }
