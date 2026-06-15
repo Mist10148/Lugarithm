@@ -11,6 +11,11 @@ public static class DialogueLibrary
 {
     public static DialogueConversation ForLevel(int levelIndex)
     {
+        return Get(levelIndex);
+    }
+
+    public static DialogueConversation Get(int levelIndex)
+    {
         switch (levelIndex)
         {
             case 0: return Tutorial();

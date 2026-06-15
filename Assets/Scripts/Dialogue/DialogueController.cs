@@ -27,12 +27,14 @@ public class DialogueController : MonoBehaviour
     public event Action<DialogueEventKind, string> OnEvent;
 
     DialogueRuntime _runtime;
+    DialogueConversation _conversation;
     Action          _onFinished;
     Action          _onRevealDone;
     bool            _waitingForRevealAdvance;
     bool            _revealingJournalCard;
     bool            _subscribedToSettings;
     bool            _choiceClickedThisFrame;
+    bool            _awaitingRephrase;
 
     // Reusable choice button pool.
     readonly List<Button> _activeChoices = new List<Button>();
@@ -59,6 +61,7 @@ public class DialogueController : MonoBehaviour
     void Update()
     {
         if (_runtime == null || _runtime.IsFinished) return;
+        if (_awaitingRephrase) return;
 
         if (_choiceClickedThisFrame)
         {
@@ -110,6 +113,7 @@ public class DialogueController : MonoBehaviour
     /// </summary>
     public void Play(DialogueConversation convo, Action onFinished)
     {
+        _conversation = convo;
         _onFinished = onFinished;
         _runtime = new DialogueRuntime(convo);
         _runtime.Begin();
@@ -126,6 +130,7 @@ public class DialogueController : MonoBehaviour
     /// </summary>
     public void PlayReveal(DialogueConversation convo, JournalPageDefinition page, Action onDone)
     {
+        _conversation = convo;
         _onRevealDone = onDone;
         _runtime = new DialogueRuntime(convo);
         _runtime.Begin();
@@ -227,7 +232,7 @@ public class DialogueController : MonoBehaviour
         if (_runtime.Current != null)
         {
             ClearChoices();
-            ShowLine(_runtime.Current);
+            ShowLine(_runtime.Current, _runtime.CurrentNodeId);
         }
     }
 
@@ -242,10 +247,41 @@ public class DialogueController : MonoBehaviour
             RefreshView(); // will finish
     }
 
-    void ShowLine(DialogueLine line)
+    void ShowLine(DialogueLine line, string nodeId)
     {
+        if (dialogBox == null) return;
+
+        bool isRevisit = _runtime != null &&
+                         _runtime.HasVisited(nodeId) &&
+                         _runtime.CurrentNode != null &&
+                         (_runtime.CurrentNode.kind == DialogueNodeKind.Line ||
+                          _runtime.CurrentNode.kind == DialogueNodeKind.Branch);
+
+        if (isRevisit)
+        {
+            dialogBox.Show(line.speaker, "...");
+            var pax = _conversation != null ? PassengerLibrary.Get(_conversation.passengerId) : null;
+            if (pax != null)
+                StartCoroutine(RephraseLine(line, pax));
+            return;
+        }
+
+        dialogBox.Show(line.speaker, line.text);
+    }
+
+    IEnumerator RephraseLine(DialogueLine line, PassengerDefinition pax)
+    {
+        _awaitingRephrase = true;
+
+        string prompt = LivingStoryService.BuildPrompt(
+            line.text, pax, SaveSystem.Current.currentLevelIndex);
+        string result = null;
+        yield return GeminiClient.Ask(prompt, r => result = r);
+
         if (dialogBox != null)
-            dialogBox.Show(line.speaker, line.text);
+            dialogBox.Show(line.speaker, result ?? line.text);
+
+        _awaitingRephrase = false;
     }
 
     void FirePendingEvent()
@@ -322,7 +358,7 @@ public class DialogueController : MonoBehaviour
         if (_revealLineIndex < _runtime.Conversation.revealLines.Length)
         {
             DialogueLine line = _runtime.Conversation.revealLines[_revealLineIndex];
-            ShowLine(line);
+            ShowLine(line, "__REVEAL__");
             if (revealBody != null)
                 revealBody.text = $"<color=#EAEADC>{line.text}</color>";
         }

@@ -11,6 +11,7 @@ public class DialogueRuntime
 {
     readonly DialogueConversation _conversation;
     readonly HashSet<string>      _heard = new HashSet<string>();
+    readonly HashSet<string>      _visited = new HashSet<string>();
     readonly HashSet<string>      _affinityConsumed = new HashSet<string>();
 
     DialogueNode _currentNode;
@@ -138,8 +139,17 @@ public class DialogueRuntime
     /// <summary>True if the player has already visited the given node id.</summary>
     public bool HasHeard(string nodeId) => _heard.Contains(nodeId);
 
+    /// <summary>True if the player has already left the given node id.</summary>
+    public bool HasVisited(string nodeId) => _visited.Contains(nodeId);
+
     /// <summary>Node ids that have been heard so far (read-only snapshot).</summary>
     public IEnumerable<string> HeardNodes => _heard.ToArray();
+
+    /// <summary>Node ids that have been fully visited (left) at least once.</summary>
+    public IEnumerable<string> VisitedNodes => _visited.ToArray();
+
+    /// <summary>The current node being visited.</summary>
+    public DialogueNode CurrentNode => _currentNode;
 
     // -------------------------------------------------------------------------
 
@@ -151,6 +161,10 @@ public class DialogueRuntime
             Current = null;
             return;
         }
+
+        // Mark the node we are leaving as visited before switching.
+        if (_currentNode != null)
+            _visited.Add(_currentNode.id);
 
         CurrentNodeId = nodeId;
         _currentNode = node;

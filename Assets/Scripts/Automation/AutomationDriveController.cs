@@ -63,6 +63,13 @@ public class AutomationDriveController : MonoBehaviour
     [Header("Dialogue")]
     [SerializeField] private DialogueController dialogue;
 
+    [Header("Co-Pilot Hints")]
+    [SerializeField] private Button   hintButton;
+    [SerializeField] private TMP_Text hintLabel;
+
+    [Header("Vibe Coding")]
+    [SerializeField] private VibeCodingController vibeCtrl;
+
     // -------------------------------------------------------------------------
 
     LevelDefinition _level;
@@ -71,6 +78,7 @@ public class AutomationDriveController : MonoBehaviour
     bool _codeTabActive;
     bool _lastRunWasCode;
     int  _runCount;
+    int  _hintTier;
     int  _lastExecutedLine;
     int  _townPuzzleBonus;
     float _startTime;
@@ -132,6 +140,15 @@ public class AutomationDriveController : MonoBehaviour
         if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, console);
         if (palette     != null) palette.Init(_def.allowedBlocks, blockCanvas);
         if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold);
+
+        if (vibeCtrl != null && codeEditor != null)
+            vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
+
+        if (hintButton != null)
+        {
+            hintButton.gameObject.SetActive(false);
+            hintButton.onClick.AddListener(OnHintRequested);
+        }
 
         bool blockMode = SaveSystem.Current.settings.blockMode;
         SetTab(codeActive: !blockMode);
@@ -292,6 +309,9 @@ public class AutomationDriveController : MonoBehaviour
         _runCount++;
         _lastExecutedLine = 0;
 
+        if (_runCount >= 3 && hintButton != null)
+            hintButton.gameObject.SetActive(true);
+
         if (console != null)
         {
             console.Clear();
@@ -320,6 +340,35 @@ public class AutomationDriveController : MonoBehaviour
     {
         if (exec != null) exec.SetSpeed(speed);
         if (console != null) console.Info($"speed ×{speed:0}");
+    }
+
+    // -------------------------------------------------------------------------
+    // Co-Pilot hints
+
+    public void OnHintRequested()
+    {
+        DialogueConversation conv = DialogueLibrary.Get(_levelIndex);
+        if (conv == null || conv.assistHints.Length == 0) return;
+
+        int idx  = Mathf.Min(_hintTier, conv.assistHints.Length - 1);
+        var hint = conv.assistHints[idx];
+        var pax  = PassengerLibrary.Get(conv.passengerId);
+        if (pax == null) return;
+
+        _hintTier = Mathf.Min(_hintTier + 1, conv.assistHints.Length - 1);
+        StartCoroutine(FetchHint(hint.text, pax, idx));
+    }
+
+    IEnumerator FetchHint(string authoredText, PassengerDefinition pax, int tier)
+    {
+        if (hintLabel != null) hintLabel.text = "...";
+
+        string prompt = CopilotHintService.BuildPrompt(authoredText, pax, tier);
+        string result = null;
+        yield return GeminiClient.Ask(prompt, r => result = r);
+
+        if (hintLabel != null)
+            hintLabel.text = result ?? authoredText;
     }
 
     // -------------------------------------------------------------------------

@@ -131,6 +131,17 @@ public static class AutomationDriveSceneBuilder
                                              new Vector2(242f, 260f), new Vector2(-14f, -118f));
         CodeEditorController codeEditor = BuildCodeEditor(codePanel);
 
+        // Co-Pilot hint button + label (bottom-right of workspace)
+        Button hintBtn = UIFactory.CreateButton(workspace, "HintButton",
+                                                  "💡 Ask for a hint", new Vector2(200f, 40f), 20f);
+        UIFactory.Place(hintBtn, new Vector2(1f, 0f), new Vector2(-120f, 60f), new Vector2(200f, 40f));
+        hintBtn.image.color = UIFactory.Accent;
+        hintBtn.gameObject.SetActive(false);
+
+        TMP_Text hintLbl = UIFactory.CreateText(workspace, "HintLabel", "", 20f, UIFactory.TextDim);
+        UIFactory.Place(hintLbl, new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(600f, 60f));
+        hintLbl.enableWordWrapping = true;
+
         // Monitor + console (bottom of workspace)
         var monitorLine = UIFactory.CreatePanel(workspace, "Monitor",
                                                 new Vector2(0f, 0f), new Vector2(1f, 0f),
@@ -158,6 +169,9 @@ public static class AutomationDriveSceneBuilder
         FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
         DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(canvas.transform);
+
+        // Vibe Coding / Autopilot floating chat window.
+        VibeCodingController vibeCtrl = BuildVibeCodingWindow((RectTransform)canvas.transform);
 
         // --- Orchestrator -------------------------------------------------------------------
 
@@ -189,6 +203,9 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "flowPuzzle",     flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",    cratePuzzle);
         SceneBuilderUtil.Wire(controller, "dialogue",       dialogue);
+        SceneBuilderUtil.Wire(controller, "hintButton",     hintBtn);
+        SceneBuilderUtil.Wire(controller, "hintLabel",      hintLbl);
+        SceneBuilderUtil.Wire(controller, "vibeCtrl",       vibeCtrl);
 
         SceneBuilderUtil.SaveScene(scene, "AutomationDrive");
     }
@@ -266,6 +283,54 @@ public static class AutomationDriveSceneBuilder
                                            out RectTransform content);
         editor = BuildCodeEditor(content);
         return window;
+    }
+
+    /// <summary>VS Code Copilot-style floating chat that generates automation code.</summary>
+    internal static VibeCodingController BuildVibeCodingWindow(RectTransform parent)
+    {
+        RectTransform content;
+        RectTransform windowRoot = BuildWindow(parent, "VibeCodingWindow", "✦ AI COPILOT", out content);
+        UIFactory.Place(windowRoot, new Vector2(1f, 1f), new Vector2(-20f, -20f), new Vector2(420f, 500f));
+
+        // Make the title bar draggable.
+        var titleBar = windowRoot.Find("TitleBar") as RectTransform;
+        if (titleBar != null)
+        {
+            var drag = titleBar.gameObject.AddComponent<DragWindowHandle>();
+            SceneBuilderUtil.Wire(drag, "windowRoot", windowRoot.gameObject);
+        }
+
+        // Chat history (scrollable, fills top of window).
+        ScrollRect scroll = UIFactory.CreateScrollView(content, "ChatHistory",
+                                                       Vector2.zero, Vector2.one,
+                                                       out RectTransform chatContent);
+        UIFactory.Place(scroll, new Vector2(0f, 1f), new Vector2(0f, -8f), new Vector2(0f, -80f));
+        scroll.vertical = true;
+
+        TMP_Text historyLabel = UIFactory.CreateText(chatContent, "History", "", 18f, UIFactory.TextDim,
+                                                     TextAlignmentOptions.TopLeft);
+        historyLabel.enableWordWrapping = true;
+
+        // Input row at the bottom.
+        TMP_InputField inputField = UIFactory.CreateMultilineInput(content, "ChatInput",
+                                                                   new Vector2(0f, 0f), new Vector2(1f, 0f), 20f);
+        inputField.lineType = TMP_InputField.LineType.SingleLine;
+        UIFactory.Place(inputField.GetComponent<RectTransform>(),
+                        new Vector2(0f, 0f), new Vector2(45f, 10f), new Vector2(-90f, 44f));
+        inputField.placeholder.GetComponent<TMP_Text>().text = "Describe what you want the jeepney to do...";
+
+        Button sendBtn = UIFactory.CreateButton(content, "SendBtn", "▶", new Vector2(70f, 44f), 24f);
+        UIFactory.Place(sendBtn.GetComponent<RectTransform>(),
+                        new Vector2(1f, 0f), new Vector2(-10f, 10f), new Vector2(70f, 44f));
+        sendBtn.image.color = UIFactory.Accent;
+
+        // Wire controller.
+        var vibeCtrl = windowRoot.gameObject.AddComponent<VibeCodingController>();
+        SceneBuilderUtil.Wire(vibeCtrl, "chatInput",    inputField.gameObject);
+        SceneBuilderUtil.Wire(vibeCtrl, "historyLabel", historyLabel.gameObject);
+        SceneBuilderUtil.Wire(vibeCtrl, "sendButton",   sendBtn.gameObject);
+
+        return vibeCtrl;
     }
 
     // -------------------------------------------------------------------------

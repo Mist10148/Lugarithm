@@ -14,7 +14,7 @@ using TMPro;
 public class CodeEditorController : MonoBehaviour
 {
     [Header("References")]
-    [SerializeField] private TMP_InputField input;
+    [SerializeField] public TMP_InputField input;
     [SerializeField] private TMP_Text lineNumbers;
     [SerializeField] private TMP_Text highlight;
     [SerializeField] private TMP_Text lintLabel;
@@ -152,7 +152,7 @@ public class CodeEditorController : MonoBehaviour
         }
     }
 
-    void RefreshLineNumbers()
+    public void RefreshLineNumbers()
     {
         if (lineNumbers == null || input == null) return;
 
@@ -172,7 +172,7 @@ public class CodeEditorController : MonoBehaviour
         lineNumbers.text = sb.ToString();
     }
 
-    void RefreshHighlight()
+    public void RefreshHighlight()
     {
         if (highlight == null || input == null) return;
         highlight.text = Colorize(input.text);
