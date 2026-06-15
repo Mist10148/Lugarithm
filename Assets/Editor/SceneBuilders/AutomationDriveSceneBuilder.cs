@@ -516,7 +516,11 @@ public static class AutomationDriveSceneBuilder
         optimalText.rectTransform.offsetMax = new Vector2(-12f, -8f);
 
         var stats = UIFactory.CreateText(window, "Stats", "", 24f, UIFactory.Accent);
-        UIFactory.Place(stats, new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(1100f, 40f));
+        UIFactory.Place(stats, new Vector2(0.5f, 0f), new Vector2(0f, 140f), new Vector2(1100f, 40f));
+
+        var mentor = UIFactory.CreateText(window, "MentorLabel", "...", 20f, UIFactory.TextDim);
+        UIFactory.Place(mentor, new Vector2(0.5f, 0f), new Vector2(0f, 93f), new Vector2(1100f, 48f));
+        mentor.enableWordWrapping = true;
 
         Button cont = UIFactory.CreateButton(window, "ContinueButton", "Continue", new Vector2(240f, 58f));
         UIFactory.Place(cont, new Vector2(0.5f, 0f), new Vector2(130f, 30f), new Vector2(240f, 58f));
@@ -531,6 +535,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(panel, "playerSolutionLabel",  playerText);
         SceneBuilderUtil.Wire(panel, "optimalSolutionLabel", optimalText);
         SceneBuilderUtil.Wire(panel, "statsLabel",           stats);
+        SceneBuilderUtil.Wire(panel, "mentorLabel",          mentor);
         SceneBuilderUtil.Wire(panel, "continueButton",       cont);
         SceneBuilderUtil.Wire(panel, "replayButton",         replay);
 

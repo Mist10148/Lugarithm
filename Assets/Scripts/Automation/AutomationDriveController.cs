@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -463,11 +464,28 @@ public class AutomationDriveController : MonoBehaviour
                         LoadScene("LevelSelect");
                 },
                 onReplay: () => LoadScene(SceneManager.GetActiveScene().name));
+
+            StartCoroutine(FetchMentorFeedback(playerSolution, sim.StepsUsed, retries));
         }
         else
         {
             LoadScene("LevelSelect");
         }
+    }
+
+    IEnumerator FetchMentorFeedback(string playerSol, int steps, int retries)
+    {
+        string concept = JournalPageLibrary.Pages[_levelIndex].codingConceptName;
+        string prompt  = CodingMentorService.BuildPrompt(
+            _level.displayName, concept, steps, _def.parSteps,
+            retries, _lastRunWasCode, playerSol, _def.optimalSolutionText);
+
+        string response = null;
+        yield return GeminiClient.Ask(prompt, r => response = r);
+
+        if (results != null)
+            results.SetMentorResponse(response
+                ?? "Keep experimenting — every attempt teaches you something new!");
     }
 
     void LoadScene(string sceneName)

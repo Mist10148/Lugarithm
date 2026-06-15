@@ -4,9 +4,9 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Post-puzzle analytics stub (full AI mentor lands in Phase 5): the player's
-/// solution and the optimal one side-by-side, score/time/currency, and
-/// Continue / Replay.
+/// Post-puzzle results panel: the player's solution and the optimal one
+/// side-by-side, score/time/currency, a Gemini-powered mentor explanation,
+/// and Continue / Replay.
 /// </summary>
 public class AutomationResultsPanel : MonoBehaviour
 {
@@ -16,6 +16,7 @@ public class AutomationResultsPanel : MonoBehaviour
     [SerializeField] private TMP_Text playerSolutionLabel;
     [SerializeField] private TMP_Text optimalSolutionLabel;
     [SerializeField] private TMP_Text statsLabel;
+    [SerializeField] private TMP_Text mentorLabel;
     [SerializeField] private Button   continueButton;
     [SerializeField] private Button   replayButton;
 
@@ -44,7 +45,13 @@ public class AutomationResultsPanel : MonoBehaviour
         if (playerSolutionLabel  != null) playerSolutionLabel.text  = playerSolution;
         if (optimalSolutionLabel != null) optimalSolutionLabel.text = optimalSolution;
         if (statsLabel           != null) statsLabel.text           = stats;
+        if (mentorLabel          != null) mentorLabel.text          = "...";
         if (root                 != null) root.SetActive(true);
+    }
+
+    public void SetMentorResponse(string text)
+    {
+        if (mentorLabel != null) mentorLabel.text = text;
     }
 
     public void Hide()
