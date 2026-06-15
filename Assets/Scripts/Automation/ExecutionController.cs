@@ -112,6 +112,29 @@ public class ExecutionController : MonoBehaviour
             while (State == ExecState.Paused)
                 yield return null;
 
+            // A navigation macro (driveToNextStop / driveToDestination) plans a
+            // path into the sim's move queue; drain it one cell per visual step so
+            // the self-driving jeepney animates like real driving.
+            if (_sim != null && _sim.HasPendingMoves)
+            {
+                AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
+                OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
+
+                float moveDuration = baseStepSeconds / Speed;
+                if (_view != null)
+                    yield return _view.PlayAction(moveResult, moveDuration);
+                else
+                    yield return new WaitForSeconds(moveDuration);
+
+                if (_sim.IsWin(_def))
+                {
+                    State = ExecState.Finished;
+                    OnFinished?.Invoke(true);
+                    yield break;
+                }
+                continue;
+            }
+
             StepResult step = _vm.Step(_sim);
 
             if (step.RuntimeError != null)

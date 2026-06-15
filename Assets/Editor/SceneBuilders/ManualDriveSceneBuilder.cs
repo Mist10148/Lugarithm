@@ -88,8 +88,21 @@ public static class ManualDriveSceneBuilder
 
         var controllerGo = new GameObject("DriveController");
         var controller = controllerGo.AddComponent<ManualDriveController>();
-        controllerGo.AddComponent<PassengerManager>();
+        var passengerMgr = controllerGo.AddComponent<PassengerManager>();
         controllerGo.AddComponent<BreakdownController>();
+
+        // Dulog highlighting (color-coded markers + edge-of-screen arrows).
+        var edgeParent = UIFactory.CreateRect(canvas.transform, "DulogEdgeLayer",
+                                              Vector2.zero, Vector2.one);
+        edgeParent.offsetMin = Vector2.zero;
+        edgeParent.offsetMax = Vector2.zero;
+
+        var dulogGo = new GameObject("DulogMarkers");
+        var dulog = dulogGo.AddComponent<DulogMarkerController>();
+        SceneBuilderUtil.Wire(dulog, "cam",             cam);
+        SceneBuilderUtil.Wire(dulog, "jeepney",         jeepneyGo.transform);
+        SceneBuilderUtil.Wire(dulog, "passengers",      passengerMgr);
+        SceneBuilderUtil.Wire(dulog, "edgeArrowParent", edgeParent);
 
         SceneBuilderUtil.Wire(controller, "jeepney",      jeepney);
         SceneBuilderUtil.Wire(controller, "cameraFollow", follow);
@@ -104,6 +117,7 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
         SceneBuilderUtil.Wire(controller, "dialogue",     dialogue);
+        SceneBuilderUtil.Wire(controller, "dulogMarkers", dulog);
 
         SceneBuilderUtil.SaveScene(scene, "ManualDrive");
     }

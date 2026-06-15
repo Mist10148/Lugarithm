@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -35,11 +36,19 @@ public class ManualDriveController : MonoBehaviour
     [Header("Dialogue")]
     [SerializeField] private DialogueController dialogue;
 
+    [Header("Procedural town")]
+    [SerializeField] private DulogMarkerController dulogMarkers;
+    [Tooltip("Seed for the per-run town; negative = fresh random each play.")]
+    [SerializeField] private int proceduralSeed = -1;
+
     // -------------------------------------------------------------------------
 
     LevelDefinition   _def;
     int               _levelIndex;
     RouteContext      _ctx;
+    bool              _proceduralActive;
+    List<RoadSegment> _segments;
+    Dictionary<int, List<PassengerManager.PendingBoard>> _pendingBoarding;
     DriveScoreTracker _tracker;
     PassengerManager  _passengers;
     BreakdownController _breakdown;
@@ -62,11 +71,33 @@ public class ManualDriveController : MonoBehaviour
         if (GameManager.Instance != null)
             GameManager.Instance.PendingCurrency = 0;   // fresh leg ledger
 
-        // World
-        _ctx = RouteVisualBuilder.Build(worldRoot != null ? worldRoot : transform, _def.manual);
+        // World — procedural town when the level opts in, else the authored route.
+        Transform root = worldRoot != null ? worldRoot : transform;
+        _proceduralActive = _def.procedural != null && _def.procedural.enabled;
 
-        Vector2 start     = _def.manual.waypoints[0];
-        Vector2 direction = RouteMath.DirectionAt(_def.manual.waypoints, 0.1f);
+        Vector2[] driveLine;
+        if (_proceduralActive)
+        {
+            int seed = proceduralSeed >= 0
+                ? proceduralSeed
+                : (System.Guid.NewGuid().GetHashCode() & 0x7fffffff);
+            TownLayout layout = TownLayoutGenerator.Generate(_def.procedural, _def.fares, seed);
+            ManualLayoutResult projected = ManualLayoutProjector.Project(layout);
+
+            _ctx       = RouteVisualBuilder.BuildProcedural(root, projected, _def.manual.roadHalfWidth);
+            _segments  = _ctx.Segments;
+            driveLine  = projected.trunk;
+
+            BuildProceduralPassengers(layout, projected);
+        }
+        else
+        {
+            _ctx      = RouteVisualBuilder.Build(root, _def.manual);
+            driveLine = _def.manual.waypoints;
+        }
+
+        Vector2 start     = driveLine[0];
+        Vector2 direction = RouteMath.DirectionAt(driveLine, 0.1f);
         float angle = Vector2.SignedAngle(Vector2.up, direction);
         jeepney.TeleportTo(start, angle);
 
@@ -85,6 +116,8 @@ public class ManualDriveController : MonoBehaviour
             _passengers.SetFareTable(_def.fares);
             _passengers.Init(jeepney, coinDrawer, hud, toast, _tracker, _def.manual, _ctx,
                              seed: 1000 + _levelIndex);
+            if (_proceduralActive)
+                _passengers.ConfigureProcedural(_pendingBoarding);
         }
 
         _breakdown = GetComponent<BreakdownController>();
@@ -99,6 +132,48 @@ public class ManualDriveController : MonoBehaviour
             toast.Show($"{_def.displayName}:  drive to {_ctx.DestinationZone.StopName} — stop at the signs for passengers");
 
         PlayBoardingDialogue();
+    }
+
+    /// <summary>
+    /// Turns the layout's committed rides into a per-stop boarding plan and spawns
+    /// waiting peeps tinted to match each rider (peep ↔ ribbon chip ↔ dulog marker).
+    /// </summary>
+    void BuildProceduralPassengers(TownLayout layout, ManualLayoutResult projected)
+    {
+        _pendingBoarding = new Dictionary<int, List<PassengerManager.PendingBoard>>();
+
+        var ordinalOf = new Dictionary<int, int>();
+        for (int i = 0; i < projected.stops.Count; i++)
+            ordinalOf[projected.stops[i].id] = i;
+
+        foreach (PassengerRequest req in layout.requests)
+        {
+            if (!ordinalOf.TryGetValue(req.originNodeId, out int o)) continue;
+            if (!ordinalOf.TryGetValue(req.destNodeId, out int d)) continue;
+
+            if (!_pendingBoarding.TryGetValue(o, out List<PassengerManager.PendingBoard> lst))
+            {
+                lst = new List<PassengerManager.PendingBoard>();
+                _pendingBoarding[o] = lst;
+            }
+            lst.Add(new PassengerManager.PendingBoard
+            {
+                color       = req.color,
+                destOrdinal = d,
+                destName    = projected.stops[d].name,
+                fare        = req.fare,
+                tender      = req.tender,
+            });
+        }
+
+        foreach (var kv in _pendingBoarding)
+        {
+            StopZone zone = _ctx.Zones[kv.Key];
+            var colors = new List<Color>();
+            foreach (PassengerManager.PendingBoard b in kv.Value) colors.Add(b.color);
+            zone.SpawnWaitingPeeps(colors,
+                new Vector2(_def.manual.roadHalfWidth + 2.1f, -0.8f), Vector2.right);
+        }
     }
 
     void PlayBoardingDialogue()
@@ -153,8 +228,13 @@ public class ManualDriveController : MonoBehaviour
         if (_finished || _ctx == null) return;
 
         // Route progress drives off-road detection and the breakdown trigger.
+        // Progress (and the breakdown point) is always measured along the trunk;
+        // off-road, for the procedural town, is distance to the nearest road
+        // segment so a short detour onto a branch stub still counts as on-road.
         float offRoute;
         float along = RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out offRoute);
+        if (_proceduralActive && _segments != null)
+            offRoute = RouteMath.NearestDistanceToGraph(_segments, jeepney.transform.position);
         jeepney.OffRoad = offRoute > _def.manual.roadHalfWidth + 0.8f;
 
         if (_breakdown != null)

@@ -22,10 +22,35 @@ public class AgentActionResult
 }
 
 /// <summary>
+/// One committed ride on the grid: the cell a passenger boards at, the dulog
+/// cell they want to alight at, and the fare. Used by the procedural town and
+/// the self-driving agent so passengers have individual destinations rather than
+/// the single generic 'D'. Maps 1:1 from a <see cref="PassengerRequest"/>.
+/// </summary>
+public class GridRide
+{
+    public int        id;
+    public Vector2Int origin;
+    public Vector2Int dest;
+    public int        fare;
+    public Color      color;
+
+    public bool aboard;
+    public bool delivered;
+    public bool paid;
+}
+
+/// <summary>
 /// The deterministic jeepney simulation for Automation Mode — the single
 /// source of truth for gameplay semantics. The view layer animates whatever
 /// this says happened, and the EditMode tests drive it directly.
 /// Implements <see cref="IAgentApi"/> so the interpreter can ask it questions.
+///
+/// Two passenger modes: the default generic-stop mode (every 'P' is a passenger
+/// bound for 'D') and an opt-in ride mode (<see cref="LoadRides"/>) where each
+/// passenger has an individual dulog cell — used by the procedural town and the
+/// self-driving agent. The default path is unchanged so existing puzzles behave
+/// exactly as before.
 /// </summary>
 public class AgentSim : IAgentApi
 {
@@ -58,7 +83,30 @@ public class AgentSim : IAgentApi
     /// <summary>Pesos collected via collectFare().</summary>
     public int FaresCollected { get; private set; }
 
-    public int RemainingWaiting => _waiting.Count;
+    public int RemainingWaiting => _rides != null ? CountRemainingRides() : _waiting.Count;
+
+    // Ride mode (procedural town / self-driving) and the nav-macro move queue.
+    List<GridRide> _rides;
+    readonly Queue<string> _pending = new Queue<string>();
+
+    /// <summary>Per-passenger rides, or null in generic-stop mode.</summary>
+    public IReadOnlyList<GridRide> Rides => _rides;
+
+    /// <summary>Pending primitive moves from a nav macro, drained one per visual step.</summary>
+    public bool HasPendingMoves => _pending.Count > 0;
+    public string DequeueMove() => _pending.Dequeue();
+
+    /// <summary>
+    /// Switches to ride mode: each passenger boards at <see cref="GridRide.origin"/>
+    /// and alights at their own <see cref="GridRide.dest"/>. Replaces the generic
+    /// 'P'→'D' stops.
+    /// </summary>
+    public void LoadRides(List<GridRide> rides)
+    {
+        _rides = rides;
+        _waiting.Clear();
+        ResetRides();
+    }
 
     // -------------------------------------------------------------------------
 
@@ -81,9 +129,36 @@ public class AgentSim : IAgentApi
         UnpaidFares         = 0;
         FaresCollected      = 0;
 
+        _pending.Clear();
+
+        if (_rides != null)
+        {
+            ResetRides();
+            return;   // ride mode ignores the generic stop set
+        }
+
         _waiting.Clear();
         foreach (Vector2Int stop in _grid.StopCells)
             _waiting.Add(stop);
+    }
+
+    void ResetRides()
+    {
+        if (_rides == null) return;
+        foreach (GridRide ride in _rides)
+        {
+            ride.aboard    = false;
+            ride.delivered = false;
+            ride.paid      = false;
+        }
+    }
+
+    int CountRemainingRides()
+    {
+        int n = 0;
+        foreach (GridRide ride in _rides)
+            if (!ride.delivered && !ride.aboard) n++;
+        return n;
     }
 
     // -------------------------------------------------------------------------
@@ -130,6 +205,7 @@ public class AgentSim : IAgentApi
                 break;
 
             case "pickUp":
+                if (_rides != null) { PickUpRides(r); break; }
                 if (_waiting.Remove(Position))
                 {
                     PassengersAboard++;
@@ -143,6 +219,7 @@ public class AgentSim : IAgentApi
                 break;
 
             case "dropOff":
+                if (_rides != null) { DropOffRides(r); break; }
                 if (PassengersAboard == 0)
                 {
                     r.Warning = "no passengers aboard.";
@@ -161,6 +238,7 @@ public class AgentSim : IAgentApi
                 break;
 
             case "collectFare":
+                if (_rides != null) { CollectRideFares(r); break; }
                 if (UnpaidFares > 0)
                 {
                     int amount      = UnpaidFares * FareMath.ComputeFare(1, _fares);
@@ -174,12 +252,108 @@ public class AgentSim : IAgentApi
                 }
                 break;
 
+            case "driveToNextStop":
+            {
+                Vector2Int? stop = NearestRelevantStop();
+                if (stop == null) r.Warning = "no stop left to drive to.";
+                else EnqueuePathTo(stop.Value, r);
+                break;
+            }
+
+            case "driveToDestination":
+                EnqueuePathTo(_grid.DestPos, r);
+                break;
+
             default:
                 r.Warning = $"unknown action '{action}'.";
                 break;
         }
 
         return r;
+    }
+
+    // -------------------------------------------------------------------------
+    // Ride-mode actions
+
+    void PickUpRides(AgentActionResult r)
+    {
+        bool boarded = false;
+        foreach (GridRide ride in _rides)
+            if (!ride.aboard && !ride.delivered && ride.origin == Position)
+            {
+                ride.aboard = true;
+                PassengersAboard++;
+                UnpaidFares++;
+                boarded = true;
+            }
+
+        if (boarded) r.PickedUp = true;
+        else         r.Warning = "no passenger is waiting here.";
+    }
+
+    void DropOffRides(AgentActionResult r)
+    {
+        int delivered = 0;
+        foreach (GridRide ride in _rides)
+            if (ride.aboard && ride.dest == Position)
+            {
+                ride.aboard    = false;
+                ride.delivered = true;
+                PassengersAboard--;
+                PassengersDelivered++;
+                delivered++;
+            }
+
+        if (delivered > 0) { r.DroppedOff = true; r.DeliveredCount = delivered; }
+        else if (PassengersAboard == 0) r.Warning = "no passengers aboard.";
+        else r.Warning = "nobody wants to get off here.";
+    }
+
+    void CollectRideFares(AgentActionResult r)
+    {
+        int amount = 0;
+        foreach (GridRide ride in _rides)
+            if (ride.aboard && !ride.paid) { amount += ride.fare; ride.paid = true; }
+
+        if (amount > 0)
+        {
+            FaresCollected += amount;
+            r.FareCollected = amount;
+            UnpaidFares     = 0;
+        }
+        else
+        {
+            r.Warning = "no fares to collect right now.";
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Navigation macros (high-level building blocks)
+
+    /// <summary>Nearest un-boarded pickup or aboard drop-off cell, by path length.</summary>
+    Vector2Int? NearestRelevantStop()
+    {
+        if (_rides == null) return null;
+
+        Vector2Int? best = null;
+        int bestLen = int.MaxValue;
+        foreach (GridRide ride in _rides)
+        {
+            if (ride.delivered) continue;
+            Vector2Int target = ride.aboard ? ride.dest : ride.origin;
+            List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target);
+            if (path == null) continue;
+            if (path.Count < bestLen) { bestLen = path.Count; best = target; }
+        }
+        return best;
+    }
+
+    void EnqueuePathTo(Vector2Int target, AgentActionResult r)
+    {
+        List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target);
+        if (path == null) { r.Warning = "can't find a road to there."; return; }
+        foreach (string move in GridPathfinder.ToActions(path, Facing))
+            _pending.Enqueue(move);
     }
 
     // -------------------------------------------------------------------------
@@ -194,8 +368,21 @@ public class AgentSim : IAgentApi
             case "rightIsClear":  return _grid.IsWalkable(Position + FacingDeltas[(Facing + 1) % 4]);
             case "atStop":        return _grid.Get(Position) == GridModel.Cell.Stop;
             case "atDestination": return Position == _grid.DestPos;
+            case "hasPassengerAboard": return PassengersAboard > 0;
+            case "atRequestedStop":    return AtRequestedStop();
             default:              return false;
         }
+    }
+
+    bool AtRequestedStop()
+    {
+        if (_rides != null)
+        {
+            foreach (GridRide ride in _rides)
+                if (ride.aboard && ride.dest == Position) return true;
+            return false;
+        }
+        return Position == _grid.DestPos && PassengersAboard > 0;
     }
 
     // -------------------------------------------------------------------------
@@ -205,8 +392,16 @@ public class AgentSim : IAgentApi
     public bool IsWin(AutomationPuzzleDefinition def)
     {
         if (Position != _grid.DestPos) return false;
+
         if (def != null && def.requireAllPassengersDelivered)
+        {
+            if (_rides != null)
+            {
+                foreach (GridRide ride in _rides) if (!ride.delivered) return false;
+                return true;
+            }
             return _waiting.Count == 0 && PassengersAboard == 0;
+        }
         return true;
     }
 
@@ -218,6 +413,13 @@ public class AgentSim : IAgentApi
 
         if (def != null && def.requireAllPassengersDelivered)
         {
+            if (_rides != null)
+            {
+                foreach (GridRide ride in _rides)
+                    if (!ride.delivered)
+                        return "A passenger still needs delivering to their stop — tend every rider before finishing at D.";
+                return null;
+            }
             if (_waiting.Count > 0)
                 return "A passenger is still waiting at a stop (P) — pickUp() when you're on their cell.";
             if (PassengersAboard > 0)

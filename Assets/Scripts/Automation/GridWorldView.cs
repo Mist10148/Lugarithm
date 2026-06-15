@@ -77,6 +77,15 @@ public class GridWorldView : MonoBehaviour
         }
     }
 
+    /// <summary>Tints the waiting peeps on the given stop cells (per-rider colors).</summary>
+    public void ColorStops(System.Collections.Generic.IEnumerable<
+                               System.Collections.Generic.KeyValuePair<Vector2Int, Color>> colors)
+    {
+        foreach (var pair in colors)
+            if (_stopMarkers.TryGetValue(pair.Key, out SpriteRenderer marker) && marker != null)
+                marker.color = pair.Value;
+    }
+
     /// <summary>Shows/hides the waiting peep on a stop (picked up / reset).</summary>
     public void SetStopOccupied(Vector2Int cell, bool occupied)
     {

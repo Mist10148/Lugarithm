@@ -16,6 +16,9 @@ public class ManualPassenger
     public bool FareSettled;
     public bool ParaCalled;     // "Para!" toast already shown for the upcoming stop
     public PassengerChip Chip;  // HUD ribbon chip assigned to this passenger
+
+    /// <summary>World position of this passenger's dulog (alight) stop — drives the marker.</summary>
+    public Vector3 TargetWorldPos;
 }
 
 /// <summary>
@@ -57,8 +60,32 @@ public class PassengerManager : MonoBehaviour
     bool _busyServicing;
     int  _nameCursor;
 
+    // Procedural town: committed boarding plan keyed by stop ordinal.
+    bool _procedural;
+    Dictionary<int, List<PendingBoard>> _boardingByStop;
+
+    /// <summary>One committed ordinary-passenger ride waiting to board at a stop.</summary>
+    public class PendingBoard
+    {
+        public Color  color;
+        public int    destOrdinal;
+        public string destName;
+        public int    fare;
+        public int    tender;
+    }
+
     public int  AboardCount => _aboard.Count;
     public bool IsServicing => _busyServicing;
+
+    /// <summary>Live list of passengers aboard — read by the dulog markers.</summary>
+    public IReadOnlyList<ManualPassenger> AboardPassengers => _aboard;
+
+    /// <summary>Switches boarding to the committed procedural plan (dulog targets).</summary>
+    public void ConfigureProcedural(Dictionary<int, List<PendingBoard>> boardingByStop)
+    {
+        _procedural     = true;
+        _boardingByStop = boardingByStop;
+    }
 
     /// <summary>True once the jeepney has finished servicing the destination stop.</summary>
     public bool ArrivedAtDestination { get; private set; }
@@ -180,7 +207,7 @@ public class PassengerManager : MonoBehaviour
             _aboard.Add(passenger);
 
             if (_hud != null)
-                passenger.Chip = _hud.ClaimChip($"{passenger.Name} → {passenger.DestName}", tint);
+                passenger.Chip = _hud.ClaimChip($"{passenger.Name} → {passenger.DestName}", passenger.Tint);
 
             if (_drawer != null)
                 _drawer.Enqueue(passenger);
@@ -197,6 +224,28 @@ public class PassengerManager : MonoBehaviour
 
     ManualPassenger CreatePassenger(StopZone origin, Color tint)
     {
+        // Procedural town: pull the committed ride (dulog target chosen at
+        // generation) instead of rolling a random destination.
+        if (_procedural && _boardingByStop != null &&
+            _boardingByStop.TryGetValue(origin.StopIndex, out List<PendingBoard> waiting) &&
+            waiting.Count > 0)
+        {
+            PendingBoard board = waiting[waiting.Count - 1];   // LIFO, matches TakeWaitingPeep
+            waiting.RemoveAt(waiting.Count - 1);
+
+            return new ManualPassenger
+            {
+                Name           = PeepNames[_nameCursor++ % PeepNames.Length],
+                OriginStop     = origin.StopIndex,
+                DestStop       = board.destOrdinal,
+                DestName       = board.destName,
+                Fare           = board.fare,
+                Tender         = board.tender,
+                Tint           = board.color,
+                TargetWorldPos = _ctx.Zones[board.destOrdinal].transform.position,
+            };
+        }
+
         int destIndex = PickDestination(origin.StopIndex);
         int stopsTraveled = Mathf.Max(1, destIndex - origin.StopIndex);
 
@@ -205,13 +254,14 @@ public class PassengerManager : MonoBehaviour
 
         return new ManualPassenger
         {
-            Name       = PeepNames[_nameCursor++ % PeepNames.Length],
-            OriginStop = origin.StopIndex,
-            DestStop   = destIndex,
-            DestName   = _ctx.Zones[destIndex].StopName,
-            Fare       = fare,
-            Tender     = tender,
-            Tint       = tint,
+            Name           = PeepNames[_nameCursor++ % PeepNames.Length],
+            OriginStop     = origin.StopIndex,
+            DestStop       = destIndex,
+            DestName       = _ctx.Zones[destIndex].StopName,
+            Fare           = fare,
+            Tender         = tender,
+            Tint           = tint,
+            TargetWorldPos = _ctx.Zones[destIndex].transform.position,
         };
     }
 

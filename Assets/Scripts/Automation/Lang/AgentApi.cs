@@ -10,11 +10,15 @@ public static class AgentApi
     public static readonly string[] Actions =
     {
         "moveForward", "turnLeft", "turnRight", "pickUp", "dropOff", "collectFare",
+        // High-level navigation building blocks (self-driving): each plans a path
+        // and the jeepney drives it cell-by-cell.
+        "driveToNextStop", "driveToDestination",
     };
 
     public static readonly string[] Queries =
     {
         "frontIsClear", "leftIsClear", "rightIsClear", "atStop", "atDestination",
+        "hasPassengerAboard", "atRequestedStop",
     };
 
     // -------------------------------------------------------------------------

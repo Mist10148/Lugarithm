@@ -252,6 +252,40 @@ public static class LevelLibrary
                     new ManualStopDefinition { stopName = "Oton Market",   waypointIndex = 5, isDestination = true },
                 },
             },
+
+            // Per-run procedural town. Fixed anchors (terminals + heritage / NPC
+            // drops) pin to the authored trunk above; the generator hangs branch
+            // side-streets and ordinary-passenger rides around them. The authored
+            // manual/auto stay as the deterministic fallback (enabled = false).
+            procedural = new ProceduralLayoutDefinition
+            {
+                enabled = true,
+                trunk = new[]
+                {
+                    new Vector2(0f, 0f),
+                    new Vector2(0f, 28f),
+                    new Vector2(16f, 40f),
+                    new Vector2(16f, 70f),
+                    new Vector2(2f, 84f),
+                    new Vector2(2f, 112f),
+                },
+                anchors = new[]
+                {
+                    new AnchorNode { name = "Molo Boundary", kind = AnchorKind.TerminalStart, position = new Vector2(0f, 0f) },
+                    new AnchorNode { name = "Batiano River", kind = AnchorKind.NpcDrop,       position = new Vector2(0f, 28f) },
+                    new AnchorNode { name = "Poblacion",     kind = AnchorKind.HeritageSite,  position = new Vector2(16f, 70f) },
+                    new AnchorNode { name = "Oton Market",   kind = AnchorKind.TerminalEnd,   position = new Vector2(2f, 112f) },
+                },
+                gen = new TownGenParams
+                {
+                    branchCountMin = 1, branchCountMax = 3,
+                    branchSpacing  = 18f,
+                    branchLenMin   = 8f, branchLenMax = 14f,
+                    passengerCountMin = 2, passengerCountMax = 5,
+                    passengerDensity  = 0.8f,
+                    gridCellSize      = 6f,
+                },
+            },
         };
     }
 

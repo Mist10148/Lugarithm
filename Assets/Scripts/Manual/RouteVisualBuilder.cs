@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -10,6 +11,15 @@ public class RouteContext
     public float     TotalLength;
     public StopZone[] Zones;
     public StopZone   DestinationZone;
+
+    /// <summary>
+    /// All drivable road segments (trunk + branches) for off-road distance
+    /// checks. Null for the authored single-polyline route.
+    /// </summary>
+    public List<RoadSegment> Segments;
+
+    /// <summary>Maps a procedural town node id to its spawned stop zone.</summary>
+    public Dictionary<int, StopZone> ZoneByNode;
 }
 
 /// <summary>
@@ -41,6 +51,105 @@ public static class RouteVisualBuilder
         }
 
         return ctx;
+    }
+
+    // -------------------------------------------------------------------------
+    // Procedural town (shared TownLayout). Renders trunk + branch roads and a
+    // stop zone at every boardable node; waiting peeps are spawned later by the
+    // PassengerManager so they carry the committed rider colors.
+
+    public static RouteContext BuildProcedural(Transform parent, ManualLayoutResult layout,
+                                               float roadHalfWidth)
+    {
+        var ctx = new RouteContext
+        {
+            Waypoints       = layout.trunk,
+            TotalLength     = RouteMath.TotalLength(layout.trunk),
+            Zones           = new StopZone[layout.stops.Count],
+            Segments        = layout.segments,
+            ZoneByNode      = new Dictionary<int, StopZone>(),
+        };
+
+        Sprite roadSprite = Resources.Load<Sprite>("Placeholders/road_tile");
+        var roadRoot = new GameObject("Road");
+        roadRoot.transform.SetParent(parent, false);
+        foreach (RoadSegment s in layout.segments)
+            TileSegment(roadRoot.transform, roadSprite, s.a, s.b,
+                        roadHalfWidth * (s.isTrunk ? 2f : 1.5f));
+
+        for (int i = 0; i < layout.stops.Count; i++)
+        {
+            TownNode node = layout.stops[i];
+            bool isDest = node.id == layout.dest.id;
+            StopZone zone = BuildProceduralStop(parent, node, i, isDest, roadHalfWidth);
+            ctx.Zones[i] = zone;
+            ctx.ZoneByNode[node.id] = zone;
+            if (isDest) ctx.DestinationZone = zone;
+        }
+
+        return ctx;
+    }
+
+    static void TileSegment(Transform parent, Sprite sprite, Vector2 a, Vector2 b, float width)
+    {
+        Vector2 delta = b - a;
+        float len = delta.magnitude;
+        if (len < 0.0001f) return;
+        Vector2 dir = delta / len;
+
+        for (float d = 0f; d <= len; d += 1f)
+        {
+            var tile = new GameObject("RoadTile");
+            tile.transform.SetParent(parent, false);
+            tile.transform.position = a + dir * d;
+            tile.transform.rotation = Quaternion.FromToRotation(Vector3.up, (Vector3)dir);
+            tile.transform.localScale = new Vector3(width, 1.25f, 1f);
+
+            var sr = tile.AddComponent<SpriteRenderer>();
+            sr.sprite = sprite;
+            sr.sortingOrder = -50;
+        }
+    }
+
+    static StopZone BuildProceduralStop(Transform parent, TownNode node, int ordinal,
+                                        bool isDest, float roadHalfWidth)
+    {
+        var go = new GameObject($"Stop_{ordinal}_{node.name}");
+        go.transform.SetParent(parent, false);
+        go.transform.position = node.pos;
+
+        var collider = go.AddComponent<BoxCollider2D>();
+        collider.isTrigger = true;
+        collider.size = new Vector2(roadHalfWidth * 2f + 5f, 7f);
+
+        var zone = go.AddComponent<StopZone>();
+        zone.StopIndex     = ordinal;
+        zone.StopName      = node.name;
+        zone.IsDestination = isDest;
+
+        var sign = new GameObject("Sign");
+        sign.transform.SetParent(go.transform, false);
+        sign.transform.localPosition = new Vector3(roadHalfWidth + 1.1f, 0f, 0f);
+        var signSr = sign.AddComponent<SpriteRenderer>();
+        signSr.sprite = Resources.Load<Sprite>("Placeholders/stop_sign");
+        signSr.sortingOrder = 6;
+        if (isDest) signSr.color = new Color(0.45f, 1f, 0.5f);
+        else if (node.kind == NodeKind.HeritageSite) signSr.color = new Color(1f, 0.85f, 0.4f);
+        else if (node.kind == NodeKind.NpcDrop)      signSr.color = new Color(0.6f, 0.8f, 1f);
+
+        var labelGo = new GameObject("StopLabel");
+        labelGo.transform.SetParent(go.transform, false);
+        var text = labelGo.AddComponent<TMPro.TextMeshPro>();
+        text.text = isDest
+            ? $"<color=#7CFC72>{node.name}</color>\n<color=#FFD700>TERMINAL</color>"
+            : node.name;
+        text.fontSize  = 2.0f;
+        text.alignment = TMPro.TextAlignmentOptions.Center;
+        text.color = new Color(1f, 1f, 1f, 0.95f);
+        text.sortingOrder = 25;
+        labelGo.transform.localPosition = new Vector3(0f, -1.5f, 0f);
+
+        return zone;
     }
 
     // -------------------------------------------------------------------------

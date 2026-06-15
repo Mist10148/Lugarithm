@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -83,5 +84,29 @@ public static class RouteMath
 
         distanceFromRoute = Mathf.Sqrt(bestSqr);
         return bestAlong;
+    }
+
+    /// <summary>
+    /// Shortest distance from a world position to any road segment in the graph
+    /// (trunk + branches). Off-road detection for the procedural town uses this
+    /// instead of <see cref="NearestDistanceAlong"/> so a brief detour onto a
+    /// branch stub isn't counted as leaving the road.
+    /// </summary>
+    public static float NearestDistanceToGraph(IReadOnlyList<RoadSegment> segments, Vector2 position)
+    {
+        if (segments == null || segments.Count == 0) return float.MaxValue;
+
+        float bestSqr = float.MaxValue;
+        foreach (RoadSegment s in segments)
+        {
+            Vector2 ab = s.b - s.a;
+            float lenSqr = ab.sqrMagnitude;
+            float t = lenSqr <= 0.0001f ? 0f : Mathf.Clamp01(Vector2.Dot(position - s.a, ab) / lenSqr);
+            Vector2 closest = s.a + ab * t;
+            float sqr = (position - closest).sqrMagnitude;
+            if (sqr < bestSqr) bestSqr = sqr;
+        }
+
+        return Mathf.Sqrt(bestSqr);
     }
 }

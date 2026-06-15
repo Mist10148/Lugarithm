@@ -80,6 +80,8 @@ public static class AutomationDriveSceneBuilder
         Button speed1 = MakeBarButton(controlBar, "Speed1",      "1×",      64f);
         Button speed2 = MakeBarButton(controlBar, "Speed2",      "2×",      64f);
         Button speed5 = MakeBarButton(controlBar, "Speed5",      "5×",      64f);
+        Button autopilot = MakeBarButton(controlBar, "Autopilot", "🤖 Auto", 120f);
+        autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         // Exit (top-right corner)
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(110f, 42f));
@@ -177,6 +179,7 @@ public static class AutomationDriveSceneBuilder
 
         var controllerGo = new GameObject("AutomationController");
         var exec = controllerGo.AddComponent<ExecutionController>();
+        var selfDrive = controllerGo.AddComponent<SelfDriveAgent>();
         var controller = controllerGo.AddComponent<AutomationDriveController>();
 
         SceneBuilderUtil.Wire(controller, "worldCamera",    worldCam);
@@ -197,6 +200,8 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "speed1Button",   speed1);
         SceneBuilderUtil.Wire(controller, "speed2Button",   speed2);
         SceneBuilderUtil.Wire(controller, "speed5Button",   speed5);
+        SceneBuilderUtil.Wire(controller, "autopilotButton", autopilot);
+        SceneBuilderUtil.Wire(controller, "selfDrive",      selfDrive);
         SceneBuilderUtil.Wire(controller, "console",        console);
         SceneBuilderUtil.Wire(controller, "monitor",        monitor);
         SceneBuilderUtil.Wire(controller, "results",        results);

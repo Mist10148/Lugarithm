@@ -70,10 +70,17 @@ public class AutomationDriveController : MonoBehaviour
     [Header("Vibe Coding")]
     [SerializeField] private VibeCodingController vibeCtrl;
 
+    [Header("Self-driving (procedural town)")]
+    [SerializeField] private SelfDriveAgent selfDrive;
+    [SerializeField] private Button         autopilotButton;
+
     // -------------------------------------------------------------------------
 
     LevelDefinition _level;
     AutomationPuzzleDefinition _def;
+    GridModel       _grid;
+    List<GridRide>  _rides;
+    int  _startFacing;
     int  _levelIndex;
     bool _codeTabActive;
     bool _lastRunWasCode;
@@ -96,6 +103,18 @@ public class AutomationDriveController : MonoBehaviour
         }
         _def = _level.auto;
 
+        // Procedural town: build the automation grid + rides from a generated
+        // layout so the self-driving agent has real passengers to tend. The
+        // authored maze stays the fallback (and its keystone test still uses it).
+        _rides = null;
+        if (_level.procedural != null && _level.procedural.enabled)
+        {
+            int seed = System.Guid.NewGuid().GetHashCode() & 0x7fffffff;
+            TownLayout layout = TownLayoutGenerator.Generate(_level.procedural, _level.fares, seed);
+            _def = SelfDrivePlanner.BuildPuzzle(layout, _level.procedural.gen.gridCellSize,
+                                                out _rides, out _);
+        }
+
         if (GameManager.Instance != null)
             GameManager.Instance.PendingCurrency = 0;
 
@@ -116,10 +135,14 @@ public class AutomationDriveController : MonoBehaviour
             if (console != null) console.Error("map: " + problem);
 
         var sim = new AgentSim(grid, _level.fares, startFacing);
+        _grid = grid;
+        _startFacing = startFacing;
+        if (_rides != null) sim.LoadRides(_rides);
 
         if (worldView != null)
         {
             worldView.Build(grid);
+            if (_rides != null) ColorRideStops();
             worldView.FrameCamera(worldCamera);
         }
         if (agentView != null)
@@ -181,6 +204,13 @@ public class AutomationDriveController : MonoBehaviour
         if (speed1Button != null) speed1Button.onClick.AddListener(() => SetSpeed(1f));
         if (speed2Button != null) speed2Button.onClick.AddListener(() => SetSpeed(2f));
         if (speed5Button != null) speed5Button.onClick.AddListener(() => SetSpeed(5f));
+
+        // Autopilot only makes sense when there are rides to tend.
+        if (autopilotButton != null)
+        {
+            autopilotButton.gameObject.SetActive(_rides != null);
+            autopilotButton.onClick.AddListener(OnAutopilot);
+        }
 
         if (console != null)
         {
@@ -340,6 +370,32 @@ public class AutomationDriveController : MonoBehaviour
     {
         if (exec != null) exec.SetSpeed(speed);
         if (console != null) console.Info($"speed ×{speed:0}");
+    }
+
+    // -------------------------------------------------------------------------
+    // Self-driving autopilot
+
+    void OnAutopilot()
+    {
+        if (_won || selfDrive == null || exec == null || _rides == null) return;
+        if (selfDrive.IsDriving) return;
+
+        exec.ResetWorld();
+        _lastRunWasCode = false;
+        if (console != null) console.Info("autopilot engaged — self-driving the route…");
+
+        StartCoroutine(selfDrive.Drive(_grid, exec.Sim, agentView, _rides, _startFacing,
+                                       0.3f, _def, HandleFinished));
+    }
+
+    /// <summary>Tint each waiting peep by its committed rider color (matches dulog beacons).</summary>
+    void ColorRideStops()
+    {
+        if (worldView == null || _rides == null) return;
+        var colors = new List<KeyValuePair<Vector2Int, Color>>();
+        foreach (GridRide ride in _rides)
+            colors.Add(new KeyValuePair<Vector2Int, Color>(ride.origin, ride.color));
+        worldView.ColorStops(colors);
     }
 
     // -------------------------------------------------------------------------

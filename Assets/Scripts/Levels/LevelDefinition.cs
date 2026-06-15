@@ -20,6 +20,13 @@ public class LevelDefinition
     public FareTable                 fares = new FareTable();
 
     /// <summary>
+    /// Optional per-run procedural town (fixed anchors + randomized branches and
+    /// passengers). When null or <c>enabled == false</c>, the authored
+    /// <see cref="manual"/>/<see cref="auto"/> content is used as-is.
+    /// </summary>
+    public ProceduralLayoutDefinition procedural;
+
+    /// <summary>
     /// The required non-code town puzzle shown on arrival, before results — the
     /// gate that must be solved to advance. None for levels without one (the
     /// Tutorial's non-code beat is the in-drive Coin Drawer).
@@ -107,4 +114,73 @@ public class FareTable
 {
     public int baseFare         = 13;
     public int perStopIncrement = 2;
+}
+
+// -----------------------------------------------------------------------------
+// Procedural world generation (hybrid: fixed anchors + per-run randomness).
+// See Assets/Scripts/Levels/Generation/. The authored manual/auto above stay as
+// the deterministic fallback when procedural.enabled is false (or unset).
+
+/// <summary>
+/// Hybrid procedural layout for a level. The <see cref="trunk"/> spine and the
+/// <see cref="anchors"/> pinned to it are authored and immovable across runs
+/// (story coherence); <see cref="gen"/> tunes the per-run randomness (branch
+/// side-streets, ordinary-passenger boarding/alight nodes). Consumed by
+/// <c>TownLayoutGenerator</c>; projected into both drive modes.
+/// </summary>
+[Serializable]
+public class ProceduralLayoutDefinition
+{
+    /// <summary>When false, the level uses its authored manual/auto content as-is.</summary>
+    public bool enabled;
+
+    /// <summary>
+    /// The authored road spine in Manual-mode world units (includes bends). The
+    /// jeepney drives this; branches hang off it. Usually the same polyline as
+    /// <see cref="ManualRouteDefinition.waypoints"/>.
+    /// </summary>
+    public Vector2[] trunk;
+
+    /// <summary>Fixed, named nodes pinned onto the trunk; never move across runs.</summary>
+    public AnchorNode[] anchors;
+
+    public TownGenParams gen = new TownGenParams();
+}
+
+/// <summary>A fixed story node pinned to a trunk vertex.</summary>
+[Serializable]
+public class AnchorNode
+{
+    public string     name;
+    public AnchorKind kind;
+    public Vector2    position;
+}
+
+/// <summary>Role of a fixed anchor along the trunk.</summary>
+public enum AnchorKind
+{
+    TerminalStart,  // the leg's origin terminal (S)
+    TerminalEnd,    // the leg's destination terminal (D)
+    HeritageSite,   // a local heritage landmark (boardable/alightable, dialogue anchor)
+    NpcDrop,        // a main-NPC drop point the player must visit
+}
+
+/// <summary>Tunables for the per-run randomness (spawn balance / density).</summary>
+[Serializable]
+public class TownGenParams
+{
+    [Header("Branch side-streets")]
+    public int   branchCountMin = 1;
+    public int   branchCountMax = 3;
+    public float branchSpacing  = 18f;  // min arc-length between branch roots (world units)
+    public float branchLenMin   = 8f;
+    public float branchLenMax   = 14f;
+
+    [Header("Passengers")]
+    public int   passengerCountMin = 2;
+    public int   passengerCountMax = 5;
+    public float passengerDensity  = 0.8f; // riders per boardable stop, before clamping
+
+    [Header("Grid projection")]
+    public float gridCellSize = 6f;        // Manual world units per Automation grid cell
 }
