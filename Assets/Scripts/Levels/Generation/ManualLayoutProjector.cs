@@ -51,4 +51,38 @@ public static class ManualLayoutProjector
         result.stops.Sort((p, q) => p.alongTrunk.CompareTo(q.alongTrunk));
         return result;
     }
+
+    /// <summary>
+    /// Projects only the delta of an appended chunk. Stops include the old
+    /// destination (now demoted) and every new boardable node; segments include
+    /// only the new edges; the trunk is the new trunk extension.
+    /// </summary>
+    public static ManualLayoutResult ProjectChunk(TownLayout layout, TownChunk chunk)
+    {
+        var result = new ManualLayoutResult
+        {
+            trunk = layout.TrunkPolyline(),
+            start = layout.Node(layout.startNodeId),
+            dest  = layout.Node(layout.destNodeId),
+        };
+
+        foreach (TownEdge e in chunk.edges)
+            result.segments.Add(new RoadSegment(
+                layout.Node(e.a).pos, layout.Node(e.b).pos, e.isTrunk));
+
+        var seen = new HashSet<int>();
+        foreach (TownNode n in chunk.nodes)
+        {
+            if (n.IsStop && seen.Add(n.id))
+                result.stops.Add(n);
+        }
+
+        // Make sure the old destination (now a regular stop) is included.
+        TownNode oldDest = layout.Node(chunk.nodes.Count > 0 ? chunk.nodes[0].id : layout.destNodeId);
+        if (oldDest.IsStop && seen.Add(oldDest.id))
+            result.stops.Add(oldDest);
+
+        result.stops.Sort((p, q) => p.alongTrunk.CompareTo(q.alongTrunk));
+        return result;
+    }
 }

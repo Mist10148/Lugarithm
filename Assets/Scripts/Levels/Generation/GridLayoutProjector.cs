@@ -20,8 +20,20 @@ public static class GridLayoutProjector
     public static string[] ToGridMap(TownLayout layout, float cellSize,
                                      out int facing, out List<string> errors)
     {
+        return ToGridMap(layout, cellSize, out _, out facing, out errors);
+    }
+
+    /// <summary>
+    /// Rasterizes the layout and returns the <see cref="GridTransform"/> so
+    /// callers can convert grid cells back to world coordinates exactly.
+    /// </summary>
+    public static string[] ToGridMap(TownLayout layout, float cellSize,
+                                     out GridTransform transform, out int facing,
+                                     out List<string> errors)
+    {
         errors = new List<string>();
         facing = 1;
+        transform = new GridTransform();
 
         if (layout == null || layout.nodes.Count == 0)
         {
@@ -48,6 +60,8 @@ public static class GridLayoutProjector
         Vector2Int ToCell(Vector2 p) => new Vector2Int(
             border + Mathf.RoundToInt((p.x - minX) / cell),
             border + Mathf.RoundToInt((maxY - p.y) / cell));
+
+        transform = new GridTransform(minX, maxY, cell, border);
 
         int width  = border * 2 + Mathf.RoundToInt(extentX / cell) + 1;
         int height = border * 2 + Mathf.RoundToInt(extentY / cell) + 1;

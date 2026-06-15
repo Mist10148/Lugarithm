@@ -21,6 +21,11 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private GridWorldView    worldView;
     [SerializeField] private JeepneyAgentView agentView;
 
+    [Header("Top-down world (procedural levels)")]
+    [SerializeField] private Transform        topDownWorldRoot;
+    [SerializeField] private TopDownAgentView topDownAgentView;
+    [SerializeField] private CameraFollow2D   cameraFollow;
+
     [Header("Execution")]
     [SerializeField] private ExecutionController exec;
 
@@ -28,8 +33,6 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private TMP_Text   goalLabel;
     [SerializeField] private GameObject blockPanel;
     [SerializeField] private GameObject codePanel;
-    [SerializeField] private Button     blocksTabButton;
-    [SerializeField] private Button     codeTabButton;
     [SerializeField] private BlockCanvasController  blockCanvas;
     [SerializeField] private BlockPaletteController palette;
     [SerializeField] private CodeEditorController   codeEditor;
@@ -69,6 +72,10 @@ public class AutomationDriveController : MonoBehaviour
 
     [Header("Vibe Coding")]
     [SerializeField] private VibeCodingController vibeCtrl;
+    [SerializeField] private Button               codeChatButton;
+
+    [Header("Leg completion")]
+    [SerializeField] private LegCompletionController legCompletion;
 
     [Header("Self-driving (procedural town)")]
     [SerializeField] private SelfDriveAgent selfDrive;
@@ -80,6 +87,7 @@ public class AutomationDriveController : MonoBehaviour
     AutomationPuzzleDefinition _def;
     GridModel       _grid;
     List<GridRide>  _rides;
+    IAgentView      _activeAgent;
     int  _startFacing;
     int  _levelIndex;
     bool _codeTabActive;
@@ -107,11 +115,13 @@ public class AutomationDriveController : MonoBehaviour
         // layout so the self-driving agent has real passengers to tend. The
         // authored maze stays the fallback (and its keystone test still uses it).
         _rides = null;
-        if (_level.procedural != null && _level.procedural.enabled)
+        bool useProceduralTopDown = _level.procedural != null && _level.procedural.enabled;
+        TownLayout proceduralLayout = null;
+        if (useProceduralTopDown)
         {
             int seed = System.Guid.NewGuid().GetHashCode() & 0x7fffffff;
-            TownLayout layout = TownLayoutGenerator.Generate(_level.procedural, _level.fares, seed);
-            _def = SelfDrivePlanner.BuildPuzzle(layout, _level.procedural.gen.gridCellSize,
+            proceduralLayout = TownLayoutGenerator.Generate(_level.procedural, _level.fares, seed);
+            _def = SelfDrivePlanner.BuildPuzzle(proceduralLayout, _level.procedural.gen.gridCellSize,
                                                 out _rides, out _);
         }
 
@@ -122,8 +132,9 @@ public class AutomationDriveController : MonoBehaviour
         // manual route so this scene mirrors the manual drive on tiles.
         string[] gridMap   = _def.gridMap;
         int      startFacing = _def.startFacing;
-        if (deriveGridFromRoute && !_def.useAuthoredGrid && _level.manual != null &&
-            _level.manual.waypoints != null && _level.manual.waypoints.Length >= 2)
+        if (!useProceduralTopDown && deriveGridFromRoute && !_def.useAuthoredGrid &&
+            _level.manual != null && _level.manual.waypoints != null &&
+            _level.manual.waypoints.Length >= 2)
         {
             RouteToGrid.Result derived = RouteToGrid.FromManualRoute(_level.manual);
             gridMap     = derived.Map;
@@ -139,18 +150,69 @@ public class AutomationDriveController : MonoBehaviour
         _startFacing = startFacing;
         if (_rides != null) sim.LoadRides(_rides);
 
-        if (worldView != null)
+        IAgentView activeAgent = null;
+        IGridSpace activeSpace = null;
+        IStopView  activeStopView = null;
+
+        if (useProceduralTopDown)
         {
-            worldView.Build(grid);
-            if (_rides != null) ColorRideStops();
-            worldView.FrameCamera(worldCamera);
+            // Retire iso for procedural levels: render the same top-down road as
+            // Manual mode and drive a top-down jeepney sprite over it.
+            if (topDownWorldRoot == null)
+            {
+                var rootGo = new GameObject("TopDownWorldRoot");
+                topDownWorldRoot = rootGo.transform;
+            }
+
+            float roadHalfWidth = _level.manual != null ? _level.manual.roadHalfWidth : 3f;
+            var tdSpace = new TopDownGridSpace(proceduralLayout, _level.procedural.gen.gridCellSize,
+                                               roadHalfWidth, topDownWorldRoot);
+            activeSpace = tdSpace;
+            activeStopView = tdSpace;
+
+            if (topDownAgentView == null)
+            {
+                var go = new GameObject("TopDownAgent");
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = Resources.Load<Sprite>("Placeholders/jeepney_top");
+                sr.sortingOrder = 10;
+                topDownAgentView = go.AddComponent<TopDownAgentView>();
+                topDownAgentView.body = sr;
+            }
+            activeAgent = topDownAgentView;
+
+            if (cameraFollow == null && worldCamera != null)
+                cameraFollow = worldCamera.gameObject.AddComponent<CameraFollow2D>();
+            if (cameraFollow != null)
+                cameraFollow.SnapTo(topDownAgentView.transform);
+
+            if (worldCamera != null)
+            {
+                worldCamera.rect = new Rect(0f, 0f, 1f, 1f);
+                worldCamera.orthographicSize = 12f;
+            }
         }
-        if (agentView != null)
-            agentView.Init(worldView, grid.StartPos, sim.Facing);
+        else
+        {
+            // Iso fallback for authored mazes (Oton and tests).
+            if (worldView != null)
+            {
+                worldView.Build(grid);
+                if (_rides != null) ColorRideStops();
+                worldView.FrameCamera(worldCamera);
+            }
+            if (agentView != null)
+                agentView.Init(worldView, grid.StartPos, sim.Facing);
+
+            activeAgent = agentView;
+            activeSpace = worldView;
+            activeStopView = worldView;
+        }
 
         if (exec != null)
         {
-            exec.Init(grid, sim, agentView, worldView, _def, startFacing);
+            _activeAgent = activeAgent;
+            exec.Init(grid, sim, activeAgent, activeSpace, activeStopView, _def, startFacing);
             exec.OnStepDone     += HandleStepDone;
             exec.OnRuntimeError += HandleRuntimeError;
             exec.OnFinished     += HandleFinished;
@@ -165,7 +227,13 @@ public class AutomationDriveController : MonoBehaviour
         if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold);
 
         if (vibeCtrl != null && codeEditor != null)
+        {
             vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
+            vibeCtrl.gameObject.SetActive(false);
+        }
+
+        if (codeChatButton != null)
+            codeChatButton.onClick.AddListener(ToggleVibeWindow);
 
         if (hintButton != null)
         {
@@ -175,9 +243,6 @@ public class AutomationDriveController : MonoBehaviour
 
         bool blockMode = SaveSystem.Current.settings.blockMode;
         SetTab(codeActive: !blockMode);
-
-        if (blocksTabButton != null) blocksTabButton.onClick.AddListener(() => SetTab(false));
-        if (codeTabButton   != null) codeTabButton.onClick.AddListener(() => SetTab(true));
 
         // The Block/Code setting is the source of truth — switch the active editor
         // window live when it changes (no in-scene tabs needed).
@@ -211,6 +276,9 @@ public class AutomationDriveController : MonoBehaviour
             autopilotButton.gameObject.SetActive(_rides != null);
             autopilotButton.onClick.AddListener(OnAutopilot);
         }
+
+        if (legCompletion != null)
+            legCompletion.OnFinishPressed += OnFinishLeg;
 
         if (console != null)
         {
@@ -275,20 +343,6 @@ public class AutomationDriveController : MonoBehaviour
 
         if (blockPanel != null) blockPanel.SetActive(!codeActive);
         if (codePanel  != null) codePanel.SetActive(codeActive);
-
-        // Active tab gets the accent tint.
-        TintTab(blocksTabButton, !codeActive);
-        TintTab(codeTabButton,   codeActive);
-    }
-
-    static void TintTab(Button button, bool active)
-    {
-        if (button == null) return;
-        var face = button.targetGraphic as Image;
-        if (face != null)
-            face.color = active
-                ? new Color(0.85f, 0.55f, 0.12f)
-                : new Color(0.18f, 0.22f, 0.30f);
     }
 
     void ApplyEditorModeFromSettings()
@@ -300,6 +354,18 @@ public class AutomationDriveController : MonoBehaviour
     {
         if (SettingsManager.Instance != null)
             SettingsManager.Instance.OnSettingsChanged -= ApplyEditorModeFromSettings;
+
+        if (codeChatButton != null)
+            codeChatButton.onClick.RemoveListener(ToggleVibeWindow);
+
+        if (legCompletion != null)
+            legCompletion.OnFinishPressed -= OnFinishLeg;
+    }
+
+    void ToggleVibeWindow()
+    {
+        if (vibeCtrl == null) return;
+        vibeCtrl.gameObject.SetActive(!vibeCtrl.gameObject.activeSelf);
     }
 
     // -------------------------------------------------------------------------
@@ -384,7 +450,7 @@ public class AutomationDriveController : MonoBehaviour
         _lastRunWasCode = false;
         if (console != null) console.Info("autopilot engaged — self-driving the route…");
 
-        StartCoroutine(selfDrive.Drive(_grid, exec.Sim, agentView, _rides, _startFacing,
+        StartCoroutine(selfDrive.Drive(_grid, exec.Sim, _activeAgent, _rides, _startFacing,
                                        0.3f, _def, HandleFinished));
     }
 
@@ -466,7 +532,10 @@ public class AutomationDriveController : MonoBehaviour
         if (win)
         {
             _won = true;
-            BeginResults();
+            if (legCompletion != null)
+                legCompletion.Show();
+            else
+                BeginResults();
             return;
         }
 
@@ -476,6 +545,12 @@ public class AutomationDriveController : MonoBehaviour
             console.Warn(gap ?? "the program ended without reaching the goal.");
             console.Info("edit your program and press RUN to try again.");
         }
+    }
+
+    void OnFinishLeg()
+    {
+        if (legCompletion != null) legCompletion.Hide();
+        BeginResults();
     }
 
     // -------------------------------------------------------------------------

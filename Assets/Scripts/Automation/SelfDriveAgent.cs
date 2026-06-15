@@ -185,7 +185,7 @@ public class SelfDriveAgent : MonoBehaviour
 {
     public bool IsDriving { get; private set; }
 
-    public IEnumerator Drive(GridModel grid, AgentSim sim, JeepneyAgentView view,
+    public IEnumerator Drive(GridModel grid, AgentSim sim, IAgentView view,
                              List<GridRide> rides, int startFacing, float stepSeconds,
                              AutomationPuzzleDefinition def, System.Action<bool> onDone)
     {

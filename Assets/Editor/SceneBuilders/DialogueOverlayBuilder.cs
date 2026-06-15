@@ -73,6 +73,14 @@ public static class DialogueOverlayBuilder
         var continueIndicator = UIFactory.CreateText(root, "ContinueIndicator", "▼", 28f, UIFactory.Accent);
         UIFactory.Place(continueIndicator, new Vector2(1f, 0f), new Vector2(-18f, 18f), new Vector2(40f, 40f));
 
+        // --- Navigation buttons (bottom-right) ----------------------------------
+
+        var nextBtn = UIFactory.CreateButton(root, "NextButton", "Next ▶", new Vector2(110f, 42f), 22f);
+        UIFactory.Place(nextBtn, new Vector2(1f, 0f), new Vector2(-140f, 18f), new Vector2(110f, 42f));
+
+        var skipBtn = UIFactory.CreateButton(root, "SkipButton", "Skip ⏭", new Vector2(110f, 42f), 22f);
+        UIFactory.Place(skipBtn, new Vector2(1f, 0f), new Vector2(-262f, 18f), new Vector2(110f, 42f));
+
         // DialogBox drives the typewriter reveal on the bar.
         var dialogBox = root.gameObject.AddComponent<DialogBox>();
         SceneBuilderUtil.Wire(dialogBox, "root",             root.gameObject);
@@ -89,6 +97,8 @@ public static class DialogueOverlayBuilder
         SceneBuilderUtil.Wire(controller, "root",                  root.gameObject);
         SceneBuilderUtil.Wire(controller, "dialogBox",             dialogBox);
         SceneBuilderUtil.Wire(controller, "continueIndicator",     continueIndicator.gameObject);
+        SceneBuilderUtil.Wire(controller, "nextButton",            nextBtn);
+        SceneBuilderUtil.Wire(controller, "skipButton",            skipBtn);
         SceneBuilderUtil.Wire(controller, "choiceContainer",       choiceRoot);
         SceneBuilderUtil.Wire(controller, "choiceButtonTemplate",  choiceTemplate);
         SceneBuilderUtil.Wire(controller, "revealRoot",            revealRoot.gameObject);

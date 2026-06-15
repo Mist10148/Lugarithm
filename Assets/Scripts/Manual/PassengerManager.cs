@@ -90,6 +90,13 @@ public class PassengerManager : MonoBehaviour
     /// <summary>True once the jeepney has finished servicing the destination stop.</summary>
     public bool ArrivedAtDestination { get; private set; }
 
+    /// <summary>Lets streaming append reset arrival so the leg can continue.</summary>
+    public void ResetDestinationArrival()
+    {
+        ArrivedAtDestination = false;
+        _servicedThisVisit.Clear();
+    }
+
     // -------------------------------------------------------------------------
 
     public void Init(JeepneyController jeepney, CoinDrawerController drawer,

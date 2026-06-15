@@ -102,4 +102,57 @@ public class GridModel
     public Cell Get(Vector2Int p) => Get(p.x, p.y);
 
     public bool IsWalkable(Vector2Int p) => Get(p) != Cell.Wall;
+
+    // -------------------------------------------------------------------------
+    // Streaming append
+
+    /// <summary>
+    /// Extends the grid by appending rows and/or columns. Existing cell positions
+    /// keep their current values; the agent and any placed objects are not moved.
+    /// New rows/cols are filled with wall, then the given map rows are stamped on
+    /// top starting at <paramref name="rowOffset"/>, <paramref name="colOffset"/>.
+    /// </summary>
+    public void AppendChunk(int newRows, int newCols, string[] mapRows,
+                            int rowOffset, int colOffset)
+    {
+        int newWidth  = Mathf.Max(Width,  colOffset + (mapRows.Length > 0 ? mapRows[0].Length : 0));
+        int newHeight = Mathf.Max(Height, rowOffset + mapRows.Length);
+        if (newRows > 0) newHeight = Mathf.Max(newHeight, Height + newRows);
+        if (newCols > 0) newWidth  = Mathf.Max(newWidth,  Width  + newCols);
+
+        var next = new Cell[newWidth, newHeight];
+        for (int x = 0; x < newWidth; x++)
+            for (int y = 0; y < newHeight; y++)
+                next[x, y] = Cell.Wall;
+
+        for (int y = 0; y < Height; y++)
+            for (int x = 0; x < Width; x++)
+                next[x, y] = _cells[x, y];
+
+        for (int y = 0; y < mapRows.Length; y++)
+        {
+            string row = mapRows[y] ?? "";
+            int gy = rowOffset + y;
+            for (int x = 0; x < row.Length; x++)
+            {
+                int gx = colOffset + x;
+                char c = row[x];
+                switch (c)
+                {
+                    case '#': next[gx, gy] = Cell.Wall; break;
+                    case '.': next[gx, gy] = Cell.Road; break;
+                    case 'S': next[gx, gy] = Cell.Start; break;
+                    case 'D': next[gx, gy] = Cell.Destination; break;
+                    case 'P':
+                        next[gx, gy] = Cell.Stop;
+                        StopCells.Add(new Vector2Int(gx, gy));
+                        break;
+                }
+            }
+        }
+
+        _cells = next;
+        Width  = newWidth;
+        Height = newHeight;
+    }
 }

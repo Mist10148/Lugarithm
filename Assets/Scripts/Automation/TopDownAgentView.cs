@@ -2,38 +2,34 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Animated view of the grid jeepney: tweens cell-to-cell moves, rotates the
-/// facing arrow, bumps on blocked moves, and pops icons for pickups and
-/// fares. Mirrors whatever <see cref="AgentSim"/> reports — no game rules here.
+/// Top-down animated agent for Automation mode. Reuses the Manual jeepney
+/// sprite, moves it along the top-down road, and rotates the body to face the
+/// current grid direction.
 /// </summary>
-public class JeepneyAgentView : MonoBehaviour, IAgentView
+public class TopDownAgentView : MonoBehaviour, IAgentView
 {
     [Header("References")]
-    [SerializeField] private SpriteRenderer body;
-    [SerializeField] private SpriteRenderer arrow;
+    [SerializeField] public SpriteRenderer body;
 
-    IGridSpace _view;
-    IStopView  _stopView;
+    IGridSpace _space;
 
     // -------------------------------------------------------------------------
 
     public void Init(IGridSpace space, Vector2Int cell, int facing)
     {
-        _view = space;
-        _stopView = space as IStopView;
+        _space = space;
         SnapTo(cell, facing);
     }
 
     public void SnapTo(Vector2Int cell, int facing)
     {
-        transform.position = _view.CellToWorld(cell) + new Vector3(0f, 0.18f, 0f);
+        transform.position = _space.CellToWorld(cell);
         SetSortOrder(cell);
-        SetArrowFacing(facing);
+        SetBodyFacing(facing);
     }
 
     // -------------------------------------------------------------------------
 
-    /// <summary>Plays one action over <paramref name="duration"/> seconds.</summary>
     public IEnumerator PlayAction(AgentActionResult result, float duration)
     {
         switch (result.Action)
@@ -51,8 +47,6 @@ public class JeepneyAgentView : MonoBehaviour, IAgentView
                 break;
 
             case "pickUp":
-                if (result.PickedUp && _stopView != null)
-                    _stopView.SetStopOccupied(result.From, false);
                 yield return Pop("Placeholders/peep", duration);
                 break;
 
@@ -74,8 +68,8 @@ public class JeepneyAgentView : MonoBehaviour, IAgentView
 
     IEnumerator MoveTo(Vector2Int from, Vector2Int to, float duration)
     {
-        Vector3 a = _view.CellToWorld(from) + new Vector3(0f, 0.18f, 0f);
-        Vector3 b = _view.CellToWorld(to)   + new Vector3(0f, 0.18f, 0f);
+        Vector3 a = _space.CellToWorld(from);
+        Vector3 b = _space.CellToWorld(to);
 
         float elapsed = 0f;
         while (elapsed < duration)
@@ -94,7 +88,7 @@ public class JeepneyAgentView : MonoBehaviour, IAgentView
     IEnumerator Bump(int facing, float duration)
     {
         Vector3 origin = transform.position;
-        Vector3 push   = (Vector3)(_view.FacingDirection(facing) * 0.16f);
+        Vector3 push   = (Vector3)(_space.FacingDirection(facing) * 0.16f);
 
         float half = Mathf.Max(0.05f, duration * 0.5f);
         float elapsed = 0f;
@@ -116,20 +110,18 @@ public class JeepneyAgentView : MonoBehaviour, IAgentView
 
     IEnumerator Turn(int fromFacing, int toFacing, float duration)
     {
-        if (arrow == null) { yield return new WaitForSeconds(duration); yield break; }
-
-        Quaternion a = ArrowRotation(fromFacing);
-        Quaternion b = ArrowRotation(toFacing);
+        Quaternion a = BodyRotation(fromFacing);
+        Quaternion b = BodyRotation(toFacing);
 
         float elapsed = 0f;
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            arrow.transform.localRotation = Quaternion.Slerp(a, b, Mathf.Clamp01(elapsed / duration));
+            body.transform.localRotation = Quaternion.Slerp(a, b, Mathf.Clamp01(elapsed / duration));
             yield return null;
         }
 
-        arrow.transform.localRotation = b;
+        body.transform.localRotation = b;
     }
 
     IEnumerator Pop(string spritePath, float duration)
@@ -152,27 +144,26 @@ public class JeepneyAgentView : MonoBehaviour, IAgentView
             yield return null;
         }
 
-        Destroy(icon);
+        Object.Destroy(icon);
     }
 
     // -------------------------------------------------------------------------
 
     void SetSortOrder(Vector2Int cell)
     {
-        int order = _view.SortOrder(cell) + 1;
-        if (body  != null) body.sortingOrder  = order;
-        if (arrow != null) arrow.sortingOrder = order + 1;
+        if (body != null)
+            body.sortingOrder = _space.SortOrder(cell) + 1;
     }
 
-    void SetArrowFacing(int facing)
+    void SetBodyFacing(int facing)
     {
-        if (arrow != null)
-            arrow.transform.localRotation = ArrowRotation(facing);
+        if (body != null)
+            body.transform.localRotation = BodyRotation(facing);
     }
 
-    Quaternion ArrowRotation(int facing)
+    Quaternion BodyRotation(int facing)
     {
-        Vector2 dir = _view.FacingDirection(facing);
+        Vector2 dir = _space.FacingDirection(facing);
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
         return Quaternion.Euler(0f, 0f, angle);
     }

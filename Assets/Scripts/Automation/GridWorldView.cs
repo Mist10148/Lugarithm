@@ -5,7 +5,7 @@ using UnityEngine;
 /// PRD §5.3) and frames the world camera around it. Pure presentation —
 /// all rules live in <see cref="AgentSim"/>.
 /// </summary>
-public class GridWorldView : MonoBehaviour
+public class GridWorldView : MonoBehaviour, IGridSpace, IStopView
 {
     public const float TileW = 1f;
     public const float TileH = 0.5f;
@@ -112,7 +112,7 @@ public class GridWorldView : MonoBehaviour
         return transform.TransformPoint(IsoLocal(cell.x, cell.y));
     }
 
-    public static int SortOrder(Vector2Int cell) => cell.x + cell.y;
+    public int SortOrder(Vector2Int cell) => cell.x + cell.y;
 
     /// <summary>
     /// Screen direction of one grid step while facing <paramref name="facing"/>
@@ -127,6 +127,12 @@ public class GridWorldView : MonoBehaviour
             case 2:  return new Vector2(-0.5f, -0.25f).normalized;
             default: return new Vector2(-0.5f, 0.25f).normalized;
         }
+    }
+
+    /// <summary>Implementation of <see cref="IGridSpace.FacingDirection"/>.</summary>
+    public Vector2 FacingDirection(int facing)
+    {
+        return FacingScreenDirection(facing);
     }
 
     // -------------------------------------------------------------------------

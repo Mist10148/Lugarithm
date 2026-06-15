@@ -14,21 +14,22 @@ public static class AutomationDriveSceneBuilder
     {
         var scene = SceneBuilderUtil.NewScene();
 
-        // --- World (left 40%) --------------------------------------------------------
+        // --- World (full-screen top-down; iso fallback still present) ---------------
 
         Camera worldCam = SceneBuilderUtil.CreateCamera2D("World Camera",
-                                                          new Color(0.07f, 0.09f, 0.12f), 5f,
-                                                          new Rect(0f, 0f, 0.4f, 1f));
+                                                          new Color(0.07f, 0.09f, 0.12f), 5f);
+        var cameraFollow = worldCam.gameObject.AddComponent<CameraFollow2D>();
         SceneBuilderUtil.CreateGlobalLight2D();
         SceneBuilderUtil.CreateEventSystem();
 
+        // Iso fallback for authored mazes (Oton, tests).
         var gridRoot = new GameObject("GridRoot");
         var worldView = gridRoot.AddComponent<GridWorldView>();
 
         var jeepneyGo = new GameObject("AgentJeepney");
-        var body = jeepneyGo.AddComponent<SpriteRenderer>();
-        body.sprite = SceneBuilderUtil.LoadPlaceholder("iso_jeepney");
-        body.sortingOrder = 100;
+        var isoBody = jeepneyGo.AddComponent<SpriteRenderer>();
+        isoBody.sprite = SceneBuilderUtil.LoadPlaceholder("iso_jeepney");
+        isoBody.sortingOrder = 100;
 
         var arrowGo = new GameObject("Arrow");
         arrowGo.transform.SetParent(jeepneyGo.transform, false);
@@ -40,8 +41,18 @@ public static class AutomationDriveSceneBuilder
         arrow.sortingOrder = 101;
 
         var agentView = jeepneyGo.AddComponent<JeepneyAgentView>();
-        SceneBuilderUtil.Wire(agentView, "body",  body);
+        SceneBuilderUtil.Wire(agentView, "body",  isoBody);
         SceneBuilderUtil.Wire(agentView, "arrow", arrow);
+
+        // Top-down procedural world root + agent.
+        var topDownWorldRoot = new GameObject("TopDownWorldRoot").transform;
+
+        var topDownAgentGo = new GameObject("TopDownAgent");
+        var tdBody = topDownAgentGo.AddComponent<SpriteRenderer>();
+        tdBody.sprite = SceneBuilderUtil.LoadPlaceholder("jeepney_top");
+        tdBody.sortingOrder = 10;
+        var topDownAgent = topDownAgentGo.AddComponent<TopDownAgentView>();
+        topDownAgent.body = tdBody;
 
         // --- Canvas ---------------------------------------------------------------------
 
@@ -90,48 +101,19 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
 
-        // --- Workspace contents (right 60%) -------------------------------------------------
+        // --- Floating editor windows (Block / Code) ---------------------------------
 
-        // Tab bar (below the canvas-level control bar)
-        Button blocksTab = UIFactory.CreateButton(workspace, "BlocksTab", "BLOCKS", new Vector2(190f, 44f), 24f);
-        UIFactory.Place(blocksTab, new Vector2(0f, 1f), new Vector2(14f, -64f), new Vector2(190f, 44f));
-        Button codeTab = UIFactory.CreateButton(workspace, "CodeTab", "CODE", new Vector2(190f, 44f), 24f);
-        UIFactory.Place(codeTab, new Vector2(0f, 1f), new Vector2(212f, -64f), new Vector2(190f, 44f));
+        var editorArea = UIFactory.CreateRect(canvas.transform, "EditorArea",
+                                              Vector2.zero, Vector2.one,
+                                              Vector2.zero, Vector2.zero);
 
-        // Palette column (left side of workspace)
-        var paletteFrame = UIFactory.CreatePanel(workspace, "Palette",
-                                                 new Vector2(0f, 0f), new Vector2(0f, 1f),
-                                                 UIFactory.PanelDark);
-        paletteFrame.offsetMin = new Vector2(14f, 260f);
-        paletteFrame.offsetMax = new Vector2(234f, -118f);
+        RectTransform blockPanel = BuildBlockWindow(
+            editorArea, (RectTransform)canvas.transform, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
+        UIFactory.Place(blockPanel, new Vector2(0.62f, 0.5f), Vector2.zero, new Vector2(760f, 640f));
 
-        var paletteHeader = UIFactory.CreateText(paletteFrame, "Header", "BLOCKS", 20f, UIFactory.TextDim);
-        UIFactory.Place(paletteHeader, new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(200f, 28f));
-
-        var paletteContent = UIFactory.CreateRect(paletteFrame, "Content",
-                                                  Vector2.zero, Vector2.one,
-                                                  new Vector2(8f, 8f), new Vector2(-8f, -40f));
-        UIFactory.AddVerticalLayout(paletteContent, 8f, align: TextAnchor.UpperCenter);
-
-        Button paletteTemplate = UIFactory.CreateButton(paletteContent, "PaletteButtonTemplate",
-                                                        "block", new Vector2(196f, 46f), 21f);
-        paletteTemplate.gameObject.SetActive(false);
-
-        var paletteCtrl = paletteFrame.gameObject.AddComponent<BlockPaletteController>();
-        SceneBuilderUtil.Wire(paletteCtrl, "content",        paletteContent);
-        SceneBuilderUtil.Wire(paletteCtrl, "buttonTemplate", paletteTemplate);
-
-        // Block panel (canvas scroll + templates)
-        var blockPanel = UIFactory.CreateRect(workspace, "BlockPanel",
-                                              new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(242f, 260f), new Vector2(-14f, -118f));
-        BlockCanvasController blockCanvas = BuildBlockCanvas(blockPanel, (RectTransform)canvas.transform);
-
-        // Code panel (line numbers + input + lint)
-        var codePanel = UIFactory.CreateRect(workspace, "CodePanel",
-                                             new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                             new Vector2(242f, 260f), new Vector2(-14f, -118f));
-        CodeEditorController codeEditor = BuildCodeEditor(codePanel);
+        RectTransform codePanel = BuildCodeWindow(
+            editorArea, out CodeEditorController codeEditor, out Button codeChatButton);
+        UIFactory.Place(codePanel, new Vector2(0.62f, 0.5f), Vector2.zero, new Vector2(760f, 640f));
 
         // Co-Pilot hint button + label (bottom-right of workspace)
         Button hintBtn = UIFactory.CreateButton(workspace, "HintButton",
@@ -171,6 +153,7 @@ public static class AutomationDriveSceneBuilder
         FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
         DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(canvas.transform);
+        LegCompletionController legCompletion = LegCompletionOverlayBuilder.Build(canvas.transform);
 
         // Vibe Coding / Autopilot floating chat window.
         VibeCodingController vibeCtrl = BuildVibeCodingWindow((RectTransform)canvas.transform);
@@ -185,15 +168,17 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "worldCamera",    worldCam);
         SceneBuilderUtil.Wire(controller, "worldView",      worldView);
         SceneBuilderUtil.Wire(controller, "agentView",      agentView);
+        SceneBuilderUtil.Wire(controller, "topDownWorldRoot", topDownWorldRoot);
+        SceneBuilderUtil.Wire(controller, "topDownAgentView", topDownAgent);
+        SceneBuilderUtil.Wire(controller, "cameraFollow",   cameraFollow);
         SceneBuilderUtil.Wire(controller, "exec",           exec);
         SceneBuilderUtil.Wire(controller, "goalLabel",      goalText);
         SceneBuilderUtil.Wire(controller, "blockPanel",     blockPanel.gameObject);
         SceneBuilderUtil.Wire(controller, "codePanel",      codePanel.gameObject);
-        SceneBuilderUtil.Wire(controller, "blocksTabButton", blocksTab);
-        SceneBuilderUtil.Wire(controller, "codeTabButton",  codeTab);
         SceneBuilderUtil.Wire(controller, "blockCanvas",    blockCanvas);
         SceneBuilderUtil.Wire(controller, "palette",        paletteCtrl);
         SceneBuilderUtil.Wire(controller, "codeEditor",     codeEditor);
+        SceneBuilderUtil.Wire(controller, "codeChatButton", codeChatButton);
         SceneBuilderUtil.Wire(controller, "runButton",      run);
         SceneBuilderUtil.Wire(controller, "pauseButton",    pause);
         SceneBuilderUtil.Wire(controller, "resetButton",    reset);
@@ -211,6 +196,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "hintButton",     hintBtn);
         SceneBuilderUtil.Wire(controller, "hintLabel",      hintLbl);
         SceneBuilderUtil.Wire(controller, "vibeCtrl",       vibeCtrl);
+        SceneBuilderUtil.Wire(controller, "legCompletion",  legCompletion);
 
         SceneBuilderUtil.SaveScene(scene, "AutomationDrive");
     }
@@ -223,24 +209,31 @@ public static class AutomationDriveSceneBuilder
 
     /// <summary>A titled floating panel; <paramref name="content"/> is the body below the title bar.</summary>
     internal static RectTransform BuildWindow(RectTransform parent, string name, string title,
-                                              out RectTransform content)
+                                              out RectTransform content, out RectTransform titleBar)
     {
         var window = UIFactory.CreatePanel(parent, name, Vector2.zero, Vector2.one, UIFactory.PanelDark);
         window.offsetMin = Vector2.zero;
         window.offsetMax = Vector2.zero;
 
-        var bar = UIFactory.CreatePanel(window, "TitleBar", new Vector2(0f, 1f), new Vector2(1f, 1f),
-                                        new Color(0.06f, 0.07f, 0.10f, 1f));
-        bar.offsetMin = new Vector2(0f, -34f);
-        bar.offsetMax = Vector2.zero;
-        var titleText = UIFactory.CreateText(bar, "Title", title, 18f, UIFactory.Accent,
-                                             TextAlignmentOptions.MidlineLeft);
+        titleBar = UIFactory.CreatePanel(window, "TitleBar", new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                         new Color(0.06f, 0.07f, 0.10f, 1f));
+        titleBar.offsetMin = new Vector2(0f, -34f);
+        titleBar.offsetMax = Vector2.zero;
+        var titleText = UIFactory.CreateText(titleBar, "Title", title, 18f, UIFactory.Accent,
+                                              TextAlignmentOptions.MidlineLeft);
         titleText.rectTransform.offsetMin = new Vector2(14f, 0f);
-        titleText.rectTransform.offsetMax = new Vector2(-14f, 0f);
+        titleText.rectTransform.offsetMax = new Vector2(-90f, 0f);
 
         content = UIFactory.CreateRect(window, "Content", Vector2.zero, Vector2.one,
                                        Vector2.zero, new Vector2(0f, -34f));
         return window;
+    }
+
+    /// <summary>Backward-compatible <see cref="BuildWindow"/> without title-bar out.</summary>
+    internal static RectTransform BuildWindow(RectTransform parent, string name, string title,
+                                              out RectTransform content)
+    {
+        return BuildWindow(parent, name, title, out content, out _);
     }
 
     /// <summary>Scratch-style block window: palette column + drag-and-drop canvas.</summary>
@@ -249,7 +242,14 @@ public static class AutomationDriveSceneBuilder
                                                    out BlockCanvasController canvas)
     {
         RectTransform window = BuildWindow(parent, "BlockWindow", "BLOCKS — drag to build",
-                                           out RectTransform content);
+                                           out RectTransform content, out RectTransform titleBar);
+
+        // Make the title bar draggable.
+        if (titleBar != null)
+        {
+            var drag = titleBar.gameObject.AddComponent<DragWindowHandle>();
+            SceneBuilderUtil.Wire(drag, "windowRoot", window.gameObject);
+        }
 
         var paletteFrame = UIFactory.CreatePanel(content, "Palette",
                                                  new Vector2(0f, 0f), new Vector2(0f, 1f),
@@ -282,10 +282,24 @@ public static class AutomationDriveSceneBuilder
     }
 
     /// <summary>"The Farmer Was Replaced"-style code window: gutter + input + lint.</summary>
-    internal static RectTransform BuildCodeWindow(RectTransform parent, out CodeEditorController editor)
+    internal static RectTransform BuildCodeWindow(RectTransform parent, out CodeEditorController editor,
+                                                  out Button chatButton)
     {
         RectTransform window = BuildWindow(parent, "CodeWindow", "CODE — type to program",
-                                           out RectTransform content);
+                                           out RectTransform content, out RectTransform titleBar);
+
+        chatButton = null;
+        if (titleBar != null)
+        {
+            // Draggable title bar.
+            var drag = titleBar.gameObject.AddComponent<DragWindowHandle>();
+            SceneBuilderUtil.Wire(drag, "windowRoot", window.gameObject);
+
+            // AI chat toggle in the title bar.
+            chatButton = UIFactory.CreateButton(titleBar, "ChatButton", "✦ AI", new Vector2(80f, 26f), 16f);
+            UIFactory.Place(chatButton, new Vector2(1f, 0.5f), new Vector2(-10f, 0f), new Vector2(80f, 26f));
+        }
+
         editor = BuildCodeEditor(content);
         return window;
     }

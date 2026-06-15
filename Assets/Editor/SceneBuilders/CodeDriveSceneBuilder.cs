@@ -16,20 +16,22 @@ public static class CodeDriveSceneBuilder
     {
         var scene = SceneBuilderUtil.NewScene();
 
-        // --- World (full screen) ----------------------------------------------------
+        // --- World (full screen; iso fallback + top-down procedural) ----------------
 
         Camera worldCam = SceneBuilderUtil.CreateCamera2D("World Camera",
                                                           new Color(0.07f, 0.09f, 0.12f), 5f);
+        var cameraFollow = worldCam.gameObject.AddComponent<CameraFollow2D>();
         SceneBuilderUtil.CreateGlobalLight2D();
         SceneBuilderUtil.CreateEventSystem();
 
+        // Iso fallback for authored mazes.
         var gridRoot = new GameObject("GridRoot");
         var worldView = gridRoot.AddComponent<GridWorldView>();
 
         var jeepneyGo = new GameObject("AgentJeepney");
-        var body = jeepneyGo.AddComponent<SpriteRenderer>();
-        body.sprite = SceneBuilderUtil.LoadPlaceholder("iso_jeepney");
-        body.sortingOrder = 1000;
+        var isoBody = jeepneyGo.AddComponent<SpriteRenderer>();
+        isoBody.sprite = SceneBuilderUtil.LoadPlaceholder("iso_jeepney");
+        isoBody.sortingOrder = 1000;
 
         var arrowGo = new GameObject("Arrow");
         arrowGo.transform.SetParent(jeepneyGo.transform, false);
@@ -41,8 +43,18 @@ public static class CodeDriveSceneBuilder
         arrow.sortingOrder = 1001;
 
         var agentView = jeepneyGo.AddComponent<JeepneyAgentView>();
-        SceneBuilderUtil.Wire(agentView, "body",  body);
+        SceneBuilderUtil.Wire(agentView, "body",  isoBody);
         SceneBuilderUtil.Wire(agentView, "arrow", arrow);
+
+        // Top-down procedural world root + agent.
+        var topDownWorldRoot = new GameObject("TopDownWorldRoot").transform;
+
+        var topDownAgentGo = new GameObject("TopDownAgent");
+        var tdBody = topDownAgentGo.AddComponent<SpriteRenderer>();
+        tdBody.sprite = SceneBuilderUtil.LoadPlaceholder("jeepney_top");
+        tdBody.sortingOrder = 10;
+        var topDownAgent = topDownAgentGo.AddComponent<TopDownAgentView>();
+        topDownAgent.body = tdBody;
 
         // --- Canvas -----------------------------------------------------------------
 
@@ -110,8 +122,11 @@ public static class CodeDriveSceneBuilder
                                               new Vector2(8f, 258f), new Vector2(-8f, -8f));
         RectTransform blockPanel = AutomationDriveSceneBuilder.BuildBlockWindow(
             editorArea, canvasRoot, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
+        UIFactory.Place(blockPanel, new Vector2(0.62f, 0.5f), Vector2.zero, new Vector2(760f, 640f));
+
         RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
-            editorArea, out CodeEditorController codeEditor);
+            editorArea, out CodeEditorController codeEditor, out Button codeChatButton);
+        UIFactory.Place(codePanel, new Vector2(0.62f, 0.5f), Vector2.zero, new Vector2(760f, 640f));
 
         // Monitor + console
         var monitorLine = UIFactory.CreatePanel(workspace, "Monitor",
@@ -140,6 +155,7 @@ public static class CodeDriveSceneBuilder
         FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
         DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(canvas.transform);
+        LegCompletionController legCompletion = LegCompletionOverlayBuilder.Build(canvas.transform);
 
         // --- Orchestrator -----------------------------------------------------------
 
@@ -147,16 +163,20 @@ public static class CodeDriveSceneBuilder
         var exec = controllerGo.AddComponent<ExecutionController>();
         var controller = controllerGo.AddComponent<AutomationDriveController>();
 
-        SceneBuilderUtil.Wire(controller, "worldCamera",   worldCam);
-        SceneBuilderUtil.Wire(controller, "worldView",     worldView);
-        SceneBuilderUtil.Wire(controller, "agentView",     agentView);
-        SceneBuilderUtil.Wire(controller, "exec",          exec);
-        SceneBuilderUtil.Wire(controller, "goalLabel",     goalText);
-        SceneBuilderUtil.Wire(controller, "blockPanel",    blockPanel.gameObject);
-        SceneBuilderUtil.Wire(controller, "codePanel",     codePanel.gameObject);
-        SceneBuilderUtil.Wire(controller, "blockCanvas",   blockCanvas);
-        SceneBuilderUtil.Wire(controller, "palette",       paletteCtrl);
-        SceneBuilderUtil.Wire(controller, "codeEditor",    codeEditor);
+        SceneBuilderUtil.Wire(controller, "worldCamera",    worldCam);
+        SceneBuilderUtil.Wire(controller, "worldView",      worldView);
+        SceneBuilderUtil.Wire(controller, "agentView",      agentView);
+        SceneBuilderUtil.Wire(controller, "topDownWorldRoot", topDownWorldRoot);
+        SceneBuilderUtil.Wire(controller, "topDownAgentView", topDownAgent);
+        SceneBuilderUtil.Wire(controller, "cameraFollow",   cameraFollow);
+        SceneBuilderUtil.Wire(controller, "exec",           exec);
+        SceneBuilderUtil.Wire(controller, "goalLabel",      goalText);
+        SceneBuilderUtil.Wire(controller, "blockPanel",     blockPanel.gameObject);
+        SceneBuilderUtil.Wire(controller, "codePanel",      codePanel.gameObject);
+        SceneBuilderUtil.Wire(controller, "blockCanvas",    blockCanvas);
+        SceneBuilderUtil.Wire(controller, "palette",        paletteCtrl);
+        SceneBuilderUtil.Wire(controller, "codeEditor",     codeEditor);
+        SceneBuilderUtil.Wire(controller, "codeChatButton", codeChatButton);
         SceneBuilderUtil.Wire(controller, "deriveGridFromRoute",   true);
         SceneBuilderUtil.Wire(controller, "workspaceToggleButton", workspaceToggle);
         SceneBuilderUtil.Wire(controller, "workspaceRoot",         workspace.gameObject);
@@ -175,6 +195,7 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
         SceneBuilderUtil.Wire(controller, "dialogue",     dialogue);
+        SceneBuilderUtil.Wire(controller, "legCompletion", legCompletion);
 
         SceneBuilderUtil.SaveScene(scene, "CodeDrive");
     }

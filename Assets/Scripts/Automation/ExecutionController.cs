@@ -31,8 +31,9 @@ public class ExecutionController : MonoBehaviour
     readonly Interpreter _vm = new Interpreter();
 
     AgentSim          _sim;
-    JeepneyAgentView  _view;
-    GridWorldView     _world;
+    IAgentView        _view;
+    IGridSpace        _space;
+    IStopView         _stopView;
     GridModel         _grid;
     AutomationPuzzleDefinition _def;
     int               _startFacing;
@@ -42,15 +43,20 @@ public class ExecutionController : MonoBehaviour
 
     // -------------------------------------------------------------------------
 
-    public void Init(GridModel grid, AgentSim sim, JeepneyAgentView view,
-                     GridWorldView world, AutomationPuzzleDefinition def, int startFacing)
+    public void Init(GridModel grid, AgentSim sim, IAgentView view,
+                     IGridSpace space, IStopView stopView,
+                     AutomationPuzzleDefinition def, int startFacing)
     {
         _grid        = grid;
         _sim         = sim;
         _view        = view;
-        _world       = world;
+        _space       = space;
+        _stopView    = stopView;
         _def         = def;
         _startFacing = startFacing;
+
+        if (_view != null)
+            _view.Init(_space, _sim.Position, _sim.Facing);
     }
 
     // -------------------------------------------------------------------------
@@ -81,8 +87,8 @@ public class ExecutionController : MonoBehaviour
         if (_sim != null)
         {
             _sim.Reset();
-            if (_view  != null) _view.SnapTo(_sim.Position, _sim.Facing);
-            if (_world != null) _world.ResetStops();
+            if (_view     != null) _view.SnapTo(_sim.Position, _sim.Facing);
+            if (_stopView != null) _stopView.ResetStops();
         }
 
         State = ExecState.Idle;

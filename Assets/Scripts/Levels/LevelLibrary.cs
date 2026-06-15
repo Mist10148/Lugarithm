@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -37,10 +38,76 @@ public static class LevelLibrary
     }
 
     // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Derives a procedural layout from an authored manual route. Fixed stops become
+    /// anchors (start, destination, and a few story beats); the rest of the trunk
+    /// vertices are left for the generator to populate with ordinary stops.
+    /// </summary>
+    static ProceduralLayoutDefinition FromManual(ManualRouteDefinition m, TownGenParams gen)
+    {
+        var anchors = new List<AnchorNode>();
+        for (int i = 0; i < m.stops.Length; i++)
+        {
+            ManualStopDefinition stop = m.stops[i];
+            if (stop.waypointIndex < 0 || stop.waypointIndex >= m.waypoints.Length)
+                continue;
+
+            AnchorKind kind;
+            if (i == 0)                   kind = AnchorKind.TerminalStart;
+            else if (stop.isDestination)  kind = AnchorKind.TerminalEnd;
+            else if (stop.waitingPassengers > 0 && anchors.Count % 2 == 1)
+                kind = AnchorKind.NpcDrop;          // alternate flavor for story beats
+            else if (stop.waitingPassengers > 0)
+                kind = AnchorKind.HeritageSite;
+            else
+                continue; // ordinary trunk vertex; generator will create a regular stop
+
+            anchors.Add(new AnchorNode
+            {
+                name     = stop.stopName,
+                kind     = kind,
+                position = m.waypoints[stop.waypointIndex]
+            });
+        }
+
+        return new ProceduralLayoutDefinition
+        {
+            enabled = true,
+            trunk   = m.waypoints,
+            anchors = anchors.ToArray(),
+            gen     = gen
+        };
+    }
+
+    // -------------------------------------------------------------------------
     // Tutorial — linear sequencing, short intro drive
 
     static LevelDefinition Tutorial()
     {
+        var manual = new ManualRouteDefinition
+        {
+            waypoints = new[]
+            {
+                new Vector2(0f, 0f),
+                new Vector2(0f, 24f),
+                new Vector2(12f, 36f),
+                new Vector2(12f, 60f),
+            },
+            roadHalfWidth = 3f,
+            seatCapacity  = 4,
+            breakdownAtRouteFraction = -1f,
+            parTimeSeconds = 90f,
+            stops = new[]
+            {
+                new ManualStopDefinition { stopName = "Garage",         waypointIndex = 0, waitingPassengers = 0 },
+                new ManualStopDefinition { stopName = "Calle Real",     waypointIndex = 1, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "Plaza Terminal", waypointIndex = 3, isDestination = true },
+            },
+        };
+
         return new LevelDefinition
         {
             levelIndex  = 0,
@@ -48,26 +115,7 @@ public static class LevelLibrary
             hasContent  = true,
             fares       = new FareTable(),
 
-            manual = new ManualRouteDefinition
-            {
-                waypoints = new[]
-                {
-                    new Vector2(0f, 0f),
-                    new Vector2(0f, 24f),
-                    new Vector2(12f, 36f),
-                    new Vector2(12f, 60f),
-                },
-                roadHalfWidth = 3f,
-                seatCapacity  = 4,
-                breakdownAtRouteFraction = -1f,
-                parTimeSeconds = 90f,
-                stops = new[]
-                {
-                    new ManualStopDefinition { stopName = "Garage",         waypointIndex = 0, waitingPassengers = 0 },
-                    new ManualStopDefinition { stopName = "Calle Real",     waypointIndex = 1, waitingPassengers = 2 },
-                    new ManualStopDefinition { stopName = "Plaza Terminal", waypointIndex = 3, isDestination = true },
-                },
-            },
+            manual = manual,
 
             auto = new AutomationPuzzleDefinition
             {
@@ -110,6 +158,16 @@ public static class LevelLibrary
                     "moveForward()\n" +
                     "dropOff()\n",
             },
+
+            procedural = FromManual(manual, new TownGenParams
+            {
+                branchCountMin = 0, branchCountMax = 1,
+                branchSpacing  = 18f,
+                branchLenMin   = 6f, branchLenMax = 10f,
+                passengerCountMin = 1, passengerCountMax = 2,
+                passengerDensity  = 0.5f,
+                gridCellSize      = 6f,
+            }),
         };
     }
 
@@ -118,6 +176,33 @@ public static class LevelLibrary
 
     static LevelDefinition Level1Molo()
     {
+        var manual = new ManualRouteDefinition
+        {
+            waypoints = new[]
+            {
+                new Vector2(0f, 0f),
+                new Vector2(0f, 30f),
+                new Vector2(18f, 42f),
+                new Vector2(18f, 72f),
+                new Vector2(0f, 84f),
+                new Vector2(0f, 114f),
+                new Vector2(22f, 128f),
+                new Vector2(22f, 156f),
+            },
+            roadHalfWidth = 3f,
+            seatCapacity  = 8,
+            breakdownAtRouteFraction = 0.55f,
+            parTimeSeconds = 240f,
+            stops = new[]
+            {
+                new ManualStopDefinition { stopName = "Iloilo Terminal", waypointIndex = 0, waitingPassengers = 0 },
+                new ManualStopDefinition { stopName = "Molo Church",     waypointIndex = 1, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "Yusay-Consing",   waypointIndex = 3, waitingPassengers = 3 },
+                new ManualStopDefinition { stopName = "Avanceña St",     waypointIndex = 5, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "Molo Plaza",      waypointIndex = 7, isDestination = true },
+            },
+        };
+
         return new LevelDefinition
         {
             levelIndex  = 1,
@@ -126,32 +211,7 @@ public static class LevelLibrary
             fares       = new FareTable(),
             townPuzzle  = TownPuzzleKind.FlowConnect,   // Molo: non-intersecting transit links
 
-            manual = new ManualRouteDefinition
-            {
-                waypoints = new[]
-                {
-                    new Vector2(0f, 0f),
-                    new Vector2(0f, 30f),
-                    new Vector2(18f, 42f),
-                    new Vector2(18f, 72f),
-                    new Vector2(0f, 84f),
-                    new Vector2(0f, 114f),
-                    new Vector2(22f, 128f),
-                    new Vector2(22f, 156f),
-                },
-                roadHalfWidth = 3f,
-                seatCapacity  = 8,
-                breakdownAtRouteFraction = 0.55f,
-                parTimeSeconds = 240f,
-                stops = new[]
-                {
-                    new ManualStopDefinition { stopName = "Iloilo Terminal", waypointIndex = 0, waitingPassengers = 0 },
-                    new ManualStopDefinition { stopName = "Molo Church",     waypointIndex = 1, waitingPassengers = 2 },
-                    new ManualStopDefinition { stopName = "Yusay-Consing",   waypointIndex = 3, waitingPassengers = 3 },
-                    new ManualStopDefinition { stopName = "Avanceña St",     waypointIndex = 5, waitingPassengers = 2 },
-                    new ManualStopDefinition { stopName = "Molo Plaza",      waypointIndex = 7, isDestination = true },
-                },
-            },
+            manual = manual,
 
             auto = new AutomationPuzzleDefinition
             {
@@ -202,6 +262,16 @@ public static class LevelLibrary
                     "        collectFare()\n" +
                     "dropOff()\n",
             },
+
+            procedural = FromManual(manual, new TownGenParams
+            {
+                branchCountMin = 1, branchCountMax = 2,
+                branchSpacing  = 18f,
+                branchLenMin   = 8f, branchLenMax = 14f,
+                passengerCountMin = 2, passengerCountMax = 4,
+                passengerDensity  = 0.7f,
+                gridCellSize      = 6f,
+            }),
         };
     }
 

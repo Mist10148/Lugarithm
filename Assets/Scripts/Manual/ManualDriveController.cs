@@ -36,6 +36,9 @@ public class ManualDriveController : MonoBehaviour
     [Header("Dialogue")]
     [SerializeField] private DialogueController dialogue;
 
+    [Header("Leg completion")]
+    [SerializeField] private LegCompletionController legCompletion;
+
     [Header("Procedural town")]
     [SerializeField] private DulogMarkerController dulogMarkers;
     [Tooltip("Seed for the per-run town; negative = fresh random each play.")]
@@ -52,9 +55,12 @@ public class ManualDriveController : MonoBehaviour
     DriveScoreTracker _tracker;
     PassengerManager  _passengers;
     BreakdownController _breakdown;
+    StreamingTown     _streaming;
     float _startTime;
     float _legElapsed;
     bool  _finished;
+
+    const float StreamLookAhead = 45f;
 
     void Start()
     {
@@ -81,7 +87,8 @@ public class ManualDriveController : MonoBehaviour
             int seed = proceduralSeed >= 0
                 ? proceduralSeed
                 : (System.Guid.NewGuid().GetHashCode() & 0x7fffffff);
-            TownLayout layout = TownLayoutGenerator.Generate(_def.procedural, _def.fares, seed);
+            _streaming = StreamingTownGenerator.Begin(_def.procedural, _def.fares, seed);
+            TownLayout layout = _streaming.Layout;
             ManualLayoutResult projected = ManualLayoutProjector.Project(layout);
 
             _ctx       = RouteVisualBuilder.BuildProcedural(root, projected, _def.manual.roadHalfWidth);
@@ -131,6 +138,9 @@ public class ManualDriveController : MonoBehaviour
         if (toast != null && _ctx.DestinationZone != null)
             toast.Show($"{_def.displayName}:  drive to {_ctx.DestinationZone.StopName} — stop at the signs for passengers");
 
+        if (legCompletion != null)
+            legCompletion.OnFinishPressed += Finish;
+
         PlayBoardingDialogue();
     }
 
@@ -174,6 +184,52 @@ public class ManualDriveController : MonoBehaviour
             zone.SpawnWaitingPeeps(colors,
                 new Vector2(_def.manual.roadHalfWidth + 2.1f, -0.8f), Vector2.right);
         }
+    }
+
+    /// <summary>
+    /// Adds the new chunk's committed rides to the pending boarding plan and
+    /// spawns tinted waiting peeps at the new stops.
+    /// </summary>
+    void MergeProceduralPassengers(TownLayout layout, ManualLayoutResult delta, TownChunk chunk)
+    {
+        if (_pendingBoarding == null) _pendingBoarding = new Dictionary<int, List<PassengerManager.PendingBoard>>();
+
+        var ordinalOf = new Dictionary<int, int>();
+        for (int i = 0; i < delta.stops.Count; i++)
+            ordinalOf[delta.stops[i].id] = i;
+
+        foreach (PassengerRequest req in chunk.requests)
+        {
+            if (!ordinalOf.TryGetValue(req.originNodeId, out int o)) continue;
+            if (!ordinalOf.TryGetValue(req.destNodeId, out int d)) continue;
+
+            if (!_pendingBoarding.TryGetValue(o, out List<PassengerManager.PendingBoard> lst))
+            {
+                lst = new List<PassengerManager.PendingBoard>();
+                _pendingBoarding[o] = lst;
+            }
+            lst.Add(new PassengerManager.PendingBoard
+            {
+                color       = req.color,
+                destOrdinal = d,
+                destName    = delta.stops[d].name,
+                fare        = req.fare,
+                tender      = req.tender,
+            });
+        }
+
+        foreach (var kv in _pendingBoarding)
+        {
+            if (kv.Key >= _ctx.Zones.Length) continue;
+            StopZone zone = _ctx.Zones[kv.Key];
+            var colors = new List<Color>();
+            foreach (PassengerManager.PendingBoard b in kv.Value) colors.Add(b.color);
+            zone.SpawnWaitingPeeps(colors,
+                new Vector2(_def.manual.roadHalfWidth + 2.1f, -0.8f), Vector2.right);
+        }
+
+        if (_passengers != null)
+            _passengers.ConfigureProcedural(_pendingBoarding);
     }
 
     void PlayBoardingDialogue()
@@ -240,19 +296,55 @@ public class ManualDriveController : MonoBehaviour
         if (_breakdown != null)
             _breakdown.Tick(along);
 
-        // Leg ends once the destination was serviced and every fare is settled.
+        // Leg ends when the player presses "Finish leg" after the destination
+        // has been serviced and every fare is settled.
         bool drawerBusy = coinDrawer != null && coinDrawer.Busy;
         bool servicing  = _passengers != null && _passengers.IsServicing;
         bool arrived    = _passengers != null && _passengers.ArrivedAtDestination;
 
         if (arrived && !drawerBusy && !servicing)
-            Finish();
+        {
+            if (legCompletion != null && !legCompletion.IsVisible)
+                legCompletion.Show();
+        }
+
+        // Stream more road ahead when the jeepney approaches the current frontier.
+        if (_proceduralActive && _streaming != null && !_finished)
+        {
+            float distToEnd = Vector2.Distance(jeepney.transform.position, _streaming.TrunkEndPos);
+            if (distToEnd < StreamLookAhead)
+                AppendChunk();
+        }
+    }
+
+    void AppendChunk()
+    {
+        if (_streaming == null || _ctx == null) return;
+
+        TownChunk chunk = StreamingTownGenerator.AppendChunk(_streaming);
+        if (chunk == null || chunk.nodes.Count == 0) return;
+
+        Transform root = worldRoot != null ? worldRoot : transform;
+        ManualLayoutResult delta = ManualLayoutProjector.ProjectChunk(_streaming.Layout, chunk);
+        RouteVisualBuilder.AppendProcedural(root, _ctx, delta, _def.manual.roadHalfWidth);
+        _segments = _ctx.Segments;
+
+        MergeProceduralPassengers(_streaming.Layout, delta, chunk);
+
+        // The destination moved, so the passenger manager can keep going.
+        if (_passengers != null)
+            _passengers.ResetDestinationArrival();
+
+        if (toast != null && _ctx.DestinationZone != null)
+            toast.Show($"Keep driving to {_ctx.DestinationZone.StopName}");
     }
 
     void Finish()
     {
+        if (_finished) return;
         _finished = true;
         jeepney.InputLocked = true;
+        if (legCompletion != null) legCompletion.Hide();
         _legElapsed = Time.time - _startTime;   // freeze drive time before the gate
 
         // The town gate (non-code Mini-Game 2) must be solved before results.
@@ -340,6 +432,12 @@ public class ManualDriveController : MonoBehaviour
         {
             LoadScene("LevelSelect");
         }
+    }
+
+    void OnDestroy()
+    {
+        if (legCompletion != null)
+            legCompletion.OnFinishPressed -= Finish;
     }
 
     void LoadScene(string sceneName)

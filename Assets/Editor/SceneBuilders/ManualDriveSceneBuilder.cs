@@ -69,6 +69,7 @@ public static class ManualDriveSceneBuilder
         FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
         DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(canvas.transform);
+        LegCompletionController legCompletion = LegCompletionOverlayBuilder.Build(canvas.transform);
 
         // Exit (top-right, under currency)
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(130f, 44f));
@@ -117,6 +118,7 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
         SceneBuilderUtil.Wire(controller, "dialogue",     dialogue);
+        SceneBuilderUtil.Wire(controller, "legCompletion", legCompletion);
         SceneBuilderUtil.Wire(controller, "dulogMarkers", dulog);
 
         SceneBuilderUtil.SaveScene(scene, "ManualDrive");

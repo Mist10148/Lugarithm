@@ -16,6 +16,8 @@ public class DialogueController : MonoBehaviour
     [SerializeField] private GameObject     root;
     [SerializeField] private DialogBox      dialogBox;
     [SerializeField] private GameObject     continueIndicator;
+    [SerializeField] private Button         nextButton;
+    [SerializeField] private Button         skipButton;
     [SerializeField] private RectTransform  choiceContainer;
     [SerializeField] private Button         choiceButtonTemplate;
 
@@ -47,6 +49,11 @@ public class DialogueController : MonoBehaviour
             _subscribedToSettings = true;
         }
         ApplySettings();
+
+        if (nextButton != null)
+            nextButton.onClick.AddListener(OnAdvancePressed);
+        if (skipButton != null)
+            skipButton.onClick.AddListener(SkipConversation);
     }
 
     void OnDisable()
@@ -56,6 +63,11 @@ public class DialogueController : MonoBehaviour
             SettingsManager.Instance.OnSettingsChanged -= ApplySettings;
             _subscribedToSettings = false;
         }
+
+        if (nextButton != null)
+            nextButton.onClick.RemoveListener(OnAdvancePressed);
+        if (skipButton != null)
+            skipButton.onClick.RemoveListener(SkipConversation);
     }
 
     void Update()
@@ -71,6 +83,18 @@ public class DialogueController : MonoBehaviour
 
         bool advancePressed = Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
         if (!advancePressed) return;
+
+        OnAdvancePressed();
+    }
+
+    /// <summary>
+    /// Advances the dialogue by one step (completes typewriter, advances reveal,
+    /// or steps the runtime). Shared by keyboard/click and the Next button.
+    /// </summary>
+    void OnAdvancePressed()
+    {
+        if (_runtime == null || _runtime.IsFinished) return;
+        if (_awaitingRephrase) return;
 
         // Reveal flow uses the same advance input.
         if (_waitingForRevealAdvance)
@@ -103,6 +127,39 @@ public class DialogueController : MonoBehaviour
             return; // waiting for the drive controller to clear the event
 
         StepRuntime();
+    }
+
+    /// <summary>
+    /// Skips the remainder of the current conversation and invokes the finished
+    /// callback. During the reveal/cutscene flow it jumps straight to the end.
+    /// </summary>
+    public void SkipConversation()
+    {
+        if (_runtime == null) return;
+
+        if (_waitingForRevealAdvance)
+        {
+            FinishReveal();
+            return;
+        }
+
+        while (!_runtime.IsFinished)
+        {
+            if (_runtime.AvailableChoices().Count > 0)
+                break; // cannot auto-resolve a choice; finish now
+
+            if (_runtime.IsAwaitingEventClear)
+            {
+                _runtime.ClearEvent(); // skip the gameplay beat
+                continue;
+            }
+
+            _runtime.AdvanceLine();
+        }
+
+        HideAll();
+        _onFinished?.Invoke();
+        _onFinished = null;
     }
 
     // -------------------------------------------------------------------------
@@ -177,8 +234,10 @@ public class DialogueController : MonoBehaviour
 
     void ShowDialogueRoot(bool show)
     {
+        // The bar is always shown while dialogue is active so the Next/Skip
+        // buttons remain reachable regardless of the Subtitles setting.
         if (root != null)
-            root.SetActive(show && (SettingsManager.Instance == null || SettingsManager.Instance.Subtitles));
+            root.SetActive(show);
     }
 
     void ApplySettings()
@@ -200,8 +259,8 @@ public class DialogueController : MonoBehaviour
         dialogBox.CharsPerSecond = cps;
         dialogBox.UseTypewriter = cps > 0f;
 
-        if (root != null && _runtime != null && !_waitingForRevealAdvance)
-            root.SetActive(SettingsManager.Instance == null || SettingsManager.Instance.Subtitles);
+        // Bar visibility is driven by ShowDialogueRoot, not by the Subtitles
+        // setting, so the Next/Skip buttons are always available.
     }
 
     void RefreshView()

@@ -90,6 +90,65 @@ public static class RouteVisualBuilder
         return ctx;
     }
 
+    /// <summary>
+    /// Adds a chunk's roads and stops to an existing top-down procedural world.
+    /// The existing destination stop is demoted to an ordinary stop; the new
+    /// destination becomes the terminal-end of the appended trunk.
+    /// </summary>
+    public static void AppendProcedural(Transform parent, RouteContext ctx,
+                                        ManualLayoutResult delta, float roadHalfWidth)
+    {
+        if (ctx == null || delta == null) return;
+
+        Sprite roadSprite = Resources.Load<Sprite>("Placeholders/road_tile");
+        Transform roadRoot = parent.Find("Road");
+        if (roadRoot == null)
+        {
+            var rr = new GameObject("Road");
+            rr.transform.SetParent(parent, false);
+            roadRoot = rr.transform;
+        }
+
+        foreach (RoadSegment s in delta.segments)
+        {
+            ctx.Segments.Add(s);
+            TileSegment(roadRoot, roadSprite, s.a, s.b,
+                        roadHalfWidth * (s.isTrunk ? 2f : 1.5f));
+        }
+
+        var zones = new List<StopZone>(ctx.Zones);
+        foreach (TownNode node in delta.stops)
+        {
+            if (ctx.ZoneByNode != null && ctx.ZoneByNode.ContainsKey(node.id))
+            {
+                // Demote old destination to ordinary stop.
+                if (ctx.ZoneByNode[node.id] == ctx.DestinationZone)
+                    ctx.DestinationZone.IsDestination = false;
+                continue;
+            }
+
+            bool isDest = node.id == delta.dest.id;
+            StopZone zone = BuildProceduralStop(parent, node, zones.Count, isDest, roadHalfWidth);
+            zones.Add(zone);
+            if (ctx.ZoneByNode != null) ctx.ZoneByNode[node.id] = zone;
+            if (isDest) ctx.DestinationZone = zone;
+        }
+        ctx.Zones = zones.ToArray();
+
+        // Extend the trunk polyline with the new trunk vertices.
+        if (delta.trunk != null && delta.trunk.Length > 0)
+        {
+            var waypoints = new List<Vector2>(ctx.Waypoints);
+            foreach (Vector2 p in delta.trunk)
+            {
+                if (waypoints.Count == 0 || Vector2.Distance(waypoints[waypoints.Count - 1], p) > 0.001f)
+                    waypoints.Add(p);
+            }
+            ctx.Waypoints = waypoints.ToArray();
+            ctx.TotalLength = RouteMath.TotalLength(ctx.Waypoints);
+        }
+    }
+
     static void TileSegment(Transform parent, Sprite sprite, Vector2 a, Vector2 b, float width)
     {
         Vector2 delta = b - a;
