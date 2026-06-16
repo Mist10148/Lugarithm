@@ -471,6 +471,11 @@ public class ManualDriveController : MonoBehaviour
     {
         if (legCompletion != null)
             legCompletion.OnFinishPressed -= Finish;
+
+        // Bank any collected fares on any exit — Continue already flushed them,
+        // so a second call after completion is a harmless no-op.
+        if (GameManager.Instance != null)
+            GameManager.Instance.SaveProgress();
     }
 
     void LoadScene(string sceneName)

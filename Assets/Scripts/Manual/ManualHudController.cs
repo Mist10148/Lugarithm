@@ -54,10 +54,12 @@ public class ManualHudController : MonoBehaviour
         }
 
         int pending = GameManager.Instance != null ? GameManager.Instance.PendingCurrency : 0;
-        if (pending != _shownCurrency && currencyLabel != null)
+        int saved   = SaveSystem.Current != null ? SaveSystem.Current.currency : 0;
+        int wallet  = saved + pending;
+        if (wallet != _shownCurrency && currencyLabel != null)
         {
-            _shownCurrency = pending;
-            currencyLabel.text = $"₱ {pending}";
+            _shownCurrency = wallet;
+            currencyLabel.text = $"₱ {wallet}";
         }
     }
 

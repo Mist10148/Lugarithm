@@ -12,16 +12,16 @@ public class JeepneyController : MonoBehaviour
 {
     [Header("Driving — tune the heavy feel here")]
     [Tooltip("Forward acceleration when holding W / Up (low = sluggish start).")]
-    [SerializeField] private float acceleration = 7f;
+    [SerializeField] private float acceleration = 4.5f;
 
     [Tooltip("Reverse acceleration when holding S / Down.")]
     [SerializeField] private float reverseAcceleration = 4f;
 
     [Tooltip("Maximum forward speed on the road.")]
-    [SerializeField] private float topSpeed = 6.5f;
+    [SerializeField] private float topSpeed = 4f;
 
     [Tooltip("Passive deceleration when no throttle is applied (high = heavy stop).")]
-    [SerializeField] private float brakingForce = 6f;
+    [SerializeField] private float brakingForce = 16f;
 
     [Header("Steering")]
     [Tooltip("Maximum turn rate in degrees per second (low = wide turning radius).")]
@@ -40,7 +40,7 @@ public class JeepneyController : MonoBehaviour
 
     [Header("Inertia")]
     [Tooltip("How quickly throttle input reaches the engine (lower = lazier response).")]
-    [SerializeField] private float throttleResponse = 4f;
+    [SerializeField] private float throttleResponse = 3f;
 
     [Header("Off-road")]
     [SerializeField] private float offRoadSpeedFactor = 0.45f;
@@ -92,6 +92,10 @@ public class JeepneyController : MonoBehaviour
             if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) rawSteer    -= 1f;
         }
 
+        // Brake off the raw key, not the smoothed value, so the instant the
+        // player releases the throttle the jeepney starts shedding speed.
+        bool throttlePressed = Mathf.Abs(rawThrottle) > 0.01f;
+
         // Smooth inputs for a heavy, delayed response.
         _throttleInput = Mathf.MoveTowards(_throttleInput, rawThrottle,
                                            throttleResponse * Time.fixedDeltaTime);
@@ -111,12 +115,15 @@ public class JeepneyController : MonoBehaviour
             _rb.AddForce(transform.up * (reverseAcceleration * _throttleInput * fuelFactor));
 
         // Heavy friction: apply a braking force whenever the driver is not
-        // pressing the throttle, so the jeepney coasts to a stop but not
-        // instantly.
-        if (Mathf.Abs(_throttleInput) < 0.01f && _rb.linearVelocity.magnitude > 0.01f)
+        // pressing the throttle, so the jeepney coasts to a stop promptly.
+        if (!throttlePressed && _rb.linearVelocity.magnitude > 0.01f)
         {
             Vector2 brakeDir = -_rb.linearVelocity.normalized;
             _rb.AddForce(brakeDir * brakingForce);
+            // Hard floor: kill tiny residual creep so it fully stops instead
+            // of drifting like it's on ice.
+            if (_rb.linearVelocity.magnitude < 0.35f)
+                _rb.linearVelocity = Vector2.zero;
         }
 
         // No-drift grip: resolve velocity into forward and lateral components

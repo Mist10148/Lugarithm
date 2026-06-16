@@ -64,9 +64,9 @@ public class TownLayoutGeneratorTests
             TownLayout layout = Gen(seed);
 
             AssertAnchor(layout, "Molo Boundary", new Vector2(0f, 0f),   NodeKind.TerminalStart);
-            AssertAnchor(layout, "Batiano River", new Vector2(0f, 28f),  NodeKind.NpcDrop);
-            AssertAnchor(layout, "Poblacion",     new Vector2(16f, 70f), NodeKind.HeritageSite);
-            AssertAnchor(layout, "Oton Market",   new Vector2(2f, 112f), NodeKind.TerminalEnd);
+            AssertAnchor(layout, "Batiano River", new Vector2(0f, 30f),  NodeKind.NpcDrop);
+            AssertAnchor(layout, "Poblacion",     new Vector2(18f, 72f), NodeKind.HeritageSite);
+            AssertAnchor(layout, "Oton Market",   new Vector2(6f, 114f), NodeKind.TerminalEnd);
 
             Assert.AreEqual(NodeKind.TerminalStart, layout.Node(layout.startNodeId).kind);
             Assert.AreEqual(NodeKind.TerminalEnd,   layout.Node(layout.destNodeId).kind);

@@ -40,8 +40,8 @@ public static class TownLayoutGenerator
         var rng    = new System.Random(seed);
         var layout = new TownLayout { seed = seed };
 
-        Vector2[] trunk = def.trunk;
         TownGenParams gen = def.gen ?? new TownGenParams();
+        Vector2[] trunk = OrthogonalizeAndSnap(def.trunk, gen.gridCellSize);
 
         // 1. Trunk nodes (anchors annotate matching vertices; the rest are bends).
         int stopNameCursor = 1;
@@ -109,10 +109,15 @@ public static class TownLayoutGenerator
         float spanEnd = layout.Node(layout.trunkNodeIds[layout.trunkNodeIds.Count - 1]).alongTrunk;
         float minClear = Mathf.Max(gen.gridCellSize * 1.5f, 3f);
 
-        // Candidate roots: interior trunk nodes (not the terminals).
+        // Candidate roots: interior trunk nodes on straight segments (not the
+        // terminals and not 90° corners, so branches stay axis-aligned).
         var roots = new List<int>();
         for (int i = 1; i < layout.trunkNodeIds.Count - 1; i++)
-            roots.Add(layout.trunkNodeIds[i]);
+        {
+            int id = layout.trunkNodeIds[i];
+            if (IsTrunkCorner(layout, id)) continue;
+            roots.Add(id);
+        }
         Shuffle(roots, rng);
 
         var usedAlong = new List<float>();
@@ -132,7 +137,7 @@ public static class TownLayoutGenerator
             Vector2 dir  = TrunkDirAt(layout, rootId);
             Vector2 perp = new Vector2(-dir.y, dir.x) * (rng.Next(2) == 0 ? 1f : -1f);
             float   len  = (float)(gen.branchLenMin + rng.NextDouble() * (gen.branchLenMax - gen.branchLenMin));
-            float   jit  = (float)(rng.NextDouble() * 2f - 1f) * (len * 0.15f);
+            float   jit  = 0f; // keep branches square to the orthogonal trunk
             Vector2 tip  = root.pos + perp * len + dir * jit;
 
             if (!FarFromAll(layout, tip, minClear)) continue;
@@ -321,5 +326,67 @@ public static class TownLayoutGenerator
             int j = rng.Next(i + 1);
             (list[i], list[j]) = (list[j], list[i]);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Orthogonalization
+
+    /// <summary>
+    /// Walks the authored trunk and converts every diagonal segment into an L of
+    /// two axis-aligned segments by inserting a single corner node. Corners are
+    /// snapped to the generation grid so the rasterizer produces clean straight
+    /// runs with crisp 90° corners instead of near-diagonal stairs.
+    /// </summary>
+    static Vector2[] OrthogonalizeAndSnap(Vector2[] src, float cellSize)
+    {
+        if (src == null || src.Length < 2) return src;
+
+        float cell = Mathf.Max(0.5f, cellSize);
+        var pts = new List<Vector2> { SnapToGrid(src[0], cell) };
+        bool horizontalFirst = false;
+
+        for (int i = 1; i < src.Length; i++)
+        {
+            Vector2 a = pts[pts.Count - 1];
+            Vector2 b = SnapToGrid(src[i], cell);
+
+            // If the segment is not purely horizontal or vertical, insert a
+            // right-angle corner. Alternate the bend direction so the town does
+            // not lean consistently one way.
+            if (!Mathf.Approximately(a.x, b.x) && !Mathf.Approximately(a.y, b.y))
+            {
+                Vector2 corner = horizontalFirst
+                    ? new Vector2(b.x, a.y)
+                    : new Vector2(a.x, b.y);
+                pts.Add(SnapToGrid(corner, cell));
+                horizontalFirst = !horizontalFirst;
+            }
+
+            pts.Add(b);
+        }
+
+        return pts.ToArray();
+    }
+
+    static Vector2 SnapToGrid(Vector2 p, float cell)
+    {
+        return new Vector2(
+            Mathf.Round(p.x / cell) * cell,
+            Mathf.Round(p.y / cell) * cell);
+    }
+
+    /// <summary>True when this trunk node is a 90° bend, not a straight segment.</summary>
+    static bool IsTrunkCorner(TownLayout layout, int nodeId)
+    {
+        int idx = layout.trunkNodeIds.IndexOf(nodeId);
+        if (idx <= 0 || idx >= layout.trunkNodeIds.Count - 1) return false;
+
+        Vector2 prev = layout.Node(layout.trunkNodeIds[idx - 1]).pos;
+        Vector2 self = layout.Node(layout.trunkNodeIds[idx]).pos;
+        Vector2 next = layout.Node(layout.trunkNodeIds[idx + 1]).pos;
+
+        bool straightH = Mathf.Approximately(prev.y, self.y) && Mathf.Approximately(self.y, next.y);
+        bool straightV = Mathf.Approximately(prev.x, self.x) && Mathf.Approximately(self.x, next.x);
+        return !straightH && !straightV;
     }
 }

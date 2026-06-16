@@ -93,7 +93,7 @@ public static class LevelLibrary
             {
                 new Vector2(0f, 0f),
                 new Vector2(0f, 24f),
-                new Vector2(12f, 36f),
+                new Vector2(12f, 24f),
                 new Vector2(12f, 60f),
             },
             roadHalfWidth = 3f,
@@ -185,12 +185,12 @@ public static class LevelLibrary
             {
                 new Vector2(0f, 0f),
                 new Vector2(0f, 30f),
-                new Vector2(18f, 42f),
+                new Vector2(18f, 30f),
                 new Vector2(18f, 72f),
-                new Vector2(0f, 84f),
+                new Vector2(0f, 72f),
                 new Vector2(0f, 114f),
-                new Vector2(22f, 128f),
-                new Vector2(22f, 156f),
+                new Vector2(24f, 114f),
+                new Vector2(24f, 156f),
             },
             roadHalfWidth = 3f,
             seatCapacity  = 8,
@@ -308,8 +308,9 @@ public static class LevelLibrary
                 {
                     new Vector2(0f, 0f),
                     new Vector2(0f, 28f),
-                    new Vector2(16f, 40f),
+                    new Vector2(16f, 28f),
                     new Vector2(16f, 70f),
+                    new Vector2(16f, 84f),
                     new Vector2(2f, 84f),
                     new Vector2(2f, 112f),
                 },
@@ -322,7 +323,7 @@ public static class LevelLibrary
                     new ManualStopDefinition { stopName = "Molo Boundary", waypointIndex = 0, waitingPassengers = 0 },
                     new ManualStopDefinition { stopName = "Batiano River", waypointIndex = 1, waitingPassengers = 2 },
                     new ManualStopDefinition { stopName = "Poblacion",     waypointIndex = 3, waitingPassengers = 2 },
-                    new ManualStopDefinition { stopName = "Oton Market",   waypointIndex = 5, isDestination = true },
+                    new ManualStopDefinition { stopName = "Oton Market",   waypointIndex = 6, isDestination = true },
                 },
             },
 
@@ -336,18 +337,19 @@ public static class LevelLibrary
                 trunk = new[]
                 {
                     new Vector2(0f, 0f),
-                    new Vector2(0f, 28f),
-                    new Vector2(16f, 40f),
-                    new Vector2(16f, 70f),
-                    new Vector2(2f, 84f),
-                    new Vector2(2f, 112f),
+                    new Vector2(0f, 30f),
+                    new Vector2(18f, 30f),
+                    new Vector2(18f, 72f),
+                    new Vector2(0f, 72f),
+                    new Vector2(0f, 114f),
+                    new Vector2(6f, 114f),
                 },
                 anchors = new[]
                 {
                     new AnchorNode { name = "Molo Boundary", kind = AnchorKind.TerminalStart, position = new Vector2(0f, 0f) },
-                    new AnchorNode { name = "Batiano River", kind = AnchorKind.NpcDrop,       position = new Vector2(0f, 28f) },
-                    new AnchorNode { name = "Poblacion",     kind = AnchorKind.HeritageSite,  position = new Vector2(16f, 70f) },
-                    new AnchorNode { name = "Oton Market",   kind = AnchorKind.TerminalEnd,   position = new Vector2(2f, 112f) },
+                    new AnchorNode { name = "Batiano River", kind = AnchorKind.NpcDrop,       position = new Vector2(0f, 30f) },
+                    new AnchorNode { name = "Poblacion",     kind = AnchorKind.HeritageSite,  position = new Vector2(18f, 72f) },
+                    new AnchorNode { name = "Oton Market",   kind = AnchorKind.TerminalEnd,   position = new Vector2(6f, 114f) },
                 },
                 gen = new TownGenParams
                 {

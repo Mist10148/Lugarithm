@@ -9,6 +9,10 @@ using UnityEngine;
 /// </summary>
 public static class GridPathfinder
 {
+    // NAVIGATION: grid-cell BFS, deterministic — not free-roam. The agent moves
+    // one cell at a time over a rasterized grid; there is no node-graph following
+    // or random branching here.
+
     /// <summary>
     /// Shortest 4-connected path of cells from <paramref name="from"/> to
     /// <paramref name="to"/> inclusive, or null when unreachable. The start cell

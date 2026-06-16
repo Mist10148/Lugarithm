@@ -188,6 +188,9 @@ public class AgentSim : IAgentApi
         switch (action)
         {
             case "moveForward":
+                // NAVIGATION: grid-cell BFS, deterministic — not free-roam.
+                // This is the only locomotion primitive; path targets come from
+                // GridPathfinder, not the node graph.
                 Vector2Int target = Position + FacingDeltas[Facing];
                 if (_grid.IsWalkable(target))
                 {
