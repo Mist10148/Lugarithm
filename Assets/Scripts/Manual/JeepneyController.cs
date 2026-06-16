@@ -2,45 +2,36 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Real-time jeepney driving for Manual Mode: WASD / arrows via the Input
-/// System. Tuned for a heavy, underpowered vintage jeepney: slow acceleration,
-/// a modest top speed, strong coasting friction, wide steering, and high
-/// lateral grip so it follows its front wheels without drifting.
+/// Real-time jeepney driving for Manual Mode: the jeepney rolls forward
+/// automatically along the route, A/D change lanes, and Space brakes. Route
+/// turns are handled by driver assist so the first player verb is lateral road
+/// positioning for overtaking.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 public class JeepneyController : MonoBehaviour
 {
     [Header("Driving — tune the heavy feel here")]
-    [Tooltip("Forward acceleration when holding W / Up (low = sluggish start).")]
+    [Tooltip("Automatic forward acceleration (low = sluggish start).")]
     [SerializeField] private float acceleration = 4.5f;
-
-    [Tooltip("Reverse acceleration when holding S / Down.")]
-    [SerializeField] private float reverseAcceleration = 4f;
 
     [Tooltip("Maximum forward speed on the road.")]
     [SerializeField] private float topSpeed = 4f;
 
-    [Tooltip("Passive deceleration when no throttle is applied (high = heavy stop).")]
+    [Tooltip("Deceleration while holding Space or while input is locked.")]
     [SerializeField] private float brakingForce = 16f;
 
-    [Header("Steering")]
-    [Tooltip("Maximum turn rate in degrees per second (low = wide turning radius).")]
-    [SerializeField] private float steeringSpeed = 75f;
+    [Header("Lane Assist")]
+    [Tooltip("Meters between lane centers.")]
+    [SerializeField] private float laneWidth = 1.35f;
 
-    [Tooltip("How quickly the steering wheel catches up to input (lower = heavier delay).")]
-    [SerializeField] private float steeringResponse = 3.5f;
+    [Tooltip("How many lanes the jeepney can move away from the center lane.")]
+    [SerializeField] private int laneStepsEachSide = 1;
 
-    [Tooltip("Forward speed required before steering reaches full effectiveness.")]
-    [SerializeField] private float minSteerSpeed = 2.5f;
+    [Tooltip("How quickly the jeepney slides into the selected lane.")]
+    [SerializeField] private float laneChangeSpeed = 4f;
 
-    [Header("Grip")]
-    [Tooltip("How much sideways velocity survives each physics tick (1 = zero sideways slip).")]
-    [Range(0f, 1f)]
-    [SerializeField] private float lateralGrip = 0.995f;
-
-    [Header("Inertia")]
-    [Tooltip("How quickly throttle input reaches the engine (lower = lazier response).")]
-    [SerializeField] private float throttleResponse = 3f;
+    [Tooltip("How quickly the jeepney visually turns to match the road.")]
+    [SerializeField] private float rotationFollowSpeed = 8f;
 
     [Header("Off-road")]
     [SerializeField] private float offRoadSpeedFactor = 0.45f;
@@ -50,8 +41,14 @@ public class JeepneyController : MonoBehaviour
 
     private Rigidbody2D _rb;
     private float _fuel = 1f;
-    private float _steerInput;    // smoothed steering value
-    private float _throttleInput; // smoothed throttle value
+    private Vector2[] _driveLine;
+    private float _routeDistance;
+    private float _routeLength;
+    private float _routeSpeed;
+    private float _laneOffset;
+    private int   _targetLane;
+    private bool  _aHeld;
+    private bool  _dHeld;
 
     // -------------------------------------------------------------------------
     // Public state
@@ -62,7 +59,8 @@ public class JeepneyController : MonoBehaviour
     /// <summary>True while the jeepney is off the road (set by the drive controller).</summary>
     public bool OffRoad { get; set; }
 
-    public float CurrentSpeed   => _rb != null ? _rb.linearVelocity.magnitude : 0f;
+    public float CurrentSpeed   => _driveLine != null ? _routeSpeed :
+                                   (_rb != null ? _rb.linearVelocity.magnitude : 0f);
     public float CurrentSpeed01 => topSpeed > 0f ? Mathf.Clamp01(CurrentSpeed / topSpeed) : 0f;
     public float Fuel01         => _fuel;
 
@@ -72,82 +70,131 @@ public class JeepneyController : MonoBehaviour
     {
         _rb = GetComponent<Rigidbody2D>();
 
-        // Coasting drag is handled manually by brakingForce so the stop is
-        // controllable and heavy. Disable built-in linear damping to avoid
-        // double-damping.
+        // Motion is driven by the route follower, so built-in damping would
+        // fight the lane-change positioning.
         _rb.linearDamping = 0f;
     }
 
     void FixedUpdate()
     {
-        float rawThrottle = 0f;
-        float rawSteer    = 0f;
+        if (_driveLine != null && _driveLine.Length >= 2)
+        {
+            FixedUpdateRouteFollow();
+            return;
+        }
+
+        FixedUpdateFallback();
+    }
+
+    void FixedUpdateRouteFollow()
+    {
+        bool braking  = false;
 
         if (!InputLocked && Keyboard.current != null)
         {
             var kb = Keyboard.current;
-            if (kb.wKey.isPressed || kb.upArrowKey.isPressed)    rawThrottle += 1f;
-            if (kb.sKey.isPressed || kb.downArrowKey.isPressed)  rawThrottle -= 1f;
-            if (kb.aKey.isPressed || kb.leftArrowKey.isPressed)  rawSteer    += 1f;
-            if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) rawSteer    -= 1f;
+            bool aPressed = kb.aKey.isPressed;
+            bool dPressed = kb.dKey.isPressed;
+
+            if (aPressed && !_aHeld)
+                _targetLane = Mathf.Clamp(_targetLane + 1, -laneStepsEachSide, laneStepsEachSide);
+            if (dPressed && !_dHeld)
+                _targetLane = Mathf.Clamp(_targetLane - 1, -laneStepsEachSide, laneStepsEachSide);
+
+            _aHeld = aPressed;
+            _dHeld = dPressed;
+
+            if (kb.spaceKey.isPressed) braking = true;
+        }
+        else
+        {
+            _aHeld = false;
+            _dHeld = false;
         }
 
-        // Brake off the raw key, not the smoothed value, so the instant the
-        // player releases the throttle the jeepney starts shedding speed.
-        bool throttlePressed = Mathf.Abs(rawThrottle) > 0.01f;
+        bool atRouteEnd = _routeDistance >= _routeLength - 0.01f;
+        bool driving = !InputLocked && !braking && !atRouteEnd;
 
-        // Smooth inputs for a heavy, delayed response.
-        _throttleInput = Mathf.MoveTowards(_throttleInput, rawThrottle,
-                                           throttleResponse * Time.fixedDeltaTime);
-        _steerInput    = Mathf.MoveTowards(_steerInput, rawSteer,
-                                           steeringResponse * Time.fixedDeltaTime);
-
-        // Fuel only burns while throttling; an empty tank limps along.
-        if (rawThrottle != 0f)
-            _fuel = Mathf.Max(0f, _fuel - fuelDrainPerSecond * Time.fixedDeltaTime *
-                                  Mathf.Abs(rawThrottle));
+        // Fuel only burns while the jeepney is driving itself forward; an
+        // empty tank limps along.
+        if (driving)
+            _fuel = Mathf.Max(0f, _fuel - fuelDrainPerSecond * Time.fixedDeltaTime);
         float fuelFactor = _fuel > 0f ? 1f : 0.5f;
 
-        // Throttle along the jeepney's nose.
-        if (_throttleInput > 0f)
-            _rb.AddForce(transform.up * (acceleration * _throttleInput * fuelFactor));
-        else if (_throttleInput < 0f)
-            _rb.AddForce(transform.up * (reverseAcceleration * _throttleInput * fuelFactor));
+        float cap = topSpeed * (OffRoad ? offRoadSpeedFactor : 1f) * fuelFactor;
+        float targetSpeed = driving ? cap : 0f;
+        float speedRate = driving && _routeSpeed < targetSpeed ? acceleration : brakingForce;
+        _routeSpeed = Mathf.MoveTowards(_routeSpeed, targetSpeed, speedRate * Time.fixedDeltaTime);
 
-        // Heavy friction: apply a braking force whenever the driver is not
-        // pressing the throttle, so the jeepney coasts to a stop promptly.
-        if (!throttlePressed && _rb.linearVelocity.magnitude > 0.01f)
+        _routeDistance = Mathf.Min(_routeDistance + _routeSpeed * Time.fixedDeltaTime, _routeLength);
+        if (_routeDistance >= _routeLength - 0.001f)
+            _routeSpeed = 0f;
+
+        _laneOffset = Mathf.MoveTowards(_laneOffset, _targetLane * laneWidth,
+                                        laneChangeSpeed * Time.fixedDeltaTime);
+
+        Vector2 center = RouteMath.PointAt(_driveLine, _routeDistance);
+        Vector2 direction = RouteMath.DirectionAt(_driveLine, _routeDistance + 0.1f);
+        Vector2 left = new Vector2(-direction.y, direction.x);
+        Vector2 targetPosition = center + left * _laneOffset;
+
+        Vector2 previous = _rb.position;
+        _rb.MovePosition(targetPosition);
+        _rb.linearVelocity = Time.fixedDeltaTime > 0f
+            ? (targetPosition - previous) / Time.fixedDeltaTime
+            : Vector2.zero;
+
+        float targetAngle = Vector2.SignedAngle(Vector2.up, direction);
+        float angle = Mathf.LerpAngle(_rb.rotation, targetAngle,
+                                      rotationFollowSpeed * Time.fixedDeltaTime);
+        _rb.MoveRotation(angle);
+    }
+
+    void FixedUpdateFallback()
+    {
+        bool braking = false;
+
+        if (!InputLocked && Keyboard.current != null)
+            braking = Keyboard.current.spaceKey.isPressed;
+
+        if (!InputLocked && !braking)
+            _rb.AddForce(transform.up * acceleration);
+
+        if ((braking || InputLocked) && _rb.linearVelocity.magnitude > 0.01f)
         {
             Vector2 brakeDir = -_rb.linearVelocity.normalized;
             _rb.AddForce(brakeDir * brakingForce);
-            // Hard floor: kill tiny residual creep so it fully stops instead
-            // of drifting like it's on ice.
             if (_rb.linearVelocity.magnitude < 0.35f)
                 _rb.linearVelocity = Vector2.zero;
         }
 
-        // No-drift grip: resolve velocity into forward and lateral components
-        // relative to the jeepney's facing, then bleed almost all sideways slip.
-        // This makes the vehicle follow its front wheels rather than slide.
-        Vector2 forward     = transform.up;
-        float   forwardSpeed = Vector2.Dot(_rb.linearVelocity, forward);
-        Vector2 lateral     = _rb.linearVelocity - forward * forwardSpeed;
-        _rb.linearVelocity  = forward * forwardSpeed + lateral * lateralGrip;
-
-        // Heavy, wide steering: turn rate is limited and scales with forward
-        // speed. Reversing flips the steering direction like a real car.
-        float speedFactor = Mathf.Clamp01(Mathf.Abs(forwardSpeed) / minSteerSpeed);
-        float turn = _steerInput * steeringSpeed * Mathf.Sign(forwardSpeed) *
-                     speedFactor * Time.fixedDeltaTime;
-        _rb.MoveRotation(_rb.rotation + turn);
-
-        // Speed cap (tighter off-road or out of fuel).
-        float cap = topSpeed * (OffRoad ? offRoadSpeedFactor : 1f) * fuelFactor;
+        float cap = topSpeed * (OffRoad ? offRoadSpeedFactor : 1f) * (_fuel > 0f ? 1f : 0.5f);
         if (_rb.linearVelocity.magnitude > cap)
             _rb.linearVelocity = _rb.linearVelocity.normalized * cap;
     }
 
     // -------------------------------------------------------------------------
+
+    /// <summary>Sets the route the jeepney follows automatically.</summary>
+    public void SetDriveLine(Vector2[] waypoints, bool preserveLane = false)
+    {
+        _driveLine = waypoints;
+        _routeLength = waypoints != null && waypoints.Length >= 2
+            ? RouteMath.TotalLength(waypoints)
+            : 0f;
+
+        if (_rb == null) _rb = GetComponent<Rigidbody2D>();
+        _routeDistance = _routeLength > 0f
+            ? RouteMath.NearestDistanceAlong(waypoints, _rb.position, out _)
+            : 0f;
+
+        if (!preserveLane)
+        {
+            _targetLane = 0;
+            _laneOffset = 0f;
+            _routeSpeed = 0f;
+        }
+    }
 
     /// <summary>Places the jeepney on the route start, facing along it.</summary>
     public void TeleportTo(Vector2 position, float rotationDegrees)
@@ -159,8 +206,11 @@ public class JeepneyController : MonoBehaviour
         _rb.linearVelocity  = Vector2.zero;
         _rb.angularVelocity = 0f;
 
-        _steerInput    = 0f;
-        _throttleInput = 0f;
+        _routeSpeed   = 0f;
+        _targetLane   = 0;
+        _laneOffset   = 0f;
+        _aHeld        = false;
+        _dHeld        = false;
 
         transform.SetPositionAndRotation(position, Quaternion.Euler(0f, 0f, rotationDegrees));
     }

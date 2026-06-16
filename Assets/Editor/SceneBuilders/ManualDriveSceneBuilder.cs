@@ -161,7 +161,7 @@ public static class ManualDriveSceneBuilder
 
         Image fuelFill = MakeFillBar(fuelBg, new Color(0.95f, 0.65f, 0.15f));
 
-        var hint = UIFactory.CreateText(dash, "Hint", "WASD / arrows to drive — stop at signs", 16f, UIFactory.TextDim);
+        var hint = UIFactory.CreateText(dash, "Hint", "A / D change lanes - Space brakes", 16f, UIFactory.TextDim);
         UIFactory.Place(hint, new Vector2(0.5f, 0f), new Vector2(60f, 34f), new Vector2(290f, 40f));
 
         // Currency (top right)

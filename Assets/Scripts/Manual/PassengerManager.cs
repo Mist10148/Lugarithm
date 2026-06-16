@@ -185,6 +185,10 @@ public class PassengerManager : MonoBehaviour
         _busyServicing = true;
         _servicedThisVisit.Add(zone);
 
+        bool restoreInput = _jeepney != null && !_jeepney.InputLocked;
+        if (_jeepney != null)
+            _jeepney.InputLocked = true;
+
         // 1. Drop off everyone whose stop this is (everyone at the destination).
         for (int i = _aboard.Count - 1; i >= 0; i--)
         {
@@ -225,6 +229,9 @@ public class PassengerManager : MonoBehaviour
 
         if (zone.IsDestination)
             ArrivedAtDestination = true;
+
+        if (restoreInput && !zone.IsDestination)
+            _jeepney.InputLocked = false;
 
         _busyServicing = false;
     }

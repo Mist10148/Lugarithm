@@ -107,6 +107,7 @@ public class ManualDriveController : MonoBehaviour
         Vector2 direction = RouteMath.DirectionAt(driveLine, 0.1f);
         float angle = Vector2.SignedAngle(Vector2.up, direction);
         jeepney.TeleportTo(start, angle);
+        jeepney.SetDriveLine(driveLine);
 
         if (cameraFollow != null)
             cameraFollow.SnapTo(jeepney.transform);
@@ -361,6 +362,8 @@ public class ManualDriveController : MonoBehaviour
         ManualLayoutResult delta = ManualLayoutProjector.ProjectChunk(_streaming.Layout, chunk);
         RouteVisualBuilder.AppendProcedural(root, _ctx, delta, _def.manual.roadHalfWidth);
         _segments = _ctx.Segments;
+        if (jeepney != null)
+            jeepney.SetDriveLine(_ctx.Waypoints, preserveLane: true);
 
         MergeProceduralPassengers(_streaming.Layout, delta, chunk);
 
