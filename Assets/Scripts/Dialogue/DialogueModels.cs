@@ -14,7 +14,9 @@ public enum DialogueEventKind
     Arrive,
     Advance,
     TutorialComplete,
-    Continue
+    Continue,
+    TutorialRepair,   // scripted tutorial drill: code-based CodeFixMinigame (engine fault)
+    TutorialRefuel    // scripted tutorial drill: non-code RefuelMinigame
 }
 
 /// <summary>

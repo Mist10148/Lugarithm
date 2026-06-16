@@ -1,0 +1,1389 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="215" result="Passed" total="215" passed="215" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:27Z" duration="1.0717034">
+  <test-suite type="TestSuite" id="1000" name="Lugarithm" fullname="Lugarithm" runstate="Runnable" testcasecount="215" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:27Z" duration="1.071703" total="215" passed="215" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1243" name="Lugarithm.EditModeTests.dll" fullname="C:/Users/Mist/Lugarithm/Library/ScriptAssemblies/Lugarithm.EditModeTests.dll" runstate="Runnable" testcasecount="215" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:27Z" duration="1.040384" total="215" passed="215" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="11928" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestFixture" id="1001" name="AgentSimRideTests" fullname="AgentSimRideTests" classname="AgentSimRideTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.139620" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1003" name="DriveToDestination_PlansAPath_DrainedToReachD" fullname="AgentSimRideTests.DriveToDestination_PlansAPath_DrainedToReachD" methodname="DriveToDestination_PlansAPath_DrainedToReachD" classname="AgentSimRideTests" runstate="Runnable" seed="1809115192" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.077866" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1004" name="DriveToNextStop_HeadsToTheNearestPickup" fullname="AgentSimRideTests.DriveToNextStop_HeadsToTheNearestPickup" methodname="DriveToNextStop_HeadsToTheNearestPickup" classname="AgentSimRideTests" runstate="Runnable" seed="1810586454" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.004507" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1002" name="RideMode_BoardsAtOrigin_PaysFare_AndAlightsAtItsOwnStop" fullname="AgentSimRideTests.RideMode_BoardsAtOrigin_PaysFare_AndAlightsAtItsOwnStop" methodname="RideMode_BoardsAtOrigin_PaysFare_AndAlightsAtItsOwnStop" classname="AgentSimRideTests" runstate="Runnable" seed="2060778285" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.009386" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1005" name="AgentSimTests" fullname="AgentSimTests" classname="AgentSimTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.020101" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1010" name="CollectFare_ChargesBaseFarePerBoardedPassenger" fullname="AgentSimTests.CollectFare_ChargesBaseFarePerBoardedPassenger" methodname="CollectFare_ChargesBaseFarePerBoardedPassenger" classname="AgentSimTests" runstate="Runnable" seed="1281125597" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.004933" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1011" name="DropOff_OnlyDeliversAtTheDestination" fullname="AgentSimTests.DropOff_OnlyDeliversAtTheDestination" methodname="DropOff_OnlyDeliversAtTheDestination" classname="AgentSimTests" runstate="Runnable" seed="1828271858" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001174" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1014" name="IsWin_RequiresDeliveryWhenThePuzzleSaysSo" fullname="AgentSimTests.IsWin_RequiresDeliveryWhenThePuzzleSaysSo" methodname="IsWin_RequiresDeliveryWhenThePuzzleSaysSo" classname="AgentSimTests" runstate="Runnable" seed="2132274895" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001524" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1006" name="MoveForward_AdvancesOneCell" fullname="AgentSimTests.MoveForward_AdvancesOneCell" methodname="MoveForward_AdvancesOneCell" classname="AgentSimTests" runstate="Runnable" seed="1459721787" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001059" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1007" name="MoveForward_IntoAWall_IsABlockedNoOp_NotAnError" fullname="AgentSimTests.MoveForward_IntoAWall_IsABlockedNoOp_NotAnError" methodname="MoveForward_IntoAWall_IsABlockedNoOp_NotAnError" classname="AgentSimTests" runstate="Runnable" seed="1942130990" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001030" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1009" name="PickUp_OnAStop_BoardsThePassenger_OnceOnly" fullname="AgentSimTests.PickUp_OnAStop_BoardsThePassenger_OnceOnly" methodname="PickUp_OnAStop_BoardsThePassenger_OnceOnly" classname="AgentSimTests" runstate="Runnable" seed="3401583" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000841" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1012" name="Queries_DescribeTheSurroundings" fullname="AgentSimTests.Queries_DescribeTheSurroundings" methodname="Queries_DescribeTheSurroundings" classname="AgentSimTests" runstate="Runnable" seed="1888948579" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000881" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1013" name="Reset_RestoresTheWholeWorld" fullname="AgentSimTests.Reset_RestoresTheWholeWorld" methodname="Reset_RestoresTheWholeWorld" classname="AgentSimTests" runstate="Runnable" seed="239826016" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001388" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1008" name="Turns_CycleAllFourFacings" fullname="AgentSimTests.Turns_CycleAllFourFacings" methodname="Turns_CycleAllFourFacings" classname="AgentSimTests" runstate="Runnable" seed="1582877592" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000775" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1015" name="BlockModelTests" fullname="BlockModelTests" classname="BlockModelTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.062352" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1018" name="BlockProgram_RunsIdenticallyToParsedText" fullname="BlockModelTests.BlockProgram_RunsIdenticallyToParsedText" methodname="BlockProgram_RunsIdenticallyToParsedText" classname="BlockModelTests" runstate="Runnable" seed="346984468" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.044826" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1017" name="BlockTree_PrintsAsCanonicalText" fullname="BlockModelTests.BlockTree_PrintsAsCanonicalText" methodname="BlockTree_PrintsAsCanonicalText" classname="BlockModelTests" runstate="Runnable" seed="1114207053" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001613" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1019" name="EmptyContainer_IsReportedWithTheOffendingBlock" fullname="BlockModelTests.EmptyContainer_IsReportedWithTheOffendingBlock" methodname="EmptyContainer_IsReportedWithTheOffendingBlock" classname="BlockModelTests" runstate="Runnable" seed="1425908083" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002699" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1020" name="EmptyElseBranch_IsReportedSeparately" fullname="BlockModelTests.EmptyElseBranch_IsReportedSeparately" methodname="EmptyElseBranch_IsReportedSeparately" classname="BlockModelTests" runstate="Runnable" seed="570654674" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001210" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1023" name="Labels_ReadLikeTheLanguage" fullname="BlockModelTests.Labels_ReadLikeTheLanguage" methodname="Labels_ReadLikeTheLanguage" classname="BlockModelTests" runstate="Runnable" seed="1017076762" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000916" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1016" name="LinearBlocks_CompileToCallsInOrder" fullname="BlockModelTests.LinearBlocks_CompileToCallsInOrder" methodname="LinearBlocks_CompileToCallsInOrder" classname="BlockModelTests" runstate="Runnable" seed="800694423" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001631" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1022" name="PaletteNames_MapToAllBlockTypes" fullname="BlockModelTests.PaletteNames_MapToAllBlockTypes" methodname="PaletteNames_MapToAllBlockTypes" classname="BlockModelTests" runstate="Runnable" seed="1380774585" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002011" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1021" name="SourceRefs_PointBackAtTheirBlocks" fullname="BlockModelTests.SourceRefs_PointBackAtTheirBlocks" methodname="SourceRefs_PointBackAtTheirBlocks" classname="BlockModelTests" runstate="Runnable" seed="1818609964" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001129" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1024" name="CrateStackTests" fullname="CrateStackTests" classname="CrateStackTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.018335" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1027" name="Move_SwapsNeighbours_AndRejectsOffEnds" fullname="CrateStackTests.Move_SwapsNeighbours_AndRejectsOffEnds" methodname="Move_SwapsNeighbours_AndRejectsOffEnds" classname="CrateStackTests" runstate="Runnable" seed="1124046841" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.003848" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1025" name="NewPuzzle_StartsUnsorted" fullname="CrateStackTests.NewPuzzle_StartsUnsorted" methodname="NewPuzzle_StartsUnsorted" classname="CrateStackTests" runstate="Runnable" seed="1655301685" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001996" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1028" name="SingleCrate_IsTriviallySolved" fullname="CrateStackTests.SingleCrate_IsTriviallySolved" methodname="SingleCrate_IsTriviallySolved" classname="CrateStackTests" runstate="Runnable" seed="1697376778" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000550" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1026" name="SortingHeaviestToBottom_Solves" fullname="CrateStackTests.SortingHeaviestToBottom_Solves" methodname="SortingHeaviestToBottom_Solves" classname="CrateStackTests" runstate="Runnable" seed="578793583" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.008483" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1029" name="DialogueLibraryTests" fullname="DialogueLibraryTests" classname="DialogueLibraryTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.045295" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1031" name="EachLevel_HasPassengerHeritageAndJournalPage" fullname="DialogueLibraryTests.EachLevel_HasPassengerHeritageAndJournalPage" methodname="EachLevel_HasPassengerHeritageAndJournalPage" classname="DialogueLibraryTests" runstate="Runnable" seed="1515955978" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.028419" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1030" name="EveryConversation_Validates" fullname="DialogueLibraryTests.EveryConversation_Validates" methodname="EveryConversation_Validates" classname="DialogueLibraryTests" runstate="Runnable" seed="1303851522" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.004317" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1033" name="EveryLevelRevealLines_AreRevealAndNonEmpty" fullname="DialogueLibraryTests.EveryLevelRevealLines_AreRevealAndNonEmpty" methodname="EveryLevelRevealLines_AreRevealAndNonEmpty" classname="DialogueLibraryTests" runstate="Runnable" seed="2039751526" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001396" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1032" name="SpoilerGate_NoEarlyTownMentioned" fullname="DialogueLibraryTests.SpoilerGate_NoEarlyTownMentioned" methodname="SpoilerGate_NoEarlyTownMentioned" classname="DialogueLibraryTests" runstate="Runnable" seed="163077622" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.007691" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1034" name="DialogueRuntimeTests" fullname="DialogueRuntimeTests" classname="DialogueRuntimeTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.019344" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1038" name="AffinityAccumulates_OnHeartLinesOnly" fullname="DialogueRuntimeTests.AffinityAccumulates_OnHeartLinesOnly" methodname="AffinityAccumulates_OnHeartLinesOnly" classname="DialogueRuntimeTests" runstate="Runnable" seed="1340950197" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.004224" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1035" name="BoardingToHubToTopic_ReturnsToHub" fullname="DialogueRuntimeTests.BoardingToHubToTopic_ReturnsToHub" methodname="BoardingToHubToTopic_ReturnsToHub" classname="DialogueRuntimeTests" runstate="Runnable" seed="769382960" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.003410" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1039" name="NormalDrive_NeverSurfacesRevealLine" fullname="DialogueRuntimeTests.NormalDrive_NeverSurfacesRevealLine" methodname="NormalDrive_NeverSurfacesRevealLine" classname="DialogueRuntimeTests" runstate="Runnable" seed="1854180414" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002421" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1036" name="OnceTopic_DisappearsAfterHeard" fullname="DialogueRuntimeTests.OnceTopic_DisappearsAfterHeard" methodname="OnceTopic_DisappearsAfterHeard" classname="DialogueRuntimeTests" runstate="Runnable" seed="611735939" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001047" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1037" name="TutorialAdvance_BlockedUntilDrivingAndFareHeard" fullname="DialogueRuntimeTests.TutorialAdvance_BlockedUntilDrivingAndFareHeard" methodname="TutorialAdvance_BlockedUntilDrivingAndFareHeard" classname="DialogueRuntimeTests" runstate="Runnable" seed="881439855" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.003783" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1040" name="DulogModelTests" fullname="DulogModelTests" classname="DulogModelTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.010260" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1042" name="Approach01_IsMonotonicAsTheJeepneyCloses" fullname="DulogModelTests.Approach01_IsMonotonicAsTheJeepneyCloses" methodname="Approach01_IsMonotonicAsTheJeepneyCloses" classname="DulogModelTests" runstate="Runnable" seed="168615591" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.003134" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1041" name="Approach01_RampsFromZeroFarToOneInRange" fullname="DulogModelTests.Approach01_RampsFromZeroFarToOneInRange" methodname="Approach01_RampsFromZeroFarToOneInRange" classname="DulogModelTests" runstate="Runnable" seed="1526145265" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.003144" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1043" name="State_TransitionsOnboardThenApproachingThenInRange" fullname="DulogModelTests.State_TransitionsOnboardThenApproachingThenInRange" methodname="State_TransitionsOnboardThenApproachingThenInRange" classname="DulogModelTests" runstate="Runnable" seed="1029060742" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000765" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1044" name="FareMathTests" fullname="FareMathTests" classname="FareMathTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.033610" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1050" name="ChangeFor_BasicAndClamped" fullname="FareMathTests.ChangeFor_BasicAndClamped" methodname="ChangeFor_BasicAndClamped" classname="FareMathTests" runstate="Runnable" seed="145438328" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000903" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1046" name="ComputeFare_ExtraStops_AddIncrement" fullname="FareMathTests.ComputeFare_ExtraStops_AddIncrement" methodname="ComputeFare_ExtraStops_AddIncrement" classname="FareMathTests" runstate="Runnable" seed="108637923" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000709" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1045" name="ComputeFare_FirstStop_IsBaseFare" fullname="FareMathTests.ComputeFare_FirstStop_IsBaseFare" methodname="ComputeFare_FirstStop_IsBaseFare" classname="FareMathTests" runstate="Runnable" seed="462489324" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000628" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1047" name="ComputeFare_ZeroOrNegativeStops_ClampsToBase" fullname="FareMathTests.ComputeFare_ZeroOrNegativeStops_ClampsToBase" methodname="ComputeFare_ZeroOrNegativeStops_ClampsToBase" classname="FareMathTests" runstate="Runnable" seed="424118938" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000930" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1048" name="GenerateTender_IsAlwaysAtLeastTheFare" fullname="FareMathTests.GenerateTender_IsAlwaysAtLeastTheFare" methodname="GenerateTender_IsAlwaysAtLeastTheFare" classname="FareMathTests" runstate="Runnable" seed="1655047274" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.010347" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1049" name="GenerateTender_ProducesExactAndBigBills" fullname="FareMathTests.GenerateTender_ProducesExactAndBigBills" methodname="GenerateTender_ProducesExactAndBigBills" classname="FareMathTests" runstate="Runnable" seed="963240290" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.007151" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1052" name="MakeChange_AlwaysSumsToAmount" fullname="FareMathTests.MakeChange_AlwaysSumsToAmount" methodname="MakeChange_AlwaysSumsToAmount" classname="FareMathTests" runstate="Runnable" seed="1120583838" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002416" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1051" name="MakeChange_UsesFewestPieces" fullname="FareMathTests.MakeChange_UsesFewestPieces" methodname="MakeChange_UsesFewestPieces" classname="FareMathTests" runstate="Runnable" seed="16003682" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002094" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1053" name="ValidateChange_AcceptsAnyCombinationWithTheRightTotal" fullname="FareMathTests.ValidateChange_AcceptsAnyCombinationWithTheRightTotal" methodname="ValidateChange_AcceptsAnyCombinationWithTheRightTotal" classname="FareMathTests" runstate="Runnable" seed="2107592224" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002421" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1054" name="FlowConnectTests" fullname="FlowConnectTests" classname="FlowConnectTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.025160" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1055" name="EveryLayout_IsSolvedByItsReferenceSolution" fullname="FlowConnectTests.EveryLayout_IsSolvedByItsReferenceSolution" methodname="EveryLayout_IsSolvedByItsReferenceSolution" classname="FlowConnectTests" runstate="Runnable" seed="1752583468" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.011998" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1060" name="Extend_BacktrackingTruncatesThePath" fullname="FlowConnectTests.Extend_BacktrackingTruncatesThePath" methodname="Extend_BacktrackingTruncatesThePath" classname="FlowConnectTests" runstate="Runnable" seed="1929534340" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001787" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1059" name="Extend_RejectsAnotherColoursHub" fullname="FlowConnectTests.Extend_RejectsAnotherColoursHub" methodname="Extend_RejectsAnotherColoursHub" classname="FlowConnectTests" runstate="Runnable" seed="1374141597" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000995" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1058" name="Extend_RejectsCrossingAnotherColoursPath" fullname="FlowConnectTests.Extend_RejectsCrossingAnotherColoursPath" methodname="Extend_RejectsCrossingAnotherColoursPath" classname="FlowConnectTests" runstate="Runnable" seed="1176924790" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001021" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1057" name="Get_IsDeterministicAndWraps" fullname="FlowConnectTests.Get_IsDeterministicAndWraps" methodname="Get_IsDeterministicAndWraps" classname="FlowConnectTests" runstate="Runnable" seed="526428987" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002797" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1056" name="LayoutSolutions_MatchTheirHubs" fullname="FlowConnectTests.LayoutSolutions_MatchTheirHubs" methodname="LayoutSolutions_MatchTheirHubs" classname="FlowConnectTests" runstate="Runnable" seed="1598526067" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001660" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1061" name="GridLayoutProjectorTests" fullname="GridLayoutProjectorTests" classname="GridLayoutProjectorTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.055365" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1063" name="Projection_FillsEveryNodeGridCell" fullname="GridLayoutProjectorTests.Projection_FillsEveryNodeGridCell" methodname="Projection_FillsEveryNodeGridCell" classname="GridLayoutProjectorTests" runstate="Runnable" seed="1905865671" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.038382" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1062" name="Projection_ParsesCleanly_WithOneStartAndDest" fullname="GridLayoutProjectorTests.Projection_ParsesCleanly_WithOneStartAndDest" methodname="Projection_ParsesCleanly_WithOneStartAndDest" classname="GridLayoutProjectorTests" runstate="Runnable" seed="2037005485" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.011701" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1064" name="StopCells_MatchParsedGrid" fullname="GridLayoutProjectorTests.StopCells_MatchParsedGrid" methodname="StopCells_MatchParsedGrid" classname="GridLayoutProjectorTests" runstate="Runnable" seed="2022341744" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001955" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1070" name="GridModelAppendTests" fullname="GridModelAppendTests" classname="GridModelAppendTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.009951" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1071" name="AppendChunk_IncreasesBounds" fullname="GridModelAppendTests.AppendChunk_IncreasesBounds" methodname="AppendChunk_IncreasesBounds" classname="GridModelAppendTests" runstate="Runnable" seed="629346195" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002287" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1072" name="AppendChunk_KeepsOriginalCells" fullname="GridModelAppendTests.AppendChunk_KeepsOriginalCells" methodname="AppendChunk_KeepsOriginalCells" classname="GridModelAppendTests" runstate="Runnable" seed="494945549" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000899" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1074" name="AppendChunk_OutOfBounds_ReadsAsWall" fullname="GridModelAppendTests.AppendChunk_OutOfBounds_ReadsAsWall" methodname="AppendChunk_OutOfBounds_ReadsAsWall" classname="GridModelAppendTests" runstate="Runnable" seed="793797231" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000724" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1073" name="AppendChunk_RegistersNewStop" fullname="GridModelAppendTests.AppendChunk_RegistersNewStop" methodname="AppendChunk_RegistersNewStop" classname="GridModelAppendTests" runstate="Runnable" seed="976864549" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002657" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1065" name="GridPathfinderTests" fullname="GridPathfinderTests" classname="GridPathfinderTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.008375" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1066" name="Path_FindsShortestStraightRun" fullname="GridPathfinderTests.Path_FindsShortestStraightRun" methodname="Path_FindsShortestStraightRun" classname="GridPathfinderTests" runstate="Runnable" seed="128247683" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001484" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1067" name="Path_IsNullWhenUnreachable" fullname="GridPathfinderTests.Path_IsNullWhenUnreachable" methodname="Path_IsNullWhenUnreachable" classname="GridPathfinderTests" runstate="Runnable" seed="793218521" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000869" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1069" name="Path_SameCellReturnsSingleStep" fullname="GridPathfinderTests.Path_SameCellReturnsSingleStep" methodname="Path_SameCellReturnsSingleStep" classname="GridPathfinderTests" runstate="Runnable" seed="108335268" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001128" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1068" name="ToActions_TurnsAndMovesAlongAnLBend" fullname="GridPathfinderTests.ToActions_TurnsAndMovesAlongAnLBend" methodname="ToActions_TurnsAndMovesAlongAnLBend" classname="GridPathfinderTests" runstate="Runnable" seed="2052742797" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001258" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1075" name="InterpreterTests" fullname="InterpreterTests" classname="InterpreterTests" runstate="Runnable" testcasecount="41" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.168252" total="41" passed="41" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1093" name="ActionAsValue_RuntimeErrorWithCoachingMessage" fullname="InterpreterTests.ActionAsValue_RuntimeErrorWithCoachingMessage" methodname="ActionAsValue_RuntimeErrorWithCoachingMessage" classname="InterpreterTests" runstate="Runnable" seed="802105257" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.014273" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1094" name="Arithmetic_ComputesCorrectly" fullname="InterpreterTests.Arithmetic_ComputesCorrectly" methodname="Arithmetic_ComputesCorrectly" classname="InterpreterTests" runstate="Runnable" seed="180068474" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.018285" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1086" name="Assignment_ReadsBackVariable" fullname="InterpreterTests.Assignment_ReadsBackVariable" methodname="Assignment_ReadsBackVariable" classname="InterpreterTests" runstate="Runnable" seed="1514790116" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002965" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1095" name="BooleanAnd_ShortCircuits" fullname="InterpreterTests.BooleanAnd_ShortCircuits" methodname="BooleanAnd_ShortCircuits" classname="InterpreterTests" runstate="Runnable" seed="333377099" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001274" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1104" name="Break_ExitsLoop" fullname="InterpreterTests.Break_ExitsLoop" methodname="Break_ExitsLoop" classname="InterpreterTests" runstate="Runnable" seed="2113140377" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.005133" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1115" name="Builtins_SumSortedLen" fullname="InterpreterTests.Builtins_SumSortedLen" methodname="Builtins_SumSortedLen" classname="InterpreterTests" runstate="Runnable" seed="1286396093" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.011317" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1096" name="Comparison_UsesExpressions" fullname="InterpreterTests.Comparison_UsesExpressions" methodname="Comparison_UsesExpressions" classname="InterpreterTests" runstate="Runnable" seed="1821678374" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002677" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1083" name="ConditionOnlySpin_TripsTheEvaluationGuard" fullname="InterpreterTests.ConditionOnlySpin_TripsTheEvaluationGuard" methodname="ConditionOnlySpin_TripsTheEvaluationGuard" classname="InterpreterTests" runstate="Runnable" seed="1703860646" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.017093" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1105" name="Continue_SkipsRestOfIteration" fullname="InterpreterTests.Continue_SkipsRestOfIteration" methodname="Continue_SkipsRestOfIteration" classname="InterpreterTests" runstate="Runnable" seed="1923251457" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001180" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1113" name="Dict_LookupAndAssign" fullname="InterpreterTests.Dict_LookupAndAssign" methodname="Dict_LookupAndAssign" classname="InterpreterTests" runstate="Runnable" seed="1064209334" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.012950" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1103" name="Elif_TakesTheMatchingBranch" fullname="InterpreterTests.Elif_TakesTheMatchingBranch" methodname="Elif_TakesTheMatchingBranch" classname="InterpreterTests" runstate="Runnable" seed="1141880611" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001596" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1084" name="EmptyProgram_FinishesImmediately" fullname="InterpreterTests.EmptyProgram_FinishesImmediately" methodname="EmptyProgram_FinishesImmediately" classname="InterpreterTests" runstate="Runnable" seed="422491933" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000976" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1102" name="ForEach_OverString_IteratesCharacters" fullname="InterpreterTests.ForEach_OverString_IteratesCharacters" methodname="ForEach_OverString_IteratesCharacters" classname="InterpreterTests" runstate="Runnable" seed="1015333110" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002681" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1101" name="ForRange_LoopsCorrectNumberOfTimes" fullname="InterpreterTests.ForRange_LoopsCorrectNumberOfTimes" methodname="ForRange_LoopsCorrectNumberOfTimes" classname="InterpreterTests" runstate="Runnable" seed="1502554528" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001352" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1109" name="Function_CallAsStatement" fullname="InterpreterTests.Function_CallAsStatement" methodname="Function_CallAsStatement" classname="InterpreterTests" runstate="Runnable" seed="1567847471" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.004269" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1108" name="Function_ReadsGlobal_AssignmentMakesLocal" fullname="InterpreterTests.Function_ReadsGlobal_AssignmentMakesLocal" methodname="Function_ReadsGlobal_AssignmentMakesLocal" classname="InterpreterTests" runstate="Runnable" seed="2063133555" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.003949" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1107" name="Function_ReturnsValue_UsedInExpression" fullname="InterpreterTests.Function_ReturnsValue_UsedInExpression" methodname="Function_ReturnsValue_UsedInExpression" classname="InterpreterTests" runstate="Runnable" seed="341697321" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001047" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1110" name="Function_WrongArgCount_RuntimeError" fullname="InterpreterTests.Function_WrongArgCount_RuntimeError" methodname="Function_WrongArgCount_RuntimeError" classname="InterpreterTests" runstate="Runnable" seed="920042502" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001013" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1078" name="If_TakesTheElseBranch" fullname="InterpreterTests.If_TakesTheElseBranch" methodname="If_TakesTheElseBranch" classname="InterpreterTests" runstate="Runnable" seed="1514137849" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.003981" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1077" name="If_TakesTheTrueBranch" fullname="InterpreterTests.If_TakesTheTrueBranch" methodname="If_TakesTheTrueBranch" classname="InterpreterTests" runstate="Runnable" seed="933368587" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001632" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1082" name="InfiniteLoop_TripsTheActionGuard_WithAPlainEnglishError" fullname="InterpreterTests.InfiniteLoop_TripsTheActionGuard_WithAPlainEnglishError" methodname="InfiniteLoop_TripsTheActionGuard_WithAPlainEnglishError" classname="InterpreterTests" runstate="Runnable" seed="134183767" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.006899" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1076" name="LinearProgram_EmitsActionsInOrder_OnePerStep" fullname="InterpreterTests.LinearProgram_EmitsActionsInOrder_OnePerStep" methodname="LinearProgram_EmitsActionsInOrder_OnePerStep" classname="InterpreterTests" runstate="Runnable" seed="1600934782" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002310" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1112" name="List_IndexAndAssign" fullname="InterpreterTests.List_IndexAndAssign" methodname="List_IndexAndAssign" classname="InterpreterTests" runstate="Runnable" seed="695731344" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001714" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1111" name="List_LiteralAndAppend" fullname="InterpreterTests.List_LiteralAndAppend" methodname="List_LiteralAndAppend" classname="InterpreterTests" runstate="Runnable" seed="946369757" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000946" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1116" name="MethodCall_Append" fullname="InterpreterTests.MethodCall_Append" methodname="MethodCall_Append" classname="InterpreterTests" runstate="Runnable" seed="2123325770" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001880" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1087" name="MoveForwardWithLiteral_RepeatsNTimes" fullname="InterpreterTests.MoveForwardWithLiteral_RepeatsNTimes" methodname="MoveForwardWithLiteral_RepeatsNTimes" classname="InterpreterTests" runstate="Runnable" seed="1632996910" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001018" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1081" name="NestedIfInsideWhile_ExecutesPerIteration" fullname="InterpreterTests.NestedIfInsideWhile_ExecutesPerIteration" methodname="NestedIfInsideWhile_ExecutesPerIteration" classname="InterpreterTests" runstate="Runnable" seed="301120041" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001052" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1100" name="NotIn_Membership" fullname="InterpreterTests.NotIn_Membership" methodname="NotIn_Membership" classname="InterpreterTests" runstate="Runnable" seed="1950938743" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001301" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1089" name="Print_CollectsOutput" fullname="InterpreterTests.Print_CollectsOutput" methodname="Print_CollectsOutput" classname="InterpreterTests" runstate="Runnable" seed="827153289" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001177" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1099" name="QueryAsValue_AssignedAsBool" fullname="InterpreterTests.QueryAsValue_AssignedAsBool" methodname="QueryAsValue_AssignedAsBool" classname="InterpreterTests" runstate="Runnable" seed="442505801" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001109" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1085" name="Reload_ResetsExecutionState" fullname="InterpreterTests.Reload_ResetsExecutionState" methodname="Reload_ResetsExecutionState" classname="InterpreterTests" runstate="Runnable" seed="1281055787" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000888" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1106" name="RepeatSugar_LowersToRangeLoop" fullname="InterpreterTests.RepeatSugar_LowersToRangeLoop" methodname="RepeatSugar_LowersToRangeLoop" classname="InterpreterTests" runstate="Runnable" seed="1896381050" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002378" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1090" name="Reporter_ReadsValueIntoVariable" fullname="InterpreterTests.Reporter_ReadsValueIntoVariable" methodname="Reporter_ReadsValueIntoVariable" classname="InterpreterTests" runstate="Runnable" seed="231022830" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.003711" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1098" name="StringConcatenation_Works" fullname="InterpreterTests.StringConcatenation_Works" methodname="StringConcatenation_Works" classname="InterpreterTests" runstate="Runnable" seed="1403012806" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001010" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1114" name="Tuple_CreateAndIndex" fullname="InterpreterTests.Tuple_CreateAndIndex" methodname="Tuple_CreateAndIndex" classname="InterpreterTests" runstate="Runnable" seed="1817271966" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001045" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1097" name="TypeMismatch_AddingStringAndNumber_Errors" fullname="InterpreterTests.TypeMismatch_AddingStringAndNumber_Errors" methodname="TypeMismatch_AddingStringAndNumber_Errors" classname="InterpreterTests" runstate="Runnable" seed="1737187251" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001397" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1092" name="UndefinedVariable_RuntimeErrorWithCoachingMessage" fullname="InterpreterTests.UndefinedVariable_RuntimeErrorWithCoachingMessage" methodname="UndefinedVariable_RuntimeErrorWithCoachingMessage" classname="InterpreterTests" runstate="Runnable" seed="1497183632" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001070" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1091" name="ValueReturningAction_BindsViaDeliverProtocol" fullname="InterpreterTests.ValueReturningAction_BindsViaDeliverProtocol" methodname="ValueReturningAction_BindsViaDeliverProtocol" classname="InterpreterTests" runstate="Runnable" seed="1759258133" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001333" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1088" name="Wait_RepeatsNTimes" fullname="InterpreterTests.Wait_RepeatsNTimes" methodname="Wait_RepeatsNTimes" classname="InterpreterTests" runstate="Runnable" seed="1105334247" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000782" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1079" name="While_RunsUntilTheQueryFlips" fullname="InterpreterTests.While_RunsUntilTheQueryFlips" methodname="While_RunsUntilTheQueryFlips" classname="InterpreterTests" runstate="Runnable" seed="1337084634" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000750" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1080" name="WhileNot_InvertsTheQuery" fullname="InterpreterTests.WhileNot_InvertsTheQuery" methodname="WhileNot_InvertsTheQuery" classname="InterpreterTests" runstate="Runnable" seed="2031921246" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000612" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1117" name="Level1SolutionTests" fullname="Level1SolutionTests" classname="Level1SolutionTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.020090" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1119" name="Level1Map_ParsesCleanly" fullname="Level1SolutionTests.Level1Map_ParsesCleanly" methodname="Level1Map_ParsesCleanly" classname="Level1SolutionTests" runstate="Runnable" seed="1656359349" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002952" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1122" name="Level1Solution_StaysWellUnderTheLoopGuard" fullname="Level1SolutionTests.Level1Solution_StaysWellUnderTheLoopGuard" methodname="Level1Solution_StaysWellUnderTheLoopGuard" classname="Level1SolutionTests" runstate="Runnable" seed="1906229358" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002008" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1121" name="Level1Solution_WinsExactlyAtPar" fullname="Level1SolutionTests.Level1Solution_WinsExactlyAtPar" methodname="Level1Solution_WinsExactlyAtPar" classname="Level1SolutionTests" runstate="Runnable" seed="1499828203" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001390" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1125" name="Library_HasSixLevels_WithTutorialAndLevel1Playable" fullname="Level1SolutionTests.Library_HasSixLevels_WithTutorialAndLevel1Playable" methodname="Library_HasSixLevels_WithTutorialAndLevel1Playable" classname="Level1SolutionTests" runstate="Runnable" seed="1503039983" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.002193" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1124" name="Oton_HasACrateStackTownGate" fullname="Level1SolutionTests.Oton_HasACrateStackTownGate" methodname="Oton_HasACrateStackTownGate" classname="Level1SolutionTests" runstate="Runnable" seed="1240655492" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000840" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1123" name="OtonMaze_UsesAuthoredGrid_AndIsSolvedByItsSolution" fullname="Level1SolutionTests.OtonMaze_UsesAuthoredGrid_AndIsSolvedByItsSolution" methodname="OtonMaze_UsesAuthoredGrid_AndIsSolvedByItsSolution" classname="Level1SolutionTests" runstate="Runnable" seed="1235652938" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001569" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1126" name="PlayableLevels_HaveManualRoutesWithOneDestination" fullname="Level1SolutionTests.PlayableLevels_HaveManualRoutesWithOneDestination" methodname="PlayableLevels_HaveManualRoutesWithOneDestination" classname="Level1SolutionTests" runstate="Runnable" seed="1494957962" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.001454" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1118" name="TutorialMap_ParsesCleanly" fullname="Level1SolutionTests.TutorialMap_ParsesCleanly" methodname="TutorialMap_ParsesCleanly" classname="Level1SolutionTests" runstate="Runnable" seed="406797163" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000643" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1120" name="TutorialSolution_WinsExactlyAtPar" fullname="Level1SolutionTests.TutorialSolution_WinsExactlyAtPar" methodname="TutorialSolution_WinsExactlyAtPar" classname="Level1SolutionTests" runstate="Runnable" seed="542488827" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:26Z" duration="0.000968" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1127" name="LexerTests" fullname="LexerTests" classname="LexerTests" runstate="Runnable" testcasecount="16" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:27Z" duration="0.035198" total="16" passed="16" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1142" name="BracketsBracesDot_Tokenize" fullname="LexerTests.BracketsBracesDot_Tokenize" methodname="BracketsBracesDot_Tokenize" classname="LexerTests" runstate="Runnable" seed="239694498" result="Passed" start-time="2026-06-15 19:18:26Z" end-time="2026-06-15 19:18:27Z" duration="0.005586" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1140" name="CommaAndAssign_Tokenize" fullname="LexerTests.CommaAndAssign_Tokenize" methodname="CommaAndAssign_Tokenize" classname="LexerTests" runstate="Runnable" seed="1873149536" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001287" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1131" name="CommentsAndBlankLines_AreSkippedEntirely" fullname="LexerTests.CommentsAndBlankLines_AreSkippedEntirely" methodname="CommentsAndBlankLines_AreSkippedEntirely" classname="LexerTests" runstate="Runnable" seed="1357832101" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.003561" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1129" name="IndentedBlock_EmitsIndentAndDedent" fullname="LexerTests.IndentedBlock_EmitsIndentAndDedent" methodname="IndentedBlock_EmitsIndentAndDedent" classname="LexerTests" runstate="Runnable" seed="1456563695" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001071" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1135" name="KeywordsAreRecognized" fullname="LexerTests.KeywordsAreRecognized" methodname="KeywordsAreRecognized" classname="LexerTests" runstate="Runnable" seed="900837575" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001914" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1132" name="MisalignedDedent_ReportsPlainEnglishError" fullname="LexerTests.MisalignedDedent_ReportsPlainEnglishError" methodname="MisalignedDedent_ReportsPlainEnglishError" classname="LexerTests" runstate="Runnable" seed="764082973" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000902" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1130" name="NestedBlocks_CloseInOrderAtEndOfFile" fullname="LexerTests.NestedBlocks_CloseInOrderAtEndOfFile" methodname="NestedBlocks_CloseInOrderAtEndOfFile" classname="LexerTests" runstate="Runnable" seed="897668699" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.003302" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1143" name="NotIn_TokenizesAsTwoKeywords" fullname="LexerTests.NotIn_TokenizesAsTwoKeywords" methodname="NotIn_TokenizesAsTwoKeywords" classname="LexerTests" runstate="Runnable" seed="1164953571" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000965" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1136" name="NumberLiteral_TokenizesIntAndFloat" fullname="LexerTests.NumberLiteral_TokenizesIntAndFloat" methodname="NumberLiteral_TokenizesIntAndFloat" classname="LexerTests" runstate="Runnable" seed="1413959278" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000890" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1141" name="Operators_Tokenize" fullname="LexerTests.Operators_Tokenize" methodname="Operators_Tokenize" classname="LexerTests" runstate="Runnable" seed="1081810546" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000870" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1128" name="SimpleCall_TokenizesCleanly" fullname="LexerTests.SimpleCall_TokenizesCleanly" methodname="SimpleCall_TokenizesCleanly" classname="LexerTests" runstate="Runnable" seed="1206574602" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000887" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1138" name="StringLiteral_EscapesAreDecoded" fullname="LexerTests.StringLiteral_EscapesAreDecoded" methodname="StringLiteral_EscapesAreDecoded" classname="LexerTests" runstate="Runnable" seed="1540763545" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001073" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1137" name="StringLiteral_TokenizesWithEscapes" fullname="LexerTests.StringLiteral_TokenizesWithEscapes" methodname="StringLiteral_TokenizesWithEscapes" classname="LexerTests" runstate="Runnable" seed="308397909" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001049" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1133" name="TabsCountAsFourSpaces" fullname="LexerTests.TabsCountAsFourSpaces" methodname="TabsCountAsFourSpaces" classname="LexerTests" runstate="Runnable" seed="401118764" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000609" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1134" name="UnknownCharacter_IsReportedWithItsLine" fullname="LexerTests.UnknownCharacter_IsReportedWithItsLine" methodname="UnknownCharacter_IsReportedWithItsLine" classname="LexerTests" runstate="Runnable" seed="1642704756" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000716" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1139" name="UnterminatedString_IsReported" fullname="LexerTests.UnterminatedString_IsReported" methodname="UnterminatedString_IsReported" classname="LexerTests" runstate="Runnable" seed="660528088" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001020" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1144" name="MazeGeneratorTests" fullname="MazeGeneratorTests" classname="MazeGeneratorTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.028597" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1146" name="Generated_ArePerfectMazes_TreeStructureNoLoops" fullname="MazeGeneratorTests.Generated_ArePerfectMazes_TreeStructureNoLoops" methodname="Generated_ArePerfectMazes_TreeStructureNoLoops" classname="MazeGeneratorTests" runstate="Runnable" seed="967666040" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.003876" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1147" name="Generated_AreSolvableByWallFollower_WithinTheActionGuard" fullname="MazeGeneratorTests.Generated_AreSolvableByWallFollower_WithinTheActionGuard" methodname="Generated_AreSolvableByWallFollower_WithinTheActionGuard" classname="MazeGeneratorTests" runstate="Runnable" seed="1393974242" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.017769" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1145" name="Generated_ParseCleanly_WithExactlyOneStartAndDest" fullname="MazeGeneratorTests.Generated_ParseCleanly_WithExactlyOneStartAndDest" methodname="Generated_ParseCleanly_WithExactlyOneStartAndDest" classname="MazeGeneratorTests" runstate="Runnable" seed="1800525364" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.003952" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1148" name="MazeLibraryTests" fullname="MazeLibraryTests" classname="MazeLibraryTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.006673" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1150" name="EveryAuthoredMaze_IsSolvedByTheWallFollower" fullname="MazeLibraryTests.EveryAuthoredMaze_IsSolvedByTheWallFollower" methodname="EveryAuthoredMaze_IsSolvedByTheWallFollower" classname="MazeLibraryTests" runstate="Runnable" seed="482840327" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.002021" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1149" name="Library_HasAnEscalatingSeries" fullname="MazeLibraryTests.Library_HasAnEscalatingSeries" methodname="Library_HasAnEscalatingSeries" classname="MazeLibraryTests" runstate="Runnable" seed="1634870872" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.002221" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1151" name="ParserTests" fullname="ParserTests" classname="ParserTests" runstate="Runnable" testcasecount="34" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.059343" total="34" passed="34" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1161" name="ActionUsedAsCondition_IsExplained" fullname="ParserTests.ActionUsedAsCondition_IsExplained" methodname="ActionUsedAsCondition_IsExplained" classname="ParserTests" runstate="Runnable" seed="1109996508" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.003013" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1164" name="Assignment_ParsesTargetAndValue" fullname="ParserTests.Assignment_ParsesTargetAndValue" methodname="Assignment_ParsesTargetAndValue" classname="ParserTests" runstate="Runnable" seed="1787914166" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001857" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1178" name="BreakContinue_Parse" fullname="ParserTests.BreakContinue_Parse" methodname="BreakContinue_Parse" classname="ParserTests" runstate="Runnable" seed="536248811" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.002364" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1165" name="CallWithArgs_ParsesArgumentList" fullname="ParserTests.CallWithArgs_ParsesArgumentList" methodname="CallWithArgs_ParsesArgumentList" classname="ParserTests" runstate="Runnable" seed="1318635641" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001047" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1172" name="ComparisonAndBoolean_Combines" fullname="ParserTests.ComparisonAndBoolean_Combines" methodname="ComparisonAndBoolean_Combines" classname="ParserTests" runstate="Runnable" seed="2007023151" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001042" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1182" name="DictLiteral_ParsesEntries" fullname="ParserTests.DictLiteral_ParsesEntries" methodname="DictLiteral_ParsesEntries" classname="ParserTests" runstate="Runnable" seed="776746887" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000995" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1176" name="Elif_ParsesChain" fullname="ParserTests.Elif_ParsesChain" methodname="Elif_ParsesChain" classname="ParserTests" runstate="Runnable" seed="1542158716" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001114" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1162" name="ElseWithoutIf_IsExplained" fullname="ParserTests.ElseWithoutIf_IsExplained" methodname="ElseWithoutIf_IsExplained" classname="ParserTests" runstate="Runnable" seed="1602903114" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001764" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1158" name="EmptyBody_IsExplained" fullname="ParserTests.EmptyBody_IsExplained" methodname="EmptyBody_IsExplained" classname="ParserTests" runstate="Runnable" seed="551198114" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001839" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1175" name="ForRange_ParsesLoopVariableAndIterable" fullname="ParserTests.ForRange_ParsesLoopVariableAndIterable" methodname="ForRange_ParsesLoopVariableAndIterable" classname="ParserTests" runstate="Runnable" seed="2018461949" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000989" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1179" name="FunctionDef_ParsesNameParamsBody" fullname="ParserTests.FunctionDef_ParsesNameParamsBody" methodname="FunctionDef_ParsesNameParamsBody" classname="ParserTests" runstate="Runnable" seed="694789051" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001215" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1154" name="IfElse_ParsesBothBranches" fullname="ParserTests.IfElse_ParsesBothBranches" methodname="IfElse_ParsesBothBranches" classname="ParserTests" runstate="Runnable" seed="453547548" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000990" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1183" name="IndexAccess_Parses" fullname="ParserTests.IndexAccess_Parses" methodname="IndexAccess_Parses" classname="ParserTests" runstate="Runnable" seed="1176807690" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000953" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1184" name="IndexAssign_Parses" fullname="ParserTests.IndexAssign_Parses" methodname="IndexAssign_Parses" classname="ParserTests" runstate="Runnable" seed="1513841487" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000966" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1152" name="LinearProgram_ParsesToCallsInOrder" fullname="ParserTests.LinearProgram_ParsesToCallsInOrder" methodname="LinearProgram_ParsesToCallsInOrder" classname="ParserTests" runstate="Runnable" seed="706964207" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001027" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1156" name="LineNumbers_AreCarriedOntoNodes" fullname="ParserTests.LineNumbers_AreCarriedOntoNodes" methodname="LineNumbers_AreCarriedOntoNodes" classname="ParserTests" runstate="Runnable" seed="1628518386" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000783" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1181" name="ListLiteral_ParsesItems" fullname="ParserTests.ListLiteral_ParsesItems" methodname="ListLiteral_ParsesItems" classname="ParserTests" runstate="Runnable" seed="959090031" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001222" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1185" name="MethodCall_ParsesAsFunctionCall" fullname="ParserTests.MethodCall_ParsesAsFunctionCall" methodname="MethodCall_ParsesAsFunctionCall" classname="ParserTests" runstate="Runnable" seed="1162035237" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000996" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1168" name="MissingClosingParen_IsReported" fullname="ParserTests.MissingClosingParen_IsReported" methodname="MissingClosingParen_IsReported" classname="ParserTests" runstate="Runnable" seed="523513966" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001188" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1157" name="MissingColon_IsExplained" fullname="ParserTests.MissingColon_IsExplained" methodname="MissingColon_IsExplained" classname="ParserTests" runstate="Runnable" seed="1178074572" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001448" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1159" name="MisspelledCommand_GetsDidYouMean" fullname="ParserTests.MisspelledCommand_GetsDidYouMean" methodname="MisspelledCommand_GetsDidYouMean" classname="ParserTests" runstate="Runnable" seed="464566663" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.002597" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1155" name="NestedIfInsideWhile_Parses" fullname="ParserTests.NestedIfInsideWhile_Parses" methodname="NestedIfInsideWhile_Parses" classname="ParserTests" runstate="Runnable" seed="1716392547" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001169" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1173" name="NotIn_ParsesAsNotMembership" fullname="ParserTests.NotIn_ParsesAsNotMembership" methodname="NotIn_ParsesAsNotMembership" classname="ParserTests" runstate="Runnable" seed="1015254442" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001082" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1171" name="Precedence_ParsesMultiplyBeforeAdd" fullname="ParserTests.Precedence_ParsesMultiplyBeforeAdd" methodname="Precedence_ParsesMultiplyBeforeAdd" classname="ParserTests" runstate="Runnable" seed="1833214843" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001045" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1166" name="PrintWithReporter_ParsesCallExprArgument" fullname="ParserTests.PrintWithReporter_ParsesCallExprArgument" methodname="PrintWithReporter_ParsesCallExprArgument" classname="ParserTests" runstate="Runnable" seed="1926720629" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000995" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1160" name="QueryUsedAsStatement_IsExplained" fullname="ParserTests.QueryUsedAsStatement_IsExplained" methodname="QueryUsedAsStatement_IsExplained" classname="ParserTests" runstate="Runnable" seed="2004872493" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000932" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1177" name="Repeat_LowersToForRange" fullname="ParserTests.Repeat_LowersToForRange" methodname="Repeat_LowersToForRange" classname="ParserTests" runstate="Runnable" seed="1059125071" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001019" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1170" name="ReporterUsedAsStatement_IsExplained" fullname="ParserTests.ReporterUsedAsStatement_IsExplained" methodname="ReporterUsedAsStatement_IsExplained" classname="ParserTests" runstate="Runnable" seed="984762487" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000782" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1180" name="ReturnAtTopLevel_IsReported" fullname="ParserTests.ReturnAtTopLevel_IsReported" methodname="ReturnAtTopLevel_IsReported" classname="ParserTests" runstate="Runnable" seed="1948780751" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000968" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1163" name="ScaffoldComments_ParseToNothing" fullname="ParserTests.ScaffoldComments_ParseToNothing" methodname="ScaffoldComments_ParseToNothing" classname="ParserTests" runstate="Runnable" seed="1704922656" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000932" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1174" name="StringTypeError_AddNumber_IsReported" fullname="ParserTests.StringTypeError_AddNumber_IsReported" methodname="StringTypeError_AddNumber_IsReported" classname="ParserTests" runstate="Runnable" seed="645492245" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000771" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1167" name="ValueReturningActionAssignment_ParsesCleanly" fullname="ParserTests.ValueReturningActionAssignment_ParsesCleanly" methodname="ValueReturningActionAssignment_ParsesCleanly" classname="ParserTests" runstate="Runnable" seed="418774949" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000962" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1153" name="WhileNot_ParsesConditionAndBody" fullname="ParserTests.WhileNot_ParsesConditionAndBody" methodname="WhileNot_ParsesConditionAndBody" classname="ParserTests" runstate="Runnable" seed="1682932081" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001062" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1169" name="WrongArgCount_IsReported" fullname="ParserTests.WrongArgCount_IsReported" methodname="WrongArgCount_IsReported" classname="ParserTests" runstate="Runnable" seed="1158321107" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000944" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1186" name="ProgressionRulesTests" fullname="ProgressionRulesTests" classname="ProgressionRulesTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.009544" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1190" name="CompletingTheLastLevel_StillReadsAsCompleted" fullname="ProgressionRulesTests.CompletingTheLastLevel_StillReadsAsCompleted" methodname="CompletingTheLastLevel_StillReadsAsCompleted" classname="ProgressionRulesTests" runstate="Runnable" seed="1602544170" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001645" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1188" name="CompletingTutorial_UnlocksLevel1" fullname="ProgressionRulesTests.CompletingTutorial_UnlocksLevel1" methodname="CompletingTutorial_UnlocksLevel1" classname="ProgressionRulesTests" runstate="Runnable" seed="195614624" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000593" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1187" name="FreshSave_OnlyTutorialUnlocked" fullname="ProgressionRulesTests.FreshSave_OnlyTutorialUnlocked" methodname="FreshSave_OnlyTutorialUnlocked" classname="ProgressionRulesTests" runstate="Runnable" seed="955555759" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000591" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1192" name="NullSave_TreatsOnlyTutorialAsUnlocked" fullname="ProgressionRulesTests.NullSave_TreatsOnlyTutorialAsUnlocked" methodname="NullSave_TreatsOnlyTutorialAsUnlocked" classname="ProgressionRulesTests" runstate="Runnable" seed="474728779" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000685" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1191" name="OutOfRangeIndices_AreSafe" fullname="ProgressionRulesTests.OutOfRangeIndices_AreSafe" methodname="OutOfRangeIndices_AreSafe" classname="ProgressionRulesTests" runstate="Runnable" seed="1883186270" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000739" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1189" name="ReplayingAnEarlyLevel_NeverRegressesTheFrontier" fullname="ProgressionRulesTests.ReplayingAnEarlyLevel_NeverRegressesTheFrontier" methodname="ReplayingAnEarlyLevel_NeverRegressesTheFrontier" classname="ProgressionRulesTests" runstate="Runnable" seed="1666513353" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000671" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1193" name="RefuelMathTests" fullname="RefuelMathTests" classname="RefuelMathTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.016082" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1199" name="InBand_IncludesBoundaries" fullname="RefuelMathTests.InBand_IncludesBoundaries" methodname="InBand_IncludesBoundaries" classname="RefuelMathTests" runstate="Runnable" seed="944483893" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000811" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1197" name="ScoreFor_AtBandEdges_IsFullMarks" fullname="RefuelMathTests.ScoreFor_AtBandEdges_IsFullMarks" methodname="ScoreFor_AtBandEdges_IsFullMarks" classname="RefuelMathTests" runstate="Runnable" seed="943935362" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001141" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1196" name="ScoreFor_InBand_IsFullMarks" fullname="RefuelMathTests.ScoreFor_InBand_IsFullMarks" methodname="ScoreFor_InBand_IsFullMarks" classname="RefuelMathTests" runstate="Runnable" seed="1853847462" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000740" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1198" name="ScoreFor_OutsideBand_DentsByDistance_FlooredAtTen" fullname="RefuelMathTests.ScoreFor_OutsideBand_DentsByDistance_FlooredAtTen" methodname="ScoreFor_OutsideBand_DentsByDistance_FlooredAtTen" classname="RefuelMathTests" runstate="Runnable" seed="134218846" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001118" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1195" name="StartFill_BeginsNearEmpty" fullname="RefuelMathTests.StartFill_BeginsNearEmpty" methodname="StartFill_BeginsNearEmpty" classname="RefuelMathTests" runstate="Runnable" seed="1339593047" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.002480" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1194" name="Target_IsAValidLandableBand" fullname="RefuelMathTests.Target_IsAValidLandableBand" methodname="Target_IsAValidLandableBand" classname="RefuelMathTests" runstate="Runnable" seed="1145659987" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.005364" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1200" name="RepairProcedureTests" fullname="RepairProcedureTests" classname="RepairProcedureTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.012021" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1203" name="CorrectOrder_Validates" fullname="RepairProcedureTests.CorrectOrder_Validates" methodname="CorrectOrder_Validates" classname="RepairProcedureTests" runstate="Runnable" seed="341202870" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001995" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1202" name="Engine_And_Fuel_Procedures_Differ" fullname="RepairProcedureTests.Engine_And_Fuel_Procedures_Differ" methodname="Engine_And_Fuel_Procedures_Differ" classname="RepairProcedureTests" runstate="Runnable" seed="1323248340" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001343" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1204" name="FirstWrongIndex_PointsAtTheFirstMisplacedStep" fullname="RepairProcedureTests.FirstWrongIndex_PointsAtTheFirstMisplacedStep" methodname="FirstWrongIndex_PointsAtTheFirstMisplacedStep" classname="RepairProcedureTests" runstate="Runnable" seed="1030622023" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001285" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1205" name="NullOrShortCandidate_IsWrong" fullname="RepairProcedureTests.NullOrShortCandidate_IsWrong" methodname="NullOrShortCandidate_IsWrong" classname="RepairProcedureTests" runstate="Runnable" seed="572985994" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001188" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1201" name="Steps_AreSixUnique_PerFault" fullname="RepairProcedureTests.Steps_AreSixUnique_PerFault" methodname="Steps_AreSixUnique_PerFault" classname="RepairProcedureTests" runstate="Runnable" seed="270589614" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001713" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1206" name="RouteGraphProjectionTests" fullname="RouteGraphProjectionTests" classname="RouteGraphProjectionTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.015596" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1208" name="NearestDistanceToGraph_EmptyIsFarAway" fullname="RouteGraphProjectionTests.NearestDistanceToGraph_EmptyIsFarAway" methodname="NearestDistanceToGraph_EmptyIsFarAway" classname="RouteGraphProjectionTests" runstate="Runnable" seed="1237688130" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.003932" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1207" name="NearestDistanceToGraph_PicksClosestSegment" fullname="RouteGraphProjectionTests.NearestDistanceToGraph_PicksClosestSegment" methodname="NearestDistanceToGraph_PicksClosestSegment" classname="RouteGraphProjectionTests" runstate="Runnable" seed="429175999" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.003673" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1209" name="Project_OrdersStopsAlongTrunk_WithTerminalsResolved" fullname="RouteGraphProjectionTests.Project_OrdersStopsAlongTrunk_WithTerminalsResolved" methodname="Project_OrdersStopsAlongTrunk_WithTerminalsResolved" classname="RouteGraphProjectionTests" runstate="Runnable" seed="1032701298" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.004194" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1210" name="RouteToGridTests" fullname="RouteToGridTests" classname="RouteToGridTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.013213" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1213" name="DegenerateRoute_StillProducesAValidGrid" fullname="RouteToGridTests.DegenerateRoute_StillProducesAValidGrid" methodname="DegenerateRoute_StillProducesAValidGrid" classname="RouteToGridTests" runstate="Runnable" seed="785075075" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.004794" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1212" name="Level1_DerivedGrid_IsSolvable" fullname="RouteToGridTests.Level1_DerivedGrid_IsSolvable" methodname="Level1_DerivedGrid_IsSolvable" classname="RouteToGridTests" runstate="Runnable" seed="804009571" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.003765" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1211" name="Tutorial_DerivedGrid_IsSolvable" fullname="RouteToGridTests.Tutorial_DerivedGrid_IsSolvable" methodname="Tutorial_DerivedGrid_IsSolvable" classname="RouteToGridTests" runstate="Runnable" seed="273158559" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000689" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1214" name="ScoreCalculatorTests" fullname="ScoreCalculatorTests" classname="ScoreCalculatorTests" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.014496" total="11" passed="11" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1215" name="AutomationScore_AtPar_NoPenalties_Is1000" fullname="ScoreCalculatorTests.AutomationScore_AtPar_NoPenalties_Is1000" methodname="AutomationScore_AtPar_NoPenalties_Is1000" classname="ScoreCalculatorTests" runstate="Runnable" seed="1344174443" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001111" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1219" name="AutomationScore_CodeMode_Pays50PercentMore" fullname="ScoreCalculatorTests.AutomationScore_CodeMode_Pays50PercentMore" methodname="AutomationScore_CodeMode_Pays50PercentMore" classname="ScoreCalculatorTests" runstate="Runnable" seed="567133109" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000656" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1220" name="AutomationScore_DisabledSoftTimer_NeverTimesOut" fullname="ScoreCalculatorTests.AutomationScore_DisabledSoftTimer_NeverTimesOut" methodname="AutomationScore_DisabledSoftTimer_NeverTimesOut" classname="ScoreCalculatorTests" runstate="Runnable" seed="791061445" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000505" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1218" name="AutomationScore_HasAFloorOf100" fullname="ScoreCalculatorTests.AutomationScore_HasAFloorOf100" methodname="AutomationScore_HasAFloorOf100" classname="ScoreCalculatorTests" runstate="Runnable" seed="1039848259" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000617" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1217" name="AutomationScore_RetriesAndTimeout_AreDocked" fullname="ScoreCalculatorTests.AutomationScore_RetriesAndTimeout_AreDocked" methodname="AutomationScore_RetriesAndTimeout_AreDocked" classname="ScoreCalculatorTests" runstate="Runnable" seed="882027081" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000800" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1216" name="AutomationScore_StepsOverPar_AreDocked" fullname="ScoreCalculatorTests.AutomationScore_StepsOverPar_AreDocked" methodname="AutomationScore_StepsOverPar_AreDocked" classname="ScoreCalculatorTests" runstate="Runnable" seed="655270289" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000561" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1225" name="CurrencyFor_IsScoreOverTen_FlooredAtZero" fullname="ScoreCalculatorTests.CurrencyFor_IsScoreOverTen_FlooredAtZero" methodname="CurrencyFor_IsScoreOverTen_FlooredAtZero" classname="ScoreCalculatorTests" runstate="Runnable" seed="1743406795" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000794" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1221" name="ManualScore_CleanSlowRun_Is1000" fullname="ScoreCalculatorTests.ManualScore_CleanSlowRun_Is1000" methodname="ManualScore_CleanSlowRun_Is1000" classname="ScoreCalculatorTests" runstate="Runnable" seed="1339108477" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001020" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1223" name="ManualScore_DocksMistakes" fullname="ScoreCalculatorTests.ManualScore_DocksMistakes" methodname="ManualScore_DocksMistakes" classname="ScoreCalculatorTests" runstate="Runnable" seed="1950927678" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000611" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1224" name="ManualScore_NeverGoesNegative" fullname="ScoreCalculatorTests.ManualScore_NeverGoesNegative" methodname="ManualScore_NeverGoesNegative" classname="ScoreCalculatorTests" runstate="Runnable" seed="1676640658" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000545" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1222" name="ManualScore_RewardsFaresSatisfactionAndSpeed" fullname="ScoreCalculatorTests.ManualScore_RewardsFaresSatisfactionAndSpeed" methodname="ManualScore_RewardsFaresSatisfactionAndSpeed" classname="ScoreCalculatorTests" runstate="Runnable" seed="2010893582" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000658" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1226" name="SelfDriveAgentTests" fullname="SelfDriveAgentTests" classname="SelfDriveAgentTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.065947" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1227" name="EverySeed_DeliversEveryRider_CollectsFares_AndReachesDestination" fullname="SelfDriveAgentTests.EverySeed_DeliversEveryRider_CollectsFares_AndReachesDestination" methodname="EverySeed_DeliversEveryRider_CollectsFares_AndReachesDestination" classname="SelfDriveAgentTests" runstate="Runnable" seed="1992336217" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.047730" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1228" name="ParSteps_EqualTheAutopilotPlanLength" fullname="SelfDriveAgentTests.ParSteps_EqualTheAutopilotPlanLength" methodname="ParSteps_EqualTheAutopilotPlanLength" classname="SelfDriveAgentTests" runstate="Runnable" seed="2089644308" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.014444" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1229" name="ReferenceSolution_Compiles" fullname="SelfDriveAgentTests.ReferenceSolution_Compiles" methodname="ReferenceSolution_Compiles" classname="SelfDriveAgentTests" runstate="Runnable" seed="1674227794" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000921" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1230" name="StreamingTownGeneratorTests" fullname="StreamingTownGeneratorTests" classname="StreamingTownGeneratorTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.027282" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1233" name="AppendChunk_AdvancesFrontier" fullname="StreamingTownGeneratorTests.AppendChunk_AdvancesFrontier" methodname="AppendChunk_AdvancesFrontier" classname="StreamingTownGeneratorTests" runstate="Runnable" seed="348793816" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.015239" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1232" name="AppendChunk_IsDeterministic" fullname="StreamingTownGeneratorTests.AppendChunk_IsDeterministic" methodname="AppendChunk_IsDeterministic" classname="StreamingTownGeneratorTests" runstate="Runnable" seed="1043370852" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.002601" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1234" name="AppendChunk_KeepsLayoutSolvable" fullname="StreamingTownGeneratorTests.AppendChunk_KeepsLayoutSolvable" methodname="AppendChunk_KeepsLayoutSolvable" classname="StreamingTownGeneratorTests" runstate="Runnable" seed="521945300" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.003561" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1235" name="AppendChunk_NewDestination_IsTerminalEnd" fullname="StreamingTownGeneratorTests.AppendChunk_NewDestination_IsTerminalEnd" methodname="AppendChunk_NewDestination_IsTerminalEnd" classname="StreamingTownGeneratorTests" runstate="Runnable" seed="462874910" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.001130" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1231" name="Begin_ProducesSolvableLayout" fullname="StreamingTownGeneratorTests.Begin_ProducesSolvableLayout" methodname="Begin_ProducesSolvableLayout" classname="StreamingTownGeneratorTests" runstate="Runnable" seed="1216131409" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.000996" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1236" name="TownLayoutGeneratorTests" fullname="TownLayoutGeneratorTests" classname="TownLayoutGeneratorTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.080726" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1239" name="Anchors_AreImmovableAcrossSeeds" fullname="TownLayoutGeneratorTests.Anchors_AreImmovableAcrossSeeds" methodname="Anchors_AreImmovableAcrossSeeds" classname="TownLayoutGeneratorTests" runstate="Runnable" seed="281906111" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.010400" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1241" name="BranchCount_StaysWithinBounds" fullname="TownLayoutGeneratorTests.BranchCount_StaysWithinBounds" methodname="BranchCount_StaysWithinBounds" classname="TownLayoutGeneratorTests" runstate="Runnable" seed="1166212724" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.011517" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1240" name="DeadEnds_AreOnlyTerminalsOrStops" fullname="TownLayoutGeneratorTests.DeadEnds_AreOnlyTerminalsOrStops" methodname="DeadEnds_AreOnlyTerminalsOrStops" classname="TownLayoutGeneratorTests" runstate="Runnable" seed="935359256" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.016697" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1238" name="Deterministic_SameSeedSameTown" fullname="TownLayoutGeneratorTests.Deterministic_SameSeedSameTown" methodname="Deterministic_SameSeedSameTown" classname="TownLayoutGeneratorTests" runstate="Runnable" seed="1101667851" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.009577" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1237" name="EverySeed_ProducesASolvableTown" fullname="TownLayoutGeneratorTests.EverySeed_ProducesASolvableTown" methodname="EverySeed_ProducesASolvableTown" classname="TownLayoutGeneratorTests" runstate="Runnable" seed="1021607832" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.014122" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1242" name="Requests_BoardEarly_AlightLater_WithMatchingFare" fullname="TownLayoutGeneratorTests.Requests_BoardEarly_AlightLater_WithMatchingFare" methodname="Requests_BoardEarly_AlightLater_WithMatchingFare" classname="TownLayoutGeneratorTests" runstate="Runnable" seed="1988155054" result="Passed" start-time="2026-06-15 19:18:27Z" end-time="2026-06-15 19:18:27Z" duration="0.013419" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[Saving results to: C:/Users/Mist/AppData/LocalLow/DefaultCompany/Lugarithm\TestResults.xml
+]]></output>
+        </test-case>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

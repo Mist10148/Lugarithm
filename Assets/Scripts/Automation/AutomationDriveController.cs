@@ -63,6 +63,10 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private FlowConnectMinigame flowPuzzle;
     [SerializeField] private CrateStackMinigame  cratePuzzle;
 
+    [Header("Tutorial repair drills")]
+    [SerializeField] private CodeFixMinigame codeFixMinigame;  // code · repair
+    [SerializeField] private RefuelMinigame  refuelMinigame;   // non-code · fuel
+
     [Header("Dialogue")]
     [SerializeField] private DialogueController dialogue;
 
@@ -296,7 +300,7 @@ public class AutomationDriveController : MonoBehaviour
     {
         if (dialogue == null) return;
 
-        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex);
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
         if (convo == null) return;
 
         dialogue.OnEvent += HandleDialogueEvent;
@@ -310,6 +314,15 @@ public class AutomationDriveController : MonoBehaviour
     {
         switch (kind)
         {
+            // Scripted tutorial drills: launch the matching minigame and only
+            // resume the conversation once the player has finished it.
+            case DialogueEventKind.TutorialRepair:
+                ShowTutorialMinigame(repair: true);
+                break;
+            case DialogueEventKind.TutorialRefuel:
+                ShowTutorialMinigame(repair: false);
+                break;
+
             case DialogueEventKind.DrivingTutorial:
             case DialogueEventKind.FareTutorial:
             case DialogueEventKind.Breakdown:
@@ -325,6 +338,28 @@ public class AutomationDriveController : MonoBehaviour
                 StartCoroutine(ResumeDialogueAfter(0.1f));
                 break;
         }
+    }
+
+    /// <summary>
+    /// Opens a tutorial repair drill: the code-based CodeFixMinigame (engine fault)
+    /// or the non-code RefuelMinigame. Dialogue resumes once the minigame finishes.
+    /// The modal overlays sit on top of the workspace and never touch the sim.
+    /// </summary>
+    void ShowTutorialMinigame(bool repair)
+    {
+        int seed = UnityEngine.Random.Range(0, 99999);
+
+        System.Action<MinigameResult> onDone = _ =>
+        {
+            if (dialogue != null) dialogue.ResumeAfterEvent();
+        };
+
+        if (repair && codeFixMinigame != null)
+            codeFixMinigame.Show(BreakdownFault.Engine, seed, onDone);
+        else if (!repair && refuelMinigame != null)
+            refuelMinigame.Show(seed, onDone);
+        else
+            onDone(null);
     }
 
     System.Collections.IEnumerator ResumeDialogueAfter(float seconds)
@@ -577,7 +612,7 @@ public class AutomationDriveController : MonoBehaviour
             return;
         }
 
-        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex);
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
         if (convo == null || convo.journalPageId < 0 || convo.journalPageId >= JournalPageLibrary.Pages.Count)
         {
             ShowResults();

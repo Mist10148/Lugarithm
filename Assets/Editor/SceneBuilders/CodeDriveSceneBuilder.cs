@@ -154,6 +154,9 @@ public static class CodeDriveSceneBuilder
         // Town gates (non-code, required to advance) — the level picks one.
         FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
+        // Tutorial repair drills: code-based fix + non-code refuel (dialogue-driven).
+        CodeFixMinigame     codeFix     = MinigameOverlayBuilder.BuildCodeFix(canvas.transform);
+        RefuelMinigame      refuel      = MinigameOverlayBuilder.BuildRefuel(canvas.transform);
         DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(canvas.transform);
         LegCompletionController legCompletion = LegCompletionOverlayBuilder.Build(canvas.transform);
 
@@ -194,6 +197,8 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "results",      results);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
+        SceneBuilderUtil.Wire(controller, "codeFixMinigame", codeFix);
+        SceneBuilderUtil.Wire(controller, "refuelMinigame",  refuel);
         SceneBuilderUtil.Wire(controller, "dialogue",     dialogue);
         SceneBuilderUtil.Wire(controller, "legCompletion", legCompletion);
 

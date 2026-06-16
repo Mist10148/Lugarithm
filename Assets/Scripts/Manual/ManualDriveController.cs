@@ -236,7 +236,7 @@ public class ManualDriveController : MonoBehaviour
     {
         if (dialogue == null) return;
 
-        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex);
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: true);
         if (convo == null) return;
 
         dialogue.OnEvent += HandleDialogueEvent;
@@ -248,11 +248,20 @@ public class ManualDriveController : MonoBehaviour
 
     void HandleDialogueEvent(DialogueEventKind kind, string payload)
     {
-        // For the working seam, gameplay events are acknowledged and the dialogue
-        // resumes after a short pause. The full wiring (driving/fare tutorials,
-        // breakdown pauses) is left open for the next pass.
         switch (kind)
         {
+            // Scripted tutorial drills: launch the matching minigame and only
+            // resume the conversation once the player has finished it.
+            case DialogueEventKind.TutorialRepair:
+                ShowTutorialMinigame(repair: true);
+                break;
+            case DialogueEventKind.TutorialRefuel:
+                ShowTutorialMinigame(repair: false);
+                break;
+
+            // For the working seam, other gameplay events are acknowledged and the
+            // dialogue resumes after a short pause. The full wiring (driving/fare
+            // tutorials, breakdown pauses) is left open for the next pass.
             case DialogueEventKind.DrivingTutorial:
             case DialogueEventKind.FareTutorial:
             case DialogueEventKind.Breakdown:
@@ -268,6 +277,30 @@ public class ManualDriveController : MonoBehaviour
                 StartCoroutine(ResumeDialogueAfter(0.1f));
                 break;
         }
+    }
+
+    /// <summary>
+    /// Opens a tutorial repair drill: the code-based CodeFixMinigame (engine fault)
+    /// or the non-code RefuelMinigame. Dialogue resumes once the minigame finishes.
+    /// Falls back gracefully — and always resumes — if a panel is missing.
+    /// </summary>
+    void ShowTutorialMinigame(bool repair)
+    {
+        if (jeepney != null) jeepney.InputLocked = true;
+        int seed = Random.Range(0, 99999);
+
+        System.Action<MinigameResult> onDone = _ =>
+        {
+            if (jeepney != null) jeepney.InputLocked = false;
+            if (dialogue != null) dialogue.ResumeAfterEvent();
+        };
+
+        if (repair && codeFixMinigame != null)
+            codeFixMinigame.Show(BreakdownFault.Engine, seed, onDone);
+        else if (!repair && refuelMinigame != null)
+            refuelMinigame.Show(seed, onDone);
+        else
+            onDone(null);
     }
 
     System.Collections.IEnumerator ResumeDialogueAfter(float seconds)
@@ -373,7 +406,7 @@ public class ManualDriveController : MonoBehaviour
             return;
         }
 
-        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex);
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: true);
         if (convo == null || convo.journalPageId < 0 || convo.journalPageId >= JournalPageLibrary.Pages.Count)
         {
             ShowResults();

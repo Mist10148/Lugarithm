@@ -128,23 +128,26 @@ public static class LevelLibrary
                     "########",
                 },
                 startFacing    = 1, // East
-                goalText       = "Drive from the garage (S) to the terminal (D). " +
-                                 "Pick up the waiting passenger (P) on the way and drop them off.",
-                allowedBlocks  = new[] { "moveForward", "turnLeft", "turnRight", "pickUp", "dropOff" },
+                goalText       = "Drive from the garage (S) to the terminal (D). Pick up the " +
+                                 "waiting passenger (P), collect their fare, and drop them off.",
+                allowedBlocks  = new[] { "moveForward", "turnLeft", "turnRight",
+                                         "pickUp", "collectFare", "dropOff" },
                 allowedQueries = new string[0],
-                parSteps       = 16,
+                parSteps       = 17,
                 softTimerSeconds = 300f,
                 requireAllPassengersDelivered = true,
                 codeScaffold =
                     "# Goal: drive from S to D.\n" +
-                    "# Pick up the passenger at the stop (P) on the way.\n" +
+                    "# Pick up the passenger at the stop (P), collect the fare,\n" +
+                    "# then drop them off at the terminal.\n" +
                     "# Actions: moveForward(), turnLeft(), turnRight(),\n" +
-                    "#          pickUp(), dropOff()\n",
+                    "#          pickUp(), collectFare(), dropOff()\n",
                 optimalSolutionText =
                     "moveForward()\n" +
                     "moveForward()\n" +
                     "moveForward()\n" +
                     "pickUp()\n" +
+                    "collectFare()\n" +
                     "moveForward()\n" +
                     "moveForward()\n" +
                     "turnRight()\n" +

@@ -42,40 +42,80 @@ public class DialogueRuntimeTests
     }
 
     [Test]
-    public void TutorialAdvance_BlockedUntilDrivingAndFareHeard()
+    public void ManualTutorialAdvance_BlockedUntilEveryLessonAndDrillDone()
     {
-        DialogueRuntime rt = new DialogueRuntime(DialogueLibrary.ForLevel(0));
+        DialogueRuntime rt = new DialogueRuntime(DialogueLibrary.ForLevel(0, manualMode: true));
         rt.Begin();
         rt.AdvanceLine();
         rt.AdvanceLine(); // to HUB-T
 
-        var choices = rt.AvailableChoices();
-        Assert.IsFalse(choices.Any(c => c.target == "T-ADV"), "T-ADV should be locked before tutorials");
+        Assert.AreEqual("HUB-T", rt.CurrentNodeId);
+        Assert.IsFalse(rt.AvailableChoices().Any(c => c.target == "T-ADV"),
+            "T-ADV should be locked before any lesson");
 
-        Assert.AreEqual("HUB-T", rt.CurrentNodeId, "Should be at hub before choosing T2");
+        // Driving lesson is a branch: pick the topic, take a sub-choice back to the hub.
         rt.Choose("T2");
-        Assert.AreEqual("T2", rt.CurrentNodeId, "Should have jumped to T2");
-        Assert.IsTrue(rt.HasHeard("T2"), "T2 should be heard after choosing it");
+        Assert.IsTrue(rt.HasHeard("T2"));
+        rt.Choose("T2b");
+        rt.AdvanceLine(); // T2b line exhausted -> back to hub
+        Assert.AreEqual("HUB-T", rt.CurrentNodeId);
+        Assert.IsFalse(rt.AvailableChoices().Any(c => c.target == "T-ADV"),
+            "still locked after only the driving lesson");
 
-        rt.Choose("T2a");
-        rt.AdvanceLine(); // T2a -> T2b
-        rt.AdvanceLine(); // T2b line exhausted, driving-tutorial event pending
-        rt.ClearEvent();  // resolves back to hub
+        VisitLineTopic(rt, "T3");   // stops & passengers
+        VisitLineTopic(rt, "T4");   // fares & coins
+        VisitEventTopic(rt, "T5");  // repair drill
+        VisitEventTopic(rt, "T6");  // refuel drill
 
-        choices = rt.AvailableChoices();
-        Assert.IsFalse(choices.Any(c => c.target == "T-ADV"), "T-ADV still locked after only T2");
-
-        rt.Choose("T3");
-        Assert.IsTrue(rt.HasHeard("T2") && rt.HasHeard("T3"), "T2 and T3 should both be heard now");
-        rt.AdvanceLine();
-        rt.AdvanceLine(); // T3 lines exhausted, fare-tutorial event pending
-        rt.ClearEvent();  // resolves back to hub
-
-        choices = rt.AvailableChoices();
+        var choices = rt.AvailableChoices();
         string heard = string.Join(",", rt.HeardNodes);
-        string available = string.Join(",", choices.Select(c => c.target));
         Assert.IsTrue(choices.Any(c => c.target == "T-ADV"),
-            $"T-ADV should unlock after T2 + T3 (heard: {heard}; available: {available})");
+            $"T-ADV should unlock once every lesson and both drills are done (heard: {heard})");
+    }
+
+    [Test]
+    public void AutomationTutorialAdvance_BlockedUntilEveryLessonAndDrillDone()
+    {
+        DialogueRuntime rt = new DialogueRuntime(DialogueLibrary.ForLevel(0, manualMode: false));
+        rt.Begin();
+        rt.AdvanceLine();
+        rt.AdvanceLine(); // to HUB-TA
+
+        Assert.AreEqual("HUB-TA", rt.CurrentNodeId);
+        Assert.IsFalse(rt.AvailableChoices().Any(c => c.target == "TA-ADV"),
+            "TA-ADV should be locked before any lesson");
+
+        // Driving lesson is a branch.
+        rt.Choose("TA2");
+        rt.Choose("TA2b");
+        rt.AdvanceLine(); // back to hub
+        Assert.IsFalse(rt.AvailableChoices().Any(c => c.target == "TA-ADV"));
+
+        VisitLineTopic(rt, "TA3");   // passengers
+        VisitLineTopic(rt, "TA4");   // fares
+        VisitLineTopic(rt, "TA5");   // sensors
+        VisitEventTopic(rt, "TA6");  // repair drill
+        VisitEventTopic(rt, "TA7");  // refuel drill
+
+        Assert.IsTrue(rt.AvailableChoices().Any(c => c.target == "TA-ADV"),
+            "TA-ADV should unlock once every coding lesson and both drills are done");
+    }
+
+    // Choose a plain multi-line topic and advance until it routes back to the hub.
+    static void VisitLineTopic(DialogueRuntime rt, string id)
+    {
+        rt.Choose(id);
+        while (rt.CurrentNodeId == id)
+            rt.AdvanceLine();
+    }
+
+    // Choose an event topic, advance to its pending event, then clear it back to the hub.
+    static void VisitEventTopic(DialogueRuntime rt, string id)
+    {
+        rt.Choose(id);
+        while (!rt.IsAwaitingEventClear)
+            rt.AdvanceLine();
+        rt.ClearEvent();
     }
 
     [Test]

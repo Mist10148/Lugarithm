@@ -11,14 +11,25 @@ public static class DialogueLibrary
 {
     public static DialogueConversation ForLevel(int levelIndex)
     {
-        return Get(levelIndex);
+        // Default to the manual-mode tutorial when the caller doesn't specify a mode.
+        return Get(levelIndex, manualMode: true);
+    }
+
+    public static DialogueConversation ForLevel(int levelIndex, bool manualMode)
+    {
+        return Get(levelIndex, manualMode);
     }
 
     public static DialogueConversation Get(int levelIndex)
     {
+        return Get(levelIndex, manualMode: true);
+    }
+
+    public static DialogueConversation Get(int levelIndex, bool manualMode)
+    {
         switch (levelIndex)
         {
-            case 0: return Tutorial();
+            case 0: return manualMode ? TutorialManual() : TutorialAutomation();
             case 1: return Molo();
             case 2: return Oton();
             case 3: return Tigbauan();
@@ -67,7 +78,22 @@ public static class DialogueLibrary
 
     // -------------------------------------------------------------------------
 
-    static DialogueConversation Tutorial()
+    // Shared completion note — the same in both tutorial variants.
+    static DialogueLine[] TutorialRevealLines()
+    {
+        string gemma = "Gemma";
+        return new[]
+        {
+            Line(gemma, "One more thing before you go. Your father left this note on my desk the night before he stopped driving — said it was the key to the whole route. Read it when you're ready, iho. And don't let Molo rush you; that district has been waiting for you a long time.", isReveal: true)
+        };
+    }
+
+    // -------------------------------------------------------------------------
+    // Tutorial (Manual Mode) — guides the hands-on controls: steering & momentum,
+    // stops & passengers, fares & coins, plus the two repair drills. Every lesson
+    // and both drills must be done before Gemma lets you leave.
+
+    static DialogueConversation TutorialManual()
     {
         string gemma = "Gemma";
         var convo = new DialogueConversation
@@ -82,19 +108,21 @@ public static class DialogueLibrary
         convo.nodes["T-BOARD"] = Node("T-BOARD", DialogueNodeKind.Line,
             Lines(
                 Line(gemma, "Aba! So you finally fit behind your old man's wheel. Sit up straight, you look like you're about to faint."),
-                Line(gemma, "I'm Gemma. I dispatched this route with your father for twenty years. He could thread this jeepney through Calle Real traffic with his eyes closed. You? We'll start slow.")
+                Line(gemma, "I'm Gemma. I dispatched this route with your father for twenty years. He could thread this jeepney through Calle Real traffic with his eyes closed. You? We'll start slow — ask me anything, and don't leave the garage till you've heard all of it.")
             ),
             next: "HUB-T");
 
         convo.nodes["HUB-T"] = Node("HUB-T", DialogueNodeKind.Hub,
-            Lines(Line(gemma, "Ate Gemma is sizing you up.")),
+            Lines(Line(gemma, "Ate Gemma is sizing you up. \"Well? What do you want to know first?\"")),
             choices: new[]
             {
                 Choice("Who were you to my father?", "T1", once: true),
-                Choice("How do I even drive this thing?", "T2"),
-                Choice("What's the deal with the coins?", "T3"),
-                Choice("What is there to see around here?", "T4", once: true),
-                Choice("I'm ready. Let's go.", "T-ADV", requires: new[] { "T2", "T3" })
+                Choice("How do I drive this thing?", "T2"),
+                Choice("How do stops and passengers work?", "T3"),
+                Choice("What's the deal with the coins?", "T4"),
+                Choice("…She's making a horrible noise.", "T5"),
+                Choice("How do I keep her fed and fueled?", "T6"),
+                Choice("I'm ready. Let's go.", "T-ADV", requires: new[] { "T2", "T3", "T4", "T5", "T6" })
             });
 
         convo.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -102,43 +130,166 @@ public static class DialogueLibrary
             returnToHub: true);
 
         convo.nodes["T2"] = Node("T2", DialogueNodeKind.Branch,
-            Lines(Line(gemma, "Hands on the wheel. The old roads here are slick — she'll keep sliding after you let go, so steer early, not late. Treat momentum like a passenger who doesn't want to stop.")),
+            Lines(
+                Line(gemma, "Hands on the wheel. Press up to feed her gas, down to ease her back or reverse. Left and right turn the wheel — gentle, she's not a toy."),
+                Line(gemma, "The old roads here are slick. She keeps sliding after you let go, so steer early, not late. Treat momentum like a passenger who doesn't want to stop. And keep her on the road — drag her through the mud and she crawls.")
+            ),
             choices: new[]
             {
                 Choice("Slide? That sounds dangerous.", "T2a"),
-                Choice("Got it — let me try.", "T2b")
+                Choice("Got it.", "T2b")
             });
 
         convo.nodes["T2a"] = Node("T2a", DialogueNodeKind.Line,
-            Lines(Line(gemma, "It's a jeepney, not a banca. You won't sink. Worst case you bump and I laugh at you. Go on.")),
-            next: "T2b");
-
-        convo.nodes["T2b"] = Node("T2b", DialogueNodeKind.Event,
-            Lines(Line(gemma, "Ha! Not bad. Your father bumped the curb his first day too. Don't tell anyone I told you.", affinity: 1)),
-            eventKind: DialogueEventKind.DrivingTutorial,
+            Lines(Line(gemma, "It's a jeepney, not a banca. You won't sink. Worst case you bump and I laugh at you. Just remember: brake before the turn, not in it.")),
             returnToHub: true);
 
-        convo.nodes["T3"] = Node("T3", DialogueNodeKind.Event,
+        convo.nodes["T2b"] = Node("T2b", DialogueNodeKind.Line,
+            Lines(Line(gemma, "Good. Your father bumped the curb his first day too. Don't tell anyone I told you.", affinity: 1)),
+            returnToHub: true);
+
+        convo.nodes["T3"] = Node("T3", DialogueNodeKind.Line,
             Lines(
-                Line(gemma, "A passenger pays, the coins drop in your drawer. You give back exact change before they lose patience — watch the little timer over their head. Short-change them and you'll hear about it."),
-                Line(gemma, "Salamat! — see? A happy passenger is money in your pocket. Mess it up and it just dents your take. You never lose, you just earn less.")
+                Line(gemma, "See the marked stop zones along the route? Pull in and ease to a stop right on the mark — that's where your passengers are waiting."),
+                Line(gemma, "Take only as many as you have seats for; she's got room for a few, no more. When someone's reached where they're going, let them down at the next stop. Simple. The whole job is just: stop where they wait, drop where they're bound.")
             ),
-            eventKind: DialogueEventKind.FareTutorial,
             returnToHub: true);
 
         convo.nodes["T4"] = Node("T4", DialogueNodeKind.Line,
-            Lines(Line(gemma, "You're parked in a goldmine and you don't even know it. Those buildings down Calle Real — American-era, all of it, neoclassical, art deco, the works. And the food? In 2023 the whole city got named a UNESCO Creative City of Gastronomy. Batchoy, pancit Molo — namit gid.", affinity: 1)),
+            Lines(
+                Line(gemma, "A passenger pays, the coins drop in your drawer. You give back exact change before they lose patience — watch the little timer over their head. Short-change them and you'll hear about it."),
+                Line(gemma, "Salamat! — see? A happy passenger is money in your pocket. Mess it up and it just dents your take. You never lose, iho, you just earn less.")
+            ),
+            returnToHub: true);
+
+        convo.nodes["T5"] = Node("T5", DialogueNodeKind.Event,
+            Lines(
+                Line(gemma, "Hoy — hear that knock? This jeep is older than you. She'll break down on the road, guaranteed. So before I let you loose, you're going to fix her right here, where I can watch."),
+                Line(gemma, "It's a checklist, anó. The repair steps are all there — they're just jumbled. Put them in the right order, top to bottom, then run it. Get the order wrong and you only lose time, not the whole day. Go on — sort her out.")
+            ),
+            eventKind: DialogueEventKind.TutorialRepair,
+            returnToHub: true);
+
+        convo.nodes["T6"] = Node("T6", DialogueNodeKind.Event,
+            Lines(
+                Line(gemma, "And she drinks. Run her dry on the highway and you're walking home. So let's top her off now."),
+                Line(gemma, "This one's all in the hands — tap to pump, and stop when the needle's sitting in the green band. Not too little, not splashing over. Watch the gauge and fill her up.")
+            ),
+            eventKind: DialogueEventKind.TutorialRefuel,
             returnToHub: true);
 
         convo.nodes["T-ADV"] = Node("T-ADV", DialogueNodeKind.Event,
-            Lines(Line(gemma, "Look at you. Your first real stop is Molo, just across the district. Old friend of your father's is waiting — and so's the first page of that journal. Drive safe, iho. Padayon.")),
+            Lines(Line(gemma, "Look at you. Drives, stops, change, a busted belt and a full tank — you're a jeepney driver now. Your first real stop is Molo, just across the district. Old friend of your father's is waiting — and so's the first page of that journal. Drive safe, iho. Padayon.")),
             eventKind: DialogueEventKind.TutorialComplete);
 
-        convo.revealLines = new[]
+        convo.revealLines = TutorialRevealLines();
+        return convo;
+    }
+
+    // -------------------------------------------------------------------------
+    // Tutorial (Automation Mode) — teaches the code by category: driving commands,
+    // boarding passengers, fare collection, and sensors/queries, plus the two
+    // repair drills. Every lesson and both drills are required before departure.
+
+    static DialogueConversation TutorialAutomation()
+    {
+        string gemma = "Gemma";
+        var convo = new DialogueConversation
         {
-            Line(gemma, "One more thing before you go. Your father left this note on my desk the night before he stopped driving — said it was the key to the whole route. Read it when you're ready, iho. And don't let Molo rush you; that district has been waiting for you a long time.", isReveal: true)
+            levelIndex = 0,
+            passengerId = "gemma",
+            startNode = "TA-BOARD",
+            hubNode = "HUB-TA",
+            journalPageId = 0
         };
 
+        convo.nodes["TA-BOARD"] = Node("TA-BOARD", DialogueNodeKind.Line,
+            Lines(
+                Line(gemma, "So you'd rather teach the jeep to drive itself than steer her, ha? Your father was the same — he wrote his routes down like little spells and let the engine read them."),
+                Line(gemma, "I'm Gemma, his old dispatcher. I'll give you the words. You write them in order, press Run, and watch her go. Ask me about each kind before you leave — and the full list is always in the Commands panel.")
+            ),
+            next: "HUB-TA");
+
+        convo.nodes["HUB-TA"] = Node("HUB-TA", DialogueNodeKind.Hub,
+            Lines(Line(gemma, "Ate Gemma taps the side of the workspace. \"Which words do you want first?\"")),
+            choices: new[]
+            {
+                Choice("Who were you to my father?", "TA1", once: true),
+                Choice("How do I tell her to drive?", "TA2"),
+                Choice("How do I pick up passengers?", "TA3"),
+                Choice("How do fares work in code?", "TA4"),
+                Choice("How does she know where she is?", "TA5"),
+                Choice("…What if she breaks down mid-route?", "TA6"),
+                Choice("And running out of fuel?", "TA7"),
+                Choice("I think I've got it. Run the route.", "TA-ADV",
+                       requires: new[] { "TA2", "TA3", "TA4", "TA5", "TA6", "TA7" })
+            });
+
+        convo.nodes["TA1"] = Node("TA1", DialogueNodeKind.Line,
+            Lines(Line(gemma, "His dispatcher. His friend. The one who covered for him when he drove off to leave things in towns down the coast — wouldn't say what. You'll find out. That's the whole point of this trip, anó?", affinity: 1)),
+            returnToHub: true);
+
+        convo.nodes["TA2"] = Node("TA2", DialogueNodeKind.Branch,
+            Lines(
+                Line(gemma, "Driving words first. moveForward() rolls her one step ahead — moveForward(3) goes three. turnLeft() and turnRight() spin her in place. That's the whole alphabet of movement."),
+                Line(gemma, "When you don't want to count every step, the big ones do the thinking: driveToNextStop() drives her to the next stop, driveToDestination() takes her all the way home.")
+            ),
+            choices: new[]
+            {
+                Choice("What if there's a wall in the way?", "TA2a"),
+                Choice("Makes sense.", "TA2b")
+            });
+
+        convo.nodes["TA2a"] = Node("TA2a", DialogueNodeKind.Line,
+            Lines(Line(gemma, "Then you ask before you move. frontIsClear(), leftIsClear(), rightIsClear() — each tells you true or false. Look before you leap, same as any good driver.")),
+            returnToHub: true);
+
+        convo.nodes["TA2b"] = Node("TA2b", DialogueNodeKind.Line,
+            Lines(Line(gemma, "Good. Forward, turn, or let the big words plan the path. That's driving.", affinity: 1)),
+            returnToHub: true);
+
+        convo.nodes["TA3"] = Node("TA3", DialogueNodeKind.Line,
+            Lines(
+                Line(gemma, "Passengers next. When you're at a stop, pickUp() takes the one waiting aboard — board() means the same thing. dropOff() lets a rider down where they're headed; alight() is its twin."),
+                Line(gemma, "Before you grab someone, you can ask: passengerWaiting() — is anyone there? seatsLeft() — how much room? isFull() — am I packed? No sense stopping for a passenger you can't fit.")
+            ),
+            returnToHub: true);
+
+        convo.nodes["TA4"] = Node("TA4", DialogueNodeKind.Line,
+            Lines(
+                Line(gemma, "Now the coins. collectFare() takes the rider's payment and hands you back the amount — you can keep it in a variable: earned = collectFare(). That's money counted, in code."),
+                Line(gemma, "If you want to think before collecting: fareOwed() tells you what they owe, and passengerType() tells you who they are — \"regular\", \"student\", \"senior\". Students and seniors pay less; your father kept a little fare table for that. Whole list's in the Commands panel.")
+            ),
+            returnToHub: true);
+
+        convo.nodes["TA5"] = Node("TA5", DialogueNodeKind.Line,
+            Lines(
+                Line(gemma, "She's not blind — she can tell you where she is. atStop() is true when she's at a stop; atDestination() when she's finally home. currentStop() and nextStop() give you their names."),
+                Line(gemma, "distanceToDestination() counts how far's left. Wrap any of these in an if to decide, or a while to keep going until something's true — that's how a short routine handles a long road.")
+            ),
+            returnToHub: true);
+
+        convo.nodes["TA6"] = Node("TA6", DialogueNodeKind.Event,
+            Lines(
+                Line(gemma, "Even a self-driving jeep breaks, iho — this one especially. When she does, no code will save you; you fix her by hand, right now, so you know how."),
+                Line(gemma, "It's a procedure, like a little program. The repair steps are all here, just out of order. Arrange them top to bottom and run it. Wrong order only costs you time. Go.")
+            ),
+            eventKind: DialogueEventKind.TutorialRepair,
+            returnToHub: true);
+
+        convo.nodes["TA7"] = Node("TA7", DialogueNodeKind.Event,
+            Lines(
+                Line(gemma, "And no routine runs on an empty tank. Let's fill her before you send her off."),
+                Line(gemma, "This one's by hand, not by code — tap to pump and stop when the needle sits in the green band. A driver should know the feel of it, automation or not.")
+            ),
+            eventKind: DialogueEventKind.TutorialRefuel,
+            returnToHub: true);
+
+        convo.nodes["TA-ADV"] = Node("TA-ADV", DialogueNodeKind.Event,
+            Lines(Line(gemma, "Drive, board, collect, sense — and you can patch her and feed her too. Now write the routine and press Run. Your first real stop is Molo, just across the district. An old friend of your father's is waiting — and the first page of that journal. Padayon, iho.")),
+            eventKind: DialogueEventKind.TutorialComplete);
+
+        convo.revealLines = TutorialRevealLines();
         return convo;
     }
 
