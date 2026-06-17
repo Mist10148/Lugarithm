@@ -81,7 +81,7 @@ public static class RouteVisualBuilder
         {
             TownNode node = layout.stops[i];
             bool isDest = node.id == layout.dest.id;
-            StopZone zone = BuildProceduralStop(parent, node, i, isDest, roadHalfWidth);
+            StopZone zone = BuildProceduralStop(parent, node, i, isDest, roadHalfWidth, layout.segments);
             ctx.Zones[i] = zone;
             ctx.ZoneByNode[node.id] = zone;
             if (isDest) ctx.DestinationZone = zone;
@@ -128,7 +128,7 @@ public static class RouteVisualBuilder
             }
 
             bool isDest = node.id == delta.dest.id;
-            StopZone zone = BuildProceduralStop(parent, node, zones.Count, isDest, roadHalfWidth);
+            StopZone zone = BuildProceduralStop(parent, node, zones.Count, isDest, roadHalfWidth, delta.segments);
             zones.Add(zone);
             if (ctx.ZoneByNode != null) ctx.ZoneByNode[node.id] = zone;
             if (isDest) ctx.DestinationZone = zone;
@@ -177,11 +177,16 @@ public static class RouteVisualBuilder
     }
 
     static StopZone BuildProceduralStop(Transform parent, TownNode node, int ordinal,
-                                        bool isDest, float roadHalfWidth)
+                                        bool isDest, float roadHalfWidth, List<RoadSegment> segments)
     {
         var go = new GameObject($"Stop_{ordinal}_{node.name}");
         go.transform.SetParent(parent, false);
         go.transform.position = node.pos;
+
+        // Align the stop to its road so the sign and trigger sit perpendicular to
+        // it — always just beside the road, never on it, for any orientation.
+        Vector2 roadDir = RoadDirectionAt(node.pos, segments);
+        go.transform.rotation = Quaternion.FromToRotation(Vector3.up, (Vector3)roadDir);
 
         var collider = go.AddComponent<BoxCollider2D>();
         collider.isTrigger = true;
@@ -215,6 +220,40 @@ public static class RouteVisualBuilder
         labelGo.transform.localPosition = new Vector3(0f, -1.5f, 0f);
 
         return zone;
+    }
+
+    /// <summary>
+    /// Direction of the road passing through (or ending at) a stop node, taken
+    /// from the incident road segment. Trunk segments win for through-nodes so a
+    /// stop on the main road faces along the trunk; branch tips face along their
+    /// side street. Falls back to up when nothing is incident.
+    /// </summary>
+    static Vector2 RoadDirectionAt(Vector2 pos, List<RoadSegment> segments)
+    {
+        if (segments == null) return Vector2.up;
+
+        Vector2 best = Vector2.zero;
+        bool bestIsTrunk = false;
+        float bestSqr = 0.25f;   // endpoint match tolerance (0.5 units)
+
+        foreach (RoadSegment s in segments)
+        {
+            Vector2 dir;
+            if ((s.a - pos).sqrMagnitude <= bestSqr)      dir = s.b - s.a;
+            else if ((s.b - pos).sqrMagnitude <= bestSqr) dir = s.a - s.b;
+            else continue;
+
+            if (dir.sqrMagnitude < 0.0001f) continue;
+
+            // Prefer the trunk segment when several meet at this node.
+            if (best == Vector2.zero || (s.isTrunk && !bestIsTrunk))
+            {
+                best = dir.normalized;
+                bestIsTrunk = s.isTrunk;
+            }
+        }
+
+        return best == Vector2.zero ? Vector2.up : best;
     }
 
     // -------------------------------------------------------------------------

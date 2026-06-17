@@ -28,7 +28,11 @@ public class JeepneyController : MonoBehaviour
     [SerializeField] private float brakeSmoothTime = 0.55f;
 
     [Tooltip("Seconds to drift into the selected lane. Higher = heavier, lazier lane changes.")]
-    [SerializeField] private float laneSmoothTime = 0.6f;
+    [SerializeField] private float laneSmoothTime = 0.28f;
+
+    [Tooltip("Within this many meters of a 90° corner, the jeep eases to the lane " +
+             "center so it tracks the turn cleanly instead of cutting/reversing.")]
+    [SerializeField] private float cornerEaseDistance = 2.5f;
 
     [Header("Lane Assist")]
     [Tooltip("Meters between lane centers.")]
@@ -146,8 +150,16 @@ public class JeepneyController : MonoBehaviour
             _speedVel   = 0f;
         }
 
-        // Lane changes drift in heavily rather than sliding at a constant rate.
-        _laneOffset = Mathf.SmoothDamp(_laneOffset, _targetLane * laneWidth, ref _laneVel,
+        // Lane changes drift in rather than snapping. Near a 90° corner the lane
+        // target eases to the centerline so the jeep tracks the turn cleanly — the
+        // perpendicular lane offset flips basis at the vertex, and holding an offset
+        // there throws the jeep sideways/backward.
+        float distToCorner = RouteMath.DistanceToNearestCorner(_driveLine, _routeDistance);
+        float cornerFactor = cornerEaseDistance > 0f
+            ? Mathf.Clamp01(distToCorner / cornerEaseDistance)
+            : 1f;
+        float laneTarget = _targetLane * laneWidth * cornerFactor;
+        _laneOffset = Mathf.SmoothDamp(_laneOffset, laneTarget, ref _laneVel,
                                        laneSmoothTime, Mathf.Infinity, Time.fixedDeltaTime);
 
         Vector2 center = RouteMath.PointAt(_driveLine, _routeDistance);
@@ -201,12 +213,19 @@ public class JeepneyController : MonoBehaviour
             : 0f;
 
         if (_rb == null) _rb = GetComponent<Rigidbody2D>();
-        _routeDistance = _routeLength > 0f
-            ? RouteMath.NearestDistanceAlong(waypoints, _rb.position, out _)
-            : 0f;
 
-        if (!preserveLane)
+        if (preserveLane)
         {
+            // Streaming only appends to the polyline's tail, so the existing
+            // arc-length still points to the same place — keep it. Re-projecting
+            // here can snap backward when Manhattan roads fold near themselves.
+            _routeDistance = Mathf.Min(_routeDistance, _routeLength);
+        }
+        else
+        {
+            _routeDistance = _routeLength > 0f
+                ? RouteMath.NearestDistanceAlong(waypoints, _rb.position, out _)
+                : 0f;
             _targetLane = 0;
             _laneOffset = 0f;
             _laneVel    = 0f;

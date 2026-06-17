@@ -87,6 +87,33 @@ public static class RouteMath
     }
 
     /// <summary>
+    /// Arc-length distance from <paramref name="distance"/> to the nearest real
+    /// corner — an interior vertex where the polyline actually changes direction.
+    /// Collinear interior vertices (a straight road split into segments by the
+    /// streaming generator) are ignored, so only genuine 90° turns count.
+    /// Returns <see cref="float.MaxValue"/> when there is no corner.
+    /// </summary>
+    public static float DistanceToNearestCorner(Vector2[] points, float distance)
+    {
+        if (points == null || points.Length < 3) return float.MaxValue;
+
+        float best   = float.MaxValue;
+        float walked  = 0f;
+        for (int i = 1; i < points.Length - 1; i++)
+        {
+            walked += Vector2.Distance(points[i - 1], points[i]);   // arc-length at vertex i
+
+            Vector2 inDir  = points[i]     - points[i - 1];
+            Vector2 outDir = points[i + 1] - points[i];
+            if (inDir.sqrMagnitude < 1e-6f || outDir.sqrMagnitude < 1e-6f) continue;
+            if (Vector2.Dot(inDir.normalized, outDir.normalized) > 0.99f) continue;  // ~straight
+
+            best = Mathf.Min(best, Mathf.Abs(distance - walked));
+        }
+        return best;
+    }
+
+    /// <summary>
     /// Shortest distance from a world position to any road segment in the graph
     /// (trunk + branches). Off-road detection for the procedural town uses this
     /// instead of <see cref="NearestDistanceAlong"/> so a brief detour onto a
