@@ -5,8 +5,8 @@ using UnityEngine;
 /// <summary>
 /// Triggers the Manual Mode breakdown: at a scripted fraction of the route a
 /// warning fires, the jeepney coasts to a stop, and a repair minigame interrupts
-/// the drive. The fault (engine vs fuel) and the interface (non-code taps vs
-/// arranging code blocks) are both rolled at random for every breakdown,
+/// the drive. The fault (engine vs fuel) and the interface (non-code taps/gauge
+/// vs escaping a code-driven maze) are both rolled at random for every breakdown,
 /// independent of the player's Manual/Automation setting, so any of four
 /// variants can appear. The run always continues afterwards (PRD §5.4).
 /// </summary>
@@ -18,7 +18,7 @@ public class BreakdownController : MonoBehaviour
     JeepneyController    _jeepney;
     PatternMatchMinigame _engineRepair;   // non-code · engine
     RefuelMinigame       _refuel;         // non-code · fuel
-    CodeFixMinigame      _codeFix;        // code · either fault
+    MazeRepairMinigame   _maze;           // code · either fault (escape a maze)
     ToastNotification    _toast;
     DriveScoreTracker    _tracker;
 
@@ -38,18 +38,18 @@ public class BreakdownController : MonoBehaviour
     // -------------------------------------------------------------------------
 
     public void Init(JeepneyController jeepney,
-                     PatternMatchMinigame engineRepair, RefuelMinigame refuel, CodeFixMinigame codeFix,
+                     PatternMatchMinigame engineRepair, RefuelMinigame refuel, MazeRepairMinigame maze,
                      ToastNotification toast, DriveScoreTracker tracker,
                      float routeLength, float triggerFraction)
     {
         _jeepney      = jeepney;
         _engineRepair = engineRepair;
         _refuel       = refuel;
-        _codeFix      = codeFix;
+        _maze         = maze;
         _toast        = toast;
         _tracker      = tracker;
 
-        bool anyPanel = engineRepair != null || refuel != null || codeFix != null;
+        bool anyPanel = engineRepair != null || refuel != null || maze != null;
         _armed = triggerFraction > 0f && anyPanel;
         _triggerDistance = routeLength * triggerFraction;
     }
@@ -99,16 +99,16 @@ public class BreakdownController : MonoBehaviour
         };
 
         // Dispatch with graceful fallbacks if a panel is missing.
-        if (code && _codeFix != null)
-            _codeFix.Show(fault, seed, onDone);
+        if (code && _maze != null)
+            _maze.Show(fault, seed, onDone);
         else if (fuel && _refuel != null)
             _refuel.Show(seed, onDone);
         else if (_engineRepair != null)
             _engineRepair.Show(seed, EngineHeadlines[seed % EngineHeadlines.Length], onDone);
         else if (_refuel != null)
             _refuel.Show(seed, onDone);
-        else if (_codeFix != null)
-            _codeFix.Show(fault, seed, onDone);
+        else if (_maze != null)
+            _maze.Show(fault, seed, onDone);
         else
             finished = true;
 

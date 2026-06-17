@@ -378,6 +378,95 @@ public static class MinigameOverlayBuilder
         return game;
     }
 
+    // -------------------------------------------------------------------------
+    // Maze repair minigame overlay (code · escape a maze with your algorithm).
+    // Reuses the Automation block/code editor windows so the player solves it in
+    // whichever editor the Block/Code setting selects.
+
+    public static MazeRepairMinigame BuildMazeRepair(Transform parent)
+    {
+        var overlay = UIFactory.CreatePanel(parent, "MazeRepairOverlay",
+                                            Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.82f));
+
+        var window = UIFactory.CreatePanel(overlay, "Window",
+                                           new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                           UIFactory.PanelDark);
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1340f, 780f));
+
+        var title = UIFactory.CreateText(window, "Title", "", 26f, UIFactory.Accent);
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -14f), new Vector2(1280f, 40f));
+
+        // --- Left column: goal, the maze view, feedback, timer, controls ---------
+        var left = UIFactory.CreateRect(window, "Left", new Vector2(0f, 0f), new Vector2(0f, 1f),
+                                        new Vector2(20f, 20f), new Vector2(560f, -56f));
+
+        var goal = UIFactory.CreateText(left, "Goal", "", 19f, UIFactory.TextDim,
+                                        TextAlignmentOptions.TopLeft);
+        UIFactory.Place(goal, new Vector2(0.5f, 1f), new Vector2(0f, -8f), new Vector2(520f, 96f));
+        goal.enableWordWrapping = true;
+
+        var mazePanel = UIFactory.CreatePanel(left, "MazePanel",
+                                              new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                              UIFactory.PanelDarker);
+        UIFactory.Place(mazePanel, new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(520f, 360f));
+
+        var mazeView = UIFactory.CreateText(mazePanel, "MazeView", "", 30f, UIFactory.TextBright,
+                                            TextAlignmentOptions.Center);
+        mazeView.rectTransform.offsetMin = new Vector2(10f, 10f);
+        mazeView.rectTransform.offsetMax = new Vector2(-10f, -10f);
+        mazeView.enableWordWrapping = false;
+        var mono = Resources.Load<TMP_FontAsset>("Fonts/CodeMono");
+        if (mono != null) mazeView.font = mono;
+
+        var feedback = UIFactory.CreateText(left, "Feedback", "", 19f, UIFactory.TextBright,
+                                            TextAlignmentOptions.TopLeft);
+        UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 150f), new Vector2(520f, 80f));
+        feedback.enableWordWrapping = true;
+
+        var timer = UIFactory.CreateText(left, "Timer", "", 22f, UIFactory.Accent,
+                                         TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(timer, new Vector2(0f, 0f), new Vector2(8f, 78f), new Vector2(180f, 32f));
+
+        Button run = UIFactory.CreateButton(left, "RunButton", "▶ RUN", new Vector2(180f, 56f));
+        UIFactory.Place(run, new Vector2(0.5f, 0f), new Vector2(-100f, 16f), new Vector2(180f, 56f));
+        run.image.color = new Color(0.20f, 0.55f, 0.25f);
+
+        Button reset = UIFactory.CreateButton(left, "ResetButton", "↺ Reset", new Vector2(180f, 56f));
+        UIFactory.Place(reset, new Vector2(0.5f, 0f), new Vector2(100f, 16f), new Vector2(180f, 56f));
+
+        // --- Right column: the two editor windows (one shown per the setting) -----
+        var editorArea = UIFactory.CreateRect(window, "EditorArea",
+                                              new Vector2(0f, 0f), new Vector2(1f, 1f),
+                                              new Vector2(580f, 20f), new Vector2(-20f, -56f));
+
+        RectTransform blockPanel = AutomationDriveSceneBuilder.BuildBlockWindow(
+            editorArea, (RectTransform)overlay.transform,
+            out BlockPaletteController palette, out BlockCanvasController blockCanvas);
+        RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
+            editorArea, out CodeEditorController codeEditor, out _);
+
+        // Execution engine (drives the shared AgentSim through the maze grid).
+        var exec = overlay.gameObject.AddComponent<ExecutionController>();
+
+        var game = overlay.gameObject.AddComponent<MazeRepairMinigame>();
+        SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
+        SceneBuilderUtil.Wire(game, "titleLabel",    title);
+        SceneBuilderUtil.Wire(game, "goalLabel",     goal);
+        SceneBuilderUtil.Wire(game, "mazeView",      mazeView);
+        SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
+        SceneBuilderUtil.Wire(game, "timerLabel",    timer);
+        SceneBuilderUtil.Wire(game, "blockPanel",    blockPanel.gameObject);
+        SceneBuilderUtil.Wire(game, "codePanel",     codePanel.gameObject);
+        SceneBuilderUtil.Wire(game, "blockCanvas",   blockCanvas);
+        SceneBuilderUtil.Wire(game, "palette",       palette);
+        SceneBuilderUtil.Wire(game, "codeEditor",    codeEditor);
+        SceneBuilderUtil.Wire(game, "exec",          exec);
+        SceneBuilderUtil.Wire(game, "runButton",     run);
+        SceneBuilderUtil.Wire(game, "resetButton",   reset);
+
+        return game;
+    }
+
     static Image MakeFillBar(RectTransform background, Color color)
     {
         var fill = UIFactory.CreateRect(background, "Fill", Vector2.zero, Vector2.one,

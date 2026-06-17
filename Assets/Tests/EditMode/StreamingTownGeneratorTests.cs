@@ -76,4 +76,25 @@ public class StreamingTownGeneratorTests
         TownNode dest = s.Layout.Node(s.Layout.destNodeId);
         Assert.AreEqual(NodeKind.TerminalEnd, dest.kind);
     }
+
+    [Test]
+    public void AppendedRoads_AreAxisAligned()
+    {
+        // Manhattan streets: every road segment must be purely horizontal or
+        // vertical (only 90° turns) even after several streamed chunks.
+        foreach (int seed in new[] { 11, 202, 3003, 44 })
+        {
+            StreamingTown s = Begin(2, seed);
+            for (int i = 0; i < 5; i++) StreamingTownGenerator.AppendChunk(s);
+
+            foreach (TownEdge e in s.Layout.edges)
+            {
+                Vector2 a = s.Layout.Node(e.a).pos;
+                Vector2 b = s.Layout.Node(e.b).pos;
+                bool axisAligned = Mathf.Abs(a.x - b.x) < 0.01f || Mathf.Abs(a.y - b.y) < 0.01f;
+                Assert.IsTrue(axisAligned,
+                    $"seed {seed}: edge {e.a}->{e.b} is diagonal ({a} -> {b})");
+            }
+        }
+    }
 }

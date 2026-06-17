@@ -11,14 +11,24 @@ using UnityEngine.InputSystem;
 public class JeepneyController : MonoBehaviour
 {
     [Header("Driving — tune the heavy feel here")]
-    [Tooltip("Automatic forward acceleration (low = sluggish start).")]
+    [Tooltip("Automatic forward acceleration (used by the fallback physics path).")]
     [SerializeField] private float acceleration = 4.5f;
 
     [Tooltip("Maximum forward speed on the road.")]
     [SerializeField] private float topSpeed = 4f;
 
-    [Tooltip("Deceleration while holding Space or while input is locked.")]
+    [Tooltip("Deceleration while holding Space or while input is locked (fallback path).")]
     [SerializeField] private float brakingForce = 16f;
+
+    [Header("Heavy feel — momentum smoothing (route follow)")]
+    [Tooltip("Seconds to ease up toward top speed. Higher = heavier, more sluggish start.")]
+    [SerializeField] private float accelSmoothTime = 1.2f;
+
+    [Tooltip("Seconds to bleed off speed when braking / stopping. Higher = longer coast.")]
+    [SerializeField] private float brakeSmoothTime = 0.55f;
+
+    [Tooltip("Seconds to drift into the selected lane. Higher = heavier, lazier lane changes.")]
+    [SerializeField] private float laneSmoothTime = 0.6f;
 
     [Header("Lane Assist")]
     [Tooltip("Meters between lane centers.")]
@@ -27,11 +37,8 @@ public class JeepneyController : MonoBehaviour
     [Tooltip("How many lanes the jeepney can move away from the center lane.")]
     [SerializeField] private int laneStepsEachSide = 1;
 
-    [Tooltip("How quickly the jeepney slides into the selected lane.")]
-    [SerializeField] private float laneChangeSpeed = 4f;
-
-    [Tooltip("How quickly the jeepney visually turns to match the road.")]
-    [SerializeField] private float rotationFollowSpeed = 8f;
+    [Tooltip("How quickly the jeepney visually turns to match the road (low = laggy, heavy body).")]
+    [SerializeField] private float rotationFollowSpeed = 4f;
 
     [Header("Off-road")]
     [SerializeField] private float offRoadSpeedFactor = 0.45f;
@@ -45,7 +52,9 @@ public class JeepneyController : MonoBehaviour
     private float _routeDistance;
     private float _routeLength;
     private float _routeSpeed;
+    private float _speedVel;     // SmoothDamp velocity for forward speed momentum
     private float _laneOffset;
+    private float _laneVel;      // SmoothDamp velocity for lane-change drift
     private int   _targetLane;
     private bool  _aHeld;
     private bool  _dHeld;
@@ -121,17 +130,25 @@ public class JeepneyController : MonoBehaviour
             _fuel = Mathf.Max(0f, _fuel - fuelDrainPerSecond * Time.fixedDeltaTime);
         float fuelFactor = _fuel > 0f ? 1f : 0.5f;
 
+        // Forward speed eases in/out like a heavy vintage jeepney: a sluggish
+        // build toward top speed and a long coast when braking or stopping.
         float cap = topSpeed * (OffRoad ? offRoadSpeedFactor : 1f) * fuelFactor;
         float targetSpeed = driving ? cap : 0f;
-        float speedRate = driving && _routeSpeed < targetSpeed ? acceleration : brakingForce;
-        _routeSpeed = Mathf.MoveTowards(_routeSpeed, targetSpeed, speedRate * Time.fixedDeltaTime);
+        float smoothTime = targetSpeed >= _routeSpeed ? accelSmoothTime : brakeSmoothTime;
+        _routeSpeed = Mathf.SmoothDamp(_routeSpeed, targetSpeed, ref _speedVel,
+                                       smoothTime, Mathf.Infinity, Time.fixedDeltaTime);
+        if (_routeSpeed < 0f) _routeSpeed = 0f;
 
         _routeDistance = Mathf.Min(_routeDistance + _routeSpeed * Time.fixedDeltaTime, _routeLength);
         if (_routeDistance >= _routeLength - 0.001f)
+        {
             _routeSpeed = 0f;
+            _speedVel   = 0f;
+        }
 
-        _laneOffset = Mathf.MoveTowards(_laneOffset, _targetLane * laneWidth,
-                                        laneChangeSpeed * Time.fixedDeltaTime);
+        // Lane changes drift in heavily rather than sliding at a constant rate.
+        _laneOffset = Mathf.SmoothDamp(_laneOffset, _targetLane * laneWidth, ref _laneVel,
+                                       laneSmoothTime, Mathf.Infinity, Time.fixedDeltaTime);
 
         Vector2 center = RouteMath.PointAt(_driveLine, _routeDistance);
         Vector2 direction = RouteMath.DirectionAt(_driveLine, _routeDistance + 0.1f);
@@ -192,7 +209,9 @@ public class JeepneyController : MonoBehaviour
         {
             _targetLane = 0;
             _laneOffset = 0f;
+            _laneVel    = 0f;
             _routeSpeed = 0f;
+            _speedVel   = 0f;
         }
     }
 

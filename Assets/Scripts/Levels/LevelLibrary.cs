@@ -162,7 +162,15 @@ public static class LevelLibrary
                     "dropOff()\n",
             },
 
-            procedural = null,
+            procedural = FromManual(manual, new TownGenParams
+            {
+                branchCountMin = 0, branchCountMax = 1,
+                branchSpacing  = 18f,
+                branchLenMin   = 6f, branchLenMax = 10f,
+                passengerCountMin = 1, passengerCountMax = 2,
+                passengerDensity  = 0.5f,
+                gridCellSize      = 6f,
+            }),
         };
     }
 
@@ -258,7 +266,15 @@ public static class LevelLibrary
                     "dropOff()\n",
             },
 
-            procedural = null,
+            procedural = FromManual(manual, new TownGenParams
+            {
+                branchCountMin = 1, branchCountMax = 2,
+                branchSpacing  = 18f,
+                branchLenMin   = 8f, branchLenMax = 14f,
+                passengerCountMin = 2, passengerCountMax = 4,
+                passengerDensity  = 0.7f,
+                gridCellSize      = 6f,
+            }),
         };
     }
 

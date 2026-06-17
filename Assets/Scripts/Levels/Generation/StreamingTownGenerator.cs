@@ -100,24 +100,23 @@ public static class StreamingTownGenerator
             oldDest.name = $"Sitio {layout.nodes.Count}";
         chunk.nodes.Add(oldDest);
 
-        // Current trunk end direction.
+        // Current trunk end direction, snapped to a cardinal so the road stays
+        // grid-aligned (horizontal/vertical only — Manhattan streets).
         int oldDestTrunkIdx = layout.trunkNodeIds.IndexOf(oldDest.id);
         if (oldDestTrunkIdx < 1) oldDestTrunkIdx = layout.trunkNodeIds.Count - 1;
         Vector2 prevPos = layout.Node(layout.trunkNodeIds[oldDestTrunkIdx - 1]).pos;
-        Vector2 dir = (oldDest.pos - prevPos).normalized;
-        if (dir.sqrMagnitude < 0.0001f) dir = Vector2.up;
+        Vector2 dir = SnapToCardinal(oldDest.pos - prevPos);
 
-        // Extend the trunk with 2-4 bends.
+        // Extend the trunk with 2-4 segments; each turn is straight or a single
+        // 90° bend, and every node is snapped to the grid for crisp corners.
         int bendCount = rng.Next(2, 5);
         float segLen = 24f + (float)rng.NextDouble() * 12f;
-        float maxTurn = 35f;
 
         TownNode last = oldDest;
         for (int i = 0; i < bendCount; i++)
         {
-            float turn = ((float)rng.NextDouble() * 2f - 1f) * maxTurn;
-            dir = Quaternion.Euler(0f, 0f, turn) * (Vector3)dir;
-            Vector2 nextPos = last.pos + dir * segLen;
+            dir = TurnCardinal(dir, rng);
+            Vector2 nextPos = SnapToGrid(last.pos + dir * segLen, s.CellSize);
 
             var node = new TownNode
             {
@@ -160,12 +159,12 @@ public static class StreamingTownGenerator
         {
             if (madeBranches >= wantBranches) break;
             TownNode root = layout.Node(rootId);
-            Vector2 trunkDir = (root.pos - layout.Node(layout.trunkNodeIds[
-                Mathf.Max(0, layout.trunkNodeIds.IndexOf(rootId) - 1)]).pos).normalized;
+            Vector2 trunkDir = SnapToCardinal(root.pos - layout.Node(layout.trunkNodeIds[
+                Mathf.Max(0, layout.trunkNodeIds.IndexOf(rootId) - 1)]).pos);
             Vector2 perp = new Vector2(-trunkDir.y, trunkDir.x) *
                            (rng.Next(2) == 0 ? 1f : -1f);
             float len = 8f + (float)rng.NextDouble() * 6f;
-            Vector2 tip = root.pos + perp * len;
+            Vector2 tip = SnapToGrid(root.pos + perp * len, s.CellSize);
 
             bool tooClose = false;
             foreach (TownNode n in layout.nodes)
@@ -238,13 +237,12 @@ public static class StreamingTownGenerator
         int oldDestTrunkIdx = layout.trunkNodeIds.IndexOf(oldDest.id);
         if (oldDestTrunkIdx < 1) oldDestTrunkIdx = layout.trunkNodeIds.Count - 1;
         Vector2 prevPos = layout.Node(layout.trunkNodeIds[oldDestTrunkIdx - 1]).pos;
-        Vector2 dir = (oldDest.pos - prevPos).normalized;
-        if (dir.sqrMagnitude < 0.0001f) dir = Vector2.up;
+        Vector2 dir = SnapToCardinal(oldDest.pos - prevPos);
 
         var node = new TownNode
         {
             id = layout.nodes.Count,
-            pos = oldDest.pos + dir * 30f,
+            pos = SnapToGrid(oldDest.pos + dir * 30f, s.CellSize),
             kind = NodeKind.TerminalEnd,
             name = "Destination",
             alongTrunk = oldDest.alongTrunk + 30f,
@@ -274,6 +272,37 @@ public static class StreamingTownGenerator
             h = (h * 397) ^ chunkIndex;
             return h & 0x7fffffff;
         }
+    }
+
+    /// <summary>Snaps a point to the generation grid so corners stay crisp.</summary>
+    static Vector2 SnapToGrid(Vector2 p, float cell)
+    {
+        cell = Mathf.Max(0.5f, cell);
+        return new Vector2(
+            Mathf.Round(p.x / cell) * cell,
+            Mathf.Round(p.y / cell) * cell);
+    }
+
+    /// <summary>Snaps a direction to the nearest cardinal (axis-aligned) unit vector.</summary>
+    static Vector2 SnapToCardinal(Vector2 dir)
+    {
+        if (dir.sqrMagnitude < 0.0001f) return Vector2.up;
+        return Mathf.Abs(dir.x) >= Mathf.Abs(dir.y)
+            ? new Vector2(Mathf.Sign(dir.x), 0f)
+            : new Vector2(0f, Mathf.Sign(dir.y));
+    }
+
+    /// <summary>
+    /// Returns the next cardinal heading: mostly straight, occasionally a single
+    /// 90° left or right turn. Never reverses (no 180° U-turn onto the road).
+    /// </summary>
+    static Vector2 TurnCardinal(Vector2 dir, System.Random rng)
+    {
+        double r = rng.NextDouble();
+        if (r < 0.6) return dir;                          // straight ahead
+        return r < 0.8
+            ? new Vector2(-dir.y, dir.x)                  // turn left (+90°)
+            : new Vector2(dir.y, -dir.x);                 // turn right (−90°)
     }
 
     static void TownLayoutGeneratorShuffle<T>(IList<T> list, System.Random rng)

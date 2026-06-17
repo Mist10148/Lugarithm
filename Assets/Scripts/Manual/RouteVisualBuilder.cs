@@ -156,12 +156,18 @@ public static class RouteVisualBuilder
         if (len < 0.0001f) return;
         Vector2 dir = delta / len;
 
+        // Safety net: render tiles strictly along a cardinal so roads always read
+        // as 90° Manhattan streets, even if a stray near-diagonal segment slips in.
+        Vector2 tileDir = Mathf.Abs(dir.x) >= Mathf.Abs(dir.y)
+            ? new Vector2(Mathf.Sign(dir.x), 0f)
+            : new Vector2(0f, Mathf.Sign(dir.y));
+
         for (float d = 0f; d <= len; d += 1f)
         {
             var tile = new GameObject("RoadTile");
             tile.transform.SetParent(parent, false);
             tile.transform.position = a + dir * d;
-            tile.transform.rotation = Quaternion.FromToRotation(Vector3.up, (Vector3)dir);
+            tile.transform.rotation = Quaternion.FromToRotation(Vector3.up, (Vector3)tileDir);
             tile.transform.localScale = new Vector3(width, 1.25f, 1f);
 
             var sr = tile.AddComponent<SpriteRenderer>();

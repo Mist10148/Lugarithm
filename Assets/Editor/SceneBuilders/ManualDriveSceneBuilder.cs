@@ -63,7 +63,7 @@ public static class ManualDriveSceneBuilder
         CoinDrawerController drawer = BuildCoinDrawer(canvas);
         PatternMatchMinigame engineRepair = MinigameOverlayBuilder.BuildEngineRepair(canvas.transform);
         RefuelMinigame       refuel       = MinigameOverlayBuilder.BuildRefuel(canvas.transform);
-        CodeFixMinigame      codeFix      = MinigameOverlayBuilder.BuildCodeFix(canvas.transform);
+        MazeRepairMinigame   mazeRepair   = MinigameOverlayBuilder.BuildMazeRepair(canvas.transform);
         DriveResultsPanel results = BuildResults(canvas);
         ToastNotification toast = BuildToast(canvas);
         FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
@@ -112,7 +112,7 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "coinDrawer",   drawer);
         SceneBuilderUtil.Wire(controller, "engineRepairMinigame", engineRepair);
         SceneBuilderUtil.Wire(controller, "refuelMinigame",       refuel);
-        SceneBuilderUtil.Wire(controller, "codeFixMinigame",      codeFix);
+        SceneBuilderUtil.Wire(controller, "mazeRepairMinigame",   mazeRepair);
         SceneBuilderUtil.Wire(controller, "resultsPanel", results);
         SceneBuilderUtil.Wire(controller, "toast",        toast);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);

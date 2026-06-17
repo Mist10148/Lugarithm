@@ -27,7 +27,7 @@ public class ManualDriveController : MonoBehaviour
     [Header("Breakdown minigames (randomized)")]
     [SerializeField] private PatternMatchMinigame engineRepairMinigame; // non-code · engine
     [SerializeField] private RefuelMinigame       refuelMinigame;       // non-code · fuel
-    [SerializeField] private CodeFixMinigame      codeFixMinigame;      // code · either
+    [SerializeField] private MazeRepairMinigame   mazeRepairMinigame;   // code · either (escape a maze)
 
     [Header("Town gate (non-code, required to advance)")]
     [SerializeField] private FlowConnectMinigame  flowPuzzle;
@@ -130,7 +130,7 @@ public class ManualDriveController : MonoBehaviour
 
         _breakdown = GetComponent<BreakdownController>();
         if (_breakdown != null)
-            _breakdown.Init(jeepney, engineRepairMinigame, refuelMinigame, codeFixMinigame,
+            _breakdown.Init(jeepney, engineRepairMinigame, refuelMinigame, mazeRepairMinigame,
                             toast, _tracker,
                             _ctx.TotalLength, _def.manual.breakdownAtRouteFraction);
 
@@ -281,7 +281,7 @@ public class ManualDriveController : MonoBehaviour
     }
 
     /// <summary>
-    /// Opens a tutorial repair drill: the code-based CodeFixMinigame (engine fault)
+    /// Opens a tutorial repair drill: the code-based MazeRepairMinigame (engine fault)
     /// or the non-code RefuelMinigame. Dialogue resumes once the minigame finishes.
     /// Falls back gracefully — and always resumes — if a panel is missing.
     /// </summary>
@@ -296,8 +296,8 @@ public class ManualDriveController : MonoBehaviour
             if (dialogue != null) dialogue.ResumeAfterEvent();
         };
 
-        if (repair && codeFixMinigame != null)
-            codeFixMinigame.Show(BreakdownFault.Engine, seed, onDone);
+        if (repair && mazeRepairMinigame != null)
+            mazeRepairMinigame.Show(BreakdownFault.Engine, seed, onDone);
         else if (!repair && refuelMinigame != null)
             refuelMinigame.Show(seed, onDone);
         else

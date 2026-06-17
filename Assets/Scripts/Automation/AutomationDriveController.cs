@@ -64,8 +64,8 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private CrateStackMinigame  cratePuzzle;
 
     [Header("Tutorial repair drills")]
-    [SerializeField] private CodeFixMinigame codeFixMinigame;  // code · repair
-    [SerializeField] private RefuelMinigame  refuelMinigame;   // non-code · fuel
+    [SerializeField] private MazeRepairMinigame mazeRepairMinigame;  // code · repair (escape a maze)
+    [SerializeField] private RefuelMinigame     refuelMinigame;      // non-code · fuel
 
     [Header("Dialogue")]
     [SerializeField] private DialogueController dialogue;
@@ -341,7 +341,7 @@ public class AutomationDriveController : MonoBehaviour
     }
 
     /// <summary>
-    /// Opens a tutorial repair drill: the code-based CodeFixMinigame (engine fault)
+    /// Opens a tutorial repair drill: the code-based MazeRepairMinigame (engine fault)
     /// or the non-code RefuelMinigame. Dialogue resumes once the minigame finishes.
     /// The modal overlays sit on top of the workspace and never touch the sim.
     /// </summary>
@@ -354,8 +354,8 @@ public class AutomationDriveController : MonoBehaviour
             if (dialogue != null) dialogue.ResumeAfterEvent();
         };
 
-        if (repair && codeFixMinigame != null)
-            codeFixMinigame.Show(BreakdownFault.Engine, seed, onDone);
+        if (repair && mazeRepairMinigame != null)
+            mazeRepairMinigame.Show(BreakdownFault.Engine, seed, onDone);
         else if (!repair && refuelMinigame != null)
             refuelMinigame.Show(seed, onDone);
         else
