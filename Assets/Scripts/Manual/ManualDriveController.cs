@@ -52,6 +52,7 @@ public class ManualDriveController : MonoBehaviour
     bool              _proceduralActive;
     List<RoadSegment> _segments;
     Dictionary<int, List<PassengerManager.PendingBoard>> _pendingBoarding;
+    readonly HashSet<int> _peepsSpawned = new HashSet<int>();   // stop ordinals that already have waiting peeps
     DriveScoreTracker _tracker;
     PassengerManager  _passengers;
     BreakdownController _breakdown;
@@ -184,6 +185,7 @@ public class ManualDriveController : MonoBehaviour
             foreach (PassengerManager.PendingBoard b in kv.Value) colors.Add(b.color);
             zone.SpawnWaitingPeeps(colors,
                 new Vector2(_def.manual.roadHalfWidth + 2.1f, -0.8f), Vector2.right);
+            _peepsSpawned.Add(kv.Key);
         }
     }
 
@@ -191,19 +193,23 @@ public class ManualDriveController : MonoBehaviour
     /// Adds the new chunk's committed rides to the pending boarding plan and
     /// spawns tinted waiting peeps at the new stops.
     /// </summary>
-    void MergeProceduralPassengers(TownLayout layout, ManualLayoutResult delta, TownChunk chunk)
+    void MergeProceduralPassengers(TownChunk chunk)
     {
         if (_pendingBoarding == null) _pendingBoarding = new Dictionary<int, List<PassengerManager.PendingBoard>>();
+        if (_ctx == null || _ctx.ZoneByNode == null) return;
 
-        var ordinalOf = new Dictionary<int, int>();
-        for (int i = 0; i < delta.stops.Count; i++)
-            ordinalOf[delta.stops[i].id] = i;
-
+        // AppendProcedural has already spawned this chunk's zones, so resolve each
+        // ride's town nodes to their *global* stop ordinal (index into _ctx.Zones,
+        // == StopZone.StopIndex). The old code used the chunk-local delta.stops
+        // index, which doesn't line up with the zone array — peeps and dulog
+        // targets would land on the wrong stops.
+        var newOrigins = new HashSet<int>();
         foreach (PassengerRequest req in chunk.requests)
         {
-            if (!ordinalOf.TryGetValue(req.originNodeId, out int o)) continue;
-            if (!ordinalOf.TryGetValue(req.destNodeId, out int d)) continue;
+            if (!_ctx.ZoneByNode.TryGetValue(req.originNodeId, out StopZone originZone)) continue;
+            if (!_ctx.ZoneByNode.TryGetValue(req.destNodeId,   out StopZone destZone))   continue;
 
+            int o = originZone.StopIndex;
             if (!_pendingBoarding.TryGetValue(o, out List<PassengerManager.PendingBoard> lst))
             {
                 lst = new List<PassengerManager.PendingBoard>();
@@ -212,19 +218,25 @@ public class ManualDriveController : MonoBehaviour
             lst.Add(new PassengerManager.PendingBoard
             {
                 color       = req.color,
-                destOrdinal = d,
-                destName    = delta.stops[d].name,
+                destOrdinal = destZone.StopIndex,
+                destName    = destZone.StopName,
                 fare        = req.fare,
                 tender      = req.tender,
             });
+            newOrigins.Add(o);
         }
 
-        foreach (var kv in _pendingBoarding)
+        // Spawn waiting peeps only for the stops this chunk introduced. Looping
+        // over all of _pendingBoarding (as before) re-spawned a fresh duplicate
+        // set on every earlier stop each append, inflating WaitingCount and
+        // stacking sprites. The _peepsSpawned guard makes this idempotent.
+        foreach (int o in newOrigins)
         {
-            if (kv.Key >= _ctx.Zones.Length) continue;
-            StopZone zone = _ctx.Zones[kv.Key];
+            if (o < 0 || o >= _ctx.Zones.Length) continue;
+            if (!_peepsSpawned.Add(o)) continue;
+            StopZone zone = _ctx.Zones[o];
             var colors = new List<Color>();
-            foreach (PassengerManager.PendingBoard b in kv.Value) colors.Add(b.color);
+            foreach (PassengerManager.PendingBoard b in _pendingBoarding[o]) colors.Add(b.color);
             zone.SpawnWaitingPeeps(colors,
                 new Vector2(_def.manual.roadHalfWidth + 2.1f, -0.8f), Vector2.right);
         }
@@ -365,7 +377,7 @@ public class ManualDriveController : MonoBehaviour
         if (jeepney != null)
             jeepney.SetDriveLine(_ctx.Waypoints, preserveLane: true);
 
-        MergeProceduralPassengers(_streaming.Layout, delta, chunk);
+        MergeProceduralPassengers(chunk);
 
         // The destination moved, so the passenger manager can keep going.
         if (_passengers != null)
