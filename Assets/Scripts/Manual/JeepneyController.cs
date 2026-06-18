@@ -62,6 +62,8 @@ public class JeepneyController : MonoBehaviour
     private int   _targetLane;
     private bool  _aHeld;
     private bool  _dHeld;
+    private bool  _spaceHeld;      // previous-frame Space state (FixedUpdate-safe edge detect)
+    private bool  _brakeToggled;   // latched brake state when Brake Mode = Toggle
 
     // -------------------------------------------------------------------------
     // Public state
@@ -117,12 +119,14 @@ public class JeepneyController : MonoBehaviour
             _aHeld = aPressed;
             _dHeld = dPressed;
 
-            if (kb.spaceKey.isPressed) braking = true;
+            braking = ReadBrake(kb);
         }
         else
         {
             _aHeld = false;
             _dHeld = false;
+            _spaceHeld    = false;
+            _brakeToggled = false;
         }
 
         bool atRouteEnd = _routeDistance >= _routeLength - 0.01f;
@@ -169,14 +173,51 @@ public class JeepneyController : MonoBehaviour
 
         Vector2 previous = _rb.position;
         _rb.MovePosition(targetPosition);
+        Vector2 motion = targetPosition - previous;
         _rb.linearVelocity = Time.fixedDeltaTime > 0f
-            ? (targetPosition - previous) / Time.fixedDeltaTime
+            ? motion / Time.fixedDeltaTime
             : Vector2.zero;
 
-        float targetAngle = Vector2.SignedAngle(Vector2.up, direction);
+        // Face the way we actually move, not the raw segment lookahead. The lane
+        // basis flips at 90° vertices and a streamed fold can momentarily point a
+        // segment backward, which would swing the body ~180° ("driving backward").
+        // Route distance only ever advances, so the movement vector is always the
+        // true heading. While essentially stopped (or drifting purely sideways at
+        // a stop) keep the last heading so the body doesn't spin or face sideways.
+        float targetAngle = _rb.rotation;
+        if (_routeSpeed > 0.02f && motion.sqrMagnitude > 1e-8f)
+            targetAngle = Vector2.SignedAngle(Vector2.up, motion);
         float angle = Mathf.LerpAngle(_rb.rotation, targetAngle,
                                       rotationFollowSpeed * Time.fixedDeltaTime);
         _rb.MoveRotation(angle);
+    }
+
+    /// <summary>
+    /// Reads the brake per the Brake Mode setting. Hold: brake while Space is
+    /// held. Toggle: tap Space to latch/unlatch braking. Edge detection compares
+    /// against the previous frame (not <c>wasPressedThisFrame</c>) so it stays
+    /// correct in FixedUpdate. Falls back to Hold when no settings are loaded.
+    /// </summary>
+    bool ReadBrake(Keyboard kb)
+    {
+        bool spaceNow  = kb.spaceKey.isPressed;
+        bool spaceEdge = spaceNow && !_spaceHeld;
+        _spaceHeld = spaceNow;
+
+        BrakeMode mode = SettingsManager.Instance != null
+            ? SettingsManager.Instance.BrakeMode
+            : (SaveSystem.Current != null
+                ? (BrakeMode)SaveSystem.Current.settings.brakeMode
+                : BrakeMode.Hold);
+
+        if (mode == BrakeMode.Toggle)
+        {
+            if (spaceEdge) _brakeToggled = !_brakeToggled;
+            return _brakeToggled;
+        }
+
+        _brakeToggled = false;   // keep the latch clear so switching modes is clean
+        return spaceNow;
     }
 
     void FixedUpdateFallback()
@@ -184,7 +225,12 @@ public class JeepneyController : MonoBehaviour
         bool braking = false;
 
         if (!InputLocked && Keyboard.current != null)
-            braking = Keyboard.current.spaceKey.isPressed;
+            braking = ReadBrake(Keyboard.current);
+        else
+        {
+            _spaceHeld    = false;
+            _brakeToggled = false;
+        }
 
         if (!InputLocked && !braking)
             _rb.AddForce(transform.up * acceleration);
@@ -249,6 +295,8 @@ public class JeepneyController : MonoBehaviour
         _laneOffset   = 0f;
         _aHeld        = false;
         _dHeld        = false;
+        _spaceHeld    = false;
+        _brakeToggled = false;
 
         transform.SetPositionAndRotation(position, Quaternion.Euler(0f, 0f, rotationDegrees));
     }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,9 +26,14 @@ public class MazeRepairMinigame : MonoBehaviour
     [Header("Labels")]
     [SerializeField] private TMP_Text titleLabel;
     [SerializeField] private TMP_Text goalLabel;
-    [SerializeField] private TMP_Text mazeView;     // monospace grid + agent glyph
     [SerializeField] private TMP_Text feedbackLabel;
     [SerializeField] private TMP_Text timerLabel;
+
+    [Header("Visual maze (iso grid rendered to a RenderTexture)")]
+    [SerializeField] private GridWorldView    worldView;
+    [SerializeField] private JeepneyAgentView agentView;
+    [SerializeField] private Camera           mazeCamera;
+    [SerializeField] private RawImage         mazeImage;
 
     [Header("Editors (swapped by the Block/Code setting)")]
     [SerializeField] private GameObject blockPanel;
@@ -51,11 +55,10 @@ public class MazeRepairMinigame : MonoBehaviour
     [Tooltip("Soft timer; on expiry the puzzle ends with a score penalty (run continues).")]
     [SerializeField] private float softTimerSeconds = 90f;
 
-    static readonly char[] FacingGlyphs = { '^', '>', 'v', '<' };
-
     Action<MinigameResult> _onDone;
     AutomationPuzzleDefinition _def;
     AgentSim _sim;
+    RenderTexture _rt;
     bool  _active;
     bool  _codeActive;
     int   _attempts;
@@ -68,7 +71,6 @@ public class MazeRepairMinigame : MonoBehaviour
 
         if (exec != null)
         {
-            exec.OnStepDone     += HandleStepDone;
             exec.OnFinished     += HandleFinished;
             exec.OnRuntimeError += HandleRuntimeError;
         }
@@ -88,10 +90,12 @@ public class MazeRepairMinigame : MonoBehaviour
 
         if (exec != null)
         {
-            exec.OnStepDone     -= HandleStepDone;
             exec.OnFinished     -= HandleFinished;
             exec.OnRuntimeError -= HandleRuntimeError;
         }
+
+        if (mazeCamera != null) mazeCamera.targetTexture = null;
+        if (_rt != null) { _rt.Release(); Destroy(_rt); _rt = null; }
     }
 
     // -------------------------------------------------------------------------
@@ -109,8 +113,14 @@ public class MazeRepairMinigame : MonoBehaviour
         GridModel grid = GridModel.Parse(_def.gridMap, out _);
         _sim = new AgentSim(grid, new FareTable(), _def.startFacing);
 
+        // Render the maze graphically: build the iso tiles and let the agent view
+        // animate the jeepney cell-to-cell (driven by ExecutionController).
+        if (worldView != null) worldView.Build(grid);
         if (exec != null)
-            exec.Init(grid, _sim, null, null, null, _def, _def.startFacing);
+            exec.Init(grid, _sim, agentView, worldView, worldView, _def, _def.startFacing);
+        EnsureRenderTexture();
+        if (worldView != null) worldView.FrameCamera(mazeCamera);
+        if (mazeCamera != null) mazeCamera.enabled = true;
 
         // Prime both editors; the active one is chosen by the setting below.
         if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, null);
@@ -132,10 +142,21 @@ public class MazeRepairMinigame : MonoBehaviour
                 ? "Write an algorithm, then press RUN to drive the route."
                 : "Snap blocks together, then press RUN to drive the route.";
 
-        RenderMaze();
-
         _active = true;
         if (root != null) root.SetActive(true);
+    }
+
+    /// <summary>Creates the maze RenderTexture once and points the camera + UI at it.</summary>
+    void EnsureRenderTexture()
+    {
+        if (mazeCamera == null) return;
+        if (_rt == null)
+        {
+            _rt = new RenderTexture(560, 384, 16) { name = "MazeRT" };
+            _rt.Create();
+        }
+        mazeCamera.targetTexture = _rt;
+        if (mazeImage != null) mazeImage.texture = _rt;
     }
 
     void Update()
@@ -189,8 +210,7 @@ public class MazeRepairMinigame : MonoBehaviour
     void OnReset()
     {
         if (!_active || exec == null) return;
-        exec.ResetWorld();
-        RenderMaze();
+        exec.ResetWorld();   // snaps the agent view back to the start
         if (feedbackLabel != null) feedbackLabel.text = "World reset — edit and RUN again.";
     }
 
@@ -202,11 +222,6 @@ public class MazeRepairMinigame : MonoBehaviour
 
     // -------------------------------------------------------------------------
     // Execution events
-
-    void HandleStepDone(AgentActionResult result, StepResult step)
-    {
-        RenderMaze();
-    }
 
     void HandleRuntimeError(LangError error)
     {
@@ -223,7 +238,6 @@ public class MazeRepairMinigame : MonoBehaviour
             return;
         }
 
-        RenderMaze();
         if (feedbackLabel != null)
             feedbackLabel.text = "The jeepney didn't reach the exit. Edit your program and RUN again.";
     }
@@ -236,6 +250,7 @@ public class MazeRepairMinigame : MonoBehaviour
         _active = false;
 
         if (exec != null) exec.ResetWorld();
+        if (mazeCamera != null) mazeCamera.enabled = false;   // stop rendering the RT
         if (root != null) root.SetActive(false);
 
         int penalty = timedOut ? 40 : 0;
@@ -250,33 +265,5 @@ public class MazeRepairMinigame : MonoBehaviour
         Action<MinigameResult> cb = _onDone;
         _onDone = null;
         cb?.Invoke(result);
-    }
-
-    // -------------------------------------------------------------------------
-    // Rendering — the maze as monospace text with the agent as a facing glyph.
-
-    void RenderMaze()
-    {
-        if (mazeView == null || _def == null || _def.gridMap == null) return;
-
-        Vector2Int pos = _sim != null ? _sim.Position : new Vector2Int(-1, -1);
-        int facing     = _sim != null ? _sim.Facing : 1;
-
-        var sb = new StringBuilder();
-        string[] map = _def.gridMap;
-        for (int y = 0; y < map.Length; y++)
-        {
-            string row = map[y];
-            for (int x = 0; x < row.Length; x++)
-            {
-                if (x == pos.x && y == pos.y)
-                    sb.Append(FacingGlyphs[Mathf.Clamp(facing, 0, 3)]);
-                else
-                    sb.Append(row[x]);
-            }
-            if (y < map.Length - 1) sb.Append('\n');
-        }
-
-        mazeView.text = sb.ToString();
     }
 }

@@ -26,6 +26,10 @@ public class SettingsPanel : MonoBehaviour
     [SerializeField] private Toggle   blockModeToggle;    // ON = Block (easy), OFF = Code (hard)
     [SerializeField] private TMP_Text difficultyLabel;
 
+    [Header("Brake Mode")]
+    [SerializeField] private Toggle   brakeModeToggle;    // ON = Toggle, OFF = Hold
+    [SerializeField] private TMP_Text brakeModeLabel;
+
     private bool _bound;
 
     // Shorthand for the settings block inside the loaded save.
@@ -85,12 +89,26 @@ public class SettingsPanel : MonoBehaviour
                 UpdateLabels();
             });
         }
+
+        if (brakeModeToggle != null)
+        {
+            brakeModeToggle.onValueChanged.AddListener(isOn =>
+            {
+                BrakeMode mode = isOn ? BrakeMode.Toggle : BrakeMode.Hold;
+                if (SettingsManager.Instance != null)
+                    SettingsManager.Instance.BrakeMode = mode;
+                else { S.brakeMode = (int)mode; SaveSystem.Save(); }
+                UpdateLabels();
+            });
+        }
     }
 
     void Refresh()
     {
         if (manualModeToggle != null) manualModeToggle.SetIsOnWithoutNotify(S.manualMode);
         if (blockModeToggle  != null) blockModeToggle.SetIsOnWithoutNotify(S.blockMode);
+        if (brakeModeToggle  != null)
+            brakeModeToggle.SetIsOnWithoutNotify(S.brakeMode == (int)BrakeMode.Toggle);
         UpdateLabels();
     }
 
@@ -105,5 +123,10 @@ public class SettingsPanel : MonoBehaviour
             difficultyLabel.text = S.blockMode
                 ? "EASY  —  Block Mode"
                 : "HARD  —  Code Mode";
+
+        if (brakeModeLabel != null)
+            brakeModeLabel.text = S.brakeMode == (int)BrakeMode.Toggle
+                ? "TOGGLE  —  tap Space to brake / release"
+                : "HOLD  —  brake while Space is held";
     }
 }

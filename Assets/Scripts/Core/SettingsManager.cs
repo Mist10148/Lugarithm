@@ -85,6 +85,12 @@ public class SettingsManager : MonoBehaviour
         set { S.subtitles = value; Persist(); }
     }
 
+    public BrakeMode BrakeMode
+    {
+        get => (BrakeMode)S.brakeMode;
+        set { S.brakeMode = (int)value; Persist(); }
+    }
+
     // -------------------------------------------------------------------------
     // Apply / persist
 

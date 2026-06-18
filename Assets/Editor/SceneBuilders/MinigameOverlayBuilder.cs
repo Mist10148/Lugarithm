@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 
 /// <summary>
@@ -410,13 +411,15 @@ public static class MinigameOverlayBuilder
                                               UIFactory.PanelDarker);
         UIFactory.Place(mazePanel, new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(520f, 360f));
 
-        var mazeView = UIFactory.CreateText(mazePanel, "MazeView", "", 30f, UIFactory.TextBright,
-                                            TextAlignmentOptions.Center);
-        mazeView.rectTransform.offsetMin = new Vector2(10f, 10f);
-        mazeView.rectTransform.offsetMax = new Vector2(-10f, -10f);
-        mazeView.enableWordWrapping = false;
-        var mono = Resources.Load<TMP_FontAsset>("Fonts/CodeMono");
-        if (mono != null) mazeView.font = mono;
+        // The maze is rendered graphically: a dedicated camera draws the iso grid
+        // + driving jeepney into a RenderTexture (created at runtime), shown here.
+        var mazeImageRt = UIFactory.CreateRect(mazePanel, "MazeImage",
+                                               Vector2.zero, Vector2.one,
+                                               new Vector2(8f, 8f), new Vector2(-8f, -8f));
+        var mazeImage = mazeImageRt.gameObject.AddComponent<RawImage>();
+        mazeImage.color = Color.white;
+
+        BuildMazeWorld(out GridWorldView worldView, out JeepneyAgentView agentView, out Camera mazeCamera);
 
         var feedback = UIFactory.CreateText(left, "Feedback", "", 19f, UIFactory.TextBright,
                                             TextAlignmentOptions.TopLeft);
@@ -452,7 +455,10 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "goalLabel",     goal);
-        SceneBuilderUtil.Wire(game, "mazeView",      mazeView);
+        SceneBuilderUtil.Wire(game, "mazeImage",     mazeImage);
+        SceneBuilderUtil.Wire(game, "worldView",     worldView);
+        SceneBuilderUtil.Wire(game, "agentView",     agentView);
+        SceneBuilderUtil.Wire(game, "mazeCamera",    mazeCamera);
         SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
         SceneBuilderUtil.Wire(game, "timerLabel",    timer);
         SceneBuilderUtil.Wire(game, "blockPanel",    blockPanel.gameObject);
@@ -465,6 +471,52 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(game, "resetButton",   reset);
 
         return game;
+    }
+
+    /// <summary>
+    /// Builds the off-screen maze world driven into a RenderTexture: an iso
+    /// <see cref="GridWorldView"/>, a <see cref="JeepneyAgentView"/> agent, and a
+    /// dedicated orthographic camera. Placed far from the scene's playfield so the
+    /// camera only ever captures the maze (no extra layer needed). The camera is
+    /// left disabled; <see cref="MazeRepairMinigame"/> enables it (and assigns the
+    /// runtime RenderTexture) while the puzzle is on screen.
+    /// </summary>
+    static void BuildMazeWorld(out GridWorldView worldView, out JeepneyAgentView agentView, out Camera cam)
+    {
+        Vector3 origin = new Vector3(5000f, 5000f, 0f);
+
+        var worldRoot = new GameObject("MazeWorldRoot");
+        worldRoot.transform.position = origin;
+        worldView = worldRoot.AddComponent<GridWorldView>();
+
+        var agentGo = new GameObject("MazeAgent");
+        agentGo.transform.position = origin;
+        var body = agentGo.AddComponent<SpriteRenderer>();
+        body.sprite = SceneBuilderUtil.LoadPlaceholder("iso_jeepney");
+        body.sortingOrder = 100;
+
+        var arrowGo = new GameObject("Arrow");
+        arrowGo.transform.SetParent(agentGo.transform, false);
+        arrowGo.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+        arrowGo.transform.localScale = Vector3.one * 0.8f;
+        var arrow = arrowGo.AddComponent<SpriteRenderer>();
+        arrow.sprite = SceneBuilderUtil.LoadPlaceholder("triangle");
+        arrow.color = Color.white;
+        arrow.sortingOrder = 101;
+
+        agentView = agentGo.AddComponent<JeepneyAgentView>();
+        SceneBuilderUtil.Wire(agentView, "body",  body);
+        SceneBuilderUtil.Wire(agentView, "arrow", arrow);
+
+        var camGo = new GameObject("MazeCamera");
+        camGo.transform.position = origin + new Vector3(0f, 0f, -10f);
+        cam = camGo.AddComponent<Camera>();
+        cam.orthographic     = true;
+        cam.orthographicSize = 4f;
+        cam.clearFlags       = CameraClearFlags.SolidColor;
+        cam.backgroundColor  = new Color(0.05f, 0.06f, 0.09f, 1f);
+        cam.GetUniversalAdditionalCameraData();   // URP camera data
+        cam.enabled = false;                       // rendered only while the maze is shown
     }
 
     static Image MakeFillBar(RectTransform background, Color color)

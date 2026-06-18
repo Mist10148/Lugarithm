@@ -24,7 +24,7 @@ public static class SettingsPanelBuilder
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
-        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 660f));
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 730f));
 
         var title = UIFactory.CreateText(window, "Title", "SETTINGS", 44f, UIFactory.Accent);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(700f, 60f));
@@ -35,18 +35,20 @@ public static class SettingsPanelBuilder
                                                  out TextMeshProUGUI gameplayValue);
         Toggle blockToggle  = BuildFunctionalRow(window, -180f, "Difficulty",
                                                  out TextMeshProUGUI difficultyValue);
+        Toggle brakeToggle  = BuildFunctionalRow(window, -250f, "Brake Mode",
+                                                 out TextMeshProUGUI brakeValue);
 
         var divider = UIFactory.CreatePanel(window, "Divider",
                                             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                                             new Color(1f, 1f, 1f, 0.12f));
-        UIFactory.Place(divider, new Vector2(0.5f, 1f), new Vector2(0f, -232f), new Vector2(690f, 2f));
+        UIFactory.Place(divider, new Vector2(0.5f, 1f), new Vector2(0f, -304f), new Vector2(690f, 2f));
 
         // --- Placeholder rows ---------------------------------------------------
 
-        BuildPlaceholderSliderRow(window, -270f, "Music Volume");
-        BuildPlaceholderSliderRow(window, -330f, "SFX Volume");
-        BuildPlaceholderTextRow(window,  -390f, "Dialogue Speed", "Normal");
-        BuildPlaceholderToggleRow(window, -450f, "Subtitles");
+        BuildPlaceholderSliderRow(window, -342f, "Music Volume");
+        BuildPlaceholderSliderRow(window, -402f, "SFX Volume");
+        BuildPlaceholderTextRow(window,  -462f, "Dialogue Speed", "Normal");
+        BuildPlaceholderToggleRow(window, -522f, "Subtitles");
 
         // --- Close ---------------------------------------------------------------
 
@@ -61,6 +63,8 @@ public static class SettingsPanelBuilder
         SceneBuilderUtil.Wire(panel, "gameplayModeLabel", gameplayValue);
         SceneBuilderUtil.Wire(panel, "blockModeToggle",   blockToggle);
         SceneBuilderUtil.Wire(panel, "difficultyLabel",   difficultyValue);
+        SceneBuilderUtil.Wire(panel, "brakeModeToggle",   brakeToggle);
+        SceneBuilderUtil.Wire(panel, "brakeModeLabel",    brakeValue);
 
         overlay.gameObject.SetActive(false);
         return panel;

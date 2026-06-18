@@ -78,6 +78,7 @@ public class GameSettings
     public float sfxVolume     = 0.8f;
     public int   dialogueSpeed = (int)DialogueSpeed.Normal;
     public bool  subtitles     = true;
+    public int   brakeMode     = (int)BrakeMode.Hold;      // how Space brakes in Manual Mode
 }
 
 /// <summary>Dialogue reveal speed options (PRD §9).</summary>
@@ -87,4 +88,11 @@ public enum DialogueSpeed
     Normal  = 1,
     Fast    = 2,
     Instant = 3
+}
+
+/// <summary>How the Manual-Mode brake (Space) responds to input.</summary>
+public enum BrakeMode
+{
+    Hold   = 0,   // brake only while Space is held
+    Toggle = 1    // press once to brake, press again to release
 }

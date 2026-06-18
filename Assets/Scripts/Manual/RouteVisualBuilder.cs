@@ -135,18 +135,44 @@ public static class RouteVisualBuilder
         }
         ctx.Zones = zones.ToArray();
 
-        // Extend the trunk polyline with the new trunk vertices.
+        // Rebuild the drive line from the chunk's trunk polyline. ProjectChunk
+        // carries the *full* cumulative trunk (TrunkPolyline), not just the new
+        // vertices, so appending it would fold a second copy of the whole route
+        // onto the tail — the jeep would reach the frontier and drive all the way
+        // back to the start. Replacing keeps the shared prefix identical, so the
+        // preserved arc-length still points to the same world spot.
         if (delta.trunk != null && delta.trunk.Length > 0)
         {
-            var waypoints = new List<Vector2>(ctx.Waypoints);
-            foreach (Vector2 p in delta.trunk)
-            {
-                if (waypoints.Count == 0 || Vector2.Distance(waypoints[waypoints.Count - 1], p) > 0.001f)
-                    waypoints.Add(p);
-            }
-            ctx.Waypoints = waypoints.ToArray();
+            ctx.Waypoints   = SanitizePolyline(delta.trunk);
             ctx.TotalLength = RouteMath.TotalLength(ctx.Waypoints);
         }
+    }
+
+    /// <summary>
+    /// Collapses near-duplicate vertices and drops any that would create a
+    /// reversing micro-segment, so a grid-snapped node can't make PointAt /
+    /// DirectionAt step backward at a fold.
+    /// </summary>
+    static Vector2[] SanitizePolyline(Vector2[] pts)
+    {
+        var outp = new List<Vector2>(pts.Length);
+        foreach (Vector2 p in pts)
+        {
+            if (outp.Count == 0) { outp.Add(p); continue; }
+
+            Vector2 last = outp[outp.Count - 1];
+            if ((p - last).sqrMagnitude < 1e-4f) continue;   // duplicate
+
+            if (outp.Count >= 2)
+            {
+                Vector2 prevDir = (last - outp[outp.Count - 2]).normalized;
+                Vector2 newDir  = (p - last).normalized;
+                if (Vector2.Dot(prevDir, newDir) < -0.5f) continue;   // reversing spur
+            }
+
+            outp.Add(p);
+        }
+        return outp.ToArray();
     }
 
     static void TileSegment(Transform parent, Sprite sprite, Vector2 a, Vector2 b, float width)
@@ -183,10 +209,13 @@ public static class RouteVisualBuilder
         go.transform.SetParent(parent, false);
         go.transform.position = node.pos;
 
-        // Align the stop to its road so the sign and trigger sit perpendicular to
-        // it — always just beside the road, never on it, for any orientation.
-        Vector2 roadDir = RoadDirectionAt(node.pos, segments);
-        go.transform.rotation = Quaternion.FromToRotation(Vector3.up, (Vector3)roadDir);
+        // Orient the stop so its local +X points into the clearest open space
+        // beside the road. At an L-corner the two legs are 90° apart, so a plain
+        // perpendicular would aim straight down the other leg and drop the sign /
+        // peeps onto the road; the open-quadrant outward normal keeps them off it
+        // for any orientation. Sign, peeps, and label all hang off local +X.
+        Vector2 outward = RoadsideOutwardFromSegments(node.pos, segments);
+        go.transform.rotation = Quaternion.Euler(0f, 0f, Vector2.SignedAngle(Vector2.right, outward));
 
         var collider = go.AddComponent<BoxCollider2D>();
         collider.isTrigger = true;
@@ -200,6 +229,7 @@ public static class RouteVisualBuilder
         var sign = new GameObject("Sign");
         sign.transform.SetParent(go.transform, false);
         sign.transform.localPosition = new Vector3(roadHalfWidth + 1.1f, 0f, 0f);
+        sign.transform.rotation = Quaternion.identity;   // upright, even at corner stops
         var signSr = sign.AddComponent<SpriteRenderer>();
         signSr.sprite = Resources.Load<Sprite>("Placeholders/stop_sign");
         signSr.sortingOrder = 6;
@@ -218,42 +248,86 @@ public static class RouteVisualBuilder
         text.color = new Color(1f, 1f, 1f, 0.95f);
         text.sortingOrder = 25;
         labelGo.transform.localPosition = new Vector3(0f, -1.5f, 0f);
+        labelGo.transform.rotation = Quaternion.identity;   // keep the name upright
 
         return zone;
     }
 
     /// <summary>
-    /// Direction of the road passing through (or ending at) a stop node, taken
-    /// from the incident road segment. Trunk segments win for through-nodes so a
-    /// stop on the main road faces along the trunk; branch tips face along their
-    /// side street. Falls back to up when nothing is incident.
+    /// Outward roadside normal at a node (procedural town): a unit vector pointing
+    /// into the clearest space beside the road, away from every incident road leg.
+    /// Trunk legs are gathered first so the perpendicular fallback picks a
+    /// consistent side. See <see cref="RoadsideOutward"/>.
     /// </summary>
-    static Vector2 RoadDirectionAt(Vector2 pos, List<RoadSegment> segments)
+    static Vector2 RoadsideOutwardFromSegments(Vector2 pos, List<RoadSegment> segments)
     {
-        if (segments == null) return Vector2.up;
-
-        Vector2 best = Vector2.zero;
-        bool bestIsTrunk = false;
-        float bestSqr = 0.25f;   // endpoint match tolerance (0.5 units)
-
-        foreach (RoadSegment s in segments)
+        var legs = new List<Vector2>();
+        if (segments != null)
         {
-            Vector2 dir;
-            if ((s.a - pos).sqrMagnitude <= bestSqr)      dir = s.b - s.a;
-            else if ((s.b - pos).sqrMagnitude <= bestSqr) dir = s.a - s.b;
-            else continue;
-
-            if (dir.sqrMagnitude < 0.0001f) continue;
-
-            // Prefer the trunk segment when several meet at this node.
-            if (best == Vector2.zero || (s.isTrunk && !bestIsTrunk))
+            const float tolSqr = 0.25f;   // endpoint match tolerance (0.5 units)
+            for (int pass = 0; pass < 2; pass++)   // trunk legs first, then branches
             {
-                best = dir.normalized;
-                bestIsTrunk = s.isTrunk;
+                bool wantTrunk = pass == 0;
+                foreach (RoadSegment s in segments)
+                {
+                    if (s.isTrunk != wantTrunk) continue;
+                    Vector2 dir;
+                    if ((s.a - pos).sqrMagnitude <= tolSqr)      dir = s.b - s.a;
+                    else if ((s.b - pos).sqrMagnitude <= tolSqr) dir = s.a - s.b;
+                    else continue;
+                    if (dir.sqrMagnitude < 1e-4f) continue;
+                    legs.Add(dir.normalized);
+                }
             }
         }
+        return RoadsideOutward(legs);
+    }
 
-        return best == Vector2.zero ? Vector2.up : best;
+    /// <summary>
+    /// Outward roadside normal at a waypoint on an authored polyline route, taken
+    /// from the incident segments toward the neighbouring waypoints.
+    /// </summary>
+    static Vector2 RoadsideOutwardFromPolyline(Vector2[] points, int index)
+    {
+        var legs = new List<Vector2>();
+        if (points != null && points.Length >= 2 && index >= 0 && index < points.Length)
+        {
+            Vector2 pos = points[index];
+            if (index + 1 < points.Length)
+            {
+                Vector2 d = points[index + 1] - pos;
+                if (d.sqrMagnitude > 1e-4f) legs.Add(d.normalized);
+            }
+            if (index - 1 >= 0)
+            {
+                Vector2 d = points[index - 1] - pos;
+                if (d.sqrMagnitude > 1e-4f) legs.Add(d.normalized);
+            }
+        }
+        return RoadsideOutward(legs);
+    }
+
+    /// <summary>
+    /// Clearest outward normal given the incident road leg unit vectors (each
+    /// pointing from the node along a road). With two-plus legs that leave an open
+    /// side (an L-corner, T, or Y) the normal is the bisector of that open side;
+    /// for a straight-through node, opposite legs, or a single branch tip it falls
+    /// back to a perpendicular of the primary (first / trunk-preferred) leg.
+    /// </summary>
+    static Vector2 RoadsideOutward(List<Vector2> legs)
+    {
+        if (legs == null || legs.Count == 0) return Vector2.down;
+
+        if (legs.Count >= 2)
+        {
+            Vector2 sum = Vector2.zero;
+            foreach (Vector2 l in legs) sum += l;
+            if (sum.sqrMagnitude > 0.0625f)   // |sum| > 0.25 ⇒ a genuine open side
+                return (-sum).normalized;
+        }
+
+        Vector2 primary = legs[0];
+        return new Vector2(primary.y, -primary.x).normalized;
     }
 
     // -------------------------------------------------------------------------
@@ -285,8 +359,7 @@ public static class RouteVisualBuilder
     static StopZone BuildStop(Transform parent, ManualRouteDefinition def,
                               ManualStopDefinition stop, int index)
     {
-        Vector2 position  = def.waypoints[stop.waypointIndex];
-        Vector2 direction = RouteDirectionAtWaypoint(def.waypoints, stop.waypointIndex);
+        Vector2 position = def.waypoints[stop.waypointIndex];
 
         var go = new GameObject($"Stop_{index}_{stop.stopName}");
         go.transform.SetParent(parent, false);
@@ -295,7 +368,11 @@ public static class RouteVisualBuilder
         var collider = go.AddComponent<BoxCollider2D>();
         collider.isTrigger = true;
         collider.size = new Vector2(def.roadHalfWidth * 2f + 5f, 7f);
-        go.transform.rotation = Quaternion.FromToRotation(Vector3.up, direction);
+
+        // Local +X faces the open roadside (see RoadsideOutward) so the sign and
+        // peeps sit beside the road, not on it.
+        Vector2 outward = RoadsideOutwardFromPolyline(def.waypoints, stop.waypointIndex);
+        go.transform.rotation = Quaternion.Euler(0f, 0f, Vector2.SignedAngle(Vector2.right, outward));
 
         var zone = go.AddComponent<StopZone>();
         zone.StopIndex     = index;
@@ -306,6 +383,7 @@ public static class RouteVisualBuilder
         var sign = new GameObject("Sign");
         sign.transform.SetParent(go.transform, false);
         sign.transform.localPosition = new Vector3(def.roadHalfWidth + 1.1f, 0f, 0f);
+        sign.transform.rotation = Quaternion.identity;   // upright, even at corner stops
         var signSr = sign.AddComponent<SpriteRenderer>();
         signSr.sprite = Resources.Load<Sprite>("Placeholders/stop_sign");
         signSr.sortingOrder = 6;
@@ -343,13 +421,5 @@ public static class RouteVisualBuilder
 
         // Face upward in world space (top-down camera looks at -Z, so text faces +Z).
         labelGo.transform.rotation = Quaternion.identity;
-    }
-
-    static Vector2 RouteDirectionAtWaypoint(Vector2[] points, int index)
-    {
-        if (points.Length < 2) return Vector2.up;
-        if (index >= points.Length - 1)
-            return (points[points.Length - 1] - points[points.Length - 2]).normalized;
-        return (points[index + 1] - points[index]).normalized;
     }
 }
