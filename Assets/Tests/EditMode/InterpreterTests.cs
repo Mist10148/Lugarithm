@@ -694,4 +694,46 @@ public class InterpreterTests
 
         CollectionAssert.AreEqual(new[] { "2" }, vm.Output);
     }
+
+    // -------------------------------------------------------------------------
+    // IDE instrumentation
+
+    [Test]
+    public void LineHits_CountStatementsPerLine()
+    {
+        string source =
+            "while not atDestination():\n" +
+            "    moveForward()\n";
+
+        var program = Parser.Compile(source, out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        var vm = new Interpreter();
+        vm.Load(program);
+
+        var agent = new FakeAgent().Script("atDestination", false, false, true);
+
+        while (!vm.Step(agent).Finished) { }
+
+        Assert.IsTrue(vm.LineHits.ContainsKey(1), "loop header should be recorded");
+        Assert.AreEqual(3, vm.LineHits[1], "loop condition checked 3 times");
+        Assert.IsTrue(vm.LineHits.ContainsKey(2), "body should be recorded");
+        Assert.AreEqual(2, vm.LineHits[2], "body executed twice");
+    }
+
+    [Test]
+    public void LineHits_ResetOnReload()
+    {
+        var program = Parser.Compile("moveForward()\n", out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        var vm = new Interpreter();
+        vm.Load(program);
+        vm.Step(new FakeAgent());
+
+        Assert.AreEqual(1, vm.LineHits[1]);
+
+        vm.Load(program);
+        Assert.AreEqual(0, vm.LineHits.Count, "hits should clear on reload");
+    }
 }

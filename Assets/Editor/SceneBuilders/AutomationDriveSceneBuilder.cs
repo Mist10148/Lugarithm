@@ -91,6 +91,23 @@ public static class AutomationDriveSceneBuilder
         Button speed1 = MakeBarButton(controlBar, "Speed1",      "1×",      64f);
         Button speed2 = MakeBarButton(controlBar, "Speed2",      "2×",      64f);
         Button speed5 = MakeBarButton(controlBar, "Speed5",      "5×",      64f);
+        Button step   = MakeBarButton(controlBar, "StepButton",  "Step",    80f);
+
+        Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(180f, 36f));
+        speedSlider.minValue = 0.2f;
+        speedSlider.maxValue = 8f;
+        speedSlider.value = 1f;
+        var sliderLe = speedSlider.gameObject.GetComponent<LayoutElement>();
+        if (sliderLe == null) sliderLe = speedSlider.gameObject.AddComponent<LayoutElement>();
+        sliderLe.preferredWidth = 180f;
+        sliderLe.preferredHeight = 36f;
+
+        TMP_Text speedLabel = UIFactory.CreateText(controlBar, "SpeedLabel", "×1.0", 20f, UIFactory.TextBright);
+        var labelLe = speedLabel.gameObject.GetComponent<LayoutElement>();
+        if (labelLe == null) labelLe = speedLabel.gameObject.AddComponent<LayoutElement>();
+        labelLe.preferredWidth = 56f;
+        labelLe.preferredHeight = 36f;
+
         Button autopilot = MakeBarButton(controlBar, "Autopilot", "🤖 Auto", 120f);
         autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
 
@@ -188,6 +205,9 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "speed1Button",   speed1);
         SceneBuilderUtil.Wire(controller, "speed2Button",   speed2);
         SceneBuilderUtil.Wire(controller, "speed5Button",   speed5);
+        SceneBuilderUtil.Wire(controller, "speedSlider",    speedSlider);
+        SceneBuilderUtil.Wire(controller, "speedLabel",     speedLabel);
+        SceneBuilderUtil.Wire(controller, "stepButton",     step);
         SceneBuilderUtil.Wire(controller, "autopilotButton", autopilot);
         SceneBuilderUtil.Wire(controller, "selfDrive",      selfDrive);
         SceneBuilderUtil.Wire(controller, "console",        console);
@@ -512,6 +532,17 @@ public static class AutomationDriveSceneBuilder
         highlight.richText = true;
         highlight.transform.SetAsFirstSibling();
 
+        // Execution line highlight bar (behind the text, inside the viewport).
+        var execBarRt = UIFactory.CreatePanel(input.textViewport, "ExecLineBar",
+                                              Vector2.zero, Vector2.one,
+                                              new Color(0.18f, 0.36f, 0.58f, 0.45f));
+        execBarRt.offsetMin = Vector2.zero;
+        execBarRt.offsetMax = Vector2.zero;
+        var execBar = execBarRt.GetComponent<Image>();
+        execBar.raycastTarget = false;
+        execBarRt.gameObject.SetActive(false);
+        execBarRt.SetAsFirstSibling();
+
         var lint = UIFactory.CreateText(parent, "LintLabel", "", 17f,
                                         UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(lint, new Vector2(0f, 0f), new Vector2(8f, 4f), new Vector2(800f, 28f));
@@ -533,6 +564,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(editor, "lineNumbers", lineNumbers);
         SceneBuilderUtil.Wire(editor, "highlight",   highlight);
         SceneBuilderUtil.Wire(editor, "lintLabel",   lint);
+        SceneBuilderUtil.Wire(editor, "execLineBar", execBar);
 
         return editor;
     }

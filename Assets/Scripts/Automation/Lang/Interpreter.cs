@@ -81,6 +81,9 @@ public class Interpreter
     public int  Evaluations     { get; private set; }
     public bool IsFinished      { get; private set; }
 
+    readonly Dictionary<int, int> _lineHits = new Dictionary<int, int>();
+    public IReadOnlyDictionary<int, int> LineHits => _lineHits;
+
     Environment _globals;
     public List<string> Output { get; } = new List<string>();
 
@@ -107,6 +110,7 @@ public class Interpreter
         ActionsExecuted = 0;
         Evaluations     = 0;
         IsFinished      = program == null || program.Statements.Count == 0;
+        _lineHits.Clear();
 
         _pendingBindTarget = null;
         _hasPendingResult  = false;
@@ -188,6 +192,11 @@ public class Interpreter
 
             StmtNode stmt = frame.Body[frame.Index];
             frame.Index++;
+
+            if (stmt.Line > 0)
+            {
+                _lineHits[stmt.Line] = _lineHits.TryGetValue(stmt.Line, out int hits) ? hits + 1 : 1;
+            }
 
             StepResult result = null;
             try
@@ -382,6 +391,9 @@ public class Interpreter
     {
         if (frame.WhileLoop != null)
         {
+            if (frame.WhileLoop.Line > 0)
+                _lineHits[frame.WhileLoop.Line] = _lineHits.TryGetValue(frame.WhileLoop.Line, out int n) ? n + 1 : 1;
+
             bool stay = Evaluate(frame.WhileLoop.Condition, agent, frame.Env).IsTruthy();
             if (stay) frame.Index = 0;
             return stay;

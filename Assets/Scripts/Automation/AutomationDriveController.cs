@@ -53,6 +53,9 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private Button speed1Button;
     [SerializeField] private Button speed2Button;
     [SerializeField] private Button speed5Button;
+    [SerializeField] private Slider speedSlider;
+    [SerializeField] private TMP_Text speedLabel;
+    [SerializeField] private Button stepButton;
 
     [Header("Readouts")]
     [SerializeField] private ConsoleController      console;
@@ -221,6 +224,7 @@ public class AutomationDriveController : MonoBehaviour
             exec.OnRuntimeError += HandleRuntimeError;
             exec.OnFinished     += HandleFinished;
             exec.OnWorldReset   += HandleWorldReset;
+            exec.OnHotLine      += HandleHotLine;
         }
 
         // Workspace
@@ -273,6 +277,21 @@ public class AutomationDriveController : MonoBehaviour
         if (speed1Button != null) speed1Button.onClick.AddListener(() => SetSpeed(1f));
         if (speed2Button != null) speed2Button.onClick.AddListener(() => SetSpeed(2f));
         if (speed5Button != null) speed5Button.onClick.AddListener(() => SetSpeed(5f));
+
+        if (speedSlider != null)
+        {
+            speedSlider.minValue = 0.2f;
+            speedSlider.maxValue = 8f;
+            speedSlider.value = 1f;
+            speedSlider.onValueChanged.AddListener(v =>
+            {
+                SetSpeed(v);
+                if (speedLabel != null) speedLabel.text = $"×{v:0.0}";
+            });
+        }
+
+        if (stepButton != null)
+            stepButton.onClick.AddListener(() => exec?.StepOnce());
 
         // Autopilot only makes sense when there are rides to tend.
         if (autopilotButton != null)
@@ -553,8 +572,20 @@ public class AutomationDriveController : MonoBehaviour
         if (monitor != null && exec != null)
             monitor.Refresh(exec.Sim, _lastExecutedLine);
 
+        if (_codeTabActive && codeEditor != null && step.Node != null)
+            codeEditor.HighlightExecutingLine(step.Node.Line);
+
         if (!_codeTabActive && blockCanvas != null && step.Node != null)
             blockCanvas.HighlightExecuting(step.Node.SourceRef);
+
+        if (codeEditor != null && exec != null)
+            codeEditor.SetHeat(exec.LineHits);
+    }
+
+    void HandleHotLine(int line)
+    {
+        if (console != null)
+            console.Warn($"this looks like an infinite loop near line {line}.");
     }
 
     void HandleRuntimeError(LangError error)
@@ -565,10 +596,14 @@ public class AutomationDriveController : MonoBehaviour
     void HandleWorldReset()
     {
         if (monitor != null) monitor.ShowIdle();
+        if (codeEditor != null) codeEditor.ClearExecutionHighlight();
+        if (codeEditor != null) codeEditor.ClearHeat();
     }
 
     void HandleFinished(bool win)
     {
+        if (codeEditor != null) codeEditor.ClearExecutionHighlight();
+
         if (win)
         {
             _won = true;

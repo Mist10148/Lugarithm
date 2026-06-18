@@ -30,6 +30,10 @@ public class SettingsPanel : MonoBehaviour
     [SerializeField] private Toggle   brakeModeToggle;    // ON = Toggle, OFF = Hold
     [SerializeField] private TMP_Text brakeModeLabel;
 
+    [Header("Code Theme")]
+    [SerializeField] private Button   themeButton;
+    [SerializeField] private TMP_Text themeLabel;
+
     private bool _bound;
 
     // Shorthand for the settings block inside the loaded save.
@@ -101,6 +105,52 @@ public class SettingsPanel : MonoBehaviour
                 UpdateLabels();
             });
         }
+
+        if (themeButton != null)
+        {
+            themeButton.onClick.AddListener(CycleTheme);
+        }
+    }
+
+    void CycleTheme()
+    {
+        int current = S.codeThemeId;
+        int next = current;
+        for (int i = 1; i <= CodeThemeLibrary.Count; i++)
+        {
+            int candidate = (current + i) % CodeThemeLibrary.Count;
+            if (SaveSystem.Current.HasTheme(candidate) || TryBuyTheme(candidate))
+            {
+                next = candidate;
+                break;
+            }
+        }
+
+        if (next != current)
+        {
+            if (SettingsManager.Instance != null)
+                SettingsManager.Instance.CodeThemeId = next;
+            else
+            {
+                S.codeThemeId = next;
+                SaveSystem.Save();
+            }
+        }
+        UpdateLabels();
+    }
+
+    bool TryBuyTheme(int themeId)
+    {
+        if (SettingsManager.Instance != null) return SettingsManager.Instance.TryBuyTheme(themeId);
+
+        CodeTheme theme = CodeThemeLibrary.Get(themeId);
+        if (SaveSystem.Current.HasTheme(themeId)) return true;
+        if (SaveSystem.Current.currency < theme.cost) return false;
+
+        SaveSystem.Current.currency -= theme.cost;
+        SaveSystem.Current.UnlockTheme(themeId);
+        SaveSystem.Save();
+        return true;
     }
 
     void Refresh()
@@ -111,6 +161,8 @@ public class SettingsPanel : MonoBehaviour
             brakeModeToggle.SetIsOnWithoutNotify(S.brakeMode == (int)BrakeMode.Toggle);
         UpdateLabels();
     }
+
+    public void RefreshTheme() => UpdateLabels();
 
     void UpdateLabels()
     {
@@ -128,5 +180,14 @@ public class SettingsPanel : MonoBehaviour
             brakeModeLabel.text = S.brakeMode == (int)BrakeMode.Toggle
                 ? "TOGGLE  —  tap Space to brake / release"
                 : "HOLD  —  brake while Space is held";
+
+        if (themeLabel != null)
+        {
+            CodeTheme theme = CodeThemeLibrary.Get(S.codeThemeId);
+            string locked = SaveSystem.Current.HasTheme(theme.id)
+                ? ""
+                : $"  —  ₱{theme.cost} (tap to buy)";
+            themeLabel.text = $"{theme.name.ToUpper()}{locked}";
+        }
     }
 }

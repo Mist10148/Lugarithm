@@ -25,6 +25,7 @@ public class SaveData
     public int       currency              = 0;
     public List<LevelScore> bestScores     = new List<LevelScore>();
     public List<int> earnedBadges          = new List<int>();
+    public List<int> unlockedThemes        = new List<int> { 0 };
 
     // -------------------------------------------------------------------------
     // Journal helpers
@@ -48,6 +49,18 @@ public class SaveData
     {
         if (earnedBadges == null) earnedBadges = new List<int>();
         if (!earnedBadges.Contains(levelIndex)) earnedBadges.Add(levelIndex);
+    }
+
+    // -------------------------------------------------------------------------
+    // Theme helpers
+
+    public bool HasTheme(int themeId)
+        => unlockedThemes != null && unlockedThemes.Contains(themeId);
+
+    public void UnlockTheme(int themeId)
+    {
+        if (unlockedThemes == null) unlockedThemes = new List<int> { 0 };
+        if (!unlockedThemes.Contains(themeId)) unlockedThemes.Add(themeId);
     }
 
     // -------------------------------------------------------------------------
@@ -79,6 +92,7 @@ public class GameSettings
     public int   dialogueSpeed = (int)DialogueSpeed.Normal;
     public bool  subtitles     = true;
     public int   brakeMode     = (int)BrakeMode.Hold;      // how Space brakes in Manual Mode
+    public int   codeThemeId   = 0;                        // selected CodeTheme.id
 }
 
 /// <summary>Dialogue reveal speed options (PRD §9).</summary>

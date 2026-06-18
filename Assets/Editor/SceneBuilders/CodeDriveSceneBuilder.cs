@@ -85,6 +85,22 @@ public static class CodeDriveSceneBuilder
         Button speed1 = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "Speed1",      "1×",      64f);
         Button speed2 = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "Speed2",      "2×",      64f);
         Button speed5 = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "Speed5",      "5×",      64f);
+        Button step   = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "StepButton",  "Step",    80f);
+
+        Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(180f, 36f));
+        speedSlider.minValue = 0.2f;
+        speedSlider.maxValue = 8f;
+        speedSlider.value = 1f;
+        var sliderLe = speedSlider.gameObject.GetComponent<LayoutElement>();
+        if (sliderLe == null) sliderLe = speedSlider.gameObject.AddComponent<LayoutElement>();
+        sliderLe.preferredWidth = 180f;
+        sliderLe.preferredHeight = 36f;
+
+        TMP_Text speedLabel = UIFactory.CreateText(controlBar, "SpeedLabel", "×1.0", 20f, UIFactory.TextBright);
+        var labelLe = speedLabel.gameObject.GetComponent<LayoutElement>();
+        if (labelLe == null) labelLe = speedLabel.gameObject.AddComponent<LayoutElement>();
+        labelLe.preferredWidth = 56f;
+        labelLe.preferredHeight = 36f;
 
         // Top-right buttons: Exit, workspace toggle, Commands.
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(110f, 42f));
@@ -192,6 +208,9 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "speed1Button", speed1);
         SceneBuilderUtil.Wire(controller, "speed2Button", speed2);
         SceneBuilderUtil.Wire(controller, "speed5Button", speed5);
+        SceneBuilderUtil.Wire(controller, "speedSlider",  speedSlider);
+        SceneBuilderUtil.Wire(controller, "speedLabel",   speedLabel);
+        SceneBuilderUtil.Wire(controller, "stepButton",   step);
         SceneBuilderUtil.Wire(controller, "console",      console);
         SceneBuilderUtil.Wire(controller, "monitor",      monitor);
         SceneBuilderUtil.Wire(controller, "results",      results);

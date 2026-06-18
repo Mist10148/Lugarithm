@@ -37,6 +37,8 @@ public static class SettingsPanelBuilder
                                                  out TextMeshProUGUI difficultyValue);
         Toggle brakeToggle  = BuildFunctionalRow(window, -250f, "Brake Mode",
                                                  out TextMeshProUGUI brakeValue);
+        Button themeButton = BuildThemeRow(window, -320f, "Code Theme",
+                                           out TextMeshProUGUI themeValue);
 
         var divider = UIFactory.CreatePanel(window, "Divider",
                                             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -45,10 +47,10 @@ public static class SettingsPanelBuilder
 
         // --- Placeholder rows ---------------------------------------------------
 
-        BuildPlaceholderSliderRow(window, -342f, "Music Volume");
-        BuildPlaceholderSliderRow(window, -402f, "SFX Volume");
-        BuildPlaceholderTextRow(window,  -462f, "Dialogue Speed", "Normal");
-        BuildPlaceholderToggleRow(window, -522f, "Subtitles");
+        BuildPlaceholderSliderRow(window, -392f, "Music Volume");
+        BuildPlaceholderSliderRow(window, -452f, "SFX Volume");
+        BuildPlaceholderTextRow(window,  -512f, "Dialogue Speed", "Normal");
+        BuildPlaceholderToggleRow(window, -572f, "Subtitles");
 
         // --- Close ---------------------------------------------------------------
 
@@ -65,9 +67,28 @@ public static class SettingsPanelBuilder
         SceneBuilderUtil.Wire(panel, "difficultyLabel",   difficultyValue);
         SceneBuilderUtil.Wire(panel, "brakeModeToggle",   brakeToggle);
         SceneBuilderUtil.Wire(panel, "brakeModeLabel",    brakeValue);
+        SceneBuilderUtil.Wire(panel, "themeButton",       themeButton);
+        SceneBuilderUtil.Wire(panel, "themeLabel",        themeValue);
 
         overlay.gameObject.SetActive(false);
         return panel;
+    }
+
+    static Button BuildThemeRow(RectTransform window, float y, string label,
+                                out TextMeshProUGUI valueLabel)
+    {
+        var rowLabel = UIFactory.CreateText(window, label + "Label", label, 27f,
+                                            UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(rowLabel, new Vector2(0f, 1f), new Vector2(40f, y), new Vector2(260f, 50f));
+
+        Button button = UIFactory.CreateButton(window, label + "Button", "Cycle", new Vector2(120f, 44f), 22f);
+        UIFactory.Place(button, new Vector2(0f, 1f), new Vector2(310f, y - 3f), new Vector2(120f, 44f));
+
+        valueLabel = UIFactory.CreateText(window, label + "Value", "", 24f,
+                                          UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(valueLabel, new Vector2(0f, 1f), new Vector2(450f, y), new Vector2(280f, 50f));
+
+        return button;
     }
 
     // -------------------------------------------------------------------------

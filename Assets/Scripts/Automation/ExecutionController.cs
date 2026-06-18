@@ -1,12 +1,14 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Owns the execution clock for Automation Mode: steps the
 /// <see cref="Interpreter"/> one action at a time, applies each action to the
 /// <see cref="AgentSim"/>, and lets the <see cref="JeepneyAgentView"/> animate
-/// it. Run / Pause / Reset and the 1×/2×/5× speeds all live here.
+/// it. Run / Pause / Reset, a continuous speed slider, single-step, and
+/// per-line heatmap detection all live here.
 /// </summary>
 public class ExecutionController : MonoBehaviour
 {
@@ -14,6 +16,10 @@ public class ExecutionController : MonoBehaviour
 
     [Header("Timing")]
     [SerializeField] private float baseStepSeconds = 0.45f;
+
+    [Header("Heatmap")]
+    [Tooltip("A line that executes this many times in a single frame is considered 'hot'.")]
+    [SerializeField] private int hotLineThreshold = 200;
 
     public ExecState State { get; private set; } = ExecState.Idle;
     public float Speed { get; private set; } = 1f;
@@ -28,6 +34,9 @@ public class ExecutionController : MonoBehaviour
 
     public event Action OnWorldReset;
 
+    /// <summary>Fired when a single line is executing very hot this frame.</summary>
+    public event Action<int> OnHotLine;
+
     readonly Interpreter _vm = new Interpreter();
 
     AgentSim          _sim;
@@ -39,7 +48,13 @@ public class ExecutionController : MonoBehaviour
     int               _startFacing;
     Coroutine         _loop;
 
+    bool  _singleStep;
+
+    // Heatmap state: hits per line within the current frame, reset each yield.
+    Dictionary<int, int> _frameLineHits = new Dictionary<int, int>();
+
     public AgentSim Sim => _sim;
+    public IReadOnlyDictionary<int, int> LineHits => _vm.LineHits;
 
     // -------------------------------------------------------------------------
 
@@ -69,6 +84,7 @@ public class ExecutionController : MonoBehaviour
         ResetWorld();
 
         _vm.Load(program);
+        _frameLineHits.Clear();
         State = ExecState.Running;
         _loop = StartCoroutine(ExecutionLoop());
     }
@@ -77,6 +93,14 @@ public class ExecutionController : MonoBehaviour
     {
         if (State == ExecState.Running)      State = ExecState.Paused;
         else if (State == ExecState.Paused)  State = ExecState.Running;
+    }
+
+    /// <summary>Executes exactly one statement, then pauses again.</summary>
+    public void StepOnce()
+    {
+        if (State == ExecState.Idle || State == ExecState.Finished) return;
+        _singleStep = true;
+        if (State == ExecState.Paused) State = ExecState.Running;
     }
 
     /// <summary>Stops execution and puts the world back to its start state.</summary>
@@ -91,13 +115,14 @@ public class ExecutionController : MonoBehaviour
             if (_stopView != null) _stopView.ResetStops();
         }
 
+        _frameLineHits.Clear();
         State = ExecState.Idle;
         OnWorldReset?.Invoke();
     }
 
     public void SetSpeed(float speed)
     {
-        Speed = Mathf.Clamp(speed, 1f, 8f);
+        Speed = Mathf.Clamp(speed, 0.2f, 8f);
     }
 
     void Stop()
@@ -164,11 +189,29 @@ public class ExecutionController : MonoBehaviour
 
             OnStepDone?.Invoke(result, step);
 
+            // Heatmap tracking: count per line within this frame.
+            if (step.Node != null && step.Node.Line > 0)
+            {
+                int line = step.Node.Line;
+                _frameLineHits[line] = _frameLineHits.TryGetValue(line, out int n) ? n + 1 : 1;
+
+                if (_frameLineHits[line] > hotLineThreshold)
+                    OnHotLine?.Invoke(line);
+            }
+
             float duration = baseStepSeconds / Speed;
             if (_view != null)
                 yield return _view.PlayAction(result, duration);
             else
                 yield return new WaitForSeconds(duration);
+
+            _frameLineHits.Clear();
+
+            if (_singleStep)
+            {
+                _singleStep = false;
+                State = ExecState.Paused;
+            }
 
             // Goal reached mid-program still counts — stop right away.
             if (_sim.IsWin(_def))

@@ -91,6 +91,34 @@ public class SettingsManager : MonoBehaviour
         set { S.brakeMode = (int)value; Persist(); }
     }
 
+    public int CodeThemeId
+    {
+        get => S.codeThemeId;
+        set
+        {
+            if (!CodeThemeLibrary.Exists(value)) return;
+            S.codeThemeId = value;
+            Persist();
+        }
+    }
+
+    /// <summary>
+    /// Attempts to purchase a theme. Returns true when already unlocked or
+    /// successfully bought; false if the player can't afford it.
+    /// </summary>
+    public bool TryBuyTheme(int themeId)
+    {
+        if (SaveSystem.Current.HasTheme(themeId)) return true;
+
+        CodeTheme theme = CodeThemeLibrary.Get(themeId);
+        if (SaveSystem.Current.currency < theme.cost) return false;
+
+        SaveSystem.Current.currency -= theme.cost;
+        SaveSystem.Current.UnlockTheme(themeId);
+        SaveSystem.Save();
+        return true;
+    }
+
     // -------------------------------------------------------------------------
     // Apply / persist
 
