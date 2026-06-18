@@ -24,18 +24,43 @@ public class BlockCanvasController : MonoBehaviour
 
     static readonly Color ElseColor = new Color(0.78f, 0.55f, 0.20f, 1f);
 
-    /// <summary>Scratch-style category color for a block, shared with the palette.</summary>
-    public static Color CategoryColor(BlockType type)
+    /// <summary>Scratch-style block categories, shared with the palette.</summary>
+    public enum BlockCategory { Motion, Passengers, Control }
+
+    public static BlockCategory CategoryOf(BlockType type)
     {
         switch (type)
         {
             case BlockType.MoveForward:
             case BlockType.TurnLeft:
-            case BlockType.TurnRight:   return new Color(0.26f, 0.45f, 0.85f, 1f);  // motion (blue)
+            case BlockType.TurnRight:   return BlockCategory.Motion;
             case BlockType.PickUp:
             case BlockType.DropOff:
-            case BlockType.CollectFare: return new Color(0.30f, 0.66f, 0.42f, 1f);  // passengers (green)
-            default:                    return new Color(0.90f, 0.60f, 0.16f, 1f);  // control (gold)
+            case BlockType.CollectFare: return BlockCategory.Passengers;
+            default:                    return BlockCategory.Control;
+        }
+    }
+
+    /// <summary>Scratch-style category color for a block, shared with the palette.</summary>
+    public static Color CategoryColor(BlockType type) => CategoryTint(CategoryOf(type));
+
+    public static Color CategoryTint(BlockCategory cat)
+    {
+        switch (cat)
+        {
+            case BlockCategory.Motion:     return new Color(0.26f, 0.45f, 0.85f, 1f);  // blue
+            case BlockCategory.Passengers: return new Color(0.30f, 0.66f, 0.42f, 1f);  // green
+            default:                       return new Color(0.90f, 0.60f, 0.16f, 1f);  // gold
+        }
+    }
+
+    public static string CategoryLabel(BlockCategory cat)
+    {
+        switch (cat)
+        {
+            case BlockCategory.Motion:     return "MOTION";
+            case BlockCategory.Passengers: return "PASSENGERS";
+            default:                       return "CONTROL";
         }
     }
 

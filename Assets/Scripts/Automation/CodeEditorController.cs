@@ -41,6 +41,8 @@ public class CodeEditorController : MonoBehaviour
 
     float _lintTimer;
     bool  _dirty;
+    bool  _meshDirty = true;   // only ForceMeshUpdate the overlay when text actually changed
+    float _heatRefreshTimer;   // throttles per-frame gutter rebuilds while heat pulses
     List<LangError> _errors = new List<LangError>();
 
     CodeTheme _theme;
@@ -131,7 +133,12 @@ public class CodeEditorController : MonoBehaviour
         if (_heatHits != null && _heatHits.Count > 0)
         {
             _heatPulse += Time.deltaTime * 4f;
-            RefreshLineNumbers();
+            _heatRefreshTimer -= Time.deltaTime;
+            if (_heatRefreshTimer <= 0f)
+            {
+                _heatRefreshTimer = 0.08f;   // ~12 Hz pulse instead of every frame
+                RefreshLineNumbers();
+            }
         }
 
         if (autocomplete != null && autocomplete.Visible)
@@ -180,6 +187,14 @@ public class CodeEditorController : MonoBehaviour
         highlight.textWrappingMode  = src.textWrappingMode;
         if (src.font != null && highlight.font != src.font) highlight.font = src.font;
 
+        // Rebuild the overlay mesh at most once per change — the per-line geometry
+        // below reads the cached textInfo, so we must not ForceMeshUpdate per frame.
+        if (_meshDirty)
+        {
+            highlight.ForceMeshUpdate();
+            _meshDirty = false;
+        }
+
         UpdateExecLineBarPosition();
         UpdateSquiggles();
         UpdateGutterIcons();
@@ -213,7 +228,7 @@ public class CodeEditorController : MonoBehaviour
             autocomplete.actionColor = _theme.actionColor;
             autocomplete.queryColor = _theme.queryColor;
             autocomplete.keywordColor = _theme.keywordColor;
-            autocomplete.varColor = _theme.textColor;
+            autocomplete.varColor = _theme.variableColor;
             autocomplete.selectedColor = _theme.execBarColor;
         }
 
@@ -332,6 +347,7 @@ public class CodeEditorController : MonoBehaviour
         }
 
         lineNumbers.text = sb.ToString();
+        lineNumbers.ForceMeshUpdate();   // refresh metrics now so gutter icons line up
     }
 
     string LineNumberColorHex(int line)
@@ -382,6 +398,7 @@ public class CodeEditorController : MonoBehaviour
         }
 
         highlight.text = Colorize(src);
+        _meshDirty = true;
     }
 
     int CurrentFoldHeader(int line)
@@ -622,9 +639,7 @@ public class CodeEditorController : MonoBehaviour
     void UpdateExecLineBarPosition()
     {
         if (execLineBar == null || highlight == null || _executingLine < 1) return;
-
-        highlight.ForceMeshUpdate();
-        if (_executingLine > highlight.textInfo.lineCount) return;
+        if (highlight.textInfo == null || _executingLine > highlight.textInfo.lineCount) return;
 
         TMP_LineInfo lineInfo = highlight.textInfo.lineInfo[_executingLine - 1];
         RectTransform viewport = input != null ? input.textViewport : highlight.rectTransform;
@@ -659,7 +674,7 @@ public class CodeEditorController : MonoBehaviour
 
         EnsureSquiggles(needed);
 
-        highlight.ForceMeshUpdate();
+        if (highlight.textInfo == null) return;
         int idx = 0;
         foreach (LangError err in _errors)
         {
@@ -673,7 +688,7 @@ public class CodeEditorController : MonoBehaviour
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0f, 1f);
             rt.anchoredPosition = new Vector2(0f, lineInfo.ascender + highlight.rectTransform.anchoredPosition.y - lineInfo.lineHeight + 2f);
-            rt.sizeDelta = new Vector2(0f, 3f);
+            rt.sizeDelta = new Vector2(0f, 4f);
             img.color = _theme.errorColor;
             img.gameObject.SetActive(true);
             idx++;
@@ -690,10 +705,41 @@ public class CodeEditorController : MonoBehaviour
             var go = new GameObject("Squiggle", typeof(RectTransform));
             go.transform.SetParent(squigglesRoot, false);
             var img = go.AddComponent<Image>();
-            img.sprite = squiggleSprite;
+            img.sprite = squiggleSprite != null ? squiggleSprite : RuntimeSquiggle();
             img.type = Image.Type.Tiled;
+            img.raycastTarget = false;
             _squiggleImages.Add(img);
         }
+    }
+
+    static Sprite _runtimeSquiggle;
+
+    // A small repeating red wavy underline, generated once so squigglies render
+    // even when no squiggle sprite asset is wired. Drawn white, tinted by errorColor.
+    static Sprite RuntimeSquiggle()
+    {
+        if (_runtimeSquiggle != null) return _runtimeSquiggle;
+
+        const int W = 8, H = 4;
+        var tex = new Texture2D(W, H, TextureFormat.RGBA32, false)
+        {
+            wrapMode   = TextureWrapMode.Repeat,
+            filterMode = FilterMode.Bilinear,
+        };
+        var clear = new Color(1f, 1f, 1f, 0f);
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+                tex.SetPixel(x, y, clear);
+        for (int x = 0; x < W; x++)
+        {
+            float wave = Mathf.Sin((float)x / W * Mathf.PI * 2f) * 0.5f + 0.5f;
+            int yy = Mathf.Clamp(Mathf.RoundToInt(wave * (H - 1)), 0, H - 1);
+            tex.SetPixel(x, yy, Color.white);
+            if (yy + 1 < H) tex.SetPixel(x, yy + 1, Color.white);
+        }
+        tex.Apply();
+        _runtimeSquiggle = Sprite.Create(tex, new Rect(0, 0, W, H), new Vector2(0.5f, 0.5f), W);
+        return _runtimeSquiggle;
     }
 
     // -------------------------------------------------------------------------
@@ -763,9 +809,7 @@ public class CodeEditorController : MonoBehaviour
 
     void PositionGutterObject(RectTransform rt, int line, float xOffset)
     {
-        if (lineNumbers == null) return;
-
-        lineNumbers.ForceMeshUpdate();
+        if (lineNumbers == null || lineNumbers.textInfo == null) return;
         if (line < 1 || line > lineNumbers.textInfo.lineCount) return;
 
         TMP_LineInfo lineInfo = lineNumbers.textInfo.lineInfo[line - 1];
@@ -862,22 +906,43 @@ public class CodeEditorController : MonoBehaviour
         {
             char c = src[i];
 
-            if (c == '#')
+            if (c == '#')                                   // comment to end of line
             {
                 int j = i;
                 while (j < src.Length && src[j] != '\n') j++;
-                sb.Append("<color=#").Append(ColorToHex(_theme.commentColor)).Append('>')
-                  .Append(src, i, j - i).Append("</color>");
+                AppendRun(sb, src, i, j - i, ColorToHex(_theme.commentColor));
                 i = j;
             }
-            else if (IsWordChar(c))
+            else if (c == '"')                              // string literal
+            {
+                int j = i + 1;
+                while (j < src.Length && src[j] != '"' && src[j] != '\n')
+                {
+                    if (src[j] == '\\' && j + 1 < src.Length) j++;   // skip escaped char
+                    j++;
+                }
+                if (j < src.Length && src[j] == '"') j++;            // include closing quote
+                AppendRun(sb, src, i, j - i, ColorToHex(_theme.stringColor));
+                i = j;
+            }
+            else if (char.IsDigit(c))                       // number literal
+            {
+                int j = i;
+                while (j < src.Length && (char.IsDigit(src[j]) || src[j] == '.')) j++;
+                AppendRun(sb, src, i, j - i, ColorToHex(_theme.numberColor));
+                i = j;
+            }
+            else if (IsWordChar(c))                         // identifier / keyword
             {
                 int j = i;
                 while (j < src.Length && IsWordChar(src[j])) j++;
                 string word = src.Substring(i, j - i);
-                string hex = WordColor(word);
-                if (hex != null) sb.Append("<color=#").Append(hex).Append('>').Append(word).Append("</color>");
-                else             sb.Append(word);
+
+                int k = j;                                  // a following '(' marks a call
+                while (k < src.Length && (src[k] == ' ' || src[k] == '\t')) k++;
+                bool isCall = k < src.Length && src[k] == '(';
+
+                AppendRun(sb, src, i, j - i, WordColor(word, isCall));
                 i = j;
             }
             else
@@ -890,20 +955,49 @@ public class CodeEditorController : MonoBehaviour
         return sb.ToString();
     }
 
-    string WordColor(string word)
+    // Appends src[start..start+len) wrapped in a colour tag (when hex != null),
+    // escaping '<' so user text can never break the rich-text overlay.
+    static void AppendRun(StringBuilder sb, string src, int start, int len, string hex)
+    {
+        if (hex != null) sb.Append("<color=#").Append(hex).Append('>');
+        int end = start + len;
+        for (int p = start; p < end && p < src.Length; p++)
+        {
+            char ch = src[p];
+            if (ch == '<') sb.Append("<noparse><</noparse>");
+            else           sb.Append(ch);
+        }
+        if (hex != null) sb.Append("</color>");
+    }
+
+    // Built-in functions coloured like VS Code's function-call yellow.
+    static readonly HashSet<string> Builtins = new HashSet<string>
+    {
+        "print", "len", "append", "pop", "range", "int", "str", "float",
+        "min", "max", "sum", "sorted", "randint", "abs", "round",
+    };
+
+    // VS Code "Dark+" token mapping: control keywords magenta, literal constants
+    // blue, actions/builtins/calls function-yellow, queries/reporters type-teal,
+    // and every other identifier the light-blue variable colour.
+    string WordColor(string word, bool isCall)
     {
         switch (word)
         {
-            case "if": case "else": case "while": case "not":
+            case "if": case "elif": case "else": case "while":
             case "for": case "in": case "def": case "return":
-            case "break": case "continue": case "elif":
-            case "True": case "False": case "None":
+            case "break": case "continue": case "not":
+            case "and": case "or": case "repeat":
                 return ColorToHex(_theme.keywordColor);
+            case "True": case "False": case "None":
+                return ColorToHex(_theme.constantColor);
         }
         if (AgentApi.IsAction(word))   return ColorToHex(_theme.actionColor);
         if (AgentApi.IsQuery(word))    return ColorToHex(_theme.queryColor);
         if (AgentApi.IsReporter(word)) return ColorToHex(_theme.queryColor);
-        return null;
+        if (Builtins.Contains(word))   return ColorToHex(_theme.actionColor);
+        if (isCall)                    return ColorToHex(_theme.actionColor);
+        return ColorToHex(_theme.variableColor);
     }
 
     static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_';

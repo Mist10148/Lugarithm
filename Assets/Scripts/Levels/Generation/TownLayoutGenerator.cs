@@ -243,6 +243,15 @@ public static class TownLayoutGenerator
             if (!GridPathfinder.Reachable(grid, s, n.gridCell)) return false;
         }
 
+        // Every committed ride must be drivable from its origin to its destination,
+        // so no passenger is ever stranded on a road the jeepney can't reach.
+        foreach (PassengerRequest r in layout.requests)
+        {
+            TownNode o  = layout.Node(r.originNodeId);
+            TownNode dn = layout.Node(r.destNodeId);
+            if (!GridPathfinder.Reachable(grid, o.gridCell, dn.gridCell)) return false;
+        }
+
         return true;
     }
 

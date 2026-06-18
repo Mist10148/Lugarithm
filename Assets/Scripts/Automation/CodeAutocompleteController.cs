@@ -119,6 +119,7 @@ public class CodeAutocompleteController : MonoBehaviour
         _selectedIndex = 0;
         _visible = true;
         root.SetActive(true);
+        root.transform.SetAsLastSibling();   // float above other canvas children
 
         EnsureRows(_suggestions.Count);
         PopulateRows();
@@ -188,6 +189,7 @@ public class CodeAutocompleteController : MonoBehaviour
         input.SetTextWithoutNotify(before + insert + after);
         input.stringPosition = _replaceStart + caretOffset;
         input.ForceLabelUpdate();
+        input.onValueChanged.Invoke(input.text);   // re-highlight/lint the accepted text
 
         Hide();
     }

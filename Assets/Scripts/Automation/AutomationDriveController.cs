@@ -50,9 +50,6 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private Button runButton;
     [SerializeField] private Button pauseButton;
     [SerializeField] private Button resetButton;
-    [SerializeField] private Button speed1Button;
-    [SerializeField] private Button speed2Button;
-    [SerializeField] private Button speed5Button;
     [SerializeField] private Slider speedSlider;
     [SerializeField] private TMP_Text speedLabel;
     [SerializeField] private Button stepButton;
@@ -274,9 +271,6 @@ public class AutomationDriveController : MonoBehaviour
         if (runButton    != null) runButton.onClick.AddListener(OnRun);
         if (pauseButton  != null) pauseButton.onClick.AddListener(OnPause);
         if (resetButton  != null) resetButton.onClick.AddListener(OnReset);
-        if (speed1Button != null) speed1Button.onClick.AddListener(() => SetSpeed(1f));
-        if (speed2Button != null) speed2Button.onClick.AddListener(() => SetSpeed(2f));
-        if (speed5Button != null) speed5Button.onClick.AddListener(() => SetSpeed(5f));
 
         if (speedSlider != null)
         {

@@ -40,123 +40,132 @@ public static class AlmanacOverlayBuilder
         UIFactory.Place(bookPanel, new Vector2(0.5f, 0.5f), Vector2.zero,
                         new Vector2(1690f, 864f));
 
-        // ---- Left page --------------------------------------------------------
-        var leftPage = UIFactory.CreateRect(bookPanel, "LeftPage",
-                                            new Vector2(0f, 0f), new Vector2(0.5f, 1f),
-                                            new Vector2(8f, 8f), new Vector2(-4f, -8f));
-
-        // Tab bar
-        var tabBar = UIFactory.CreateRect(leftPage, "TabBar",
+        // ---- Tab bar (top, full width): Heritage / Coding / Oracle -----------
+        var tabBar = UIFactory.CreateRect(bookPanel, "TabBar",
                                           new Vector2(0f, 1f), new Vector2(1f, 1f),
-                                          new Vector2(0f, -48f), new Vector2(0f, 0f));
+                                          new Vector2(8f, -52f), new Vector2(-8f, -4f));
 
         Button heritageTab = UIFactory.CreateButton(tabBar, "HeritageTab", "Heritage Pages",
-                                                    new Vector2(180f, 40f), 20f);
-        UIFactory.Place(heritageTab, new Vector2(0f, 1f), new Vector2(8f, -6f),
-                        new Vector2(180f, 40f));
+                                                    new Vector2(190f, 40f), 20f);
+        UIFactory.Place(heritageTab, new Vector2(0f, 0.5f), new Vector2(8f, 0f), new Vector2(190f, 40f));
         SetLabelColor(heritageTab, UIFactory.Accent);
 
         Button codingTab = UIFactory.CreateButton(tabBar, "CodingTab", "Coding Reference",
-                                                  new Vector2(180f, 40f), 20f);
-        UIFactory.Place(codingTab, new Vector2(0f, 1f), new Vector2(196f, -6f),
-                        new Vector2(180f, 40f));
+                                                  new Vector2(190f, 40f), 20f);
+        UIFactory.Place(codingTab, new Vector2(0f, 0.5f), new Vector2(206f, 0f), new Vector2(190f, 40f));
         SetLabelColor(codingTab, UIFactory.TextDim);
 
-        // Sidebar scroll
-        ScrollRect sidebarScroll = UIFactory.CreateScrollView(leftPage, "SidebarScroll",
-                                                              new Vector2(0f, 0f),
-                                                              new Vector2(0.3f, 1f),
-                                                              out RectTransform sidebarContent);
-        var sidebarScrollRt = (RectTransform)sidebarScroll.transform;
-        sidebarScrollRt.offsetMin = new Vector2(0f, 0f);
-        sidebarScrollRt.offsetMax = new Vector2(0f, -52f);
+        Button oracleTab = UIFactory.CreateButton(tabBar, "OracleTab", "Oracle",
+                                                  new Vector2(160f, 40f), 20f);
+        UIFactory.Place(oracleTab, new Vector2(0f, 0.5f), new Vector2(404f, 0f), new Vector2(160f, 40f));
+        SetLabelColor(oracleTab, UIFactory.TextDim);
 
-        // Sidebar entry template
+        // ==== Detail pane (PvZ two-pane: thumbnail grid + entry detail) =======
+        var detailPane = UIFactory.CreateRect(bookPanel, "DetailPane",
+                                              new Vector2(0f, 0f), new Vector2(1f, 1f),
+                                              new Vector2(8f, 8f), new Vector2(-8f, -56f));
+
+        // Left: scrollable grid of entry thumbnails.
+        ScrollRect sidebarScroll = UIFactory.CreateScrollView(detailPane, "EntryGrid",
+                                                              new Vector2(0f, 0f), new Vector2(0.4f, 1f),
+                                                              out RectTransform sidebarContent);
+        ((RectTransform)sidebarScroll.transform).offsetMax = new Vector2(-4f, 0f);
+
+        // Swap the default vertical list for a PvZ-style grid of cards.
+        var defaultLayout = sidebarContent.GetComponent<VerticalLayoutGroup>();
+        if (defaultLayout != null) Object.DestroyImmediate(defaultLayout);
+        var grid = sidebarContent.gameObject.AddComponent<GridLayoutGroup>();
+        grid.cellSize        = new Vector2(150f, 80f);
+        grid.spacing         = new Vector2(12f, 12f);
+        grid.padding         = new RectOffset(12, 12, 12, 12);
+        grid.constraint      = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 2;
+        grid.childAlignment  = TextAnchor.UpperCenter;
+
+        // Thumbnail card template.
         Button sidebarEntryTemplate = UIFactory.CreateButton(sidebarContent,
                                                              "SidebarEntryTemplate",
-                                                             "Town", new Vector2(0f, 52f), 22f);
-        var entryLe = sidebarEntryTemplate.gameObject.AddComponent<LayoutElement>();
-        entryLe.preferredHeight = 52f;
-        entryLe.flexibleWidth = 1f;
+                                                             "Town", new Vector2(150f, 80f), 18f);
+        sidebarEntryTemplate.image.color = UIFactory.PanelDark;
+        var entryTemplLabel = sidebarEntryTemplate.GetComponentInChildren<TMP_Text>();
+        if (entryTemplLabel != null)
+        {
+            entryTemplLabel.alignment = TextAlignmentOptions.Center;
+            entryTemplLabel.textWrappingMode = TextWrappingModes.Normal;
+        }
         sidebarEntryTemplate.gameObject.SetActive(false);
 
-        // Content area (right 70% of left page)
-        var contentArea = UIFactory.CreateRect(leftPage, "ContentArea",
-                                               new Vector2(0.3f, 0f), new Vector2(1f, 1f),
-                                               new Vector2(8f, 0f), new Vector2(-8f, -52f));
+        // Right: entry detail — art banner + title + body.
+        var detailArea = UIFactory.CreateRect(detailPane, "DetailArea",
+                                              new Vector2(0.4f, 0f), new Vector2(1f, 1f),
+                                              new Vector2(12f, 0f), new Vector2(0f, 0f));
 
-        // Content title
-        var contentTitle = UIFactory.CreateText(contentArea, "ContentTitle", "",
-                                                36f, UIFactory.Accent,
-                                                TextAlignmentOptions.TopLeft);
-        contentTitle.rectTransform.offsetMin = new Vector2(0f, 0f);
-        contentTitle.rectTransform.offsetMax = new Vector2(0f, -64f);
+        var entryArtFrame = UIFactory.CreatePanel(detailArea, "EntryArt",
+                                                  new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                                  new Color(0.30f, 0.34f, 0.42f, 1f));
+        entryArtFrame.offsetMin = new Vector2(0f, -150f);
+        entryArtFrame.offsetMax = new Vector2(0f, -8f);
+        var entryArt = entryArtFrame.GetComponent<Image>();
+        var entryArtLabel = UIFactory.CreateText(entryArtFrame, "ArtInitials", "", 56f,
+                                                 UIFactory.TextBright, TextAlignmentOptions.Center);
+        entryArtLabel.rectTransform.offsetMin = Vector2.zero;
+        entryArtLabel.rectTransform.offsetMax = Vector2.zero;
+        entryArtLabel.fontStyle = FontStyles.Bold;
 
-        // Content scroll
-        ScrollRect contentScroll = UIFactory.CreateScrollView(contentArea, "ContentScroll",
-                                                              new Vector2(0f, 0f),
-                                                              new Vector2(1f, 1f),
+        var contentTitle = UIFactory.CreateText(detailArea, "ContentTitle", "", 32f,
+                                                UIFactory.Accent, TextAlignmentOptions.TopLeft);
+        contentTitle.rectTransform.anchorMin = new Vector2(0f, 1f);
+        contentTitle.rectTransform.anchorMax = new Vector2(1f, 1f);
+        contentTitle.rectTransform.offsetMin = new Vector2(0f, -210f);
+        contentTitle.rectTransform.offsetMax = new Vector2(0f, -158f);
+
+        ScrollRect contentScroll = UIFactory.CreateScrollView(detailArea, "ContentScroll",
+                                                              new Vector2(0f, 0f), new Vector2(1f, 1f),
                                                               out RectTransform contentBodyRect);
-        var contentScrollRt = (RectTransform)contentScroll.transform;
-        contentScrollRt.offsetMin = new Vector2(0f, 0f);
-        contentScrollRt.offsetMax = new Vector2(0f, -72f);
+        ((RectTransform)contentScroll.transform).offsetMax = new Vector2(0f, -214f);
 
-        var contentBody = UIFactory.CreateText(contentBodyRect, "Body", "",
-                                               20f, UIFactory.TextBright,
-                                               TextAlignmentOptions.TopLeft);
+        var contentBody = UIFactory.CreateText(contentBodyRect, "Body", "", 20f,
+                                               UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         contentBody.textWrappingMode = TextWrappingModes.Normal;
         var bodyLe = contentBody.gameObject.AddComponent<LayoutElement>();
         bodyLe.preferredHeight = 1000f;
         bodyLe.flexibleWidth = 1f;
 
-        // ---- Right page -------------------------------------------------------
-        var rightPage = UIFactory.CreateRect(bookPanel, "RightPage",
-                                             new Vector2(0.5f, 0f), new Vector2(1f, 1f),
-                                             new Vector2(4f, 4f), new Vector2(-8f, -8f));
+        // ==== Oracle pane (its own tab) =======================================
+        var oraclePane = UIFactory.CreateRect(bookPanel, "OraclePane",
+                                              new Vector2(0f, 0f), new Vector2(1f, 1f),
+                                              new Vector2(8f, 8f), new Vector2(-8f, -56f));
 
-        // Oracle header
-        var oracleHeader = UIFactory.CreateText(rightPage, "OracleHeader", "Oracle",
-                                                32f, UIFactory.Accent,
-                                                TextAlignmentOptions.TopLeft);
-        oracleHeader.rectTransform.offsetMin = new Vector2(0f, 0f);
-        oracleHeader.rectTransform.offsetMax = new Vector2(0f, -40f);
+        var oracleFlavour = UIFactory.CreateText(oraclePane, "OracleFlavour",
+                                                 "Ask the Oracle about any town or coding concept.",
+                                                 18f, UIFactory.TextDim, TextAlignmentOptions.TopLeft);
+        oracleFlavour.rectTransform.anchorMin = new Vector2(0f, 1f);
+        oracleFlavour.rectTransform.anchorMax = new Vector2(1f, 1f);
+        oracleFlavour.rectTransform.offsetMin = new Vector2(8f, -34f);
+        oracleFlavour.rectTransform.offsetMax = new Vector2(-8f, -4f);
 
-        // Oracle flavour line
-        var oracleFlavour = UIFactory.CreateText(rightPage, "OracleFlavour",
-                                                 "Ask about any town or coding concept.",
-                                                 18f, UIFactory.TextDim,
-                                                 TextAlignmentOptions.TopLeft);
-        oracleFlavour.rectTransform.offsetMin = new Vector2(0f, -44f);
-        oracleFlavour.rectTransform.offsetMax = new Vector2(0f, -74f);
-
-        // Chat scroll
-        ScrollRect chatScroll = UIFactory.CreateScrollView(rightPage, "ChatScroll",
-                                                           new Vector2(0f, 0f),
-                                                           new Vector2(1f, 1f),
+        ScrollRect chatScroll = UIFactory.CreateScrollView(oraclePane, "ChatScroll",
+                                                           new Vector2(0f, 0f), new Vector2(1f, 1f),
                                                            out RectTransform chatContent);
         var chatScrollRt = (RectTransform)chatScroll.transform;
         chatScrollRt.offsetMin = new Vector2(0f, 72f);
-        chatScrollRt.offsetMax = new Vector2(0f, -102f);
+        chatScrollRt.offsetMax = new Vector2(0f, -40f);
 
-        // Chat bubble template
-        var bubbleTemplate = UIFactory.CreateText(chatContent, "BubbleTemplate", "",
-                                                  18f, UIFactory.TextBright,
-                                                  TextAlignmentOptions.TopLeft);
+        var bubbleTemplate = UIFactory.CreateText(chatContent, "BubbleTemplate", "", 18f,
+                                                  UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         bubbleTemplate.textWrappingMode = TextWrappingModes.Normal;
         var bubbleLe = bubbleTemplate.gameObject.AddComponent<LayoutElement>();
         bubbleLe.preferredHeight = 40f;
         bubbleLe.flexibleWidth = 1f;
         bubbleTemplate.gameObject.SetActive(false);
 
-        // Input row
-        var inputRow = UIFactory.CreatePanel(rightPage, "InputRow",
+        var inputRow = UIFactory.CreatePanel(oraclePane, "InputRow",
                                              new Vector2(0f, 0f), new Vector2(1f, 0f),
                                              UIFactory.PanelDarker);
         inputRow.offsetMin = new Vector2(0f, 0f);
         inputRow.offsetMax = new Vector2(0f, 60f);
 
-        TMP_InputField chatInput = CreateSinglelineInput(inputRow, "ChatInput",
-                                                         "Ask the Oracle…");
+        TMP_InputField chatInput = CreateSinglelineInput(inputRow, "ChatInput", "Ask the Oracle…");
         var inputRt = chatInput.GetComponent<RectTransform>();
         inputRt.anchorMin = new Vector2(0f, 0f);
         inputRt.anchorMax = new Vector2(0.8f, 1f);
@@ -172,14 +181,9 @@ public static class AlmanacOverlayBuilder
         sendRt.offsetMin = new Vector2(4f, 4f);
         sendRt.offsetMax = new Vector2(-4f, -4f);
 
-        // ---- Divider + close --------------------------------------------------
-        var divider = UIFactory.CreatePanel(bookPanel, "Divider",
-                                            new Vector2(0.5f, 0.05f),
-                                            new Vector2(0.5f, 0.95f),
-                                            UIFactory.Accent);
-        divider.offsetMin = new Vector2(-1f, 0f);
-        divider.offsetMax = new Vector2(1f, 0f);
+        oraclePane.gameObject.SetActive(false);
 
+        // ---- Close button -----------------------------------------------------
         Button closeButton = UIFactory.CreateButton(bookPanel, "CloseButton", "✕",
                                                     new Vector2(48f, 48f), 28f);
         closeButton.image.color = Color.clear;
@@ -195,15 +199,20 @@ public static class AlmanacOverlayBuilder
 
         SceneBuilderUtil.Wire(manager, "controller", controller);
 
-        SceneBuilderUtil.Wire(controller, "bookRoot",               backdrop.gameObject);
-        SceneBuilderUtil.Wire(controller, "heritageTabButton",      heritageTab);
-        SceneBuilderUtil.Wire(controller, "codingTabButton",        codingTab);
-        SceneBuilderUtil.Wire(controller, "sidebarContent",         sidebarContent);
-        SceneBuilderUtil.Wire(controller, "sidebarEntryTemplate",   sidebarEntryTemplate);
-        SceneBuilderUtil.Wire(controller, "contentTitle",           contentTitle);
-        SceneBuilderUtil.Wire(controller, "contentBody",            contentBody);
-        SceneBuilderUtil.Wire(controller, "chatController",         chatController);
-        SceneBuilderUtil.Wire(controller, "closeButton",            closeButton);
+        SceneBuilderUtil.Wire(controller, "bookRoot",             backdrop.gameObject);
+        SceneBuilderUtil.Wire(controller, "heritageTabButton",    heritageTab);
+        SceneBuilderUtil.Wire(controller, "codingTabButton",      codingTab);
+        SceneBuilderUtil.Wire(controller, "oracleTabButton",      oracleTab);
+        SceneBuilderUtil.Wire(controller, "sidebarContent",       sidebarContent);
+        SceneBuilderUtil.Wire(controller, "sidebarEntryTemplate", sidebarEntryTemplate);
+        SceneBuilderUtil.Wire(controller, "contentTitle",         contentTitle);
+        SceneBuilderUtil.Wire(controller, "contentBody",          contentBody);
+        SceneBuilderUtil.Wire(controller, "entryArt",             entryArt);
+        SceneBuilderUtil.Wire(controller, "entryArtLabel",        entryArtLabel);
+        SceneBuilderUtil.Wire(controller, "detailPane",           detailPane.gameObject);
+        SceneBuilderUtil.Wire(controller, "oraclePane",           oraclePane.gameObject);
+        SceneBuilderUtil.Wire(controller, "chatController",       chatController);
+        SceneBuilderUtil.Wire(controller, "closeButton",          closeButton);
 
         SceneBuilderUtil.Wire(chatController, "chatContent",    chatContent);
         SceneBuilderUtil.Wire(chatController, "bubbleTemplate", bubbleTemplate);

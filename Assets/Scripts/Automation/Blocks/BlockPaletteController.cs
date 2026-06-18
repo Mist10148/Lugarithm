@@ -19,25 +19,56 @@ public class BlockPaletteController : MonoBehaviour
     {
         if (allowedBlocks == null || canvas == null || buttonTemplate == null) return;
 
-        foreach (string name in allowedBlocks)
+        // Group the palette into Scratch-style colored category sections.
+        foreach (BlockCanvasController.BlockCategory cat in
+                 new[] { BlockCanvasController.BlockCategory.Motion,
+                         BlockCanvasController.BlockCategory.Passengers,
+                         BlockCanvasController.BlockCategory.Control })
         {
-            BlockType? type = BlockProgram.FromPaletteName(name);
-            if (!type.HasValue) continue;
+            bool headerAdded = false;
+            foreach (string name in allowedBlocks)
+            {
+                BlockType? type = BlockProgram.FromPaletteName(name);
+                if (!type.HasValue) continue;
 
-            BlockType blockType = type.Value;
-            Button button = Instantiate(buttonTemplate, content);
-            button.gameObject.SetActive(true);
+                BlockType blockType = type.Value;
+                if (BlockCanvasController.CategoryOf(blockType) != cat) continue;
 
-            var label = button.GetComponentInChildren<TMP_Text>();
-            if (label != null) label.text = PaletteLabel(blockType);
+                if (!headerAdded)
+                {
+                    AddCategoryHeader(cat);
+                    headerAdded = true;
+                }
 
-            var face = button.targetGraphic as Image;
-            if (face != null)
-                face.color = BlockCanvasController.CategoryColor(blockType);
+                Button button = Instantiate(buttonTemplate, content);
+                button.gameObject.SetActive(true);
 
-            button.gameObject.AddComponent<PaletteDragSource>().Setup(canvas, blockType);
-            button.onClick.AddListener(() => canvas.InsertBlock(blockType));
+                var label = button.GetComponentInChildren<TMP_Text>();
+                if (label != null) label.text = PaletteLabel(blockType);
+
+                var face = button.targetGraphic as Image;
+                if (face != null)
+                    face.color = BlockCanvasController.CategoryColor(blockType);
+
+                button.gameObject.AddComponent<PaletteDragSource>().Setup(canvas, blockType);
+                button.onClick.AddListener(() => canvas.InsertBlock(blockType));
+            }
         }
+    }
+
+    void AddCategoryHeader(BlockCanvasController.BlockCategory cat)
+    {
+        var go = new GameObject("CategoryHeader_" + cat, typeof(RectTransform));
+        go.transform.SetParent(content, false);
+        var le = go.AddComponent<LayoutElement>();
+        le.preferredHeight = 24f;
+        le.preferredWidth  = 190f;
+        var txt = go.AddComponent<TextMeshProUGUI>();
+        txt.text      = BlockCanvasController.CategoryLabel(cat);
+        txt.fontSize  = 15f;
+        txt.fontStyle = FontStyles.Bold;
+        txt.alignment = TextAlignmentOptions.MidlineLeft;
+        txt.color     = BlockCanvasController.CategoryTint(cat);
     }
 
     // -------------------------------------------------------------------------

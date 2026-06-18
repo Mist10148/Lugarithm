@@ -81,16 +81,13 @@ public static class AutomationDriveSceneBuilder
         var controlBar = UIFactory.CreatePanel(canvas.transform, "ControlBar",
                                                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                                                UIFactory.PanelDark);
-        UIFactory.Place(controlBar, new Vector2(0.5f, 1f), new Vector2(120f, 0f), new Vector2(700f, 56f));
+        UIFactory.Place(controlBar, new Vector2(0.5f, 1f), new Vector2(210f, -8f), new Vector2(820f, 52f));
         UIFactory.AddHorizontalLayout(controlBar, 8f, new RectOffset(10, 10, 6, 6), TextAnchor.MiddleCenter);
 
         Button run    = MakeBarButton(controlBar, "RunButton",   "▶ RUN",  120f);
         run.image.color = new Color(0.20f, 0.55f, 0.25f);
         Button pause  = MakeBarButton(controlBar, "PauseButton", "❚❚",      70f);
         Button reset  = MakeBarButton(controlBar, "ResetButton", "↺ Reset", 110f);
-        Button speed1 = MakeBarButton(controlBar, "Speed1",      "1×",      64f);
-        Button speed2 = MakeBarButton(controlBar, "Speed2",      "2×",      64f);
-        Button speed5 = MakeBarButton(controlBar, "Speed5",      "5×",      64f);
         Button step   = MakeBarButton(controlBar, "StepButton",  "Step",    80f);
 
         Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(180f, 36f));
@@ -202,9 +199,6 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "runButton",      run);
         SceneBuilderUtil.Wire(controller, "pauseButton",    pause);
         SceneBuilderUtil.Wire(controller, "resetButton",    reset);
-        SceneBuilderUtil.Wire(controller, "speed1Button",   speed1);
-        SceneBuilderUtil.Wire(controller, "speed2Button",   speed2);
-        SceneBuilderUtil.Wire(controller, "speed5Button",   speed5);
         SceneBuilderUtil.Wire(controller, "speedSlider",    speedSlider);
         SceneBuilderUtil.Wire(controller, "speedLabel",     speedLabel);
         SceneBuilderUtil.Wire(controller, "stepButton",     step);
@@ -590,10 +584,19 @@ public static class AutomationDriveSceneBuilder
 
     internal static CodeAutocompleteController BuildAutocompleteDropdown(RectTransform parent)
     {
-        var window = UIFactory.CreatePanel(parent, "AutocompleteDropdown",
-                                           Vector2.zero, Vector2.zero,
+        // Float on the top-level canvas (not inside the editor window) so the
+        // dropdown is never clipped and PositionNearCaret's canvas-space math is
+        // correct. Anchored to the canvas centre with a top-left pivot so it drops
+        // down-right from the caret.
+        Canvas canvas = parent.GetComponentInParent<Canvas>();
+        RectTransform host = canvas != null ? (RectTransform)canvas.transform : parent;
+
+        var window = UIFactory.CreatePanel(host, "AutocompleteDropdown",
+                                           new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            new Color(0.08f, 0.09f, 0.12f, 0.98f));
-        UIFactory.Place(window, Vector2.zero, Vector2.zero, new Vector2(240f, 220f));
+        window.pivot = new Vector2(0f, 1f);
+        window.sizeDelta = new Vector2(240f, 220f);
+        window.SetAsLastSibling();
         window.gameObject.SetActive(false);
 
         ScrollRect scroll = UIFactory.CreateScrollView(window, "Scroll",

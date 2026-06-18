@@ -93,8 +93,19 @@ public static class StreamingTownGenerator
         var layout = s.Layout;
         var chunk = new TownChunk { baseSeed = s.BaseSeed, chunkIndex = s.NextChunkIndex };
 
+        // Snapshot the committed layout so a failed attempt can be rolled back
+        // cleanly — otherwise rejected chunks leave dead-end branches and stranded
+        // riders behind, which is what made later free-roam legs degrade.
+        int nodeCount0  = layout.nodes.Count;
+        int edgeCount0  = layout.edges.Count;
+        int reqCount0   = layout.requests.Count;
+        int trunkCount0 = layout.trunkNodeIds.Count;
+        int destId0     = layout.destNodeId;
+
         // Find the current terminal-end node and demote it to a regular stop.
         TownNode oldDest = layout.Node(layout.destNodeId);
+        NodeKind oldDestKind0 = oldDest.kind;
+        string   oldDestName0 = oldDest.name;
         oldDest.kind = NodeKind.Stop;
         if (string.IsNullOrEmpty(oldDest.name) || oldDest.name == "Destination")
             oldDest.name = $"Sitio {layout.nodes.Count}";
@@ -219,7 +230,19 @@ public static class StreamingTownGenerator
         }
 
         if (!ValidateChunk(layout, s.CellSize))
+        {
+            // Roll back every mutation this attempt made to the shared layout so a
+            // rejected chunk never corrupts the committed town.
+            layout.nodes.RemoveRange(nodeCount0, layout.nodes.Count - nodeCount0);
+            layout.edges.RemoveRange(edgeCount0, layout.edges.Count - edgeCount0);
+            layout.requests.RemoveRange(reqCount0, layout.requests.Count - reqCount0);
+            layout.trunkNodeIds.RemoveRange(trunkCount0, layout.trunkNodeIds.Count - trunkCount0);
+            layout.destNodeId = destId0;
+            oldDest.kind = oldDestKind0;
+            oldDest.name = oldDestName0;
+            s.TrunkEndPos = oldDest.pos;
             return null;
+        }
 
         return chunk;
     }

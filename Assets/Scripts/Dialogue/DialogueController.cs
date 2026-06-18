@@ -21,6 +21,10 @@ public class DialogueController : MonoBehaviour
     [SerializeField] private RectTransform  choiceContainer;
     [SerializeField] private Button         choiceButtonTemplate;
 
+    [Header("Speaker portrait (HoYo placeholder)")]
+    [SerializeField] private Image          speakerPortrait;
+    [SerializeField] private TMP_Text       speakerInitials;
+
     [Header("Reveal / Cutscene")]
     [SerializeField] private GameObject     revealRoot;
     [SerializeField] private TMP_Text       revealBody;
@@ -310,6 +314,8 @@ public class DialogueController : MonoBehaviour
     {
         if (dialogBox == null) return;
 
+        SetSpeakerPortrait(line.speaker);
+
         bool isRevisit = _runtime != null &&
                          _runtime.HasVisited(nodeId) &&
                          _runtime.CurrentNode != null &&
@@ -326,6 +332,39 @@ public class DialogueController : MonoBehaviour
         }
 
         dialogBox.Show(line.speaker, line.text);
+    }
+
+    // -------------------------------------------------------------------------
+    // Speaker portrait (HoYo-style placeholder: a tinted plate + speaker initials,
+    // deterministically coloured per speaker so each character is recognisable).
+
+    void SetSpeakerPortrait(string speaker)
+    {
+        if (speakerPortrait == null) return;
+
+        bool has = !string.IsNullOrEmpty(speaker);
+        speakerPortrait.gameObject.SetActive(has);
+        if (speakerInitials != null) speakerInitials.gameObject.SetActive(has);
+        if (!has) return;
+
+        speakerPortrait.color = PortraitColor(speaker);
+        if (speakerInitials != null) speakerInitials.text = Initials(speaker);
+    }
+
+    static Color PortraitColor(string s)
+    {
+        int h = 17;
+        foreach (char c in s) h = h * 31 + c;
+        float hue = Mathf.Abs(h % 360) / 360f;
+        return Color.HSVToRGB(hue, 0.45f, 0.70f);
+    }
+
+    static string Initials(string s)
+    {
+        string[] parts = s.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        string a = parts.Length > 0 ? parts[0].Substring(0, 1) : "";
+        string b = parts.Length > 1 ? parts[1].Substring(0, 1) : "";
+        return (a + b).ToUpperInvariant();
     }
 
     IEnumerator RephraseLine(DialogueLine line, PassengerDefinition pax)
@@ -436,6 +475,7 @@ public class DialogueController : MonoBehaviour
     void ShowJournalCard()
     {
         _revealingJournalCard = true;
+        SetSpeakerPortrait("");
         if (dialogBox != null)
         {
             string badgeName = BadgeLibrary.Get(_runtime.Conversation.levelIndex)?.badgeName ?? "Badge";

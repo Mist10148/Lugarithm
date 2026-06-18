@@ -30,7 +30,14 @@ public class AlmanacController : MonoBehaviour
     [Header("Navigation")]
     [SerializeField] private Button closeButton;
 
-    enum Tab { Heritage, Coding }
+    [Header("PvZ layout")]
+    [SerializeField] private GameObject detailPane;
+    [SerializeField] private GameObject oraclePane;
+    [SerializeField] private Button     oracleTabButton;
+    [SerializeField] private Image      entryArt;
+    [SerializeField] private TMP_Text   entryArtLabel;
+
+    enum Tab { Heritage, Coding, Oracle }
 
     // Local palette copy — runtime scripts must not reference editor UIFactory.
     static readonly Color Accent     = new Color(0.95f, 0.65f, 0.15f, 1f);
@@ -93,6 +100,9 @@ public class AlmanacController : MonoBehaviour
         if (codingTabButton != null)
             codingTabButton.onClick.AddListener(() => SetTab(Tab.Coding));
 
+        if (oracleTabButton != null)
+            oracleTabButton.onClick.AddListener(() => SetTab(Tab.Oracle));
+
         if (closeButton != null)
             closeButton.onClick.AddListener(Close);
     }
@@ -103,13 +113,19 @@ public class AlmanacController : MonoBehaviour
     {
         _currentTab = tab;
         RefreshTabVisuals();
-        ShowPage(_selectedPageId);
+
+        bool oracle = tab == Tab.Oracle;
+        if (oraclePane != null) oraclePane.SetActive(oracle);
+        if (detailPane != null) detailPane.SetActive(!oracle);
+
+        if (!oracle) ShowPage(_selectedPageId);
     }
 
     void RefreshTabVisuals()
     {
         SetTabColor(heritageTabButton, _currentTab == Tab.Heritage);
-        SetTabColor(codingTabButton,    _currentTab == Tab.Coding);
+        SetTabColor(codingTabButton,   _currentTab == Tab.Coding);
+        SetTabColor(oracleTabButton,   _currentTab == Tab.Oracle);
     }
 
     void SetTabColor(Button button, bool active)
@@ -185,6 +201,7 @@ public class AlmanacController : MonoBehaviour
         if (pageId < 0 || pageId >= JournalPageLibrary.Pages.Count) return;
 
         bool unlocked = ProgressionRules.IsUnlocked(SaveSystem.Current, pageId);
+        SetEntryArt(pageId, unlocked);
 
         if (!unlocked)
         {
@@ -237,6 +254,33 @@ public class AlmanacController : MonoBehaviour
         }
 
         RefreshBodyHeight();
+    }
+
+    // PvZ-style entry art placeholder: a colored banner + initials per town,
+    // greyed with "?" while the entry is still locked.
+    void SetEntryArt(int pageId, bool unlocked)
+    {
+        string name = LevelLibrary.Names[pageId];
+        if (entryArt != null)
+            entryArt.color = unlocked ? ArtColor(name) : new Color(0.20f, 0.20f, 0.23f, 1f);
+        if (entryArtLabel != null)
+            entryArtLabel.text = unlocked ? Initials(name) : "?";
+    }
+
+    static Color ArtColor(string s)
+    {
+        int h = 17;
+        foreach (char c in s) h = h * 31 + c;
+        return Color.HSVToRGB(Mathf.Abs(h % 360) / 360f, 0.45f, 0.62f);
+    }
+
+    static string Initials(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        string[] parts = s.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+        string a = parts.Length > 0 ? parts[0].Substring(0, 1) : "";
+        string b = parts.Length > 1 ? parts[1].Substring(0, 1) : "";
+        return (a + b).ToUpperInvariant();
     }
 
     void RefreshBodyHeight()
