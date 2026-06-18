@@ -14,7 +14,8 @@ using TMPro;
 /// reddened in the gutter) and in the status label, in plain English.
 ///
 /// Recent upgrades: execution line highlight, per-line heatmap, auto-closing
-/// pairs, and a purchasable theme palette.
+/// pairs, error squigglies, gutter icons, code folding, autocomplete, and a
+/// purchasable theme palette.
 /// </summary>
 public class CodeEditorController : MonoBehaviour
 {
@@ -23,9 +24,17 @@ public class CodeEditorController : MonoBehaviour
     [SerializeField] private TMP_Text lineNumbers;
     [SerializeField] private TMP_Text highlight;
     [SerializeField] private TMP_Text lintLabel;
+    [SerializeField] private RectTransform gutterRoot;
 
     [Header("Exec highlight")]
     [SerializeField] private Image execLineBar;
+
+    [Header("Squiggles")]
+    [SerializeField] private RectTransform squigglesRoot;
+    [SerializeField] private Sprite squiggleSprite;
+
+    [Header("Autocomplete")]
+    [SerializeField] private CodeAutocompleteController autocomplete;
 
     [Header("Lint")]
     [SerializeField] private float lintDelaySeconds = 0.5f;
@@ -41,8 +50,26 @@ public class CodeEditorController : MonoBehaviour
     // Auto-closing pairs state.
     const string Openers  = "([{\"";
     const string Closers  = ")]}\"";
-    readonly HashSet<char> _autoCloseChars = new HashSet<char> { '(', ')', '[', ']', '{', '}', '\"' };
     bool _justAutoClosed;
+
+    // Squiggle pool.
+    readonly List<Image> _squiggleImages = new List<Image>();
+
+    // Gutter icon pool.
+    readonly List<Image> _gutterIcons = new List<Image>();
+    readonly Dictionary<int, Image> _gutterIconByLine = new Dictionary<int, Image>();
+
+    // Folding.
+    readonly HashSet<int> _foldedLines = new HashSet<int>();
+    readonly List<FoldRange> _foldRanges = new List<FoldRange>();
+    readonly List<Button> _foldButtons = new List<Button>();
+
+    struct FoldRange
+    {
+        public int HeaderLine;
+        public int StartLine; // inclusive body start
+        public int EndLine;   // inclusive body end
+    }
 
     public string Source => input != null ? input.text : "";
 
@@ -57,16 +84,9 @@ public class CodeEditorController : MonoBehaviour
 
         if (input != null && input.textComponent != null)
         {
-            // The raw text stays in the input (for the caret/selection) but is
-            // drawn transparent — the highlight overlay supplies the colors.
             Color c = input.textComponent.color;
             input.textComponent.color = new Color(c.r, c.g, c.b, 0f);
-
-            // Lay the raw text out literally so the caret lands exactly where the
-            // overlay draws each glyph (the overlay escapes '<' via <noparse>).
             input.textComponent.richText = false;
-
-            // Auto-close pairs and skip-over already-inserted closers.
             input.onValidateInput += OnValidateInput;
         }
 
@@ -78,6 +98,7 @@ public class CodeEditorController : MonoBehaviour
                 _lintTimer = lintDelaySeconds;
                 RefreshLineNumbers();
                 RefreshHighlight();
+                RequestAutocomplete();
             });
         }
 
@@ -112,12 +133,26 @@ public class CodeEditorController : MonoBehaviour
             _heatPulse += Time.deltaTime * 4f;
             RefreshLineNumbers();
         }
+
+        if (autocomplete != null && autocomplete.Visible)
+        {
+            if (Input.anyKeyDown && !IsNavigationKey())
+            {
+                // Let the input field update first, then refresh autocomplete.
+                // Simplest is to re-request next frame via _dirty path.
+            }
+        }
+
+        PreventCaretInFoldedRegion();
     }
 
-    // Keep the colour overlay glyph-for-glyph on top of the input's text every
-    // frame. TMP_InputField shifts its text component to seat the caret and to
-    // scroll; without mirroring, the colours drift onto a different line than
-    // the caret (the "types above the cursor line" bug).
+    bool IsNavigationKey()
+    {
+        return Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow)
+            || Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.Return)
+            || Input.GetKeyDown(KeyCode.Escape);
+    }
+
     void LateUpdate()
     {
         SyncHighlightToInput();
@@ -146,6 +181,9 @@ public class CodeEditorController : MonoBehaviour
         if (src.font != null && highlight.font != src.font) highlight.font = src.font;
 
         UpdateExecLineBarPosition();
+        UpdateSquiggles();
+        UpdateGutterIcons();
+        UpdateFoldButtons();
     }
 
     // -------------------------------------------------------------------------
@@ -170,6 +208,15 @@ public class CodeEditorController : MonoBehaviour
             highlight.ForceMeshUpdate();
         }
 
+        if (autocomplete != null)
+        {
+            autocomplete.actionColor = _theme.actionColor;
+            autocomplete.queryColor = _theme.queryColor;
+            autocomplete.keywordColor = _theme.keywordColor;
+            autocomplete.varColor = _theme.textColor;
+            autocomplete.selectedColor = _theme.execBarColor;
+        }
+
         RefreshHighlight();
         RefreshLineNumbers();
     }
@@ -182,7 +229,6 @@ public class CodeEditorController : MonoBehaviour
         int opener = Openers.IndexOf(addedChar);
         if (opener >= 0)
         {
-            // Don't auto-close inside a string or comment.
             if (IsInStringOrComment(text, charIndex)) return addedChar;
 
             char close = Closers[opener];
@@ -220,7 +266,6 @@ public class CodeEditorController : MonoBehaviour
 
     // -------------------------------------------------------------------------
 
-    /// <summary>Pre-fills the goal scaffold (only when the editor is empty).</summary>
     public void SetScaffold(string scaffold)
     {
         if (input != null && string.IsNullOrEmpty(input.text))
@@ -231,7 +276,6 @@ public class CodeEditorController : MonoBehaviour
         }
     }
 
-    /// <summary>Compiles the current source.</summary>
     public ProgramNode BuildProgram(out List<LangError> errors)
     {
         return Parser.Compile(Source, out errors);
@@ -244,32 +288,46 @@ public class CodeEditorController : MonoBehaviour
         Parser.Compile(Source, out _errors);
         if (_errors == null) _errors = new List<LangError>();
         RefreshLineNumbers();
+        ComputeFoldRanges();
 
         if (lintLabel == null) return;
 
         if (_errors.Count == 0)
-        {
             lintLabel.text = $"<color=#{ColorToHex(_theme.okColor)}>✓  looks good</color>";
-        }
         else
-        {
             lintLabel.text = $"<color=#{ColorToHex(_theme.errorColor)}>{_errors[0]}</color>";
-        }
     }
+
+    // -------------------------------------------------------------------------
+    // Line numbers + folding display
 
     public void RefreshLineNumbers()
     {
         if (lineNumbers == null || input == null) return;
 
-        int count = 1;
-        string text = input.text;
-        for (int i = 0; i < text.Length; i++)
-            if (text[i] == '\n') count++;
-
         var sb = new StringBuilder();
+        int count = LineCount();
         for (int i = 1; i <= count; i++)
         {
-            sb.Append("<color=#").Append(LineNumberColorHex(i)).Append('>').Append(i).Append("</color>");
+            if (IsLineFolded(i))
+            {
+                sb.Append("<color=#").Append(LineNumberColorHex(i)).Append(">⋯</color>");
+                // Skip folded body lines.
+                int skipEnd = i;
+                foreach (FoldRange fr in _foldRanges)
+                {
+                    if (fr.HeaderLine == i)
+                    {
+                        skipEnd = Mathf.Max(skipEnd, fr.EndLine);
+                        break;
+                    }
+                }
+                i = skipEnd;
+            }
+            else
+            {
+                sb.Append("<color=#").Append(LineNumberColorHex(i)).Append('>').Append(i).Append("</color>");
+            }
             sb.Append('\n');
         }
 
@@ -278,15 +336,13 @@ public class CodeEditorController : MonoBehaviour
 
     string LineNumberColorHex(int line)
     {
-        // Error line overrides heat.
-        if (_errors.Count > 0 && _errors[0].Line == line)
-            return ColorToHex(_theme.errorColor);
+        foreach (LangError err in _errors)
+            if (err.Line == line) return ColorToHex(_theme.errorColor);
 
         if (_heatHits != null && _heatHits.TryGetValue(line, out int hits) && hits > 0)
         {
             float t = Mathf.Clamp01(hits / 50f);
             Color c = Color.Lerp(_theme.heatColdColor, _theme.heatHotColor, t);
-            // Pulse the hottest line.
             if (hits >= 50)
             {
                 float alpha = 0.65f + 0.35f * Mathf.Sin(_heatPulse);
@@ -301,7 +357,239 @@ public class CodeEditorController : MonoBehaviour
     public void RefreshHighlight()
     {
         if (highlight == null || input == null) return;
-        highlight.text = Colorize(input.text);
+
+        string src = input.text;
+        if (_foldedLines.Count > 0)
+        {
+            // Replace folded body lines with spaces so the overlay still aligns.
+            var sb = new StringBuilder(src.Length);
+            int line = 1;
+            for (int i = 0; i < src.Length; i++)
+            {
+                if (IsLineFolded(line) && line != CurrentFoldHeader(line))
+                {
+                    // Replace with space to preserve width; simpler than clipping.
+                    sb.Append(' ');
+                }
+                else
+                {
+                    sb.Append(src[i]);
+                }
+
+                if (src[i] == '\n') line++;
+            }
+            src = sb.ToString();
+        }
+
+        highlight.text = Colorize(src);
+    }
+
+    int CurrentFoldHeader(int line)
+    {
+        foreach (FoldRange fr in _foldRanges)
+            if (line >= fr.StartLine && line <= fr.EndLine)
+                return fr.HeaderLine;
+        return -1;
+    }
+
+    bool IsLineFolded(int line)
+    {
+        foreach (FoldRange fr in _foldRanges)
+        {
+            if (fr.HeaderLine == line) return _foldedLines.Contains(line);
+            if (_foldedLines.Contains(fr.HeaderLine) && line >= fr.StartLine && line <= fr.EndLine)
+                return true;
+        }
+        return false;
+    }
+
+    int LineCount()
+    {
+        if (input == null) return 0;
+        int count = 1;
+        string text = input.text;
+        for (int i = 0; i < text.Length; i++)
+            if (text[i] == '\n') count++;
+        return count;
+    }
+
+    // -------------------------------------------------------------------------
+    // Folding
+
+    void ComputeFoldRanges()
+    {
+        _foldRanges.Clear();
+        string text = input.text;
+        var lineIndents = new List<int>();
+        int currentIndent = 0;
+        bool inLine = true;
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            if (c == '\n')
+            {
+                lineIndents.Add(currentIndent);
+                currentIndent = 0;
+                inLine = true;
+            }
+            else if (inLine && c == ' ')
+            {
+                currentIndent++;
+            }
+            else if (inLine && c != ' ')
+            {
+                inLine = false;
+            }
+        }
+        lineIndents.Add(currentIndent);
+
+        // Find headers: lines ending in ':'.
+        int line = 1;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (text[i] == ':')
+            {
+                int headerIndent = lineIndents[line - 1];
+                if (line < lineIndents.Count)
+                {
+                    int bodyIndent = lineIndents[line];
+                    if (bodyIndent > headerIndent)
+                    {
+                        int end = line;
+                        for (int j = line + 1; j <= lineIndents.Count; j++)
+                        {
+                            if (j > lineIndents.Count) break;
+                            if (lineIndents[j - 1] > 0 && lineIndents[j - 1] < bodyIndent)
+                                break;
+                            if (lineIndents[j - 1] >= bodyIndent || j <= line)
+                                end = j;
+                            else
+                                break;
+                        }
+                        _foldRanges.Add(new FoldRange { HeaderLine = line, StartLine = line + 1, EndLine = end });
+                    }
+                }
+            }
+            if (text[i] == '\n') line++;
+        }
+
+        // Remove folded lines for ranges that no longer exist.
+        var toRemove = new List<int>();
+        foreach (int header in _foldedLines)
+        {
+            bool found = false;
+            foreach (FoldRange fr in _foldRanges)
+            {
+                if (fr.HeaderLine == header) { found = true; break; }
+            }
+            if (!found) toRemove.Add(header);
+        }
+        foreach (int h in toRemove) _foldedLines.Remove(h);
+    }
+
+    void ToggleFold(int headerLine)
+    {
+        if (_foldedLines.Contains(headerLine))
+            _foldedLines.Remove(headerLine);
+        else
+            _foldedLines.Add(headerLine);
+
+        RefreshLineNumbers();
+        RefreshHighlight();
+    }
+
+    void PreventCaretInFoldedRegion()
+    {
+        if (input == null) return;
+        int caret = input.stringPosition;
+        int line = CharIndexToLine(caret);
+        if (IsLineFolded(line))
+        {
+            // Move caret to the header line.
+            foreach (FoldRange fr in _foldRanges)
+            {
+                if (line >= fr.StartLine && line <= fr.EndLine && _foldedLines.Contains(fr.HeaderLine))
+                {
+                    int headerEnd = LineEndIndex(fr.HeaderLine);
+                    if (caret > headerEnd)
+                    {
+                        input.stringPosition = headerEnd;
+                        input.selectionAnchorPosition = headerEnd;
+                        input.selectionFocusPosition = headerEnd;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    int CharIndexToLine(int index)
+    {
+        string text = input.text;
+        int line = 1;
+        for (int i = 0; i < index && i < text.Length; i++)
+            if (text[i] == '\n') line++;
+        return line;
+    }
+
+    int LineEndIndex(int line)
+    {
+        string text = input.text;
+        int current = 1;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (current == line && text[i] == '\n') return i;
+            if (text[i] == '\n') current++;
+        }
+        return text.Length;
+    }
+
+    void UpdateFoldButtons()
+    {
+        if (gutterRoot == null) return;
+
+        EnsureFoldButtons(_foldRanges.Count);
+        for (int i = 0; i < _foldRanges.Count; i++)
+        {
+            FoldRange fr = _foldRanges[i];
+            Button btn = _foldButtons[i];
+            RectTransform rt = (RectTransform)btn.transform;
+            PositionGutterObject(rt, fr.HeaderLine, 0f);
+
+            TMP_Text label = btn.GetComponentInChildren<TMP_Text>();
+            if (label != null)
+                label.text = _foldedLines.Contains(fr.HeaderLine) ? "▸" : "▾";
+
+            int header = fr.HeaderLine;
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => ToggleFold(header));
+            btn.gameObject.SetActive(true);
+        }
+
+        for (int i = _foldRanges.Count; i < _foldButtons.Count; i++)
+            _foldButtons[i].gameObject.SetActive(false);
+    }
+
+    void EnsureFoldButtons(int count)
+    {
+        while (_foldButtons.Count < count)
+        {
+            var go = new GameObject("FoldButton", typeof(RectTransform));
+            go.transform.SetParent(gutterRoot, false);
+            var btn = go.AddComponent<Button>();
+            var img = go.AddComponent<Image>();
+            img.color = new Color(0.1f, 0.1f, 0.1f, 0.6f);
+            var txt = new GameObject("Label", typeof(RectTransform)).AddComponent<TextMeshProUGUI>();
+            txt.transform.SetParent(go.transform, false);
+            txt.rectTransform.anchorMin = Vector2.zero;
+            txt.rectTransform.anchorMax = Vector2.one;
+            txt.rectTransform.offsetMin = Vector2.zero;
+            txt.rectTransform.offsetMax = Vector2.zero;
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.fontSize = 16f;
+            txt.color = Color.white;
+            _foldButtons.Add(btn);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -324,10 +612,12 @@ public class CodeEditorController : MonoBehaviour
     public void ClearExecutionHighlight()
     {
         _executingLine = -1;
+        _executingMarkerLine = -1;
         if (execLineBar != null) execLineBar.gameObject.SetActive(false);
     }
 
     int _executingLine = -1;
+    int _executingMarkerLine = -1;
 
     void UpdateExecLineBarPosition()
     {
@@ -337,7 +627,6 @@ public class CodeEditorController : MonoBehaviour
         if (_executingLine > highlight.textInfo.lineCount) return;
 
         TMP_LineInfo lineInfo = highlight.textInfo.lineInfo[_executingLine - 1];
-
         RectTransform viewport = input != null ? input.textViewport : highlight.rectTransform;
         RectTransform barRt = (RectTransform)execLineBar.transform;
 
@@ -357,15 +646,137 @@ public class CodeEditorController : MonoBehaviour
         execLineBar.color = c;
     }
 
-    int LineCount()
+    // -------------------------------------------------------------------------
+    // Squigglies
+
+    void UpdateSquiggles()
     {
-        if (input == null) return 0;
-        int count = 1;
-        string text = input.text;
-        for (int i = 0; i < text.Length; i++)
-            if (text[i] == '\n') count++;
-        return count;
+        if (squigglesRoot == null || highlight == null) return;
+
+        int needed = 0;
+        foreach (LangError err in _errors)
+            if (err.Line > 0) needed++;
+
+        EnsureSquiggles(needed);
+
+        highlight.ForceMeshUpdate();
+        int idx = 0;
+        foreach (LangError err in _errors)
+        {
+            if (err.Line <= 0 || err.Line > highlight.textInfo.lineCount) continue;
+
+            TMP_LineInfo lineInfo = highlight.textInfo.lineInfo[err.Line - 1];
+            Image img = _squiggleImages[idx];
+            RectTransform rt = (RectTransform)img.transform;
+
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(0f, lineInfo.ascender + highlight.rectTransform.anchoredPosition.y - lineInfo.lineHeight + 2f);
+            rt.sizeDelta = new Vector2(0f, 3f);
+            img.color = _theme.errorColor;
+            img.gameObject.SetActive(true);
+            idx++;
+        }
+
+        for (int i = idx; i < _squiggleImages.Count; i++)
+            _squiggleImages[i].gameObject.SetActive(false);
     }
+
+    void EnsureSquiggles(int count)
+    {
+        while (_squiggleImages.Count < count)
+        {
+            var go = new GameObject("Squiggle", typeof(RectTransform));
+            go.transform.SetParent(squigglesRoot, false);
+            var img = go.AddComponent<Image>();
+            img.sprite = squiggleSprite;
+            img.type = Image.Type.Tiled;
+            _squiggleImages.Add(img);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Gutter icons
+
+    public void SetGutterIcon(int line, GutterIconKind kind)
+    {
+        if (gutterRoot == null) return;
+
+        if (kind == GutterIconKind.None)
+        {
+            if (_gutterIconByLine.TryGetValue(line, out Image img))
+            {
+                img.gameObject.SetActive(false);
+                _gutterIconByLine.Remove(line);
+            }
+            return;
+        }
+
+        Image icon = EnsureGutterIcon(line);
+        icon.color = kind == GutterIconKind.Error ? _theme.errorColor : _theme.okColor;
+
+        TMP_Text label = icon.GetComponentInChildren<TMP_Text>();
+        if (label != null)
+            label.text = kind == GutterIconKind.Error ? "⚑" : "▶";
+
+        icon.gameObject.SetActive(true);
+        PositionGutterObject((RectTransform)icon.transform, line, 18f);
+    }
+
+    Image EnsureGutterIcon(int line)
+    {
+        if (_gutterIconByLine.TryGetValue(line, out Image img)) return img;
+
+        var go = new GameObject($"GutterIcon_{line}", typeof(RectTransform));
+        go.transform.SetParent(gutterRoot, false);
+        var imgComp = go.AddComponent<Image>();
+        imgComp.color = Color.clear;
+        var txt = new GameObject("Label", typeof(RectTransform)).AddComponent<TextMeshProUGUI>();
+        txt.transform.SetParent(go.transform, false);
+        txt.rectTransform.anchorMin = Vector2.zero;
+        txt.rectTransform.anchorMax = Vector2.one;
+        txt.rectTransform.offsetMin = Vector2.zero;
+        txt.rectTransform.offsetMax = Vector2.zero;
+        txt.alignment = TextAlignmentOptions.Center;
+        txt.fontSize = 18f;
+        _gutterIconByLine[line] = imgComp;
+        return imgComp;
+    }
+
+    void UpdateGutterIcons()
+    {
+        // Error flags.
+        foreach (LangError err in _errors)
+        {
+            if (err.Line > 0)
+                SetGutterIcon(err.Line, GutterIconKind.Error);
+        }
+
+        // Execution marker.
+        if (_executingMarkerLine > 0 && _executingMarkerLine != _executingLine)
+            SetGutterIcon(_executingMarkerLine, GutterIconKind.None);
+        _executingMarkerLine = _executingLine;
+        if (_executingMarkerLine > 0)
+            SetGutterIcon(_executingMarkerLine, GutterIconKind.Executing);
+    }
+
+    void PositionGutterObject(RectTransform rt, int line, float xOffset)
+    {
+        if (lineNumbers == null) return;
+
+        lineNumbers.ForceMeshUpdate();
+        if (line < 1 || line > lineNumbers.textInfo.lineCount) return;
+
+        TMP_LineInfo lineInfo = lineNumbers.textInfo.lineInfo[line - 1];
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(0f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.sizeDelta = new Vector2(20f, lineInfo.lineHeight);
+        rt.anchoredPosition = new Vector2(xOffset, lineInfo.ascender);
+    }
+
+    public enum GutterIconKind { None, Error, Executing }
 
     // -------------------------------------------------------------------------
     // Heatmap
@@ -384,8 +795,62 @@ public class CodeEditorController : MonoBehaviour
     }
 
     // -------------------------------------------------------------------------
-    // Syntax colouring — preserves every character, only inserts color tags so
-    // the overlay stays glyph-aligned with the (invisible) input text.
+    // Autocomplete
+
+    void RequestAutocomplete()
+    {
+        if (autocomplete == null || input == null) return;
+
+        int caret = input.stringPosition;
+        string text = input.text;
+        string prefix = ExtractWordPrefix(text, caret);
+
+        if (prefix.Length >= 1 && char.IsLetter(prefix[0]))
+        {
+            var vars = new List<string>();
+            CollectVariableNames(text, vars);
+            autocomplete.Show(caret, prefix, vars);
+        }
+        else
+        {
+            autocomplete.Hide();
+        }
+    }
+
+    void HideAutocomplete()
+    {
+        if (autocomplete != null) autocomplete.Hide();
+    }
+
+    string ExtractWordPrefix(string text, int caret)
+    {
+        int start = caret;
+        while (start > 0 && IsWordChar(text[start - 1])) start--;
+        return text.Substring(start, caret - start);
+    }
+
+    void CollectVariableNames(string text, List<string> names)
+    {
+        var seen = new HashSet<string>();
+        var lines = text.Split('\n');
+        foreach (string line in lines)
+        {
+            string trimmed = line.Trim();
+            int eq = trimmed.IndexOf('=');
+            if (eq > 0)
+            {
+                string lhs = trimmed.Substring(0, eq).Trim();
+                if (lhs.IndexOfAny(new char[] { '[', '(', ')' }) < 0 && !seen.Contains(lhs))
+                {
+                    seen.Add(lhs);
+                    names.Add(lhs);
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Syntax colouring
 
     string Colorize(string src)
     {
@@ -397,7 +862,7 @@ public class CodeEditorController : MonoBehaviour
         {
             char c = src[i];
 
-            if (c == '#')                       // comment to end of line
+            if (c == '#')
             {
                 int j = i;
                 while (j < src.Length && src[j] != '\n') j++;
@@ -405,7 +870,7 @@ public class CodeEditorController : MonoBehaviour
                   .Append(src, i, j - i).Append("</color>");
                 i = j;
             }
-            else if (IsWordChar(c))             // identifier / keyword
+            else if (IsWordChar(c))
             {
                 int j = i;
                 while (j < src.Length && IsWordChar(src[j])) j++;
@@ -417,7 +882,7 @@ public class CodeEditorController : MonoBehaviour
             }
             else
             {
-                if (c == '<') sb.Append("<noparse><</noparse>"); // never breaks layout
+                if (c == '<') sb.Append("<noparse><</noparse>");
                 else          sb.Append(c);
                 i++;
             }
@@ -435,8 +900,8 @@ public class CodeEditorController : MonoBehaviour
             case "True": case "False": case "None":
                 return ColorToHex(_theme.keywordColor);
         }
-        if (AgentApi.IsAction(word))  return ColorToHex(_theme.actionColor);
-        if (AgentApi.IsQuery(word))   return ColorToHex(_theme.queryColor);
+        if (AgentApi.IsAction(word))   return ColorToHex(_theme.actionColor);
+        if (AgentApi.IsQuery(word))    return ColorToHex(_theme.queryColor);
         if (AgentApi.IsReporter(word)) return ColorToHex(_theme.queryColor);
         return null;
     }

@@ -505,6 +505,11 @@ public static class AutomationDriveSceneBuilder
         gutter.offsetMin = new Vector2(0f, 36f);
         gutter.offsetMax = new Vector2(46f, 0f);
 
+        // Container for gutter icons + fold arrows (drawn over the gutter background).
+        var gutterRoot = UIFactory.CreateRect(gutter, "GutterIcons",
+                                              Vector2.zero, Vector2.one,
+                                              Vector2.zero, Vector2.zero);
+
         var lineNumbers = UIFactory.CreateText(parent, "LineNumbers", "1", 22f,
                                                UIFactory.TextDim, TextAlignmentOptions.TopRight);
         lineNumbers.rectTransform.anchorMin = new Vector2(0f, 0f);
@@ -543,10 +548,18 @@ public static class AutomationDriveSceneBuilder
         execBarRt.gameObject.SetActive(false);
         execBarRt.SetAsFirstSibling();
 
+        // Squiggle underlines for lint errors.
+        var squigglesRoot = UIFactory.CreateRect(input.textViewport, "Squiggles",
+                                                 Vector2.zero, Vector2.one,
+                                                 Vector2.zero, Vector2.zero);
+
         var lint = UIFactory.CreateText(parent, "LintLabel", "", 17f,
                                         UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(lint, new Vector2(0f, 0f), new Vector2(8f, 4f), new Vector2(800f, 28f));
         lint.richText = true;
+
+        // Autocomplete dropdown (high sort order so it floats above everything).
+        CodeAutocompleteController autocomplete = BuildAutocompleteDropdown(parent);
 
         // Monospace font (The Farmer Was Replaced look). Optional — falls back to
         // the default font when the asset hasn't been generated.
@@ -565,8 +578,43 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(editor, "highlight",   highlight);
         SceneBuilderUtil.Wire(editor, "lintLabel",   lint);
         SceneBuilderUtil.Wire(editor, "execLineBar", execBar);
+        SceneBuilderUtil.Wire(editor, "gutterRoot",  gutterRoot);
+        SceneBuilderUtil.Wire(editor, "squigglesRoot", squigglesRoot);
+        SceneBuilderUtil.Wire(editor, "autocomplete", autocomplete);
+
+        autocomplete.input = input;
+        autocomplete.highlight = highlight;
 
         return editor;
+    }
+
+    internal static CodeAutocompleteController BuildAutocompleteDropdown(RectTransform parent)
+    {
+        var window = UIFactory.CreatePanel(parent, "AutocompleteDropdown",
+                                           Vector2.zero, Vector2.zero,
+                                           new Color(0.08f, 0.09f, 0.12f, 0.98f));
+        UIFactory.Place(window, Vector2.zero, Vector2.zero, new Vector2(240f, 220f));
+        window.gameObject.SetActive(false);
+
+        ScrollRect scroll = UIFactory.CreateScrollView(window, "Scroll",
+                                                       Vector2.zero, Vector2.one,
+                                                       out RectTransform content);
+        ((RectTransform)scroll.transform).offsetMin = new Vector2(2f, 2f);
+        ((RectTransform)scroll.transform).offsetMax = new Vector2(-2f, -2f);
+
+        // Row template.
+        var row = UIFactory.CreateButton(content, "RowTemplate", "moveForward  action", new Vector2(220f, 30f), 18f);
+        row.image.color = new Color(0.08f, 0.09f, 0.12f, 0.95f);
+        var rowTxt = row.GetComponentInChildren<TMP_Text>();
+        rowTxt.alignment = TextAlignmentOptions.MidlineLeft;
+        rowTxt.rectTransform.offsetMin = new Vector2(6f, 0f);
+        row.gameObject.SetActive(false);
+
+        var ctrl = window.gameObject.AddComponent<CodeAutocompleteController>();
+        SceneBuilderUtil.Wire(ctrl, "root", window.gameObject);
+        SceneBuilderUtil.Wire(ctrl, "content", content);
+        SceneBuilderUtil.Wire(ctrl, "rowTemplate", row.gameObject);
+        return ctrl;
     }
 
     // -------------------------------------------------------------------------
