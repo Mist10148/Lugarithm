@@ -432,19 +432,10 @@ public class ManualDriveController : MonoBehaviour
         dialogue.PlayReveal(convo, page, ShowResults);
     }
 
-    /// <summary>Shows the level's required non-code town puzzle. False when there is none.</summary>
+    /// <summary>Runs BOTH town-gate puzzles (random order) before finishing the leg.</summary>
     bool ShowTownGate(int seed, System.Action<MinigameResult> onDone)
     {
-        switch (_def.townPuzzle)
-        {
-            case TownPuzzleKind.FlowConnect:
-                if (flowPuzzle  != null) { flowPuzzle.Show(seed, onDone);  return true; }
-                break;
-            case TownPuzzleKind.CrateStack:
-                if (cratePuzzle != null) { cratePuzzle.Show(seed, onDone); return true; }
-                break;
-        }
-        return false;
+        return TownGateRunner.RunBoth(flowPuzzle, cratePuzzle, seed, onDone);
     }
 
     void ShowResults()

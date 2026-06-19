@@ -19,7 +19,7 @@ public static class CodeDriveSceneBuilder
         // --- World (full screen; iso fallback + top-down procedural) ----------------
 
         Camera worldCam = SceneBuilderUtil.CreateCamera2D("World Camera",
-                                                          new Color(0.07f, 0.09f, 0.12f), 5f);
+                                                          new Color(0.13f, 0.22f, 0.14f), 5f);
         var cameraFollow = worldCam.gameObject.AddComponent<CameraFollow2D>();
         SceneBuilderUtil.CreateGlobalLight2D();
         SceneBuilderUtil.CreateEventSystem();

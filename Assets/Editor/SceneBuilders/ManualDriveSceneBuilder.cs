@@ -232,10 +232,11 @@ public static class ManualDriveSceneBuilder
 
     static CoinDrawerController BuildCoinDrawer(Canvas canvas)
     {
+        // Anchored LEFT so the right-side dialogue choice pills never cover the drawer.
         var window = UIFactory.CreatePanel(canvas.transform, "CoinDrawer",
-                                           new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                                           new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                                            UIFactory.PanelDark);
-        UIFactory.Place(window, new Vector2(1f, 0.5f), new Vector2(-18f, 60f), new Vector2(430f, 540f));
+        UIFactory.Place(window, new Vector2(0f, 0.5f), new Vector2(18f, 60f), new Vector2(430f, 540f));
 
         var title = UIFactory.CreateText(window, "Title", "COIN DRAWER", 28f, UIFactory.Accent);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(380f, 40f));

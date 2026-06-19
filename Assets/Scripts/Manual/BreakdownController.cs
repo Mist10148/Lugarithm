@@ -50,31 +50,44 @@ public class BreakdownController : MonoBehaviour
         _tracker      = tracker;
 
         bool anyPanel = engineRepair != null || refuel != null || maze != null;
-        _armed = triggerFraction > 0f && anyPanel;
-        _triggerDistance = routeLength * triggerFraction;
+        // A repair breakdown now happens on every level (the tutorial included).
+        // When the level doesn't script a fraction, roll a random mid-route point.
+        _armed = anyPanel;
+        float frac = triggerFraction > 0f ? triggerFraction
+                                          : UnityEngine.Random.Range(0.35f, 0.7f);
+        _triggerDistance = routeLength * frac;
     }
 
     /// <summary>Called each frame by the drive controller with route progress.</summary>
     public void Tick(float distanceAlongRoute)
     {
-        if (!_armed || _inProgress) return;
+        if (_inProgress) return;
 
+        // Tank ran dry → refuel mini-game, independent of the scripted breakdown.
+        if (_jeepney != null && _refuel != null && _jeepney.Fuel01 <= 0f)
+        {
+            StartCoroutine(BreakdownSequence(forceFuel: true));
+            return;
+        }
+
+        if (!_armed) return;
         if (distanceAlongRoute >= _triggerDistance)
         {
             _armed = false;
-            StartCoroutine(BreakdownSequence());
+            StartCoroutine(BreakdownSequence(forceFuel: false));
         }
     }
 
     // -------------------------------------------------------------------------
 
-    IEnumerator BreakdownSequence()
+    IEnumerator BreakdownSequence(bool forceFuel)
     {
         _inProgress = true;
 
-        // Roll the fault and the interface fresh each run.
-        bool fuel = UnityEngine.Random.value < 0.5f;
-        bool code = UnityEngine.Random.value < 0.5f;
+        // Roll the fault and the interface fresh each run. A dry tank forces a
+        // (non-code) refuel; otherwise either fault and either interface can appear.
+        bool fuel = forceFuel || UnityEngine.Random.value < 0.5f;
+        bool code = !forceFuel && UnityEngine.Random.value < 0.5f;
         int  seed = UnityEngine.Random.Range(0, 99999);
         BreakdownFault fault = fuel ? BreakdownFault.Fuel : BreakdownFault.Engine;
 
@@ -91,6 +104,7 @@ public class BreakdownController : MonoBehaviour
         Action<MinigameResult> onDone = result =>
         {
             _tracker.SetBreakdownResult(result.TimedOut);
+            if (fuel && _jeepney != null) _jeepney.Refuel();   // fill the tank back up
             if (_toast != null)
                 _toast.Show(result.TimedOut
                     ? "Patched it up… barely. (−100)"

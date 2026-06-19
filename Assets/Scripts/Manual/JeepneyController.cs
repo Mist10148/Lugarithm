@@ -78,6 +78,7 @@ public class JeepneyController : MonoBehaviour
                                    (_rb != null ? _rb.linearVelocity.magnitude : 0f);
     public float CurrentSpeed01 => topSpeed > 0f ? Mathf.Clamp01(CurrentSpeed / topSpeed) : 0f;
     public float Fuel01         => _fuel;
+    public void  Refuel()       => _fuel = 1f;   // tank back to full (after the refuel mini-game)
 
     // -------------------------------------------------------------------------
 

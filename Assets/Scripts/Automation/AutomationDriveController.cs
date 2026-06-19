@@ -175,6 +175,10 @@ public class AutomationDriveController : MonoBehaviour
             activeSpace = tdSpace;
             activeStopView = tdSpace;
 
+            // Grass ground under the road so the procedural world reads like Manual
+            // (green grass + road), not a dark void.
+            AddProceduralGround(topDownWorldRoot, proceduralLayout);
+
             if (topDownAgentView == null)
             {
                 var go = new GameObject("TopDownAgent");
@@ -268,9 +272,10 @@ public class AutomationDriveController : MonoBehaviour
 
         // CodeDrive overlays: the workspace toggles visibility (it never switches
         // editor type — that's settings-only); the README panel opens on demand.
-        if (workspaceToggleButton != null && workspaceRoot != null)
-            workspaceToggleButton.onClick.AddListener(() =>
-                workspaceRoot.SetActive(!workspaceRoot.activeSelf));
+        // "Workspace" reopens/focuses the active floating editor window (the old
+        // toggle just hid an otherwise-always-useful editor + terminal).
+        if (workspaceToggleButton != null)
+            workspaceToggleButton.onClick.AddListener(FocusActiveEditor);
 
         if (readmePanel != null) readmePanel.SetActive(false);
         if (readmeButton != null && readmePanel != null)
@@ -412,6 +417,17 @@ public class AutomationDriveController : MonoBehaviour
     {
         SetTab(codeActive: !SaveSystem.Current.settings.blockMode);
         RefreshEditorModeLabel();
+    }
+
+    /// <summary>Reopen + bring the currently-active editor window to the front
+    /// (wired to the "Workspace" button — handy after the window's close button).</summary>
+    void FocusActiveEditor()
+    {
+        GameObject active = _codeTabActive ? codePanel : blockPanel;
+        if (active == null) return;
+        active.SetActive(true);
+        var win = active.GetComponent<EditorWindowController>();
+        if (win != null) win.Open();
     }
 
     /// <summary>In-editor Block/Code switch — flips the setting, which fires
@@ -588,6 +604,33 @@ public class AutomationDriveController : MonoBehaviour
     // -------------------------------------------------------------------------
     // Execution events
 
+    // Big tiled grass under the procedural road so Automation's world matches
+    // Manual's (which lays the same ground at sortingOrder -100). Sized to the
+    // generated layout's bounds plus a margin so it always covers the view.
+    void AddProceduralGround(Transform worldRoot, TownLayout layout)
+    {
+        if (worldRoot == null || layout == null || layout.nodes == null || layout.nodes.Count == 0)
+            return;
+
+        float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
+        foreach (TownNode n in layout.nodes)
+        {
+            minX = Mathf.Min(minX, n.pos.x); maxX = Mathf.Max(maxX, n.pos.x);
+            minY = Mathf.Min(minY, n.pos.y); maxY = Mathf.Max(maxY, n.pos.y);
+        }
+
+        const float margin = 80f;
+        var go = new GameObject("ProceduralGround");
+        go.transform.SetParent(worldRoot, false);
+        go.transform.localPosition = new Vector3((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, 0f);
+
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite       = Resources.Load<Sprite>("Placeholders/grass_tile");
+        sr.drawMode     = SpriteDrawMode.Tiled;
+        sr.size         = new Vector2((maxX - minX) + margin * 2f, (maxY - minY) + margin * 2f);
+        sr.sortingOrder = -100;
+    }
+
     void HandleStepDone(AgentActionResult result, StepResult step)
     {
         _lastExecutedLine = step.Node != null ? step.Node.Line : 0;
@@ -699,16 +742,7 @@ public class AutomationDriveController : MonoBehaviour
     /// <summary>Shows the level's required non-code town puzzle. False when there is none.</summary>
     bool ShowTownGate(int seed, System.Action<MinigameResult> onDone)
     {
-        switch (_level.townPuzzle)
-        {
-            case TownPuzzleKind.FlowConnect:
-                if (flowPuzzle  != null) { flowPuzzle.Show(seed, onDone);  return true; }
-                break;
-            case TownPuzzleKind.CrateStack:
-                if (cratePuzzle != null) { cratePuzzle.Show(seed, onDone); return true; }
-                break;
-        }
-        return false;
+        return TownGateRunner.RunBoth(flowPuzzle, cratePuzzle, seed, onDone);
     }
 
     void ShowResults()
