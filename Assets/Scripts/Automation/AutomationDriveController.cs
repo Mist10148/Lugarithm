@@ -53,6 +53,7 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private Slider speedSlider;
     [SerializeField] private TMP_Text speedLabel;
     [SerializeField] private Button stepButton;
+    [SerializeField] private Button editorModeToggle;
 
     [Header("Readouts")]
     [SerializeField] private ConsoleController      console;
@@ -227,14 +228,24 @@ public class AutomationDriveController : MonoBehaviour
         // Workspace
         if (goalLabel != null) goalLabel.text = _def.goalText;
 
-        if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, console);
-        if (palette     != null) palette.Init(_def.allowedBlocks, blockCanvas);
-        if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold);
-
-        if (vibeCtrl != null && codeEditor != null)
+        // Populating the editors must never abort Start() — if it throws, the
+        // control bar + editor toggle below would never wire (dead buttons, both
+        // editors visible). Keep the UI usable regardless.
+        try
         {
-            vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
-            vibeCtrl.gameObject.SetActive(false);
+            if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, console);
+            if (palette     != null) palette.Init(_def.allowedBlocks, blockCanvas);
+            if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold);
+
+            if (vibeCtrl != null && codeEditor != null)
+            {
+                vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
+                vibeCtrl.gameObject.SetActive(false);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[AutomationDrive] editor init failed (UI stays usable): {e}");
         }
 
         if (codeChatButton != null)
@@ -248,6 +259,7 @@ public class AutomationDriveController : MonoBehaviour
 
         bool blockMode = SaveSystem.Current.settings.blockMode;
         SetTab(codeActive: !blockMode);
+        RefreshEditorModeLabel();
 
         // The Block/Code setting is the source of truth — switch the active editor
         // window live when it changes (no in-scene tabs needed).
@@ -286,6 +298,9 @@ public class AutomationDriveController : MonoBehaviour
 
         if (stepButton != null)
             stepButton.onClick.AddListener(() => exec?.StepOnce());
+
+        if (editorModeToggle != null)
+            editorModeToggle.onClick.AddListener(ToggleEditorMode);
 
         // Autopilot only makes sense when there are rides to tend.
         if (autopilotButton != null)
@@ -396,6 +411,30 @@ public class AutomationDriveController : MonoBehaviour
     void ApplyEditorModeFromSettings()
     {
         SetTab(codeActive: !SaveSystem.Current.settings.blockMode);
+        RefreshEditorModeLabel();
+    }
+
+    /// <summary>In-editor Block/Code switch — flips the setting, which fires
+    /// OnSettingsChanged → ApplyEditorModeFromSettings → SetTab to swap editors.</summary>
+    void ToggleEditorMode()
+    {
+        bool newBlock = !SaveSystem.Current.settings.blockMode;
+        if (SettingsManager.Instance != null)
+            SettingsManager.Instance.BlockMode = newBlock;
+        else
+        {
+            SaveSystem.Current.settings.blockMode = newBlock;
+            ApplyEditorModeFromSettings();
+        }
+        RefreshEditorModeLabel();
+    }
+
+    void RefreshEditorModeLabel()
+    {
+        if (editorModeToggle == null) return;
+        var label = editorModeToggle.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
+            label.text = SaveSystem.Current.settings.blockMode ? "Editor: Blocks" : "Editor: Code";
     }
 
     void OnDestroy()

@@ -84,10 +84,10 @@ public static class AutomationDriveSceneBuilder
         UIFactory.Place(controlBar, new Vector2(0.5f, 1f), new Vector2(210f, -8f), new Vector2(820f, 52f));
         UIFactory.AddHorizontalLayout(controlBar, 8f, new RectOffset(10, 10, 6, 6), TextAnchor.MiddleCenter);
 
-        Button run    = MakeBarButton(controlBar, "RunButton",   "▶ RUN",  120f);
+        Button run    = MakeBarButton(controlBar, "RunButton",   "RUN",   120f);
         run.image.color = new Color(0.20f, 0.55f, 0.25f);
-        Button pause  = MakeBarButton(controlBar, "PauseButton", "❚❚",      70f);
-        Button reset  = MakeBarButton(controlBar, "ResetButton", "↺ Reset", 110f);
+        Button pause  = MakeBarButton(controlBar, "PauseButton", "Pause",  70f);
+        Button reset  = MakeBarButton(controlBar, "ResetButton", "Reset", 110f);
         Button step   = MakeBarButton(controlBar, "StepButton",  "Step",    80f);
 
         Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(180f, 36f));
@@ -105,7 +105,7 @@ public static class AutomationDriveSceneBuilder
         labelLe.preferredWidth = 56f;
         labelLe.preferredHeight = 36f;
 
-        Button autopilot = MakeBarButton(controlBar, "Autopilot", "🤖 Auto", 120f);
+        Button autopilot = MakeBarButton(controlBar, "Autopilot", "Auto", 120f);
         autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         // Exit (top-right corner)
@@ -114,6 +114,12 @@ public static class AutomationDriveSceneBuilder
         var link = exit.gameObject.AddComponent<SceneLink>();
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
+
+        // In-editor Block/Code switch (top-left, below the goal banner).
+        Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
+                                                         "Editor: Blocks", new Vector2(220f, 40f), 18f);
+        UIFactory.Place(editorModeToggle, new Vector2(0f, 1f), new Vector2(10f, -112f), new Vector2(220f, 40f));
+        editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         // --- Floating editor windows (Block / Code) ---------------------------------
 
@@ -202,6 +208,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "speedSlider",    speedSlider);
         SceneBuilderUtil.Wire(controller, "speedLabel",     speedLabel);
         SceneBuilderUtil.Wire(controller, "stepButton",     step);
+        SceneBuilderUtil.Wire(controller, "editorModeToggle", editorModeToggle);
         SceneBuilderUtil.Wire(controller, "autopilotButton", autopilot);
         SceneBuilderUtil.Wire(controller, "selfDrive",      selfDrive);
         SceneBuilderUtil.Wire(controller, "console",        console);
@@ -226,9 +233,15 @@ public static class AutomationDriveSceneBuilder
     // the Block/Code setting. The palette lives *inside* the block window, so
     // Code mode shows no block UI at all.
 
-    /// <summary>A titled floating panel; <paramref name="content"/> is the body below the title bar.</summary>
+    /// <summary>
+    /// A titled floating window with full chrome: title-bar drag, click-to-focus,
+    /// minimize/restore, close, and a bottom-right resize grip. <paramref name="content"/>
+    /// is the body below the title bar; <paramref name="windowCtrl"/> drives the
+    /// window and can be registered with a <see cref="WindowDock"/>.
+    /// </summary>
     internal static RectTransform BuildWindow(RectTransform parent, string name, string title,
-                                              out RectTransform content, out RectTransform titleBar)
+                                              out RectTransform content, out RectTransform titleBar,
+                                              out EditorWindowController windowCtrl)
     {
         var window = UIFactory.CreatePanel(parent, name, Vector2.zero, Vector2.one, UIFactory.PanelDark);
         window.offsetMin = Vector2.zero;
@@ -241,18 +254,52 @@ public static class AutomationDriveSceneBuilder
         var titleText = UIFactory.CreateText(titleBar, "Title", title, 18f, UIFactory.Accent,
                                               TextAlignmentOptions.MidlineLeft);
         titleText.rectTransform.offsetMin = new Vector2(14f, 0f);
-        titleText.rectTransform.offsetMax = new Vector2(-90f, 0f);
+        titleText.rectTransform.offsetMax = new Vector2(-120f, 0f);   // room for the window buttons
+
+        // Window buttons (top-right of the title bar): minimize + close.
+        Button minBtn = UIFactory.CreateButton(titleBar, "MinimizeButton", "_", new Vector2(28f, 24f), 18f);
+        UIFactory.Place(minBtn, new Vector2(1f, 0.5f), new Vector2(-44f, 0f), new Vector2(28f, 24f));
+        Button closeBtn = UIFactory.CreateButton(titleBar, "CloseButton", "x", new Vector2(28f, 24f), 18f);
+        UIFactory.Place(closeBtn, new Vector2(1f, 0.5f), new Vector2(-12f, 0f), new Vector2(28f, 24f));
+        closeBtn.image.color = new Color(0.55f, 0.20f, 0.20f, 1f);
 
         content = UIFactory.CreateRect(window, "Content", Vector2.zero, Vector2.one,
                                        Vector2.zero, new Vector2(0f, -34f));
+
+        // Bottom-right resize grip.
+        var grip = UIFactory.CreatePanel(window, "ResizeGrip", new Vector2(1f, 0f), new Vector2(1f, 0f),
+                                         new Color(0.50f, 0.55f, 0.62f, 0.55f));
+        UIFactory.Place(grip, new Vector2(1f, 0f), new Vector2(-2f, 2f), new Vector2(18f, 18f));
+        var resize = grip.gameObject.AddComponent<ResizeHandle>();
+        SceneBuilderUtil.Wire(resize, "target", window);
+
+        // Title-bar drag + window controller (focus / minimize / close).
+        var drag = titleBar.gameObject.AddComponent<DragWindowHandle>();
+        SceneBuilderUtil.Wire(drag, "windowRoot", window.gameObject);
+
+        windowCtrl = window.gameObject.AddComponent<EditorWindowController>();
+        SceneBuilderUtil.Wire(windowCtrl, "window",         window);
+        SceneBuilderUtil.Wire(windowCtrl, "content",        content);
+        SceneBuilderUtil.Wire(windowCtrl, "minimizeButton", minBtn);
+        SceneBuilderUtil.Wire(windowCtrl, "closeButton",    closeBtn);
+        SceneBuilderUtil.Wire(windowCtrl, "minimizeLabel",  minBtn.GetComponentInChildren<TMP_Text>());
+        SceneBuilderUtil.Wire(windowCtrl, "titleLabel",     titleText);
+
         return window;
+    }
+
+    /// <summary><see cref="BuildWindow"/> without the controller out.</summary>
+    internal static RectTransform BuildWindow(RectTransform parent, string name, string title,
+                                              out RectTransform content, out RectTransform titleBar)
+    {
+        return BuildWindow(parent, name, title, out content, out titleBar, out _);
     }
 
     /// <summary>Backward-compatible <see cref="BuildWindow"/> without title-bar out.</summary>
     internal static RectTransform BuildWindow(RectTransform parent, string name, string title,
                                               out RectTransform content)
     {
-        return BuildWindow(parent, name, title, out content, out _);
+        return BuildWindow(parent, name, title, out content, out _, out _);
     }
 
     /// <summary>Scratch-style block window: palette column + drag-and-drop canvas.</summary>
@@ -261,14 +308,7 @@ public static class AutomationDriveSceneBuilder
                                                    out BlockCanvasController canvas)
     {
         RectTransform window = BuildWindow(parent, "BlockWindow", "BLOCKS — drag to build",
-                                           out RectTransform content, out RectTransform titleBar);
-
-        // Make the title bar draggable.
-        if (titleBar != null)
-        {
-            var drag = titleBar.gameObject.AddComponent<DragWindowHandle>();
-            SceneBuilderUtil.Wire(drag, "windowRoot", window.gameObject);
-        }
+                                           out RectTransform content);
 
         var paletteFrame = UIFactory.CreatePanel(content, "Palette",
                                                  new Vector2(0f, 0f), new Vector2(0f, 1f),
@@ -310,13 +350,9 @@ public static class AutomationDriveSceneBuilder
         chatButton = null;
         if (titleBar != null)
         {
-            // Draggable title bar.
-            var drag = titleBar.gameObject.AddComponent<DragWindowHandle>();
-            SceneBuilderUtil.Wire(drag, "windowRoot", window.gameObject);
-
-            // AI chat toggle in the title bar.
-            chatButton = UIFactory.CreateButton(titleBar, "ChatButton", "✦ AI", new Vector2(80f, 26f), 16f);
-            UIFactory.Place(chatButton, new Vector2(1f, 0.5f), new Vector2(-10f, 0f), new Vector2(80f, 26f));
+            // AI chat toggle in the title bar (left of the minimize/close buttons).
+            chatButton = UIFactory.CreateButton(titleBar, "ChatButton", "AI", new Vector2(48f, 24f), 16f);
+            UIFactory.Place(chatButton, new Vector2(1f, 0.5f), new Vector2(-86f, 0f), new Vector2(48f, 24f));
         }
 
         editor = BuildCodeEditor(content);
@@ -327,16 +363,8 @@ public static class AutomationDriveSceneBuilder
     internal static VibeCodingController BuildVibeCodingWindow(RectTransform parent)
     {
         RectTransform content;
-        RectTransform windowRoot = BuildWindow(parent, "VibeCodingWindow", "✦ AI COPILOT", out content);
+        RectTransform windowRoot = BuildWindow(parent, "VibeCodingWindow", "AI COPILOT", out content);
         UIFactory.Place(windowRoot, new Vector2(1f, 1f), new Vector2(-20f, -20f), new Vector2(420f, 500f));
-
-        // Make the title bar draggable.
-        var titleBar = windowRoot.Find("TitleBar") as RectTransform;
-        if (titleBar != null)
-        {
-            var drag = titleBar.gameObject.AddComponent<DragWindowHandle>();
-            SceneBuilderUtil.Wire(drag, "windowRoot", windowRoot.gameObject);
-        }
 
         // Chat history (scrollable, fills top of window).
         ScrollRect scroll = UIFactory.CreateScrollView(content, "ChatHistory",
@@ -388,7 +416,7 @@ public static class AutomationDriveSceneBuilder
                                           new Color(0.30f, 0.12f, 0.12f, 0.92f));
         trash.offsetMin = new Vector2(0f, 4f);
         trash.offsetMax = new Vector2(0f, 40f);
-        var trashLabel = UIFactory.CreateText(trash, "Label", "🗑  drag a block here to delete",
+        var trashLabel = UIFactory.CreateText(trash, "Label", "drag a block here to delete",
                                               18f, new Color(0.92f, 0.6f, 0.55f),
                                               TextAlignmentOptions.Center);
         trashLabel.rectTransform.offsetMin = Vector2.zero;

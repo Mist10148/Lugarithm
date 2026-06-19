@@ -45,7 +45,7 @@ public class CodeEditorController : MonoBehaviour
     float _heatRefreshTimer;   // throttles per-frame gutter rebuilds while heat pulses
     List<LangError> _errors = new List<LangError>();
 
-    CodeTheme _theme;
+    CodeTheme _theme = CodeTheme.DarkPlus;   // never null — color helpers run before ApplyTheme
     Dictionary<int, int> _heatHits;
     float _heatPulse;
 
@@ -76,6 +76,15 @@ public class CodeEditorController : MonoBehaviour
     public string Source => input != null ? input.text : "";
 
     // -------------------------------------------------------------------------
+
+    void Awake()
+    {
+        // Resolve the theme before any other component's Start() can reach the
+        // colour helpers (AutomationDriveController.Start -> SetScaffold ->
+        // RefreshLineNumbers -> _theme). Awake runs before all Starts, so this
+        // removes the Start-order race that left _theme null and NRE'd.
+        ApplyTheme();
+    }
 
     void Start()
     {

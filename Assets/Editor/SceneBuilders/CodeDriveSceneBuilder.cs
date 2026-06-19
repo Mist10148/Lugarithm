@@ -78,10 +78,10 @@ public static class CodeDriveSceneBuilder
         UIFactory.Place(controlBar, new Vector2(0.5f, 1f), new Vector2(170f, -10f), new Vector2(720f, 52f));
         UIFactory.AddHorizontalLayout(controlBar, 8f, new RectOffset(10, 10, 6, 6), TextAnchor.MiddleCenter);
 
-        Button run    = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "RunButton",   "▶ RUN",  120f);
+        Button run    = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "RunButton",   "RUN",   120f);
         run.image.color = new Color(0.20f, 0.55f, 0.25f);
-        Button pause  = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "PauseButton", "❚❚",      70f);
-        Button reset  = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "ResetButton", "↺ Reset", 110f);
+        Button pause  = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "PauseButton", "Pause",  70f);
+        Button reset  = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "ResetButton", "Reset", 110f);
         Button step   = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "StepButton",  "Step",    80f);
 
         Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(180f, 36f));
@@ -105,6 +105,12 @@ public static class CodeDriveSceneBuilder
         var link = exit.gameObject.AddComponent<SceneLink>();
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
+
+        // In-editor Block/Code switch (top-left, below the goal banner).
+        Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
+                                                         "Editor: Blocks", new Vector2(220f, 40f), 18f);
+        UIFactory.Place(editorModeToggle, new Vector2(0f, 1f), new Vector2(10f, -112f), new Vector2(220f, 40f));
+        editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         Button workspaceToggle = UIFactory.CreateButton(canvas.transform, "WorkspaceToggle",
                                                         "▤ Workspace", new Vector2(170f, 42f), 20f);
@@ -205,6 +211,7 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "speedSlider",  speedSlider);
         SceneBuilderUtil.Wire(controller, "speedLabel",   speedLabel);
         SceneBuilderUtil.Wire(controller, "stepButton",   step);
+        SceneBuilderUtil.Wire(controller, "editorModeToggle", editorModeToggle);
         SceneBuilderUtil.Wire(controller, "console",      console);
         SceneBuilderUtil.Wire(controller, "monitor",      monitor);
         SceneBuilderUtil.Wire(controller, "results",      results);

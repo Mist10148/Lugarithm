@@ -113,7 +113,7 @@ public static class DialogueOverlayBuilder
 
         // --- Skip (top-right) + Next (bottom-right) -----------------------------
 
-        var skipBtn = UIFactory.CreateButton(root, "SkipButton", "Skip ⏭", new Vector2(120f, 40f), 20f);
+        var skipBtn = UIFactory.CreateButton(root, "SkipButton", "Skip", new Vector2(120f, 40f), 20f);
         UIFactory.Place(skipBtn, new Vector2(1f, 1f), new Vector2(-16f, -12f), new Vector2(120f, 40f));
 
         var nextBtn = UIFactory.CreateButton(root, "NextButton", "Next ▶", new Vector2(120f, 40f), 20f);
