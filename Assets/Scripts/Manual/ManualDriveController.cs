@@ -57,6 +57,8 @@ public class ManualDriveController : MonoBehaviour
     PassengerManager  _passengers;
     BreakdownController _breakdown;
     StreamingTown     _streaming;
+    int               _maxChunks;        // 0 = finite authored route (tutorial); >0 = capped streaming
+    int               _chunksAppended;
     float _startTime;
     float _legElapsed;
     bool  _finished;
@@ -89,6 +91,7 @@ public class ManualDriveController : MonoBehaviour
                 ? proceduralSeed
                 : (System.Guid.NewGuid().GetHashCode() & 0x7fffffff);
             _streaming = StreamingTownGenerator.Begin(_def.procedural, _def.fares, seed);
+            _maxChunks = _levelIndex == 0 ? 0 : 4;   // finite so the leg ends (no endless free-roam)
             TownLayout layout = _streaming.Layout;
             ManualLayoutResult projected = ManualLayoutProjector.Project(layout);
 
@@ -366,6 +369,8 @@ public class ManualDriveController : MonoBehaviour
     void AppendChunk()
     {
         if (_streaming == null || _ctx == null) return;
+        if (_chunksAppended >= _maxChunks) return;   // cap reached → destination is final, leg can finish
+        _chunksAppended++;
 
         TownChunk chunk = StreamingTownGenerator.AppendChunk(_streaming);
         if (chunk == null || chunk.nodes.Count == 0) return;

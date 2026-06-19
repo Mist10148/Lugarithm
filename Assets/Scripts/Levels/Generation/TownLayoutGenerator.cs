@@ -62,9 +62,21 @@ public static class TownLayoutGenerator
             }
             else
             {
-                // A non-anchor interior bend becomes an ordinary procedural stop.
-                node.kind = NodeKind.Stop;
-                node.name = $"Sitio {stopNameCursor++}";
+                // Interior vertex: a straight pass-through becomes a boardable stop,
+                // but a 90° corner stays a plain junction so no stop/passenger ever
+                // sits on an awkward bend. (Anchored vertices are handled above.)
+                bool corner = i > 0 && i < trunk.Length - 1 &&
+                              IsCorner(trunk[i - 1], trunk[i], trunk[i + 1]);
+                if (corner)
+                {
+                    node.kind = NodeKind.Junction;
+                    node.name = $"Junction {i}";
+                }
+                else
+                {
+                    node.kind = NodeKind.Stop;
+                    node.name = $"Sitio {stopNameCursor++}";
+                }
             }
 
             layout.nodes.Add(node);
@@ -99,6 +111,15 @@ public static class TownLayoutGenerator
 
     // -------------------------------------------------------------------------
     // Branches
+
+    /// <summary>A trunk vertex is a corner when its in/out directions aren't collinear.</summary>
+    static bool IsCorner(Vector2 a, Vector2 b, Vector2 c)
+    {
+        Vector2 inDir  = b - a;
+        Vector2 outDir = c - b;
+        if (inDir.sqrMagnitude < 1e-4f || outDir.sqrMagnitude < 1e-4f) return false;
+        return Vector2.Dot(inDir.normalized, outDir.normalized) < 0.99f;
+    }
 
     static void GrowBranches(TownLayout layout, TownGenParams gen, System.Random rng,
                              ref int stopNameCursor)

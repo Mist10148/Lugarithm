@@ -318,16 +318,26 @@ public static class RouteVisualBuilder
     {
         if (legs == null || legs.Count == 0) return Vector2.down;
 
-        if (legs.Count >= 2)
+        // Pick, from 8 compass directions, the one pointing furthest away from every
+        // connected road leg — so the sign/peeps land in open space beside the road
+        // and never down another leg. (The old perpendicular fallback could aim
+        // straight onto a road at junctions / symmetric corners — the "center of
+        // road" stops.)
+        Vector2 best = Vector2.down;
+        float   bestClearance = float.NegativeInfinity;
+        for (int k = 0; k < 8; k++)
         {
-            Vector2 sum = Vector2.zero;
-            foreach (Vector2 l in legs) sum += l;
-            if (sum.sqrMagnitude > 0.0625f)   // |sum| > 0.25 ⇒ a genuine open side
-                return (-sum).normalized;
-        }
+            float ang = k * 45f * Mathf.Deg2Rad;
+            Vector2 cand = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
 
-        Vector2 primary = legs[0];
-        return new Vector2(primary.y, -primary.x).normalized;
+            float maxDot = -1f;   // alignment with the closest leg (1 = straight down it)
+            foreach (Vector2 l in legs)
+                maxDot = Mathf.Max(maxDot, Vector2.Dot(cand, l.normalized));
+
+            float clearance = -maxDot;   // higher = further from every road
+            if (clearance > bestClearance) { bestClearance = clearance; best = cand; }
+        }
+        return best;
     }
 
     // -------------------------------------------------------------------------
