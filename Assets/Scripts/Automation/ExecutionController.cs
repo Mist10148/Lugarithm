@@ -95,6 +95,14 @@ public class ExecutionController : MonoBehaviour
         else if (State == ExecState.Paused)  State = ExecState.Running;
     }
 
+    /// <summary>Explicitly pause/resume — used when a fuel/breakdown mini-game
+    /// interrupts the run. No-op unless currently Running/Paused.</summary>
+    public void SetPaused(bool paused)
+    {
+        if (paused && State == ExecState.Running)      State = ExecState.Paused;
+        else if (!paused && State == ExecState.Paused) State = ExecState.Running;
+    }
+
     /// <summary>Executes exactly one statement, then pauses again.</summary>
     public void StepOnce()
     {

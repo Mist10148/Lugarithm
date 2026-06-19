@@ -24,7 +24,11 @@ public class DialogueRuntimeTests
 
         rt.AdvanceLine();
         Assert.AreEqual("HUB-M", rt.CurrentNodeId);
-        Assert.IsTrue(rt.AvailableChoices().Any(c => c.target == "M2"));
+        // M2 is a once-topic now (it vanishes after being heard), but the hub is
+        // re-entered and the conversation continues — M1, the now-revealed M3, and
+        // the advance choice remain.
+        Assert.IsTrue(rt.AvailableChoices().Count > 0);
+        Assert.IsFalse(rt.AvailableChoices().Any(c => c.target == "M2"));
     }
 
     [Test]

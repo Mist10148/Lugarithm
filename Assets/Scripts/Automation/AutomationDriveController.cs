@@ -631,6 +631,44 @@ public class AutomationDriveController : MonoBehaviour
         sr.sortingOrder = -100;
     }
 
+    // Automation drains fuel and can break down mid-run, like Manual — the
+    // self-driving jeepney pauses for the refuel/repair mini-game, then resumes.
+    float _autoFuel = 1f;
+    bool  _autoBreakdownActive;
+
+    void AutoFuelTick()
+    {
+        if (_autoBreakdownActive) return;
+        if (refuelMinigame == null && mazeRepairMinigame == null) return;
+
+        _autoFuel -= 0.03f;
+        if (_autoFuel <= 0f)
+            StartCoroutine(AutoBreakdown(fuel: true));
+        else if (UnityEngine.Random.value < 0.012f)
+            StartCoroutine(AutoBreakdown(fuel: false));
+    }
+
+    IEnumerator AutoBreakdown(bool fuel)
+    {
+        _autoBreakdownActive = true;
+        if (exec != null) exec.SetPaused(true);
+
+        int  seed = UnityEngine.Random.Range(0, 99999);
+        bool done = false;
+        System.Action<MinigameResult> onDone = _ => { if (fuel) _autoFuel = 1f; done = true; };
+
+        if (fuel && refuelMinigame != null)
+            refuelMinigame.Show(seed, onDone);
+        else if (mazeRepairMinigame != null)
+            mazeRepairMinigame.Show(BreakdownFault.Engine, seed, onDone);
+        else { if (fuel) _autoFuel = 1f; done = true; }
+
+        yield return new WaitUntil(() => done);
+
+        if (exec != null) exec.SetPaused(false);
+        _autoBreakdownActive = false;
+    }
+
     void HandleStepDone(AgentActionResult result, StepResult step)
     {
         _lastExecutedLine = step.Node != null ? step.Node.Line : 0;
@@ -656,6 +694,8 @@ public class AutomationDriveController : MonoBehaviour
 
         if (codeEditor != null && exec != null)
             codeEditor.SetHeat(exec.LineHits);
+
+        AutoFuelTick();
     }
 
     void HandleHotLine(int line)
@@ -674,6 +714,8 @@ public class AutomationDriveController : MonoBehaviour
         if (monitor != null) monitor.ShowIdle();
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
         if (codeEditor != null) codeEditor.ClearHeat();
+        _autoFuel = 1f;
+        _autoBreakdownActive = false;
     }
 
     void HandleFinished(bool win)

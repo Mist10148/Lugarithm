@@ -116,12 +116,16 @@ public static class DialogueLibrary
             Lines(Line(gemma, "Ate Gemma is sizing you up. \"Well? What do you want to know first?\"")),
             choices: new[]
             {
+                // Genshin-style flow: each topic vanishes once heard (once) and the
+                // next is gated behind it (requires), so only 1-2 choices show at a
+                // time and the talk threads forward to "let's go" instead of a flat
+                // 7-item wall. Same content, same lessons.
                 Choice("Who were you to my father?", "T1", once: true),
-                Choice("How do I drive this thing?", "T2"),
-                Choice("How do stops and passengers work?", "T3"),
-                Choice("What's the deal with the coins?", "T4"),
-                Choice("…She's making a horrible noise.", "T5"),
-                Choice("How do I keep her fed and fueled?", "T6"),
+                Choice("How do I drive this thing?", "T2", once: true),
+                Choice("How do stops and passengers work?", "T3", once: true, requires: new[] { "T2" }),
+                Choice("What's the deal with the coins?", "T4", once: true, requires: new[] { "T3" }),
+                Choice("…She's making a horrible noise.", "T5", once: true, requires: new[] { "T4" }),
+                Choice("How do I keep her fed and fueled?", "T6", once: true, requires: new[] { "T5" }),
                 Choice("I'm ready. Let's go.", "T-ADV", requires: new[] { "T2", "T3", "T4", "T5", "T6" })
             });
 
@@ -215,12 +219,12 @@ public static class DialogueLibrary
             choices: new[]
             {
                 Choice("Who were you to my father?", "TA1", once: true),
-                Choice("How do I tell her to drive?", "TA2"),
-                Choice("How do I pick up passengers?", "TA3"),
-                Choice("How do fares work in code?", "TA4"),
-                Choice("How does she know where she is?", "TA5"),
-                Choice("…What if she breaks down mid-route?", "TA6"),
-                Choice("And running out of fuel?", "TA7"),
+                Choice("How do I tell her to drive?", "TA2", once: true),
+                Choice("How do I pick up passengers?", "TA3", once: true, requires: new[] { "TA2" }),
+                Choice("How do fares work in code?", "TA4", once: true, requires: new[] { "TA3" }),
+                Choice("How does she know where she is?", "TA5", once: true, requires: new[] { "TA4" }),
+                Choice("…What if she breaks down mid-route?", "TA6", once: true, requires: new[] { "TA5" }),
+                Choice("And running out of fuel?", "TA7", once: true, requires: new[] { "TA6" }),
                 Choice("I think I've got it. Run the route.", "TA-ADV",
                        requires: new[] { "TA2", "TA3", "TA4", "TA5", "TA6", "TA7" })
             });
@@ -324,8 +328,8 @@ public static class DialogueLibrary
             choices: new[]
             {
                 Choice("You knew my grandmother?", "M1", once: true),
-                Choice("What's special about Molo?", "M2"),
-                Choice("Something smells amazing.", "M3", once: true),
+                Choice("What's special about Molo?", "M2", once: true),
+                Choice("Something smells amazing.", "M3", once: true, requires: new[] { "M2" }),
                 Choice("We're almost there.", "M-ADV")
             });
 
@@ -404,8 +408,8 @@ public static class DialogueLibrary
             choices: new[]
             {
                 Choice("You knew this jeepney?", "O1", once: true),
-                Choice("What kind of town is Oton?", "O2"),
-                Choice("You said shipyards?", "O3"),
+                Choice("What kind of town is Oton?", "O2", once: true),
+                Choice("You said shipyards?", "O3", once: true, requires: new[] { "O2" }),
                 Choice("There's your stop.", "O-ADV")
             });
 
@@ -482,9 +486,9 @@ public static class DialogueLibrary
             Lines(Line(delia, "Manang Delia's hands move even at rest, as if weaving.")),
             choices: new[]
             {
-                Choice("What is hablon?", "TG1"),
-                Choice("What's the cloth for?", "TG2", once: true),
-                Choice("This town seems so quiet.", "TG3"),
+                Choice("What is hablon?", "TG1", once: true),
+                Choice("What's the cloth for?", "TG2", once: true, requires: new[] { "TG1" }),
+                Choice("This town seems so quiet.", "TG3", once: true, requires: new[] { "TG2" }),
                 Choice("The looms are in sight.", "TG-ADV")
             });
 
@@ -562,8 +566,8 @@ public static class DialogueLibrary
             choices: new[]
             {
                 Choice("You recognize the journal?", "MG1", once: true),
-                Choice("Tell me about the church.", "MG2"),
-                Choice("You're a weaver too?", "MG3", once: true),
+                Choice("Tell me about the church.", "MG2", once: true),
+                Choice("You're a weaver too?", "MG3", once: true, requires: new[] { "MG2" }),
                 Choice("The facade — I can see it now.", "MG-ADV")
             });
 
@@ -640,9 +644,9 @@ public static class DialogueLibrary
             Lines(Line(tomas, "Mang Tomas watches the sea out the window.")),
             choices: new[]
             {
-                Choice("What's the church known for?", "SJ1"),
-                Choice("Tell me about the Campo Santo.", "SJ2", once: true),
-                Choice("Did you know my father well?", "SJ3", once: true),
+                Choice("What's the church known for?", "SJ1", once: true),
+                Choice("Tell me about the Campo Santo.", "SJ2", once: true, requires: new[] { "SJ1" }),
+                Choice("Did you know my father well?", "SJ3", once: true, requires: new[] { "SJ2" }),
                 Choice("I think we're here.", "SJ-ADV")
             });
 
