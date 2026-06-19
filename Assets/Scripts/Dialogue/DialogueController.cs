@@ -427,8 +427,31 @@ public class DialogueController : MonoBehaviour
     {
         if (_runtime == null) return;
         _choiceClickedThisFrame = true;
+
+        // Discussing a hub topic surfaces the next heritage fun-fact into the Almanac.
+        if (_conversation != null && _runtime.CurrentNodeId == _conversation.hubNode)
+            DiscoverNextFact();
+
         _runtime.Choose(choice.target);
         RefreshView();
+    }
+
+    void DiscoverNextFact()
+    {
+        HeritageEntry town = HeritageLibrary.ForLevel(_conversation.levelIndex);
+        if (town == null || town.keyFacts == null) return;
+
+        // Unlock the next not-yet-discovered fact for this town, in order.
+        for (int i = 0; i < town.keyFacts.Length; i++)
+        {
+            string key = town.townKey + ":" + i;
+            if (!SaveSystem.Current.HasFact(key))
+            {
+                SaveSystem.Current.UnlockFact(key);
+                SaveSystem.AutoSave();
+                return;
+            }
+        }
     }
 
     void HideAll()

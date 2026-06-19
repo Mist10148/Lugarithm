@@ -25,7 +25,8 @@ public class SaveData
     public int       currency              = 0;
     public List<LevelScore> bestScores     = new List<LevelScore>();
     public List<int> earnedBadges          = new List<int>();
-    public List<int> unlockedThemes        = new List<int> { 0 };
+    public List<int>    unlockedThemes     = new List<int> { 0 };
+    public List<string> discoveredFacts    = new List<string>();   // heritage facts heard in dialogue
 
     // -------------------------------------------------------------------------
     // Journal helpers
@@ -61,6 +62,19 @@ public class SaveData
     {
         if (unlockedThemes == null) unlockedThemes = new List<int> { 0 };
         if (!unlockedThemes.Contains(themeId)) unlockedThemes.Add(themeId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Heritage fun-fact helpers (facts discovered through dialogue; key = "townKey:index")
+
+    public bool HasFact(string factKey)
+        => discoveredFacts != null && discoveredFacts.Contains(factKey);
+
+    public void UnlockFact(string factKey)
+    {
+        if (string.IsNullOrEmpty(factKey)) return;
+        if (discoveredFacts == null) discoveredFacts = new List<string>();
+        if (!discoveredFacts.Contains(factKey)) discoveredFacts.Add(factKey);
     }
 
     // -------------------------------------------------------------------------

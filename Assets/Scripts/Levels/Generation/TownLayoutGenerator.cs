@@ -106,6 +106,10 @@ public static class TownLayoutGenerator
         // 4. Commit ordinary-passenger rides.
         BuildRequests(layout, gen, fares, rng);
 
+        // 5. Drop decorative dead-end branches nobody rides to ("useless roads").
+        if (!trunkOnly)
+            PruneUnusedBranches(layout);
+
         return layout;
     }
 
@@ -236,6 +240,53 @@ public static class TownLayoutGenerator
 
     // -------------------------------------------------------------------------
     // Validation
+
+    /// <summary>
+    /// Drops branch nodes no passenger uses (decorative dead-ends) so generated
+    /// towns have no "useless roads". Keeps every trunk node and every node a ride
+    /// references, then remaps ids so edges, requests, and the trunk list stay valid.
+    /// </summary>
+    static void PruneUnusedBranches(TownLayout layout)
+    {
+        var keep = new HashSet<int>(layout.trunkNodeIds);
+        foreach (PassengerRequest r in layout.requests)
+        {
+            keep.Add(r.originNodeId);
+            keep.Add(r.destNodeId);
+        }
+        if (keep.Count >= layout.nodes.Count) return;   // nothing to prune
+
+        var oldToNew = new Dictionary<int, int>();
+        var newNodes = new List<TownNode>();
+        foreach (TownNode n in layout.nodes)
+        {
+            if (!keep.Contains(n.id)) continue;
+            oldToNew[n.id] = newNodes.Count;
+            n.id = newNodes.Count;
+            newNodes.Add(n);
+        }
+        layout.nodes.Clear();
+        layout.nodes.AddRange(newNodes);
+
+        var newEdges = new List<TownEdge>();
+        foreach (TownEdge e in layout.edges)
+            if (oldToNew.TryGetValue(e.a, out int na) && oldToNew.TryGetValue(e.b, out int nb))
+                newEdges.Add(new TownEdge(na, nb, e.isTrunk));
+        layout.edges.Clear();
+        layout.edges.AddRange(newEdges);
+
+        for (int i = 0; i < layout.trunkNodeIds.Count; i++)
+            layout.trunkNodeIds[i] = oldToNew[layout.trunkNodeIds[i]];
+
+        foreach (PassengerRequest r in layout.requests)
+        {
+            r.originNodeId = oldToNew[r.originNodeId];
+            r.destNodeId   = oldToNew[r.destNodeId];
+        }
+
+        if (oldToNew.TryGetValue(layout.startNodeId, out int ns)) layout.startNodeId = ns;
+        if (oldToNew.TryGetValue(layout.destNodeId,  out int nd)) layout.destNodeId  = nd;
+    }
 
     /// <summary>Graph-connected AND the rasterized grid is start↔dest↔every-stop reachable.</summary>
     public static bool IsSolvable(TownLayout layout, float cellSize)

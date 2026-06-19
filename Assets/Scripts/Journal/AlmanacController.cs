@@ -221,7 +221,8 @@ public class AlmanacController : MonoBehaviour
                 contentBody.text =
                     $"<b>{LevelLibrary.Names[pageId]}</b>\n\n" +
                     $"{page.heritageBody}\n\n" +
-                    $"<color=#{ColorUtility.ToHtmlStringRGB(TextDim)}><i>{page.artifactCardDescription}</i></color>";
+                    $"<color=#{ColorUtility.ToHtmlStringRGB(TextDim)}><i>{page.artifactCardDescription}</i></color>" +
+                    BuildDiscoveredFacts(pageId);
             }
         }
         else
@@ -250,7 +251,8 @@ public class AlmanacController : MonoBehaviour
         {
             contentBody.text =
                 "Complete this leg of the journey to recover this page.\n\n" +
-                "The journal entry and coding reference will appear here once the town is unlocked.";
+                "The journal entry and coding reference will appear here once the town is unlocked." +
+                BuildDiscoveredFacts(_selectedPageId);
         }
 
         RefreshBodyHeight();
@@ -281,6 +283,26 @@ public class AlmanacController : MonoBehaviour
         string a = parts.Length > 0 ? parts[0].Substring(0, 1) : "";
         string b = parts.Length > 1 ? parts[1].Substring(0, 1) : "";
         return (a + b).ToUpperInvariant();
+    }
+
+    // Heritage fun-facts the player has discovered through dialogue for this town,
+    // appended to the page so they surface in the Almanac as they're uncovered.
+    string BuildDiscoveredFacts(int pageId)
+    {
+        HeritageEntry town = HeritageLibrary.ForLevel(pageId);
+        if (town == null || town.keyFacts == null) return "";
+
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < town.keyFacts.Length; i++)
+        {
+            if (!SaveSystem.Current.HasFact(town.townKey + ":" + i)) continue;
+            HeritageFact f = town.keyFacts[i];
+            sb.Append("\n\n<color=#").Append(ColorUtility.ToHtmlStringRGB(Accent)).Append("><b>")
+              .Append(f.headline).Append("</b></color>\n").Append(f.detail);
+        }
+        if (sb.Length > 0)
+            sb.Insert(0, $"\n\n<color=#{ColorUtility.ToHtmlStringRGB(Accent)}>— Fun facts you've uncovered —</color>");
+        return sb.ToString();
     }
 
     void RefreshBodyHeight()
