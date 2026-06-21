@@ -67,21 +67,24 @@ public static class AutomationDriveSceneBuilder
         workspace.offsetMin = new Vector2(16f, 16f);
         workspace.offsetMax = new Vector2(-4f, -204f);
 
-        // Goal banner (top-left, over the world view)
+        // Goal banner (top-left, over the world view). Width capped so long
+        // goal text wraps inside the banner instead of spilling into the road.
         var goalBanner = UIFactory.CreatePanel(canvas.transform, "GoalBanner",
                                                new Vector2(0f, 1f), new Vector2(0f, 1f),
                                                new Color(0.06f, 0.07f, 0.10f, 0.85f));
-        UIFactory.Place(goalBanner, new Vector2(0f, 1f), new Vector2(16f, -12f), new Vector2(664f, 82f));
+        UIFactory.Place(goalBanner, new Vector2(0f, 1f), new Vector2(16f, -12f), new Vector2(640f, 82f));
         var goalText = UIFactory.CreateText(goalBanner, "GoalText", "", 20f,
                                             UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         goalText.rectTransform.offsetMin = new Vector2(12f, 6f);
         goalText.rectTransform.offsetMax = new Vector2(-12f, -6f);
+        goalText.enableWordWrapping = true;
 
-        // Control bar stays in the left UI rail instead of crossing the road.
+        // Control bar in its own band below the goal banner with a clear gutter,
+        // not flush against it. Stays in the left UI rail; never crosses the road.
         var controlBar = UIFactory.CreatePanel(canvas.transform, "ControlBar",
                                                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                                                UIFactory.PanelDark);
-        UIFactory.Place(controlBar, new Vector2(0f, 1f), new Vector2(16f, -102f), new Vector2(664f, 48f));
+        UIFactory.Place(controlBar, new Vector2(0f, 1f), new Vector2(16f, -108f), new Vector2(640f, 48f));
         UIFactory.AddHorizontalLayout(controlBar, 5f, new RectOffset(7, 7, 5, 5), TextAnchor.MiddleCenter);
 
         Button run    = MakeBarButton(controlBar, "RunButton",   "RUN",    78f);
@@ -115,10 +118,11 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
 
-        // In-editor Block/Code switch (top-left, below the goal banner).
+        // In-editor Block/Code switch, grouped with the other top-right actions
+        // (below Exit) instead of stacked under the goal banner on the left.
         Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
-                                                         "Editor: Blocks", new Vector2(220f, 40f), 18f);
-        UIFactory.Place(editorModeToggle, new Vector2(0f, 1f), new Vector2(16f, -158f), new Vector2(210f, 38f));
+                                                         "Editor: Blocks", new Vector2(190f, 40f), 18f);
+        UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-10f, -58f), new Vector2(190f, 40f));
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         // --- Floating editor windows (Block / Code) ---------------------------------
@@ -131,14 +135,14 @@ public static class AutomationDriveSceneBuilder
             editorArea, (RectTransform)canvas.transform, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
         blockPanel.anchorMin = new Vector2(0f, 0f);
         blockPanel.anchorMax = new Vector2(0.365f, 1f);
-        blockPanel.offsetMin = new Vector2(24f, 274f);
+        blockPanel.offsetMin = new Vector2(24f, 262f);
         blockPanel.offsetMax = new Vector2(-12f, -212f);
 
         RectTransform codePanel = BuildCodeWindow(
             editorArea, out CodeEditorController codeEditor, out Button codeChatButton);
         codePanel.anchorMin = new Vector2(0f, 0f);
         codePanel.anchorMax = new Vector2(0.365f, 1f);
-        codePanel.offsetMin = new Vector2(24f, 274f);
+        codePanel.offsetMin = new Vector2(24f, 262f);
         codePanel.offsetMax = new Vector2(-12f, -212f);
 
         // Co-Pilot hint button + label (bottom-right of workspace)
@@ -152,15 +156,17 @@ public static class AutomationDriveSceneBuilder
         UIFactory.Place(hintLbl, new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(600f, 60f));
         hintLbl.enableWordWrapping = true;
 
-        // Monitor + console (bottom of workspace)
+        // Monitor + console (bottom of workspace). Monitor sits in the band
+        // between the console (top ~190) and the editor (bottom ~262), so the
+        // three regions read as separate with clear gutters.
         var monitorLine = UIFactory.CreatePanel(workspace, "Monitor",
                                                 new Vector2(0f, 0f), new Vector2(1f, 0f),
                                                 UIFactory.PanelDark);
-        UIFactory.Place(monitorLine, new Vector2(0.5f, 0f), new Vector2(0f, 222f), new Vector2(0f, 30f));
+        UIFactory.Place(monitorLine, new Vector2(0.5f, 0f), new Vector2(0f, 202f), new Vector2(0f, 30f));
         monitorLine.anchorMin = new Vector2(0f, 0f);
         monitorLine.anchorMax = new Vector2(1f, 0f);
-        monitorLine.offsetMin = new Vector2(14f, 222f);
-        monitorLine.offsetMax = new Vector2(-14f, 252f);
+        monitorLine.offsetMin = new Vector2(14f, 202f);
+        monitorLine.offsetMax = new Vector2(-14f, 232f);
 
         var monitorText = UIFactory.CreateText(monitorLine, "Text", "", 17f,
                                                UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
@@ -659,9 +665,10 @@ public static class AutomationDriveSceneBuilder
 
     internal static ConsoleController BuildConsole(RectTransform workspace)
     {
+        // Top edge lowered to leave a clear gap before the monitor strip above.
         var frame = UIFactory.CreateRect(workspace, "Console",
                                          new Vector2(0f, 0f), new Vector2(1f, 0f),
-                                         new Vector2(14f, 10f), new Vector2(-14f, 214f));
+                                         new Vector2(14f, 10f), new Vector2(-14f, 184f));
 
         ScrollRect scroll = UIFactory.CreateScrollView(frame, "ConsoleScroll",
                                                        Vector2.zero, Vector2.one,

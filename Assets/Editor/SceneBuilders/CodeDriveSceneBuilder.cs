@@ -65,18 +65,19 @@ public static class CodeDriveSceneBuilder
         var goalBanner = UIFactory.CreatePanel(canvas.transform, "GoalBanner",
                                                new Vector2(0f, 1f), new Vector2(0f, 1f),
                                                new Color(0.06f, 0.07f, 0.10f, 0.85f));
-        UIFactory.Place(goalBanner, new Vector2(0f, 1f), new Vector2(16f, -12f), new Vector2(664f, 82f));
+        UIFactory.Place(goalBanner, new Vector2(0f, 1f), new Vector2(16f, -12f), new Vector2(640f, 82f));
         var goalText = UIFactory.CreateText(goalBanner, "GoalText", "", 20f,
                                             UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         goalText.rectTransform.offsetMin = new Vector2(12f, 6f);
         goalText.rectTransform.offsetMax = new Vector2(-12f, -6f);
+        goalText.enableWordWrapping = true;
 
         // Compact control bar below the goal. Keeping the coding HUD in one
         // left-hand rail leaves the road and jeepney visible on the right.
         var controlBar = UIFactory.CreatePanel(canvas.transform, "ControlBar",
                                                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                                                UIFactory.PanelDark);
-        UIFactory.Place(controlBar, new Vector2(0f, 1f), new Vector2(16f, -102f), new Vector2(664f, 48f));
+        UIFactory.Place(controlBar, new Vector2(0f, 1f), new Vector2(16f, -108f), new Vector2(640f, 48f));
         UIFactory.AddHorizontalLayout(controlBar, 6f, new RectOffset(8, 8, 5, 5), TextAnchor.MiddleCenter);
 
         Button run    = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "RunButton",   "RUN",   88f);
@@ -108,9 +109,11 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
 
         // Editor switch sits with the other global actions instead of over the road.
+        // Editor switch grouped with the other top-right actions (below Journal),
+        // instead of stacked under the goal banner on the left.
         Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
-                                                         "Editor: Blocks", new Vector2(220f, 40f), 18f);
-        UIFactory.Place(editorModeToggle, new Vector2(0f, 1f), new Vector2(16f, -158f), new Vector2(210f, 38f));
+                                                         "Editor: Blocks", new Vector2(170f, 42f), 18f);
+        UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-10f, -158f), new Vector2(170f, 42f));
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         Button workspaceToggle = UIFactory.CreateButton(canvas.transform, "WorkspaceToggle",
@@ -139,7 +142,7 @@ public static class CodeDriveSceneBuilder
         // setting (the controller shows exactly one), so Code mode shows no blocks.
         var editorArea = UIFactory.CreateRect(workspace, "EditorArea",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(8f, 258f), new Vector2(-8f, -8f));
+                                              new Vector2(8f, 262f), new Vector2(-8f, -8f));
         RectTransform blockPanel = AutomationDriveSceneBuilder.BuildBlockWindow(
             editorArea, canvasRoot, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
         blockPanel.anchorMin = Vector2.zero;
@@ -154,12 +157,14 @@ public static class CodeDriveSceneBuilder
         codePanel.offsetMin = Vector2.zero;
         codePanel.offsetMax = Vector2.zero;
 
-        // Monitor + console
+        // Monitor + console. Monitor sits in the band between the console
+        // (top ~184) and the editor (bottom ~262) so the three regions read as
+        // separate with clear gutters.
         var monitorLine = UIFactory.CreatePanel(workspace, "Monitor",
                                                 new Vector2(0f, 0f), new Vector2(1f, 0f),
                                                 UIFactory.PanelDark);
-        monitorLine.offsetMin = new Vector2(14f, 222f);
-        monitorLine.offsetMax = new Vector2(-14f, 252f);
+        monitorLine.offsetMin = new Vector2(14f, 202f);
+        monitorLine.offsetMax = new Vector2(-14f, 232f);
         var monitorText = UIFactory.CreateText(monitorLine, "Text", "", 17f,
                                                UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
         monitorText.rectTransform.offsetMin = new Vector2(10f, 0f);

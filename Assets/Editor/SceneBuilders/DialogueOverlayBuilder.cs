@@ -62,14 +62,16 @@ public static class DialogueOverlayBuilder
         choiceEdge.GetComponent<Image>().raycastTarget = false;
         choiceTemplate.gameObject.SetActive(false);
 
-        // --- Dialogue box (compact bottom-left card) ----------------------------
-        // A left card keeps the road readable and gives the body and controls
-        // separate bounds, so long Gemma lines cannot run underneath Next/Skip.
+        // --- Dialogue box (compact bottom-right card) ----------------------------
+        // Anchored bottom-right so it clears the left coding rail (editor +
+        // console end ~x=700) in Automation/CodeDrive and the coin drawer in
+        // ManualDrive, while sitting below the right-side choice list. The wide
+        // body still has its own bounds separate from Next/Skip.
 
         var root = UIFactory.CreatePanel(parent, "DialogueBar",
-                                         new Vector2(0f, 0f), new Vector2(0f, 0f),
+                                         new Vector2(1f, 0f), new Vector2(1f, 0f),
                                          new Color(0.06f, 0.07f, 0.10f, 0.92f));
-        UIFactory.Place(root, new Vector2(0f, 0f), new Vector2(24f, 24f), new Vector2(1080f, 196f));
+        UIFactory.Place(root, new Vector2(1f, 0f), new Vector2(-24f, 24f), new Vector2(1160f, 196f));
 
         // Accent bar across the top edge of the box.
         var accentBar = UIFactory.CreatePanel(root, "AccentBar",
