@@ -22,14 +22,16 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.CreateGlobalLight2D();
         SceneBuilderUtil.CreateEventSystem();
 
-        // Big tiled grass ground under everything.
+        // Big tiled grass ground under everything. Follows the camera so endless
+        // free-roam never reaches the edge of the grass.
         var ground = new GameObject("Ground");
         var groundSr = ground.AddComponent<SpriteRenderer>();
         groundSr.sprite       = SceneBuilderUtil.LoadPlaceholder("grass_tile");
         groundSr.drawMode     = SpriteDrawMode.Tiled;
-        groundSr.size         = new Vector2(500f, 500f);
+        groundSr.size         = new Vector2(700f, 700f);
         groundSr.sortingOrder = -100;
         ground.transform.position = new Vector3(10f, 75f, 0f);
+        ground.AddComponent<GroundFollow>();
 
         var worldRoot = new GameObject("WorldRoot");
 

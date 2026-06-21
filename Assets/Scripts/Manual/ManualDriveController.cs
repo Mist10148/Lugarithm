@@ -57,11 +57,13 @@ public class ManualDriveController : MonoBehaviour
     PassengerManager  _passengers;
     BreakdownController _breakdown;
     StreamingTown     _streaming;
-    int               _maxChunks;        // 0 = finite authored route (tutorial); >0 = capped streaming
+    int               _maxChunks;        // int.MaxValue = endless streaming for free-roam
     int               _chunksAppended;
     float _startTime;
     float _legElapsed;
     bool  _finished;
+    bool  _storyComplete;   // latched true on first delivery; "Finish leg" then shows permanently
+    bool  _revealPlayed;    // the heritage reveal plays once, on delivery (not after the gate)
 
     const float StreamLookAhead = 45f;
 
@@ -91,7 +93,7 @@ public class ManualDriveController : MonoBehaviour
                 ? proceduralSeed
                 : (System.Guid.NewGuid().GetHashCode() & 0x7fffffff);
             _streaming = StreamingTownGenerator.Begin(_def.procedural, _def.fares, seed);
-            _maxChunks = _levelIndex == 0 ? 0 : 4;   // finite so the leg ends (no endless free-roam)
+            _maxChunks = int.MaxValue;   // endless streaming: finite STORY spine + optional free-roam tail
             TownLayout layout = _streaming.Layout;
             ManualLayoutResult projected = ManualLayoutProjector.Project(layout);
 
@@ -351,11 +353,19 @@ public class ManualDriveController : MonoBehaviour
         bool servicing  = _passengers != null && _passengers.IsServicing;
         bool arrived    = _passengers != null && _passengers.ArrivedAtDestination;
 
-        if (arrived && !drawerBusy && !servicing)
+        // The story ends the first time the destination is delivered + settled.
+        // Latch it so streaming's AppendChunk()->ResetDestinationArrival() can no
+        // longer hide the button: the leg is "finishable" forever after.
+        if (arrived && !drawerBusy && !servicing && !_storyComplete)
         {
-            if (legCompletion != null && !legCompletion.IsVisible)
-                legCompletion.Show();
+            _storyComplete = true;
+            OnStoryComplete();
         }
+
+        // Once the story is complete the Finish button stays up permanently,
+        // even while free-roaming past the delivered terminal.
+        if (_storyComplete && _revealPlayed && legCompletion != null && !legCompletion.IsVisible)
+            legCompletion.Show();
 
         // Stream more road ahead when the jeepney approaches the current frontier.
         if (_proceduralActive && _streaming != null && !_finished)
@@ -392,6 +402,37 @@ public class ManualDriveController : MonoBehaviour
             toast.Show($"Keep driving to {_ctx.DestinationZone.StopName}");
     }
 
+    /// <summary>
+    /// The story spine just ended (player delivered to the terminal). Play the
+    /// heritage reveal inline, then hand control back for optional free-roam —
+    /// the latched "Finish leg" button lets them wrap up whenever they want.
+    /// </summary>
+    void OnStoryComplete()
+    {
+        System.Action onDone = () =>
+        {
+            _revealPlayed = true;
+            // PassengerManager keeps input LOCKED at the destination, so free-roam
+            // is only possible if we explicitly unlock here.
+            if (jeepney != null) jeepney.InputLocked = false;
+            if (legCompletion != null) legCompletion.Show();
+            if (toast != null)
+                toast.Show("That's the story — Finish leg whenever you're ready, or keep driving.");
+        };
+
+        if (dialogue == null) { onDone(); return; }
+
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: true);
+        if (convo == null || convo.journalPageId < 0 || convo.journalPageId >= JournalPageLibrary.Pages.Count)
+        {
+            onDone();
+            return;
+        }
+
+        JournalPageDefinition page = JournalPageLibrary.Pages[convo.journalPageId];
+        dialogue.PlayReveal(convo, page, onDone);
+    }
+
     void Finish()
     {
         if (_finished) return;
@@ -420,7 +461,10 @@ public class ManualDriveController : MonoBehaviour
 
     void PlayRevealThenResults()
     {
-        if (dialogue == null)
+        // The reveal already played inline on delivery (OnStoryComplete) — the
+        // gate just leads straight to the results now. The dialogue path below
+        // is only a fallback for an edge case where delivery never triggered it.
+        if (_revealPlayed || dialogue == null)
         {
             ShowResults();
             return;

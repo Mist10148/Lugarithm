@@ -54,14 +54,14 @@ public class DriveScoreTracker
         sb.AppendLine($"Exact change given:  {FaresExactCount}   (+{FaresExactCount * 10})");
 
         if (SatisfactionBonus  > 0) sb.AppendLine($"Passenger satisfaction:  +{SatisfactionBonus}");
-        if (FaresWrongCount    > 0) sb.AppendLine($"Wrong change attempts:  {FaresWrongCount}   (−{FaresWrongCount * 50})");
-        if (FaresTimedOutCount > 0) sb.AppendLine($"Fares timed out:  {FaresTimedOutCount}   (−{FaresTimedOutCount * 25})");
-        if (MissedStopCount    > 0) sb.AppendLine($"Missed stops:  {MissedStopCount}   (−{MissedStopCount * 100})");
+        if (FaresWrongCount    > 0) sb.AppendLine($"Wrong change attempts:  {FaresWrongCount}   (-{FaresWrongCount * 50})");
+        if (FaresTimedOutCount > 0) sb.AppendLine($"Fares timed out:  {FaresTimedOutCount}   (-{FaresTimedOutCount * 25})");
+        if (MissedStopCount    > 0) sb.AppendLine($"Missed stops:  {MissedStopCount}   (-{MissedStopCount * 100})");
 
         if (HadBreakdown)
             sb.AppendLine(BreakdownTimedOut
-                ? "Roadside repair fumbled:  (−100)"
-                : "Roadside repair handled:  ✓");
+                ? "Roadside repair fumbled:  (-100)"
+                : "Roadside repair handled:  OK");
 
         int minutes = (int)(elapsedSeconds / 60f);
         int seconds = (int)(elapsedSeconds % 60f);

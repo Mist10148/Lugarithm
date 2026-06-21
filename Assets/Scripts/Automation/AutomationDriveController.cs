@@ -103,6 +103,7 @@ public class AutomationDriveController : MonoBehaviour
     int  _townPuzzleBonus;
     float _startTime;
     bool  _won;
+    bool  _revealPlayed;   // heritage reveal plays once, on reaching the goal (not after the gate)
 
     void Start()
     {
@@ -725,10 +726,15 @@ public class AutomationDriveController : MonoBehaviour
         if (win)
         {
             _won = true;
-            if (legCompletion != null)
-                legCompletion.Show();
-            else
-                BeginResults();
+            // Play the heritage reveal here, on reaching the goal — inline, before
+            // the player presses Finish (parity with Manual's reveal-on-delivery).
+            PlayRevealOnReach(() =>
+            {
+                if (legCompletion != null)
+                    legCompletion.Show();
+                else
+                    BeginResults();
+            });
             return;
         }
 
@@ -762,9 +768,28 @@ public class AutomationDriveController : MonoBehaviour
         else if (console != null) console.Info("puzzle solved — now clear the town gate to finish the leg.");
     }
 
+    /// <summary>Plays the heritage reveal once, on reaching the goal, then invokes onDone.</summary>
+    void PlayRevealOnReach(System.Action onDone)
+    {
+        if (_revealPlayed || dialogue == null) { _revealPlayed = true; onDone(); return; }
+
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
+        if (convo == null || convo.journalPageId < 0 || convo.journalPageId >= JournalPageLibrary.Pages.Count)
+        {
+            _revealPlayed = true;
+            onDone();
+            return;
+        }
+
+        JournalPageDefinition page = JournalPageLibrary.Pages[convo.journalPageId];
+        dialogue.PlayReveal(convo, page, () => { _revealPlayed = true; onDone(); });
+    }
+
     void PlayRevealThenResults()
     {
-        if (dialogue == null)
+        // The reveal already played on reaching the goal — the gate now leads
+        // straight to results. The dialogue path below is only an edge-case fallback.
+        if (_revealPlayed || dialogue == null)
         {
             ShowResults();
             return;

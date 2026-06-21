@@ -29,7 +29,11 @@ public class BadgeUnlockPanel : MonoBehaviour
     void Awake()
     {
         continueButton?.onClick.AddListener(OnContinue);
-        if (root != null) root.SetActive(false);
+        // Do NOT SetActive(false) here. The overlay is built INACTIVE in Bootstrap,
+        // so Awake first runs *inside* Show()'s root.SetActive(true) — hiding the
+        // root here would instantly re-hide the panel we're opening and soft-lock
+        // the player on the results screen ("yellow box, can't get out"). The
+        // builder already sets the initial hidden state.
     }
 
     public void Show(BadgeDefinition badge, Action onDone)

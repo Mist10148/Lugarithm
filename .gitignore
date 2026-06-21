@@ -109,3 +109,8 @@ InitTestScene*.unity*
 # AI config — contains API keys, never commit
 /[Aa]ssets/[Rr]esources/ai_config.json
 /[Aa]ssets/[Rr]esources/ai_config.json.meta
+
+# Local secrets — .env holds the real API keys; .env.example is the committed template
+/.env
+/.env.*
+!/.env.example
