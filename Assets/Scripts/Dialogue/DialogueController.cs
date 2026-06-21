@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
@@ -85,7 +86,10 @@ public class DialogueController : MonoBehaviour
             return;
         }
 
-        bool advancePressed = Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
+        bool pointerPressedAwayFromUi = Input.GetMouseButtonDown(0) &&
+                                        (EventSystem.current == null ||
+                                         !EventSystem.current.IsPointerOverGameObject());
+        bool advancePressed = Input.GetKeyDown(KeyCode.Space) || pointerPressedAwayFromUi;
         if (!advancePressed) return;
 
         OnAdvancePressed();

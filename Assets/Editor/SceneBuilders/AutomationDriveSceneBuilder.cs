@@ -58,46 +58,46 @@ public static class AutomationDriveSceneBuilder
 
         Canvas canvas = UIFactory.CreateCanvas("WorkspaceCanvas");
 
-        // Workspace backdrop first (right 60%, full height) so everything else
+        // Workspace backdrop first (compact left rail) so the road remains visible
         // draws above it — uncovered screen areas outside the world camera's
         // viewport would otherwise show garbage.
         var workspace = UIFactory.CreatePanel(canvas.transform, "Workspace",
-                                              new Vector2(0.4f, 0f), new Vector2(1f, 1f),
+                                              new Vector2(0f, 0f), new Vector2(0.365f, 1f),
                                               UIFactory.PanelDarker);
-        workspace.offsetMin = Vector2.zero;
-        workspace.offsetMax = Vector2.zero;
+        workspace.offsetMin = new Vector2(16f, 16f);
+        workspace.offsetMax = new Vector2(-4f, -204f);
 
         // Goal banner (top-left, over the world view)
         var goalBanner = UIFactory.CreatePanel(canvas.transform, "GoalBanner",
                                                new Vector2(0f, 1f), new Vector2(0f, 1f),
                                                new Color(0.06f, 0.07f, 0.10f, 0.85f));
-        UIFactory.Place(goalBanner, new Vector2(0f, 1f), new Vector2(10f, -10f), new Vector2(742f, 92f));
+        UIFactory.Place(goalBanner, new Vector2(0f, 1f), new Vector2(16f, -12f), new Vector2(664f, 82f));
         var goalText = UIFactory.CreateText(goalBanner, "GoalText", "", 20f,
                                             UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         goalText.rectTransform.offsetMin = new Vector2(12f, 6f);
         goalText.rectTransform.offsetMax = new Vector2(-12f, -6f);
 
-        // Control bar (top-center)
+        // Control bar stays in the left UI rail instead of crossing the road.
         var controlBar = UIFactory.CreatePanel(canvas.transform, "ControlBar",
                                                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                                                UIFactory.PanelDark);
-        UIFactory.Place(controlBar, new Vector2(0.5f, 1f), new Vector2(210f, -8f), new Vector2(820f, 52f));
-        UIFactory.AddHorizontalLayout(controlBar, 8f, new RectOffset(10, 10, 6, 6), TextAnchor.MiddleCenter);
+        UIFactory.Place(controlBar, new Vector2(0f, 1f), new Vector2(16f, -102f), new Vector2(664f, 48f));
+        UIFactory.AddHorizontalLayout(controlBar, 5f, new RectOffset(7, 7, 5, 5), TextAnchor.MiddleCenter);
 
-        Button run    = MakeBarButton(controlBar, "RunButton",   "RUN",   120f);
+        Button run    = MakeBarButton(controlBar, "RunButton",   "RUN",    78f);
         run.image.color = new Color(0.20f, 0.55f, 0.25f);
-        Button pause  = MakeBarButton(controlBar, "PauseButton", "Pause",  70f);
-        Button reset  = MakeBarButton(controlBar, "ResetButton", "Reset", 110f);
-        Button step   = MakeBarButton(controlBar, "StepButton",  "Step",    80f);
+        Button pause  = MakeBarButton(controlBar, "PauseButton", "Pause",  66f);
+        Button reset  = MakeBarButton(controlBar, "ResetButton", "Reset",  66f);
+        Button step   = MakeBarButton(controlBar, "StepButton",  "Step",    58f);
 
-        Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(180f, 36f));
+        Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(128f, 34f));
         speedSlider.minValue = 0.2f;
         speedSlider.maxValue = 8f;
         speedSlider.value = 1f;
         var sliderLe = speedSlider.gameObject.GetComponent<LayoutElement>();
         if (sliderLe == null) sliderLe = speedSlider.gameObject.AddComponent<LayoutElement>();
-        sliderLe.preferredWidth = 180f;
-        sliderLe.preferredHeight = 36f;
+        sliderLe.preferredWidth = 128f;
+        sliderLe.preferredHeight = 34f;
 
         TMP_Text speedLabel = UIFactory.CreateText(controlBar, "SpeedLabel", "×1.0", 20f, UIFactory.TextBright);
         var labelLe = speedLabel.gameObject.GetComponent<LayoutElement>();
@@ -105,7 +105,7 @@ public static class AutomationDriveSceneBuilder
         labelLe.preferredWidth = 56f;
         labelLe.preferredHeight = 36f;
 
-        Button autopilot = MakeBarButton(controlBar, "Autopilot", "Auto", 120f);
+        Button autopilot = MakeBarButton(controlBar, "Autopilot", "Auto", 72f);
         autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         // Exit (top-right corner)
@@ -118,7 +118,7 @@ public static class AutomationDriveSceneBuilder
         // In-editor Block/Code switch (top-left, below the goal banner).
         Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
                                                          "Editor: Blocks", new Vector2(220f, 40f), 18f);
-        UIFactory.Place(editorModeToggle, new Vector2(0f, 1f), new Vector2(10f, -112f), new Vector2(220f, 40f));
+        UIFactory.Place(editorModeToggle, new Vector2(0f, 1f), new Vector2(16f, -158f), new Vector2(210f, 38f));
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         // --- Floating editor windows (Block / Code) ---------------------------------
@@ -129,11 +129,17 @@ public static class AutomationDriveSceneBuilder
 
         RectTransform blockPanel = BuildBlockWindow(
             editorArea, (RectTransform)canvas.transform, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
-        UIFactory.Place(blockPanel, new Vector2(0.62f, 0.5f), Vector2.zero, new Vector2(760f, 640f));
+        blockPanel.anchorMin = new Vector2(0f, 0f);
+        blockPanel.anchorMax = new Vector2(0.365f, 1f);
+        blockPanel.offsetMin = new Vector2(24f, 274f);
+        blockPanel.offsetMax = new Vector2(-12f, -212f);
 
         RectTransform codePanel = BuildCodeWindow(
             editorArea, out CodeEditorController codeEditor, out Button codeChatButton);
-        UIFactory.Place(codePanel, new Vector2(0.62f, 0.5f), Vector2.zero, new Vector2(760f, 640f));
+        codePanel.anchorMin = new Vector2(0f, 0f);
+        codePanel.anchorMax = new Vector2(0.365f, 1f);
+        codePanel.offsetMin = new Vector2(24f, 274f);
+        codePanel.offsetMax = new Vector2(-12f, -212f);
 
         // Co-Pilot hint button + label (bottom-right of workspace)
         Button hintBtn = UIFactory.CreateButton(workspace, "HintButton",

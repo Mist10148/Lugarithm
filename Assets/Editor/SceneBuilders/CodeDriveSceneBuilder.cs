@@ -65,33 +65,34 @@ public static class CodeDriveSceneBuilder
         var goalBanner = UIFactory.CreatePanel(canvas.transform, "GoalBanner",
                                                new Vector2(0f, 1f), new Vector2(0f, 1f),
                                                new Color(0.06f, 0.07f, 0.10f, 0.85f));
-        UIFactory.Place(goalBanner, new Vector2(0f, 1f), new Vector2(10f, -10f), new Vector2(742f, 92f));
+        UIFactory.Place(goalBanner, new Vector2(0f, 1f), new Vector2(16f, -12f), new Vector2(664f, 82f));
         var goalText = UIFactory.CreateText(goalBanner, "GoalText", "", 20f,
                                             UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         goalText.rectTransform.offsetMin = new Vector2(12f, 6f);
         goalText.rectTransform.offsetMax = new Vector2(-12f, -6f);
 
-        // Control bar (top-center)
+        // Compact control bar below the goal. Keeping the coding HUD in one
+        // left-hand rail leaves the road and jeepney visible on the right.
         var controlBar = UIFactory.CreatePanel(canvas.transform, "ControlBar",
                                                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                                                UIFactory.PanelDark);
-        UIFactory.Place(controlBar, new Vector2(0.5f, 1f), new Vector2(170f, -10f), new Vector2(720f, 52f));
-        UIFactory.AddHorizontalLayout(controlBar, 8f, new RectOffset(10, 10, 6, 6), TextAnchor.MiddleCenter);
+        UIFactory.Place(controlBar, new Vector2(0f, 1f), new Vector2(16f, -102f), new Vector2(664f, 48f));
+        UIFactory.AddHorizontalLayout(controlBar, 6f, new RectOffset(8, 8, 5, 5), TextAnchor.MiddleCenter);
 
-        Button run    = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "RunButton",   "RUN",   120f);
+        Button run    = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "RunButton",   "RUN",   88f);
         run.image.color = new Color(0.20f, 0.55f, 0.25f);
-        Button pause  = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "PauseButton", "Pause",  70f);
-        Button reset  = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "ResetButton", "Reset", 110f);
-        Button step   = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "StepButton",  "Step",    80f);
+        Button pause  = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "PauseButton", "Pause",  76f);
+        Button reset  = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "ResetButton", "Reset",  76f);
+        Button step   = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "StepButton",  "Step",    68f);
 
-        Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(180f, 36f));
+        Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(160f, 34f));
         speedSlider.minValue = 0.2f;
         speedSlider.maxValue = 8f;
         speedSlider.value = 1f;
         var sliderLe = speedSlider.gameObject.GetComponent<LayoutElement>();
         if (sliderLe == null) sliderLe = speedSlider.gameObject.AddComponent<LayoutElement>();
-        sliderLe.preferredWidth = 180f;
-        sliderLe.preferredHeight = 36f;
+        sliderLe.preferredWidth = 160f;
+        sliderLe.preferredHeight = 34f;
 
         TMP_Text speedLabel = UIFactory.CreateText(controlBar, "SpeedLabel", "×1.0", 20f, UIFactory.TextBright);
         var labelLe = speedLabel.gameObject.GetComponent<LayoutElement>();
@@ -106,10 +107,10 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
 
-        // In-editor Block/Code switch (top-left, below the goal banner).
+        // Editor switch sits with the other global actions instead of over the road.
         Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
                                                          "Editor: Blocks", new Vector2(220f, 40f), 18f);
-        UIFactory.Place(editorModeToggle, new Vector2(0f, 1f), new Vector2(10f, -112f), new Vector2(220f, 40f));
+        UIFactory.Place(editorModeToggle, new Vector2(0f, 1f), new Vector2(16f, -158f), new Vector2(210f, 38f));
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         Button workspaceToggle = UIFactory.CreateButton(canvas.transform, "WorkspaceToggle",
@@ -125,13 +126,13 @@ public static class CodeDriveSceneBuilder
                                                  "Commands ?", new Vector2(160f, 42f), 20f);
         UIFactory.Place(commands, new Vector2(1f, 1f), new Vector2(-190f, -58f), new Vector2(160f, 42f));
 
-        // --- Workspace overlay (right side, toggleable) -----------------------------
+        // --- Workspace overlay (compact left dock, toggleable) ----------------------
 
         var workspace = UIFactory.CreatePanel(canvas.transform, "Workspace",
-                                              new Vector2(0.42f, 0f), new Vector2(1f, 1f),
+                                              new Vector2(0f, 0f), new Vector2(0.365f, 1f),
                                               UIFactory.PanelDarker);
-        workspace.offsetMin = new Vector2(0f, 0f);
-        workspace.offsetMax = new Vector2(0f, -110f);
+        workspace.offsetMin = new Vector2(16f, 16f);
+        workspace.offsetMax = new Vector2(-4f, -204f);
 
         // Editor windows: Block and Code each in their own titled floating panel,
         // stacked in the same area. The active editor is chosen by the Block/Code
@@ -141,11 +142,17 @@ public static class CodeDriveSceneBuilder
                                               new Vector2(8f, 258f), new Vector2(-8f, -8f));
         RectTransform blockPanel = AutomationDriveSceneBuilder.BuildBlockWindow(
             editorArea, canvasRoot, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
-        UIFactory.Place(blockPanel, new Vector2(0.62f, 0.5f), Vector2.zero, new Vector2(760f, 640f));
+        blockPanel.anchorMin = Vector2.zero;
+        blockPanel.anchorMax = Vector2.one;
+        blockPanel.offsetMin = Vector2.zero;
+        blockPanel.offsetMax = Vector2.zero;
 
         RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
             editorArea, out CodeEditorController codeEditor, out Button codeChatButton);
-        UIFactory.Place(codePanel, new Vector2(0.62f, 0.5f), Vector2.zero, new Vector2(760f, 640f));
+        codePanel.anchorMin = Vector2.zero;
+        codePanel.anchorMax = Vector2.one;
+        codePanel.offsetMin = Vector2.zero;
+        codePanel.offsetMax = Vector2.zero;
 
         // Monitor + console
         var monitorLine = UIFactory.CreatePanel(workspace, "Monitor",

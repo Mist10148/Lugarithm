@@ -62,12 +62,14 @@ public static class DialogueOverlayBuilder
         choiceEdge.GetComponent<Image>().raycastTarget = false;
         choiceTemplate.gameObject.SetActive(false);
 
-        // --- Dialogue box (HoYo: wide, bottom-center, accented name plate) ------
+        // --- Dialogue box (compact bottom-left card) ----------------------------
+        // A left card keeps the road readable and gives the body and controls
+        // separate bounds, so long Gemma lines cannot run underneath Next/Skip.
 
         var root = UIFactory.CreatePanel(parent, "DialogueBar",
-                                         new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                                         new Vector2(0f, 0f), new Vector2(0f, 0f),
                                          new Color(0.06f, 0.07f, 0.10f, 0.92f));
-        UIFactory.Place(root, new Vector2(0.5f, 0f), new Vector2(0f, 24f), new Vector2(1500f, 220f));
+        UIFactory.Place(root, new Vector2(0f, 0f), new Vector2(24f, 24f), new Vector2(1080f, 196f));
 
         // Accent bar across the top edge of the box.
         var accentBar = UIFactory.CreatePanel(root, "AccentBar",
@@ -80,7 +82,7 @@ public static class DialogueOverlayBuilder
         var portraitFrame = UIFactory.CreatePanel(root, "PortraitFrame",
                                                   new Vector2(0f, 1f), new Vector2(0f, 1f),
                                                   new Color(0.40f, 0.45f, 0.55f, 1f));
-        UIFactory.Place(portraitFrame, new Vector2(0f, 1f), new Vector2(20f, -16f), new Vector2(76f, 76f));
+        UIFactory.Place(portraitFrame, new Vector2(0f, 1f), new Vector2(18f, -16f), new Vector2(68f, 68f));
         var portraitImg = portraitFrame.GetComponent<Image>();
         var speakerInitials = UIFactory.CreateText(portraitFrame, "Initials", "", 30f,
                                                    UIFactory.TextBright, TextAlignmentOptions.Center);
@@ -91,33 +93,36 @@ public static class DialogueOverlayBuilder
         // Speaker name (accent) to the right of the portrait, with an underline.
         var speakerLabel = UIFactory.CreateText(root, "SpeakerLabel", "", 24f, UIFactory.Accent,
                                                 TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(speakerLabel, new Vector2(0f, 1f), new Vector2(108f, -20f), new Vector2(420f, 36f));
+        UIFactory.Place(speakerLabel, new Vector2(0f, 1f), new Vector2(98f, -18f), new Vector2(700f, 34f));
         speakerLabel.fontStyle = FontStyles.Bold;
 
         var nameUnderline = UIFactory.CreatePanel(root, "NameUnderline",
                                                   new Vector2(0f, 1f), new Vector2(0f, 1f), UIFactory.Accent);
-        UIFactory.Place(nameUnderline, new Vector2(0f, 1f), new Vector2(108f, -58f), new Vector2(280f, 3f));
+        UIFactory.Place(nameUnderline, new Vector2(0f, 1f), new Vector2(98f, -54f), new Vector2(240f, 3f));
         nameUnderline.GetComponent<Image>().raycastTarget = false;
 
         // Body text fills the box below the name, right of the portrait.
-        var bodyLabel = UIFactory.CreateText(root, "BodyLabel", "", 24f,
+        var bodyLabel = UIFactory.CreateText(root, "BodyLabel", "", 22f,
                                              UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         bodyLabel.rectTransform.anchorMin = new Vector2(0f, 0f);
         bodyLabel.rectTransform.anchorMax = new Vector2(1f, 1f);
-        bodyLabel.rectTransform.offsetMin = new Vector2(108f, 20f);
-        bodyLabel.rectTransform.offsetMax = new Vector2(-40f, -70f);
+        bodyLabel.rectTransform.offsetMin = new Vector2(98f, 18f);
+        bodyLabel.rectTransform.offsetMax = new Vector2(-170f, -62f);
         bodyLabel.enableWordWrapping = true;
+        bodyLabel.enableAutoSizing = true;
+        bodyLabel.fontSizeMin = 17f;
+        bodyLabel.fontSizeMax = 22f;
 
         var continueIndicator = UIFactory.CreateText(root, "ContinueIndicator", "▼", 28f, UIFactory.Accent);
-        UIFactory.Place(continueIndicator, new Vector2(1f, 0f), new Vector2(-22f, 16f), new Vector2(40f, 40f));
+        UIFactory.Place(continueIndicator, new Vector2(1f, 0f), new Vector2(-154f, 14f), new Vector2(32f, 36f));
 
         // --- Skip (top-right) + Next (bottom-right) -----------------------------
 
-        var skipBtn = UIFactory.CreateButton(root, "SkipButton", "Skip", new Vector2(120f, 40f), 20f);
-        UIFactory.Place(skipBtn, new Vector2(1f, 1f), new Vector2(-16f, -12f), new Vector2(120f, 40f));
+        var skipBtn = UIFactory.CreateButton(root, "SkipButton", "Skip", new Vector2(116f, 36f), 18f);
+        UIFactory.Place(skipBtn, new Vector2(1f, 1f), new Vector2(-14f, -12f), new Vector2(116f, 36f));
 
-        var nextBtn = UIFactory.CreateButton(root, "NextButton", "Next ▶", new Vector2(120f, 40f), 20f);
-        UIFactory.Place(nextBtn, new Vector2(1f, 0f), new Vector2(-150f, 16f), new Vector2(120f, 40f));
+        var nextBtn = UIFactory.CreateButton(root, "NextButton", "Next ▶", new Vector2(116f, 38f), 18f);
+        UIFactory.Place(nextBtn, new Vector2(1f, 0f), new Vector2(-14f, 14f), new Vector2(116f, 38f));
 
         // DialogBox drives the typewriter reveal on the bar.
         var dialogBox = root.gameObject.AddComponent<DialogBox>();

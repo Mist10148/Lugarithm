@@ -42,6 +42,13 @@ public class DialogBox : MonoBehaviour
     /// <summary>Shows the box with the given speaker and line.</summary>
     public void Show(string speaker, string text)
     {
+        // A new line may arrive while the previous typewriter is still alive
+        // (notably when Next and the global click handler fire together). Always
+        // retire it before changing the backing text.
+        if (_revealRoutine != null) StopCoroutine(_revealRoutine);
+        _revealRoutine = null;
+        _isRevealing = false;
+
         if (root != null) root.SetActive(true);
         if (speakerLabel != null) speakerLabel.text = speaker;
 
@@ -49,7 +56,6 @@ public class DialogBox : MonoBehaviour
 
         if (useTypewriter && charsPerSecond > 0f)
         {
-            if (_revealRoutine != null) StopCoroutine(_revealRoutine);
             _revealRoutine = StartCoroutine(Reveal());
         }
         else
