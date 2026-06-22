@@ -28,6 +28,7 @@ public class DialogueRuntime
     public int                  CurrentLineIndex { get; private set; }
     public DialogueLine         Current { get; private set; }
     public int                  Affinity { get; private set; }
+    public DialogueTone         Tone { get; private set; } = DialogueTone.Neutral;
     public bool                 IsFinished { get; private set; }
     public DialogueEventKind    PendingEvent { get; private set; }
 
@@ -110,6 +111,8 @@ public class DialogueRuntime
             return;
 
         _heard.Add(target);
+        Tone = choice.tone;
+        Affinity += choice.affinityDelta;
         _awaitingChoice = false;
         JumpTo(target);
     }

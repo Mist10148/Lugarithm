@@ -22,6 +22,7 @@ public class ChatController : MonoBehaviour
     static readonly Color TextDim    = new Color(0.62f, 0.64f, 0.66f, 1f);
 
     readonly List<TMP_Text> _bubbles = new List<TMP_Text>();
+    readonly List<string> _history = new List<string>();
     bool _bound;
 
     // -------------------------------------------------------------------------
@@ -46,7 +47,8 @@ public class ChatController : MonoBehaviour
         AddBubble(text, player: true);
         chatInput.text = "";
 
-        string lockMsg = GetLockMessage(text);
+        string lockMsg = KnowledgeRagService.TryGetLockedTownMessage(text, SaveSystem.Current, out string locked)
+            ? locked : null;
         if (lockMsg != null)
         {
             AddBubble(lockMsg, player: false);
@@ -62,12 +64,31 @@ public class ChatController : MonoBehaviour
     {
         var typingBubble = AddBubble("...", player: false);
 
-        string prompt   = HeritageOracleService.BuildPrompt(input, SaveSystem.Current.currentLevelIndex);
-        string response = null;
-        yield return GeminiClient.Ask(prompt, r => response = r);
+        if (!HeritageOracleService.TryBuildRequest(input, SaveSystem.Current, _history,
+                out AiRequest request, out IReadOnlyList<KnowledgeHit> hits, out string local))
+        {
+            UpdateBubble(typingBubble, local);
+            Remember(input, local);
+            SetInputEnabled(true);
+            chatInput.ActivateInputField();
+            yield break;
+        }
 
-        UpdateBubble(typingBubble, response
-            ?? HeritageOracleService.FallbackResponse(SaveSystem.Current.currentLevelIndex));
+        AiResult result = null;
+        int packets = 0;
+        yield return GeminiClient.Stream(request, _ =>
+        {
+            packets++;
+            UpdateBubble(typingBubble, "Consulting recovered records" + new string('.', 1 + packets % 3));
+        }, completed => result = completed);
+
+        string response = null;
+        if (result != null && result.Success &&
+            HeritageOracleService.TryParseAndValidate(result.Text, hits, out OracleResponse parsed))
+            response = parsed.answer;
+        response ??= HeritageOracleService.FallbackResponse(SaveSystem.Current.currentLevelIndex);
+        yield return RevealBubble(typingBubble, response);
+        Remember(input, response);
 
         SetInputEnabled(true);
         chatInput.ActivateInputField();
@@ -75,16 +96,23 @@ public class ChatController : MonoBehaviour
 
     // -------------------------------------------------------------------------
 
-    static string GetLockMessage(string input)
+    void Remember(string question, string answer)
     {
-        string lower = input.ToLowerInvariant();
-        for (int i = 0; i < LevelLibrary.Count; i++)
+        _history.Add("Player: " + question);
+        _history.Add("Oracle: " + answer);
+        while (_history.Count > 8) _history.RemoveAt(0);
+    }
+
+    IEnumerator RevealBubble(TMP_Text bubble, string response)
+    {
+        string[] words = response.Split(' ');
+        string visible = "";
+        for (int i = 0; i < words.Length; i++)
         {
-            string town = LevelLibrary.Names[i].ToLowerInvariant();
-            if (lower.Contains(town) && !ProgressionRules.IsUnlocked(SaveSystem.Current, i))
-                return "My records on that region are still locked. Explore further.";
+            visible += (i == 0 ? "" : " ") + words[i];
+            UpdateBubble(bubble, visible);
+            if (i % 4 == 3) yield return null;
         }
-        return null;
     }
 
     void SetInputEnabled(bool enabled)

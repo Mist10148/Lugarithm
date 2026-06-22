@@ -56,6 +56,7 @@ public static class EnvConfigSync
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         File.WriteAllText(full, json);
         AssetDatabase.ImportAsset(ConfigPath, ImportAssetOptions.ForceUpdate);
+        GeminiClient.ResetConfigurationCache();
 
         message = $"Wrote {ConfigPath} from .env ({EnvKey} length {key.Length}).";
         return true;
@@ -98,5 +99,40 @@ public static class EnvConfigSync
             else
                 Debug.LogWarning($"[EnvConfigSync] {message} (build will use whatever ai_config.json already contains)");
         }
+    }
+}
+
+/// <summary>
+/// Watches the repo-root .env while the Unity editor is open. Polling is used
+/// instead of FileSystemWatcher because it behaves consistently across Unity
+/// domain reloads and common Windows editors.
+/// </summary>
+[InitializeOnLoad]
+public static class EnvConfigAutoSync
+{
+    static DateTime _lastWriteUtc = DateTime.MinValue;
+    static double _nextPoll;
+
+    static EnvConfigAutoSync()
+    {
+        EditorApplication.update += Poll;
+        _nextPoll = EditorApplication.timeSinceStartup + 0.25d;
+    }
+
+    static void Poll()
+    {
+        if (EditorApplication.timeSinceStartup < _nextPoll) return;
+        _nextPoll = EditorApplication.timeSinceStartup + 1d;
+
+        string root = Directory.GetParent(Application.dataPath)!.FullName;
+        string path = Path.Combine(root, ".env");
+        if (!File.Exists(path)) return;
+
+        DateTime write = File.GetLastWriteTimeUtc(path);
+        if (write == _lastWriteUtc) return;
+        _lastWriteUtc = write;
+
+        if (EnvConfigSync.Sync(out string message))
+            Debug.Log($"[EnvConfigSync] Auto-synced: {message}");
     }
 }

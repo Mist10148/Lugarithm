@@ -700,7 +700,7 @@ public static class AutomationDriveSceneBuilder
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
-        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1180f, 760f));
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1240f, 850f));
 
         var title = UIFactory.CreateText(window, "Title", "PUZZLE SOLVED", 38f, UIFactory.Accent);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(1100f, 52f));
@@ -714,7 +714,7 @@ public static class AutomationDriveSceneBuilder
         var playerPanel = UIFactory.CreatePanel(window, "PlayerPanel",
                                                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                                                 UIFactory.PanelDarker);
-        UIFactory.Place(playerPanel, new Vector2(0.5f, 1f), new Vector2(-285f, -116f), new Vector2(530f, 430f));
+        UIFactory.Place(playerPanel, new Vector2(0.5f, 1f), new Vector2(-295f, -116f), new Vector2(560f, 440f));
         var playerText = UIFactory.CreateText(playerPanel, "Text", "", 19f,
                                               UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         playerText.rectTransform.offsetMin = new Vector2(12f, 8f);
@@ -723,18 +723,41 @@ public static class AutomationDriveSceneBuilder
         var optimalPanel = UIFactory.CreatePanel(window, "OptimalPanel",
                                                  new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                                                  UIFactory.PanelDarker);
-        UIFactory.Place(optimalPanel, new Vector2(0.5f, 1f), new Vector2(285f, -116f), new Vector2(530f, 430f));
+        UIFactory.Place(optimalPanel, new Vector2(0.5f, 1f), new Vector2(295f, -116f), new Vector2(560f, 440f));
         var optimalText = UIFactory.CreateText(optimalPanel, "Text", "", 19f,
                                                UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         optimalText.rectTransform.offsetMin = new Vector2(12f, 8f);
         optimalText.rectTransform.offsetMax = new Vector2(-12f, -8f);
 
         var stats = UIFactory.CreateText(window, "Stats", "", 24f, UIFactory.Accent);
-        UIFactory.Place(stats, new Vector2(0.5f, 0f), new Vector2(0f, 140f), new Vector2(1100f, 40f));
+        UIFactory.Place(stats, new Vector2(0.5f, 0f), new Vector2(0f, 174f), new Vector2(1160f, 34f));
+
+        var efficiency = UIFactory.CreateText(window, "EfficiencyLabel", "EFFICIENCY —", 21f, UIFactory.Accent);
+        UIFactory.Place(efficiency, new Vector2(0.5f, 0f), new Vector2(0f, 142f), new Vector2(1160f, 30f));
+
+        RectTransform annotations = UIFactory.CreateRect(window, "Annotations",
+            new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+        UIFactory.Place(annotations, new Vector2(0.5f, 0f), new Vector2(0f, 108f), new Vector2(1160f, 30f));
+        var annotationLayout = annotations.gameObject.AddComponent<HorizontalLayoutGroup>();
+        annotationLayout.spacing = 6f;
+        annotationLayout.childForceExpandHeight = true;
+        annotationLayout.childForceExpandWidth = false;
+        annotationLayout.childAlignment = TextAnchor.MiddleCenter;
+        Button annotationTemplate = UIFactory.CreateButton(annotations, "AnnotationTemplate", "Line note", new Vector2(190f, 28f), 14f);
+        UIFactory.SetLayoutSize(annotationTemplate, 190f, 28f);
+        annotationTemplate.gameObject.SetActive(false);
 
         var mentor = UIFactory.CreateText(window, "MentorLabel", "...", 20f, UIFactory.TextDim);
-        UIFactory.Place(mentor, new Vector2(0.5f, 0f), new Vector2(0f, 93f), new Vector2(1100f, 48f));
+        UIFactory.Place(mentor, new Vector2(0.5f, 0f), new Vector2(0f, 76f), new Vector2(1160f, 52f));
         mentor.enableWordWrapping = true;
+
+        var tooltip = UIFactory.CreatePanel(window, "AnnotationTooltip",
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Color(0.05f, 0.06f, 0.08f, 0.98f));
+        UIFactory.Place(tooltip, new Vector2(0.5f, 0.5f), new Vector2(0f, -100f), new Vector2(780f, 120f));
+        var tooltipText = UIFactory.CreateText(tooltip, "Text", "", 19f, UIFactory.TextBright, TextAlignmentOptions.TopLeft);
+        tooltipText.rectTransform.offsetMin = new Vector2(16f, 12f);
+        tooltipText.rectTransform.offsetMax = new Vector2(-16f, -12f);
+        tooltip.gameObject.SetActive(false);
 
         Button cont = UIFactory.CreateButton(window, "ContinueButton", "Continue", new Vector2(240f, 58f));
         UIFactory.Place(cont, new Vector2(0.5f, 0f), new Vector2(130f, 30f), new Vector2(240f, 58f));
@@ -750,6 +773,11 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(panel, "optimalSolutionLabel", optimalText);
         SceneBuilderUtil.Wire(panel, "statsLabel",           stats);
         SceneBuilderUtil.Wire(panel, "mentorLabel",          mentor);
+        SceneBuilderUtil.Wire(panel, "efficiencyLabel",      efficiency);
+        SceneBuilderUtil.Wire(panel, "annotationContainer",  annotations);
+        SceneBuilderUtil.Wire(panel, "annotationTemplate",   annotationTemplate);
+        SceneBuilderUtil.Wire(panel, "tooltipRoot",          tooltip.gameObject);
+        SceneBuilderUtil.Wire(panel, "tooltipLabel",         tooltipText);
         SceneBuilderUtil.Wire(panel, "continueButton",       cont);
         SceneBuilderUtil.Wire(panel, "replayButton",         replay);
 

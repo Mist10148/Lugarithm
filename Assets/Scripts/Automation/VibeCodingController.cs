@@ -92,52 +92,59 @@ public class VibeCodingController : MonoBehaviour
     IEnumerator Respond(string message)
     {
         AppendHistory($"You: {message}");
-        AppendHistory("Tutor: …");
+        AppendHistory("Tutor: generating…");
 
-        string prompt = VibeCodingService.BuildTutorPrompt(message, _allowedBlocks, _allowedQueries);
-        string result = null;
-        yield return GeminiClient.Ask(prompt, r => result = r);
+        AiResult result = null;
+        int packets = 0;
+        yield return GeminiClient.Stream(
+            VibeCodingService.BuildTutorRequest(message, _allowedBlocks, _allowedQueries),
+            _ =>
+            {
+                packets++;
+                UpdateLastHistory("Tutor: generating" + new string('.', 1 + packets % 3));
+            },
+            completed => result = completed);
 
-        if (result == null)
+        if (result == null || !result.Success || !VibeCodingService.TryParse(result.Text, out VibeCodeResponse response))
         {
             UpdateLastHistory("Tutor: (couldn't reach the AI — check your connection and try again)");
             SetEnabled(true);
             yield break;
         }
 
-        string code = ExtractCodeFence(result, out string spoken);
-        UpdateLastHistory("Tutor: " + (string.IsNullOrWhiteSpace(spoken) ? "Here you go." : spoken.Trim()));
-
-        // Only drop code in when the model actually wrote a valid program.
-        if (code != null && codeEditor != null && VibeCodingService.Validate(code, out _) == null)
+        UpdateLastHistory("Tutor: " + response.message.Trim());
+        if (response.kind == "code")
         {
-            codeEditor.input.SetTextWithoutNotify(code);
-            codeEditor.RefreshLineNumbers();
-            codeEditor.RefreshHighlight();
-            AppendHistory("Tutor: ✓ I put that in your editor — press \"Code\" and RUN to try it.");
+            string validation = VibeCodingService.Validate(response.code, _allowedBlocks, _allowedQueries, out _);
+            if (validation != null)
+            {
+                AppendHistory("Tutor: checking one correction…");
+                AiResult repairedResult = null;
+                yield return GeminiClient.Stream(
+                    VibeCodingService.BuildRepairRequest(message, response, validation, _allowedBlocks, _allowedQueries),
+                    null, completed => repairedResult = completed);
+                if (repairedResult != null && repairedResult.Success &&
+                    VibeCodingService.TryParse(repairedResult.Text, out VibeCodeResponse repaired))
+                {
+                    response = repaired;
+                    validation = VibeCodingService.Validate(response.code, _allowedBlocks, _allowedQueries, out _);
+                }
+            }
+
+            if (validation == null && codeEditor != null)
+            {
+                codeEditor.input.SetTextWithoutNotify(response.code);
+                codeEditor.RefreshLineNumbers();
+                codeEditor.RefreshHighlight();
+                AppendHistory("Tutor: ✓ Validated and placed in your editor. Press Code to review it, then RUN when you're ready.");
+            }
+            else
+            {
+                AppendHistory("Tutor: I kept your existing code unchanged because the generated program did not pass this level's rules.");
+            }
         }
 
         SetEnabled(true);
-    }
-
-    /// <summary>Splits a reply into the spoken text and the contents of its first
-    /// ```fenced``` code block (null when there is none).</summary>
-    static string ExtractCodeFence(string reply, out string spoken)
-    {
-        spoken = reply;
-        if (string.IsNullOrEmpty(reply)) return null;
-
-        int open = reply.IndexOf("```", System.StringComparison.Ordinal);
-        if (open < 0) return null;
-
-        int afterOpen = reply.IndexOf('\n', open);
-        if (afterOpen < 0) return null;
-        int close = reply.IndexOf("```", afterOpen, System.StringComparison.Ordinal);
-        if (close < 0) return null;
-
-        string code = reply.Substring(afterOpen + 1, close - afterOpen - 1).TrimEnd();
-        spoken = (reply.Substring(0, open) + reply.Substring(close + 3)).Trim();
-        return code.Length == 0 ? null : code;
     }
 
     void AppendHistory(string line)

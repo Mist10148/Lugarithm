@@ -65,6 +65,40 @@ public class DialogBox : MonoBehaviour
         }
     }
 
+    public void BeginStreaming(string speaker)
+    {
+        if (_revealRoutine != null) StopCoroutine(_revealRoutine);
+        _revealRoutine = null;
+        _isRevealing = true;
+        _fullText = "";
+        if (root != null) root.SetActive(true);
+        if (speakerLabel != null) speakerLabel.text = speaker;
+        if (continueIndicator != null) continueIndicator.SetActive(false);
+        SetBody("");
+    }
+
+    public void AppendStreaming(string text)
+    {
+        _fullText += text ?? "";
+        SetBody(_fullText);
+    }
+
+    public void UpdateStreaming(string text)
+    {
+        _fullText = text ?? "";
+        SetBody(_fullText);
+        _isRevealing = true;
+        if (continueIndicator != null) continueIndicator.SetActive(false);
+    }
+
+    public void CompleteStreaming(string finalText)
+    {
+        _fullText = finalText ?? "";
+        SetBody(_fullText);
+        _isRevealing = false;
+        ShowContinuePrompt();
+    }
+
     /// <summary>
     /// Advances the box. If the line is still typing, completes it instantly and
     /// returns false. If it has finished, returns true so the caller knows it may

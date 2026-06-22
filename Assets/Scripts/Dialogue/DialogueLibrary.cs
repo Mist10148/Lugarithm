@@ -711,8 +711,24 @@ public static class DialogueLibrary
             target = target,
             once = once,
             requires = requires ?? Array.Empty<string>(),
-            unlocksEvent = unlocksEvent
+            unlocksEvent = unlocksEvent,
+            tone = InferTone(label),
+            affinityDelta = InferTone(label) == DialogueTone.Warm ? 1 :
+                            InferTone(label) == DialogueTone.Dismissive ? -1 : 0
         };
+
+    static DialogueTone InferTone(string label)
+    {
+        string lower = (label ?? "").ToLowerInvariant();
+        if (lower.Contains("keep driving") || lower.Contains("horrible") || lower.Contains("dangerous"))
+            return DialogueTone.Dismissive;
+        if (lower.Contains("got it") || lower.Contains("beautiful") || lower.Contains("makes sense") ||
+            lower.Contains("ready") || lower.Contains("here") || lower.Contains("stop"))
+            return DialogueTone.Warm;
+        if (lower.Contains("?") || lower.StartsWith("what") || lower.StartsWith("who") || lower.StartsWith("how"))
+            return DialogueTone.Curious;
+        return DialogueTone.Neutral;
+    }
 
     static DialogueNode Node(string id, DialogueNodeKind kind, DialogueLine[] lines,
                              DialogueChoice[] choices = null, string next = null,

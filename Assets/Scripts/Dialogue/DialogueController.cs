@@ -42,6 +42,7 @@ public class DialogueController : MonoBehaviour
     bool            _subscribedToSettings;
     bool            _choiceClickedThisFrame;
     bool            _awaitingRephrase;
+    AiCancellation  _dialogueCancellation;
 
     // Reusable choice button pool.
     readonly List<Button> _activeChoices = new List<Button>();
@@ -63,6 +64,7 @@ public class DialogueController : MonoBehaviour
 
     void OnDisable()
     {
+        _dialogueCancellation?.Cancel();
         if (SettingsManager.Instance != null && _subscribedToSettings)
         {
             SettingsManager.Instance.OnSettingsChanged -= ApplySettings;
@@ -144,6 +146,8 @@ public class DialogueController : MonoBehaviour
     public void SkipConversation()
     {
         if (_runtime == null) return;
+        _dialogueCancellation?.Cancel();
+        _awaitingRephrase = false;
 
         if (_waitingForRevealAdvance)
         {
@@ -320,22 +324,9 @@ public class DialogueController : MonoBehaviour
 
         SetSpeakerPortrait(line.speaker);
 
-        bool isRevisit = _runtime != null &&
-                         _runtime.HasVisited(nodeId) &&
-                         _runtime.CurrentNode != null &&
-                         (_runtime.CurrentNode.kind == DialogueNodeKind.Line ||
-                          _runtime.CurrentNode.kind == DialogueNodeKind.Branch);
-
-        if (isRevisit)
-        {
-            dialogBox.Show(line.speaker, "...");
-            var pax = _conversation != null ? PassengerLibrary.Get(_conversation.passengerId) : null;
-            if (pax != null)
-                StartCoroutine(RephraseLine(line, pax));
-            return;
-        }
-
-        dialogBox.Show(line.speaker, line.text);
+        var pax = _conversation != null ? PassengerLibrary.Get(_conversation.passengerId) : null;
+        if (pax == null) { dialogBox.Show(line.speaker, line.text); return; }
+        StartCoroutine(RephraseLine(line, pax));
     }
 
     // -------------------------------------------------------------------------
@@ -374,15 +365,40 @@ public class DialogueController : MonoBehaviour
     IEnumerator RephraseLine(DialogueLine line, PassengerDefinition pax)
     {
         _awaitingRephrase = true;
+        _dialogueCancellation?.Cancel();
+        _dialogueCancellation = new AiCancellation();
+        if (dialogBox != null) dialogBox.BeginStreaming(line.speaker);
 
-        string prompt = LivingStoryService.BuildPrompt(
-            line.text, pax, SaveSystem.Current.currentLevelIndex);
-        string result = null;
-        yield return GeminiClient.Ask(prompt, r => result = r);
+        AiRequest request = LivingStoryService.BuildRequest(line.text, pax,
+            SaveSystem.Current.currentLevelIndex,
+            _runtime != null ? _runtime.Tone : DialogueTone.Neutral,
+            _runtime != null ? _runtime.Affinity : 0);
+        request.Cancellation = _dialogueCancellation;
+        AiResult result = null;
+        string streamed = "";
+        string validationContext = LivingStoryService.ContextForValidation(line.text);
+        yield return GeminiClient.Stream(request, delta =>
+        {
+            streamed += delta;
+            string trimmed = streamed.TrimEnd();
+            bool completeSentence = trimmed.EndsWith(".") || trimmed.EndsWith("!") || trimmed.EndsWith("?");
+            if (completeSentence && dialogBox != null &&
+                AiGroundingValidator.ValidatePartial(line.text, streamed, validationContext))
+                dialogBox.UpdateStreaming(streamed.Trim());
+        }, completed => result = completed);
 
-        if (dialogBox != null)
-            dialogBox.Show(line.speaker, result ?? line.text);
+        if (_dialogueCancellation.IsCancellationRequested) yield break;
 
+        string final = result != null && result.Success ? result.Text.Trim() : null;
+        if (!AiGroundingValidator.ValidateParaphrase(line.text, final, validationContext, out string reason))
+        {
+            if (result != null && result.Success)
+                Debug.LogWarning($"[LivingStory] Rejected paraphrase ({reason}); using authored line.");
+            final = line.text;
+        }
+        if (dialogBox != null) dialogBox.CompleteStreaming(final);
+        if (_waitingForRevealAdvance && revealBody != null)
+            revealBody.text = $"<color=#EAEADC>{final}</color>";
         _awaitingRephrase = false;
     }
 
@@ -460,6 +476,8 @@ public class DialogueController : MonoBehaviour
 
     void HideAll()
     {
+        _dialogueCancellation?.Cancel();
+        _awaitingRephrase = false;
         ClearChoices();
         if (dialogBox != null) dialogBox.Hide();
         if (root != null) root.SetActive(false);

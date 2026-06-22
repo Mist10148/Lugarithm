@@ -1,45 +1,41 @@
 using System.Text;
 
-/// <summary>
-/// Assembles the Gemini prompt for the Living Story Engine. When the player
-/// revisits a dialogue node, the model rephrases the original line in the
-/// passenger's voice while staying grounded to the spoiler-gated heritage
-/// dossier — no invented facts.
-/// </summary>
 public static class LivingStoryService
 {
-    public static string BuildPrompt(
-        string originalLine,
-        PassengerDefinition passenger,
-        int currentLevelIndex)
+    const string SystemInstruction =
+        "You are a performance layer for authored dialogue in Lugarithm. You may change phrasing only. " +
+        "Never change, add, remove, correct, or speculate about facts, plot events, instructions, names, dates, or numbers. " +
+        "Return only the spoken line in one or two natural sentences.";
+
+    public static AiRequest BuildRequest(string originalLine, PassengerDefinition passenger,
+                                         int currentLevelIndex, DialogueTone tone, int affinity)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine($"You are {passenger.speakerName} in Lugarithm, a Philippine heritage jeepney game.");
-        sb.AppendLine($"Character: {passenger.voice}. Background: {passenger.background}.");
-        sb.AppendLine();
-        sb.AppendLine("You are talking to the player about heritage topics while they ride your jeepney. The player has heard this exact line before. Rewrite it so it feels fresh — same meaning, same facts, but phrased differently, as if you're remembering it from a different angle. One to two sentences only. Stay strictly in character.");
-        sb.AppendLine();
-        sb.AppendLine("ONLY use facts from the heritage dossier below. Do not invent facts, dates, names, or events.");
-        sb.AppendLine();
-        sb.AppendLine("=== HERITAGE DOSSIER ===");
-
-        foreach (var entry in HeritageLibrary.All)
+        var hits = KnowledgeRagService.Retrieve(originalLine, SaveSystem.Current, 2, KnowledgeDomain.Heritage);
+        string context = KnowledgeRagService.FormatContext(hits);
+        StringBuilder prompt = new StringBuilder();
+        prompt.AppendLine($"Speaker: {passenger.speakerName}");
+        prompt.AppendLine($"Voice: {passenger.voice}");
+        prompt.AppendLine($"Background: {passenger.background}");
+        prompt.AppendLine($"Player tone this conversation: {tone}; affinity: {affinity}.");
+        prompt.AppendLine("Use tone only to adjust warmth or reserve; do not change content.");
+        if (!string.IsNullOrEmpty(context))
         {
-            bool unlocked = entry.levelIndex == -1 || entry.levelIndex <= currentLevelIndex;
-            bool revealed = entry.levelIndex == -1 || entry.levelIndex < currentLevelIndex;
-            if (!unlocked) continue;
-
-            sb.AppendLine($"[{entry.townName}]");
-            foreach (var fact in entry.keyFacts)
-            {
-                if (fact.holdForReveal && !revealed) continue;
-                sb.AppendLine($"  • {fact.headline}: {fact.detail}");
-            }
+            prompt.AppendLine("Grounding excerpts (support only; do not introduce unused details):");
+            prompt.AppendLine(context);
         }
+        prompt.AppendLine("Authored line to paraphrase exactly:");
+        prompt.Append(originalLine);
 
-        sb.AppendLine("========================");
-        sb.AppendLine();
-        sb.Append($"Original line: \"{originalLine}\"");
-        return sb.ToString();
+        return new AiRequest
+        {
+            Feature = AiFeature.Dialogue,
+            SystemInstruction = SystemInstruction,
+            Prompt = prompt.ToString(),
+            MaxOutputTokens = 180
+        };
     }
+
+    public static string ContextForValidation(string originalLine)
+        => KnowledgeRagService.FormatContext(
+            KnowledgeRagService.Retrieve(originalLine, SaveSystem.Current, 2, KnowledgeDomain.Heritage));
 }

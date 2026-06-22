@@ -586,12 +586,36 @@ public class AutomationDriveController : MonoBehaviour
     {
         if (hintLabel != null) hintLabel.text = "...";
 
-        string prompt = CopilotHintService.BuildPrompt(authoredText, pax, tier);
-        string result = null;
-        yield return GeminiClient.Ask(prompt, r => result = r);
+        string source = _codeTabActive && codeEditor != null
+            ? codeEditor.Source
+            : blockCanvas != null ? blockCanvas.ToSourceText() : "";
+        Parser.Compile(source, out List<LangError> errors);
+        string parserFeedback = errors.Count > 0 ? string.Join("; ", errors.ConvertAll(e => e.ToString())) : "None";
+        string gap = exec != null && exec.Sim != null ? exec.Sim.DescribeGoalGap(_def) : null;
+        string concept = _levelIndex >= 0 && _levelIndex < JournalPageLibrary.Pages.Count
+            ? JournalPageLibrary.Pages[_levelIndex].codingConceptName : "program logic";
+        AiRequest request = CopilotHintService.BuildRequest(new HintContext
+        {
+            AuthoredFallback = authoredText,
+            Passenger = pax,
+            Tier = tier,
+            PlayerSource = source,
+            ParserFeedback = parserFeedback,
+            GoalGap = gap,
+            Concept = concept,
+            AllowedBlocks = _def.allowedBlocks,
+            AllowedQueries = _def.allowedQueries
+        });
+        AiResult result = null;
+        string streamed = "";
+        yield return GeminiClient.Stream(request, delta =>
+        {
+            streamed += delta;
+            if (hintLabel != null) hintLabel.text = streamed;
+        }, completed => result = completed);
 
         if (hintLabel != null)
-            hintLabel.text = result ?? authoredText;
+            hintLabel.text = result != null && result.Success ? result.Text : authoredText;
     }
 
     // -------------------------------------------------------------------------
@@ -840,6 +864,9 @@ public class AutomationDriveController : MonoBehaviour
 
         if (results != null)
         {
+            CodeAnalysis analysis = CodeAnalyticsService.Analyze(
+                playerSolution, _def.optimalSolutionText, sim.StepsUsed, _def.parSteps,
+                retries, elapsed, _def.softTimerSeconds, exec.LineHits);
             results.Show(
                 $"PUZZLE SOLVED  —  {_level.displayName}",
                 playerSolution, _def.optimalSolutionText, stats,
@@ -852,9 +879,10 @@ public class AutomationDriveController : MonoBehaviour
                     else
                         LoadScene("LevelSelect");
                 },
-                onReplay: () => LoadScene(SceneManager.GetActiveScene().name));
+                onReplay: () => LoadScene(SceneManager.GetActiveScene().name),
+                analysis: analysis);
 
-            StartCoroutine(FetchMentorFeedback(playerSolution, sim.StepsUsed, retries));
+            StartCoroutine(FetchMentorFeedback(playerSolution, analysis));
         }
         else
         {
@@ -866,19 +894,22 @@ public class AutomationDriveController : MonoBehaviour
         }
     }
 
-    IEnumerator FetchMentorFeedback(string playerSol, int steps, int retries)
+    IEnumerator FetchMentorFeedback(string playerSol, CodeAnalysis analysis)
     {
         string concept = JournalPageLibrary.Pages[_levelIndex].codingConceptName;
-        string prompt  = CodingMentorService.BuildPrompt(
-            _level.displayName, concept, steps, _def.parSteps,
-            retries, _lastRunWasCode, playerSol, _def.optimalSolutionText);
+        AiRequest request = CodingMentorService.BuildRequest(
+            _level.displayName, concept, analysis, playerSol, _def.optimalSolutionText,
+            _def.allowedBlocks, _def.allowedQueries);
+        AiResult response = null;
+        yield return GeminiClient.Stream(request, null, completed => response = completed);
 
-        string response = null;
-        yield return GeminiClient.Ask(prompt, r => response = r);
-
-        if (results != null)
-            results.SetMentorResponse(response
-                ?? "Keep experimenting — every attempt teaches you something new!");
+        MentorReview review = null;
+        int lineCount = string.IsNullOrEmpty(playerSol) ? 0 : playerSol.Replace("\r", "").Split('\n').Length;
+        if (response == null || !response.Success ||
+            !CodingMentorService.TryParseAndValidate(response.Text, _def.optimalSolutionText,
+                _def.allowedBlocks, _def.allowedQueries, lineCount, out review))
+            review = CodingMentorService.Fallback(_def.optimalSolutionText, analysis);
+        if (results != null) results.SetMentorReview(review);
     }
 
     void LoadScene(string sceneName)

@@ -1,61 +1,94 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using UnityEngine;
 
-/// <summary>
-/// Assembles the Gemini prompt for the Almanac Oracle by injecting heritage facts
-/// from <see cref="HeritageLibrary"/> gated by the player's unlock frontier.
-/// Spoiler-gating rules:
-///   - An entry is included when levelIndex == -1 (Guimbal drive-through, always)
-///     or levelIndex &lt;= currentLevelIndex.
-///   - holdForReveal facts are included only when the town's level is fully behind
-///     the frontier (levelIndex &lt; currentLevelIndex), meaning its completion
-///     cutscene has already played.
-/// </summary>
+[Serializable]
+public sealed class OracleResponse
+{
+    public string status;
+    public string answer;
+    public string[] citations;
+}
+
 public static class HeritageOracleService
 {
+    public const string ResponseSchema =
+        "{\"type\":\"object\",\"properties\":{" +
+        "\"status\":{\"type\":\"string\",\"enum\":[\"answered\",\"locked\",\"unknown\"]}," +
+        "\"answer\":{\"type\":\"string\",\"description\":\"Two or three concise sentences grounded only in supplied records.\"}," +
+        "\"citations\":{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"maxItems\":4}}," +
+        "\"required\":[\"status\",\"answer\",\"citations\"],\"additionalProperties\":false}";
+
     const string SystemInstruction =
-        "You are the Almanac Oracle in Lugarithm, a game about jeepney heritage along the " +
-        "Iloilo coast in the Philippines. Speak with warmth and cultural pride — like a " +
-        "knowledgeable lola who loves her history. Only reference facts from the heritage " +
-        "dossier below; never invent details. If a question clearly touches a town not yet " +
-        "in the dossier, say: \"My records for that town are still sealed.\" " +
-        "Keep your reply to 2–3 sentences.";
+        "You are the Heritage Oracle in Lugarithm: warm, culturally respectful, and clear for learners aged 10–16. " +
+        "Answer only from the supplied unlocked records. Cite every record you use by its exact bracketed ID. " +
+        "For programming, explain the concept or syntax without reconstructing a puzzle's answer. " +
+        "If the records do not support the answer, set status to unknown and say the record is unavailable. " +
+        "Never infer undiscovered history, family plot details, or an executable puzzle solution.";
 
-    public static string BuildPrompt(string question, int currentLevelIndex)
+    public static bool TryBuildRequest(string question, SaveData save, IReadOnlyList<string> history,
+                                       out AiRequest request, out IReadOnlyList<KnowledgeHit> hits,
+                                       out string localResponse)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine(SystemInstruction);
-        sb.AppendLine();
-        sb.AppendLine("=== HERITAGE DOSSIER ===");
-
-        foreach (var entry in HeritageLibrary.All)
+        if (KnowledgeRagService.TryGetLockedTownMessage(question, save, out localResponse))
         {
-            bool entryUnlocked   = entry.levelIndex == -1 || entry.levelIndex <= currentLevelIndex;
-            bool revealsUnlocked = entry.levelIndex == -1 || entry.levelIndex < currentLevelIndex;
-            if (!entryUnlocked) continue;
-
-            sb.AppendLine($"[{entry.townName}] {entry.theme}");
-            foreach (var fact in entry.keyFacts)
-            {
-                if (fact.holdForReveal && !revealsUnlocked) continue;
-                sb.AppendLine($"  • {fact.headline}: {fact.detail}");
-            }
+            request = null;
+            hits = Array.Empty<KnowledgeHit>();
+            return false;
         }
 
-        sb.AppendLine("========================");
-        sb.AppendLine();
-        sb.Append($"Player asks: {question}");
-        return sb.ToString();
+        hits = KnowledgeRagService.Retrieve(question, save, 4);
+        if (hits.Count == 0)
+        {
+            request = null;
+            localResponse = "Those records are not in my recovered archive yet. Try asking about an unlocked town or coding lesson.";
+            return false;
+        }
+
+        StringBuilder prompt = new StringBuilder();
+        prompt.AppendLine("UNLOCKED RECORDS:");
+        prompt.AppendLine(KnowledgeRagService.FormatContext(hits));
+        if (history != null && history.Count > 0)
+        {
+            prompt.AppendLine("RECENT CHAT (context only; records remain authoritative):");
+            foreach (string turn in history.TakeLast(4)) prompt.AppendLine(turn);
+        }
+        prompt.AppendLine("PLAYER QUESTION:");
+        prompt.Append(question);
+
+        request = new AiRequest
+        {
+            Feature = AiFeature.Oracle,
+            SystemInstruction = SystemInstruction,
+            Prompt = prompt.ToString(),
+            ResponseJsonSchema = ResponseSchema,
+            MaxOutputTokens = 450
+        };
+        localResponse = null;
+        return true;
     }
 
-    /// <summary>
-    /// Returns a short fallback string drawn from the current town's driveSpend text
-    /// when the API call fails or is unavailable.
-    /// </summary>
+    public static bool TryParseAndValidate(string json, IReadOnlyList<KnowledgeHit> supplied,
+                                           out OracleResponse response)
+    {
+        response = null;
+        if (string.IsNullOrWhiteSpace(json)) return false;
+        try { response = JsonUtility.FromJson<OracleResponse>(json); }
+        catch { return false; }
+        if (response == null || string.IsNullOrWhiteSpace(response.answer) || response.answer.Length > 700)
+            return false;
+        if (response.status == "answered" && (response.citations == null || response.citations.Length == 0))
+            return false;
+        return KnowledgeRagService.AreCitationsValid(response.citations ?? Array.Empty<string>(), supplied);
+    }
+
     public static string FallbackResponse(int currentLevelIndex)
     {
-        var entry = HeritageLibrary.ForLevel(currentLevelIndex);
-        if (entry != null)
-            return $"(The Oracle speaks from memory:) {entry.driveSpend}";
-        return "The Oracle's voice fades for a moment. Try again later.";
+        HeritageEntry entry = HeritageLibrary.ForLevel(currentLevelIndex);
+        return entry != null
+            ? $"(The Oracle speaks from memory:) {entry.driveSpend}"
+            : "The Oracle's voice fades for a moment. Try again later.";
     }
 }

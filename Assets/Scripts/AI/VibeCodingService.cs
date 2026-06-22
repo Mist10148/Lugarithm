@@ -1,56 +1,72 @@
+using System;
 using System.Collections.Generic;
+using System.Text;
+using UnityEngine;
 
-/// <summary>
-/// Assembles the Gemini prompt for Vibe Coding / Autopilot: the player types
-/// plain-English intent and the model returns valid automation-language code.
-/// Also provides a lightweight parse validation so bad outputs are rejected
-/// before they reach the code editor.
-/// </summary>
+[Serializable]
+public sealed class VibeCodeResponse
+{
+    public string kind;
+    public string message;
+    public string code;
+}
+
 public static class VibeCodingService
 {
-    public static string BuildPrompt(string intent, string[] allowedBlocks, string[] allowedQueries)
-    {
-        string blocks  = allowedBlocks  != null ? string.Join(" ", allowedBlocks)  : "moveForward turnLeft turnRight pickUp dropOff collectFare";
-        string queries = allowedQueries != null ? string.Join(" ", allowedQueries) : "frontIsClear leftIsClear rightIsClear atStop atDestination";
+    public const string ResponseSchema =
+        "{\"type\":\"object\",\"properties\":{" +
+        "\"kind\":{\"type\":\"string\",\"enum\":[\"explanation\",\"code\"]}," +
+        "\"message\":{\"type\":\"string\"},\"code\":{\"type\":\"string\"}}," +
+        "\"required\":[\"kind\",\"message\",\"code\"],\"additionalProperties\":false}";
 
-        return
-            "You are a code generator for Lugarithm, a game with a custom Python-style programming language.\n\n" +
-            "Language rules:\n" +
-            "- Python-style indentation (4 spaces per level). Use only these exact names.\n" +
-            "- Actions (used as statements): " + blocks + "\n" +
-            "- Queries (used ONLY inside if/while conditions): " + queries + "\n" +
-            "- Syntax: if COND(): ... / while COND(): ... / if COND(): ... else: ... / not COND()\n" +
-            "- All names need parentheses: moveForward() not moveForward\n" +
-            "- Queries only in conditions, never standalone. Actions never as conditions.\n" +
-            "- No variables, functions, imports, or comments.\n\n" +
-            "Output ONLY the code — no explanation, no markdown fences.\n\n" +
-            "Player's intent: \"" + intent + "\"";
+    public static AiRequest BuildTutorRequest(string message, string[] allowedBlocks, string[] allowedQueries)
+    {
+        StringBuilder prompt = new StringBuilder();
+        prompt.AppendLine("Unlocked actions/control structures: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
+        prompt.AppendLine("Unlocked queries: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
+        prompt.AppendLine("If the player explicitly asks to create, automate, write, fix, or change a program, return kind=code and a complete program.");
+        prompt.AppendLine("Otherwise return kind=explanation and an empty code field. Keep the message to two or three friendly sentences.");
+        prompt.AppendLine("Player request:");
+        prompt.Append(message);
+        return new AiRequest
+        {
+            Feature = AiFeature.VibeCode,
+            SystemInstruction =
+                "You are Lugarithm's in-editor tutor and code generator. Generated programs use Python-style indentation and parentheses. " +
+                "Use only explicitly unlocked names and structures. Queries belong only in conditions. Never use imports, hidden APIs, or markdown fences.",
+            Prompt = prompt.ToString(),
+            ResponseJsonSchema = ResponseSchema,
+            MaxOutputTokens = 900
+        };
     }
 
-    /// <summary>
-    /// Prompt for the in-editor AI helper: a friendly tutor that answers questions
-    /// in plain language and ONLY writes code (in a single fenced block) when the
-    /// player actually asks for it. Used by <see cref="VibeCodingController"/>.
-    /// </summary>
-    public static string BuildTutorPrompt(string message, string[] allowedBlocks, string[] allowedQueries)
+    public static AiRequest BuildRepairRequest(string intent, VibeCodeResponse previous, string validationError,
+                                               string[] allowedBlocks, string[] allowedQueries)
     {
-        string blocks  = allowedBlocks  != null && allowedBlocks.Length  > 0 ? string.Join(" ", allowedBlocks)  : "moveForward turnLeft turnRight pickUp dropOff collectFare";
-        string queries = allowedQueries != null && allowedQueries.Length > 0 ? string.Join(" ", allowedQueries) : "frontIsClear leftIsClear rightIsClear atStop atDestination";
-
-        return
-            "You are a warm, encouraging coding tutor inside Lugarithm, a game that teaches a Python-style language to beginners.\n" +
-            "The player drives a jeepney by writing code.\n" +
-            "Actions (statements): " + blocks + "\n" +
-            "Queries (only inside if/while conditions): " + queries + "\n\n" +
-            "Reply in 2–4 short, friendly sentences of plain language. Do NOT lecture.\n" +
-            "Only if the player explicitly asks you to write or fix the code, ALSO append ONE fenced code block (```), using only the names above, 4-space indentation, parentheses on every name, and queries only inside conditions. Otherwise include no code block at all.\n\n" +
-            "Player: \"" + message + "\"";
+        AiRequest request = BuildTutorRequest(intent, allowedBlocks, allowedQueries);
+        request.Prompt += "\nThe previous generated program was rejected locally:\n" + previous.code +
+                          "\nValidation error: " + validationError +
+                          "\nReturn one corrected complete program using only the unlocked vocabulary.";
+        return request;
     }
 
-    /// <summary>
-    /// Parses the generated code and returns the first error message, or null
-    /// when the code is syntactically valid.
-    /// </summary>
+    public static bool TryParse(string json, out VibeCodeResponse response)
+    {
+        response = null;
+        if (string.IsNullOrWhiteSpace(json)) return false;
+        try { response = JsonUtility.FromJson<VibeCodeResponse>(json); }
+        catch { return false; }
+        return response != null && (response.kind == "code" || response.kind == "explanation") &&
+               !string.IsNullOrWhiteSpace(response.message);
+    }
+
+    public static string Validate(string code, string[] allowedBlocks, string[] allowedQueries,
+                                  out List<LangError> errors)
+    {
+        GeneratedProgramPolicy.Validate(code, allowedBlocks, allowedQueries, out errors);
+        return errors.Count > 0 ? errors[0].Message : null;
+    }
+
     public static string Validate(string code, out List<LangError> errors)
     {
         Parser.Compile(code, out errors);

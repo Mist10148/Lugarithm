@@ -32,6 +32,14 @@ public enum DialogueNodeKind
     End      // terminal node
 }
 
+public enum DialogueTone
+{
+    Neutral,
+    Warm,
+    Curious,
+    Dismissive
+}
+
 /// <summary>
 /// A single spoken line with optional affinity and reveal gating.
 /// </summary>
@@ -55,6 +63,8 @@ public class DialogueChoice
     public bool   once;
     public string[] requires;
     public DialogueEventKind unlocksEvent;
+    public DialogueTone tone;
+    public int affinityDelta;
 }
 
 /// <summary>
