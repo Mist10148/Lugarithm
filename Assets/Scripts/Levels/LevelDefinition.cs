@@ -32,6 +32,13 @@ public class LevelDefinition
     /// Tutorial's non-code beat is the in-drive Coin Drawer).
     /// </summary>
     public TownPuzzleKind townPuzzle = TownPuzzleKind.None;
+
+    /// <summary>
+    /// When set, the level's primary scene is this top-down overworld map instead
+    /// of the jeep minigame. The jeep minigame (ManualDrive / CodeDrive) becomes
+    /// accessible from within the overworld via interaction triggers.
+    /// </summary>
+    public string overworldSceneName = "";
 }
 
 /// <summary>Which on-arrival non-code town puzzle a level gates advancement on.</summary>
