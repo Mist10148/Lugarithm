@@ -214,7 +214,7 @@ public static class RouteVisualBuilder
         // perpendicular would aim straight down the other leg and drop the sign /
         // peeps onto the road; the open-quadrant outward normal keeps them off it
         // for any orientation. Sign, peeps, and label all hang off local +X.
-        Vector2 outward = RoadsideOutwardFromSegments(node.pos, segments);
+        Vector2 outward = RoadsideOutwardFromSegments(node.pos, segments, roadHalfWidth);
         go.transform.rotation = Quaternion.Euler(0f, 0f, Vector2.SignedAngle(Vector2.right, outward));
 
         var collider = go.AddComponent<BoxCollider2D>();
@@ -256,30 +256,53 @@ public static class RouteVisualBuilder
     /// <summary>
     /// Outward roadside normal at a node (procedural town): a unit vector pointing
     /// into the clearest space beside the road, away from every incident road leg.
-    /// Trunk legs are gathered first so the perpendicular fallback picks a
-    /// consistent side. See <see cref="RoadsideOutward"/>.
+    /// Incident roads are found by distance to each segment (robust to streamed
+    /// nodes that drift off their exact endpoints). See <see cref="RoadsideOutward"/>.
     /// </summary>
-    static Vector2 RoadsideOutwardFromSegments(Vector2 pos, List<RoadSegment> segments)
+    static Vector2 RoadsideOutwardFromSegments(Vector2 pos, List<RoadSegment> segments, float roadHalfWidth)
     {
         var legs = new List<Vector2>();
+        Vector2 nearestDir = Vector2.right;
+        float   nearestDistSqr = float.PositiveInfinity;
+
         if (segments != null)
         {
-            const float tolSqr = 0.25f;   // endpoint match tolerance (0.5 units)
-            for (int pass = 0; pass < 2; pass++)   // trunk legs first, then branches
+            // A stop is "on" a road segment when the node lies near that segment's
+            // line (not just its endpoints). Streamed chunks snap nodes to the grid,
+            // so endpoint-exact matching drifts and misses legs — measuring distance
+            // to the whole segment is robust to that and also handles a stop sitting
+            // partway along a straight trunk run.
+            float nearTol = Mathf.Max(roadHalfWidth + 1f, 2f);
+            float nearTolSqr = nearTol * nearTol;
+            const float endFrac = 0.15f;   // how close to an endpoint counts as "the end"
+
+            foreach (RoadSegment s in segments)
             {
-                bool wantTrunk = pass == 0;
-                foreach (RoadSegment s in segments)
-                {
-                    if (s.isTrunk != wantTrunk) continue;
-                    Vector2 dir;
-                    if ((s.a - pos).sqrMagnitude <= tolSqr)      dir = s.b - s.a;
-                    else if ((s.b - pos).sqrMagnitude <= tolSqr) dir = s.a - s.b;
-                    else continue;
-                    if (dir.sqrMagnitude < 1e-4f) continue;
-                    legs.Add(dir.normalized);
-                }
+                Vector2 ab = s.b - s.a;
+                float abLenSqr = ab.sqrMagnitude;
+                if (abLenSqr < 1e-4f) continue;
+
+                float t = Vector2.Dot(pos - s.a, ab) / abLenSqr;
+                Vector2 closest = s.a + ab * Mathf.Clamp01(t);
+                float distSqr = (closest - pos).sqrMagnitude;
+
+                Vector2 dir = ab / Mathf.Sqrt(abLenSqr);
+                if (distSqr < nearestDistSqr) { nearestDistSqr = distSqr; nearestDir = dir; }
+
+                if (distSqr > nearTolSqr) continue;   // node not on this road
+
+                // Add the open-road direction(s) leaving the node: toward b when the
+                // node is at/near a, toward a when near b, and BOTH when mid-segment.
+                if (t > endFrac)        legs.Add(-dir);
+                if (t < 1f - endFrac)   legs.Add(dir);
             }
         }
+
+        // Fallback: no incident leg found (badly drifted node) — push to the side of
+        // the nearest road rather than blindly downward onto it.
+        if (legs.Count == 0)
+            legs.Add(nearestDir);
+
         return RoadsideOutward(legs);
     }
 
@@ -318,11 +341,25 @@ public static class RouteVisualBuilder
     {
         if (legs == null || legs.Count == 0) return Vector2.down;
 
-        // Pick, from 8 compass directions, the one pointing furthest away from every
-        // connected road leg — so the sign/peeps land in open space beside the road
-        // and never down another leg. (The old perpendicular fallback could aim
-        // straight onto a road at junctions / symmetric corners — the "center of
-        // road" stops.)
+        // Straight road, single leg, or dead-end stub: every leg lies on one axis, so
+        // any "furthest" compass direction would point back down the road. A
+        // perpendicular keeps the sign & peeps cleanly beside it. The axis is
+        // canonicalised so every stop on the same road picks the SAME side.
+        Vector2 primary = legs[0].normalized;
+        bool colinear = true;
+        foreach (Vector2 l in legs)
+            if (Mathf.Abs(Vector2.Dot(l.normalized, primary)) < 0.95f) { colinear = false; break; }
+
+        if (colinear)
+        {
+            if (primary.x < -1e-4f || (Mathf.Abs(primary.x) < 1e-4f && primary.y < 0f))
+                primary = -primary;
+            return new Vector2(primary.y, -primary.x);   // rotate -90°, beside the road
+        }
+
+        // Corner / T / Y: pick, from 8 compass directions, the one pointing furthest
+        // from every connected leg — the open quadrant — so the sign/peeps land in
+        // clear space and never down another leg.
         Vector2 best = Vector2.down;
         float   bestClearance = float.NegativeInfinity;
         for (int k = 0; k < 8; k++)

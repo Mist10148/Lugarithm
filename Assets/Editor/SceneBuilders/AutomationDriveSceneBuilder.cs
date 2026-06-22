@@ -135,14 +135,14 @@ public static class AutomationDriveSceneBuilder
             editorArea, (RectTransform)canvas.transform, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
         blockPanel.anchorMin = new Vector2(0f, 0f);
         blockPanel.anchorMax = new Vector2(0.365f, 1f);
-        blockPanel.offsetMin = new Vector2(24f, 262f);
+        blockPanel.offsetMin = new Vector2(24f, 24f);
         blockPanel.offsetMax = new Vector2(-12f, -212f);
 
         RectTransform codePanel = BuildCodeWindow(
-            editorArea, out CodeEditorController codeEditor, out Button codeChatButton);
+            editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl);
         codePanel.anchorMin = new Vector2(0f, 0f);
         codePanel.anchorMax = new Vector2(0.365f, 1f);
-        codePanel.offsetMin = new Vector2(24f, 262f);
+        codePanel.offsetMin = new Vector2(24f, 24f);
         codePanel.offsetMax = new Vector2(-12f, -212f);
 
         // Co-Pilot hint button + label (bottom-right of workspace)
@@ -156,27 +156,8 @@ public static class AutomationDriveSceneBuilder
         UIFactory.Place(hintLbl, new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(600f, 60f));
         hintLbl.enableWordWrapping = true;
 
-        // Monitor + console (bottom of workspace). Monitor sits in the band
-        // between the console (top ~190) and the editor (bottom ~262), so the
-        // three regions read as separate with clear gutters.
-        var monitorLine = UIFactory.CreatePanel(workspace, "Monitor",
-                                                new Vector2(0f, 0f), new Vector2(1f, 0f),
-                                                UIFactory.PanelDark);
-        UIFactory.Place(monitorLine, new Vector2(0.5f, 0f), new Vector2(0f, 202f), new Vector2(0f, 30f));
-        monitorLine.anchorMin = new Vector2(0f, 0f);
-        monitorLine.anchorMax = new Vector2(1f, 0f);
-        monitorLine.offsetMin = new Vector2(14f, 202f);
-        monitorLine.offsetMax = new Vector2(-14f, 232f);
-
-        var monitorText = UIFactory.CreateText(monitorLine, "Text", "", 17f,
-                                               UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
-        monitorText.rectTransform.offsetMin = new Vector2(10f, 0f);
-        monitorText.rectTransform.offsetMax = new Vector2(-10f, 0f);
-
-        var monitor = monitorLine.gameObject.AddComponent<StateMonitorController>();
-        SceneBuilderUtil.Wire(monitor, "label", monitorText);
-
-        ConsoleController console = BuildConsole(workspace);
+        // (The old bottom "terminal" band — a state-monitor line + console log —
+        // was removed; the editor now fills that reclaimed space.)
 
         // Results overlay (full screen)
         AutomationResultsPanel results = BuildResults(canvas);
@@ -189,9 +170,6 @@ public static class AutomationDriveSceneBuilder
         RefuelMinigame      refuel      = MinigameOverlayBuilder.BuildRefuel(canvas.transform);
         DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(canvas.transform);
         LegCompletionController legCompletion = LegCompletionOverlayBuilder.Build(canvas.transform);
-
-        // Vibe Coding / Autopilot floating chat window.
-        VibeCodingController vibeCtrl = BuildVibeCodingWindow((RectTransform)canvas.transform);
 
         // --- Orchestrator -------------------------------------------------------------------
 
@@ -213,7 +191,6 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "blockCanvas",    blockCanvas);
         SceneBuilderUtil.Wire(controller, "palette",        paletteCtrl);
         SceneBuilderUtil.Wire(controller, "codeEditor",     codeEditor);
-        SceneBuilderUtil.Wire(controller, "codeChatButton", codeChatButton);
         SceneBuilderUtil.Wire(controller, "runButton",      run);
         SceneBuilderUtil.Wire(controller, "pauseButton",    pause);
         SceneBuilderUtil.Wire(controller, "resetButton",    reset);
@@ -223,8 +200,6 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "editorModeToggle", editorModeToggle);
         SceneBuilderUtil.Wire(controller, "autopilotButton", autopilot);
         SceneBuilderUtil.Wire(controller, "selfDrive",      selfDrive);
-        SceneBuilderUtil.Wire(controller, "console",        console);
-        SceneBuilderUtil.Wire(controller, "monitor",        monitor);
         SceneBuilderUtil.Wire(controller, "results",        results);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",     flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",    cratePuzzle);
@@ -253,7 +228,7 @@ public static class AutomationDriveSceneBuilder
     /// </summary>
     internal static RectTransform BuildWindow(RectTransform parent, string name, string title,
                                               out RectTransform content, out RectTransform titleBar,
-                                              out EditorWindowController windowCtrl)
+                                              out EditorWindowController windowCtrl, bool closeable = true)
     {
         var window = UIFactory.CreatePanel(parent, name, Vector2.zero, Vector2.one, UIFactory.PanelDark);
         window.offsetMin = Vector2.zero;
@@ -266,14 +241,19 @@ public static class AutomationDriveSceneBuilder
         var titleText = UIFactory.CreateText(titleBar, "Title", title, 18f, UIFactory.Accent,
                                               TextAlignmentOptions.MidlineLeft);
         titleText.rectTransform.offsetMin = new Vector2(14f, 0f);
-        titleText.rectTransform.offsetMax = new Vector2(-120f, 0f);   // room for the window buttons
+        titleText.rectTransform.offsetMax = new Vector2(-150f, 0f);   // room for the window buttons
 
-        // Window buttons (top-right of the title bar): minimize + close.
+        // Window buttons (top-right of the title bar): minimize, and optionally close.
+        float minX = closeable ? -44f : -12f;
         Button minBtn = UIFactory.CreateButton(titleBar, "MinimizeButton", "_", new Vector2(28f, 24f), 18f);
-        UIFactory.Place(minBtn, new Vector2(1f, 0.5f), new Vector2(-44f, 0f), new Vector2(28f, 24f));
-        Button closeBtn = UIFactory.CreateButton(titleBar, "CloseButton", "x", new Vector2(28f, 24f), 18f);
-        UIFactory.Place(closeBtn, new Vector2(1f, 0.5f), new Vector2(-12f, 0f), new Vector2(28f, 24f));
-        closeBtn.image.color = new Color(0.55f, 0.20f, 0.20f, 1f);
+        UIFactory.Place(minBtn, new Vector2(1f, 0.5f), new Vector2(minX, 0f), new Vector2(28f, 24f));
+        Button closeBtn = null;
+        if (closeable)
+        {
+            closeBtn = UIFactory.CreateButton(titleBar, "CloseButton", "x", new Vector2(28f, 24f), 18f);
+            UIFactory.Place(closeBtn, new Vector2(1f, 0.5f), new Vector2(-12f, 0f), new Vector2(28f, 24f));
+            closeBtn.image.color = new Color(0.55f, 0.20f, 0.20f, 1f);
+        }
 
         content = UIFactory.CreateRect(window, "Content", Vector2.zero, Vector2.one,
                                        Vector2.zero, new Vector2(0f, -34f));
@@ -293,7 +273,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(windowCtrl, "window",         window);
         SceneBuilderUtil.Wire(windowCtrl, "content",        content);
         SceneBuilderUtil.Wire(windowCtrl, "minimizeButton", minBtn);
-        SceneBuilderUtil.Wire(windowCtrl, "closeButton",    closeBtn);
+        if (closeBtn != null) SceneBuilderUtil.Wire(windowCtrl, "closeButton", closeBtn);
         SceneBuilderUtil.Wire(windowCtrl, "minimizeLabel",  minBtn.GetComponentInChildren<TMP_Text>());
         SceneBuilderUtil.Wire(windowCtrl, "titleLabel",     titleText);
 
@@ -352,63 +332,84 @@ public static class AutomationDriveSceneBuilder
         return window;
     }
 
-    /// <summary>"The Farmer Was Replaced"-style code window: gutter + input + lint.</summary>
+    /// <summary>
+    /// "The Farmer Was Replaced"-style code window: gutter + input + lint, with an
+    /// in-window AI chat that the title-bar "AI"/"Code" buttons swap to and from.
+    /// The window has no close button (the editor is always available); the chat is
+    /// driven by the returned <see cref="VibeCodingController"/>.
+    /// </summary>
     internal static RectTransform BuildCodeWindow(RectTransform parent, out CodeEditorController editor,
-                                                  out Button chatButton)
+                                                  out VibeCodingController chat)
     {
         RectTransform window = BuildWindow(parent, "CodeWindow", "CODE — type to program",
-                                           out RectTransform content, out RectTransform titleBar);
+                                           out RectTransform content, out RectTransform titleBar,
+                                           out _, closeable: false);
 
-        chatButton = null;
-        if (titleBar != null)
-        {
-            // AI chat toggle in the title bar (left of the minimize/close buttons).
-            chatButton = UIFactory.CreateButton(titleBar, "ChatButton", "AI", new Vector2(48f, 24f), 16f);
-            UIFactory.Place(chatButton, new Vector2(1f, 0.5f), new Vector2(-86f, 0f), new Vector2(48f, 24f));
-        }
+        // Editor body and chat body share the content area; only one shows at a time.
+        var editorBody = UIFactory.CreateRect(content, "EditorBody", Vector2.zero, Vector2.one,
+                                              Vector2.zero, Vector2.zero);
+        editor = BuildCodeEditor(editorBody);
 
-        editor = BuildCodeEditor(content);
-        return window;
-    }
+        var chatBody = UIFactory.CreateRect(content, "ChatBody", Vector2.zero, Vector2.one,
+                                            Vector2.zero, Vector2.zero);
 
-    /// <summary>VS Code Copilot-style floating chat that generates automation code.</summary>
-    internal static VibeCodingController BuildVibeCodingWindow(RectTransform parent)
-    {
-        RectTransform content;
-        RectTransform windowRoot = BuildWindow(parent, "VibeCodingWindow", "AI COPILOT", out content);
-        UIFactory.Place(windowRoot, new Vector2(1f, 1f), new Vector2(-20f, -20f), new Vector2(420f, 500f));
-
-        // Chat history (scrollable, fills top of window).
-        ScrollRect scroll = UIFactory.CreateScrollView(content, "ChatHistory",
+        // Chat history (scroll) fills the top; the input row is pinned to the bottom.
+        ScrollRect scroll = UIFactory.CreateScrollView(chatBody, "ChatHistory",
                                                        Vector2.zero, Vector2.one,
                                                        out RectTransform chatContent);
-        UIFactory.Place(scroll, new Vector2(0f, 1f), new Vector2(0f, -8f), new Vector2(0f, -80f));
+        var scrollRt = (RectTransform)scroll.transform;
+        scrollRt.offsetMin = new Vector2(6f, 50f);
+        scrollRt.offsetMax = new Vector2(-6f, -6f);
         scroll.vertical = true;
 
-        TMP_Text historyLabel = UIFactory.CreateText(chatContent, "History", "", 18f, UIFactory.TextDim,
-                                                     TextAlignmentOptions.TopLeft);
+        TMP_Text historyLabel = UIFactory.CreateText(chatContent, "History",
+            "Ask me anything about your code — or tell me what the jeepney should do.",
+            18f, UIFactory.TextDim, TextAlignmentOptions.TopLeft);
         historyLabel.enableWordWrapping = true;
 
-        // Input row at the bottom.
-        TMP_InputField inputField = UIFactory.CreateMultilineInput(content, "ChatInput",
-                                                                   new Vector2(0f, 0f), new Vector2(1f, 0f), 20f);
+        TMP_InputField inputField = UIFactory.CreateMultilineInput(chatBody, "ChatInput",
+                                                                   new Vector2(0f, 0f), new Vector2(1f, 0f), 18f);
         inputField.lineType = TMP_InputField.LineType.SingleLine;
-        UIFactory.Place(inputField.GetComponent<RectTransform>(),
-                        new Vector2(0f, 0f), new Vector2(45f, 10f), new Vector2(-90f, 44f));
-        inputField.placeholder.GetComponent<TMP_Text>().text = "Describe what you want the jeepney to do...";
+        var inRt = (RectTransform)inputField.transform;
+        inRt.offsetMin = new Vector2(6f, 6f);
+        inRt.offsetMax = new Vector2(-62f, 44f);
+        if (inputField.placeholder is TMP_Text ph) ph.text = "Ask a question, or say what to do…";
 
-        Button sendBtn = UIFactory.CreateButton(content, "SendBtn", "▶", new Vector2(70f, 44f), 24f);
-        UIFactory.Place(sendBtn.GetComponent<RectTransform>(),
-                        new Vector2(1f, 0f), new Vector2(-10f, 10f), new Vector2(70f, 44f));
+        Button sendBtn = UIFactory.CreateButton(chatBody, "SendBtn", "▶", new Vector2(50f, 38f), 20f);
+        var sendRt = (RectTransform)sendBtn.transform;
+        sendRt.anchorMin = new Vector2(1f, 0f);
+        sendRt.anchorMax = new Vector2(1f, 0f);
+        sendRt.pivot     = new Vector2(1f, 0f);
+        sendRt.anchoredPosition = new Vector2(-6f, 6f);
+        sendRt.sizeDelta = new Vector2(50f, 38f);
         sendBtn.image.color = UIFactory.Accent;
 
-        // Wire controller.
-        var vibeCtrl = windowRoot.gameObject.AddComponent<VibeCodingController>();
-        SceneBuilderUtil.Wire(vibeCtrl, "chatInput",    inputField.gameObject);
-        SceneBuilderUtil.Wire(vibeCtrl, "historyLabel", historyLabel.gameObject);
-        SceneBuilderUtil.Wire(vibeCtrl, "sendButton",   sendBtn.gameObject);
+        chatBody.gameObject.SetActive(false);
 
-        return vibeCtrl;
+        // Title-bar swap buttons (left of minimize): AI shows the chat, Code shows
+        // the editor.
+        Button aiBtn = null, codeBtn = null;
+        if (titleBar != null)
+        {
+            aiBtn = UIFactory.CreateButton(titleBar, "ChatButton", "AI", new Vector2(48f, 24f), 16f);
+            UIFactory.Place(aiBtn, new Vector2(1f, 0.5f), new Vector2(-118f, 0f), new Vector2(48f, 24f));
+            aiBtn.image.color = new Color(0.30f, 0.45f, 0.75f, 1f);
+
+            codeBtn = UIFactory.CreateButton(titleBar, "EditorButton", "Code", new Vector2(56f, 24f), 16f);
+            UIFactory.Place(codeBtn, new Vector2(1f, 0.5f), new Vector2(-60f, 0f), new Vector2(56f, 24f));
+        }
+
+        chat = window.gameObject.AddComponent<VibeCodingController>();
+        SceneBuilderUtil.Wire(chat, "chatInput",    inputField);
+        SceneBuilderUtil.Wire(chat, "historyLabel", historyLabel);
+        SceneBuilderUtil.Wire(chat, "sendButton",   sendBtn);
+        SceneBuilderUtil.Wire(chat, "codeEditor",   editor);
+        SceneBuilderUtil.Wire(chat, "editorBody",   editorBody.gameObject);
+        SceneBuilderUtil.Wire(chat, "chatBody",     chatBody.gameObject);
+        if (aiBtn   != null) SceneBuilderUtil.Wire(chat, "aiButton",   aiBtn);
+        if (codeBtn != null) SceneBuilderUtil.Wire(chat, "codeButton", codeBtn);
+
+        return window;
     }
 
     // -------------------------------------------------------------------------

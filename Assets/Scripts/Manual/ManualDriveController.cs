@@ -146,7 +146,10 @@ public class ManualDriveController : MonoBehaviour
             toast.Show($"{_def.displayName}:  drive to {_ctx.DestinationZone.StopName} — stop at the signs for passengers");
 
         if (legCompletion != null)
+        {
             legCompletion.OnFinishPressed += Finish;
+            legCompletion.OnKeepExploring += OnKeepExploring;
+        }
 
         PlayBoardingDialogue();
     }
@@ -412,12 +415,17 @@ public class ManualDriveController : MonoBehaviour
         System.Action onDone = () =>
         {
             _revealPlayed = true;
-            // PassengerManager keeps input LOCKED at the destination, so free-roam
-            // is only possible if we explicitly unlock here.
-            if (jeepney != null) jeepney.InputLocked = false;
-            if (legCompletion != null) legCompletion.Show();
-            if (toast != null)
-                toast.Show("That's the story — Finish leg whenever you're ready, or keep driving.");
+            // Congratulate, then let the player choose: keep free-roaming the
+            // endless procedural town, or finish the leg. Input stays locked under
+            // the card (PassengerManager locks it at the destination) and is only
+            // released by the "Keep exploring" choice (OnKeepExploring).
+            if (legCompletion != null)
+                legCompletion.ShowComplete(
+                    $"LEVEL COMPLETE — {_def.displayName}",
+                    "Nice driving! You delivered the story.\nKeep exploring the town and pick up more passengers, or finish the leg to bank your run.",
+                    allowExplore: true);
+            else if (jeepney != null)
+                jeepney.InputLocked = false;   // no panel wired — fall back to free-roam
         };
 
         if (dialogue == null) { onDone(); return; }
@@ -431,6 +439,16 @@ public class ManualDriveController : MonoBehaviour
 
         JournalPageDefinition page = JournalPageLibrary.Pages[convo.journalPageId];
         dialogue.PlayReveal(convo, page, onDone);
+    }
+
+    /// <summary>Player chose to keep driving the free-roam town from the completion
+    /// card — release the controls (kept locked under the card) and leave the small
+    /// "Finish leg" button up for whenever they're done.</summary>
+    void OnKeepExploring()
+    {
+        if (jeepney != null) jeepney.InputLocked = false;
+        if (toast != null)
+            toast.Show("Keep exploring — press Finish leg whenever you're ready.");
     }
 
     void Finish()
@@ -507,8 +525,7 @@ public class ManualDriveController : MonoBehaviour
                 score, earnedTotal,
                 onContinue: () =>
                 {
-                    if (GameManager.Instance != null)
-                        GameManager.Instance.CompleteLevel(_levelIndex, score);
+                    MarkComplete(score);
                     if (BadgeUnlockManager.Instance != null)
                         BadgeUnlockManager.Instance.Show(_levelIndex, () => LoadScene("LevelSelect"));
                     else
@@ -518,14 +535,28 @@ public class ManualDriveController : MonoBehaviour
         }
         else
         {
+            // No results panel wired — still record completion so the next level
+            // unlocks, then bail to the menu.
+            MarkComplete(score);
             LoadScene("LevelSelect");
         }
+    }
+
+    /// <summary>Records the leg as complete (unlocks the next level, earns the badge,
+    /// saves). Safe to call once on the finish path.</summary>
+    void MarkComplete(int score)
+    {
+        if (GameManager.Instance != null)
+            GameManager.Instance.CompleteLevel(_levelIndex, score);
     }
 
     void OnDestroy()
     {
         if (legCompletion != null)
+        {
             legCompletion.OnFinishPressed -= Finish;
+            legCompletion.OnKeepExploring -= OnKeepExploring;
+        }
 
         // Bank any collected fares on any exit — Continue already flushed them,
         // so a second call after completion is a harmless no-op.

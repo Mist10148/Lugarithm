@@ -28,6 +28,26 @@ public static class VibeCodingService
     }
 
     /// <summary>
+    /// Prompt for the in-editor AI helper: a friendly tutor that answers questions
+    /// in plain language and ONLY writes code (in a single fenced block) when the
+    /// player actually asks for it. Used by <see cref="VibeCodingController"/>.
+    /// </summary>
+    public static string BuildTutorPrompt(string message, string[] allowedBlocks, string[] allowedQueries)
+    {
+        string blocks  = allowedBlocks  != null && allowedBlocks.Length  > 0 ? string.Join(" ", allowedBlocks)  : "moveForward turnLeft turnRight pickUp dropOff collectFare";
+        string queries = allowedQueries != null && allowedQueries.Length > 0 ? string.Join(" ", allowedQueries) : "frontIsClear leftIsClear rightIsClear atStop atDestination";
+
+        return
+            "You are a warm, encouraging coding tutor inside Lugarithm, a game that teaches a Python-style language to beginners.\n" +
+            "The player drives a jeepney by writing code.\n" +
+            "Actions (statements): " + blocks + "\n" +
+            "Queries (only inside if/while conditions): " + queries + "\n\n" +
+            "Reply in 2–4 short, friendly sentences of plain language. Do NOT lecture.\n" +
+            "Only if the player explicitly asks you to write or fix the code, ALSO append ONE fenced code block (```), using only the names above, 4-space indentation, parentheses on every name, and queries only inside conditions. Otherwise include no code block at all.\n\n" +
+            "Player: \"" + message + "\"";
+    }
+
+    /// <summary>
     /// Parses the generated code and returns the first error message, or null
     /// when the code is syntactically valid.
     /// </summary>

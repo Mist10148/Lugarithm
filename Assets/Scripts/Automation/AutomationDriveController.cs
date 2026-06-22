@@ -75,9 +75,8 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private Button   hintButton;
     [SerializeField] private TMP_Text hintLabel;
 
-    [Header("Vibe Coding")]
+    [Header("AI helper (in-window chat)")]
     [SerializeField] private VibeCodingController vibeCtrl;
-    [SerializeField] private Button               codeChatButton;
 
     [Header("Leg completion")]
     [SerializeField] private LegCompletionController legCompletion;
@@ -242,19 +241,15 @@ public class AutomationDriveController : MonoBehaviour
             if (palette     != null) palette.Init(_def.allowedBlocks, blockCanvas);
             if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold);
 
+            // Bind the level's vocabulary so AI-generated code stays in-grammar.
+            // The chat still swaps/answers on its own wiring if this is skipped.
             if (vibeCtrl != null && codeEditor != null)
-            {
                 vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
-                vibeCtrl.gameObject.SetActive(false);
-            }
         }
         catch (System.Exception e)
         {
             Debug.LogError($"[AutomationDrive] editor init failed (UI stays usable): {e}");
         }
-
-        if (codeChatButton != null)
-            codeChatButton.onClick.AddListener(ToggleVibeWindow);
 
         if (hintButton != null)
         {
@@ -316,7 +311,10 @@ public class AutomationDriveController : MonoBehaviour
         }
 
         if (legCompletion != null)
+        {
             legCompletion.OnFinishPressed += OnFinishLeg;
+            legCompletion.OnKeepExploring += OnKeepExploring;
+        }
 
         if (console != null)
         {
@@ -459,22 +457,16 @@ public class AutomationDriveController : MonoBehaviour
         if (SettingsManager.Instance != null)
             SettingsManager.Instance.OnSettingsChanged -= ApplyEditorModeFromSettings;
 
-        if (codeChatButton != null)
-            codeChatButton.onClick.RemoveListener(ToggleVibeWindow);
-
         if (legCompletion != null)
+        {
             legCompletion.OnFinishPressed -= OnFinishLeg;
+            legCompletion.OnKeepExploring -= OnKeepExploring;
+        }
 
         // Bank any collected fares on any exit — Continue already flushed them,
         // so a second call after completion is a harmless no-op.
         if (GameManager.Instance != null)
             GameManager.Instance.SaveProgress();
-    }
-
-    void ToggleVibeWindow()
-    {
-        if (vibeCtrl == null) return;
-        vibeCtrl.gameObject.SetActive(!vibeCtrl.gameObject.activeSelf);
     }
 
     // -------------------------------------------------------------------------
@@ -731,7 +723,10 @@ public class AutomationDriveController : MonoBehaviour
             PlayRevealOnReach(() =>
             {
                 if (legCompletion != null)
-                    legCompletion.Show();
+                    legCompletion.ShowComplete(
+                        $"PUZZLE SOLVED — {_level.displayName}",
+                        "Great work — your program reached the goal!\nFinish the leg to bank your run and unlock what's next.",
+                        allowExplore: false);   // fixed automation layout: no free-roam
                 else
                     BeginResults();
             });
@@ -751,6 +746,11 @@ public class AutomationDriveController : MonoBehaviour
         if (legCompletion != null) legCompletion.Hide();
         BeginResults();
     }
+
+    /// <summary>Automation levels use a fixed layout, so there is no free-roam — the
+    /// completion card hides "Keep exploring". This stays as a harmless hook in case
+    /// a future level enables it; the controller already leaves the Finish button up.</summary>
+    void OnKeepExploring() { }
 
     // -------------------------------------------------------------------------
     // Results
@@ -858,6 +858,10 @@ public class AutomationDriveController : MonoBehaviour
         }
         else
         {
+            // No results panel wired — still record completion so the next level
+            // unlocks, then bail to the menu.
+            if (GameManager.Instance != null)
+                GameManager.Instance.CompleteLevel(_levelIndex, score);
             LoadScene("LevelSelect");
         }
     }

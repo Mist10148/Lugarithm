@@ -142,7 +142,7 @@ public static class CodeDriveSceneBuilder
         // setting (the controller shows exactly one), so Code mode shows no blocks.
         var editorArea = UIFactory.CreateRect(workspace, "EditorArea",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(8f, 262f), new Vector2(-8f, -8f));
+                                              new Vector2(8f, 8f), new Vector2(-8f, -8f));
         RectTransform blockPanel = AutomationDriveSceneBuilder.BuildBlockWindow(
             editorArea, canvasRoot, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
         blockPanel.anchorMin = Vector2.zero;
@@ -151,28 +151,15 @@ public static class CodeDriveSceneBuilder
         blockPanel.offsetMax = Vector2.zero;
 
         RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
-            editorArea, out CodeEditorController codeEditor, out Button codeChatButton);
+            editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl);
         codePanel.anchorMin = Vector2.zero;
         codePanel.anchorMax = Vector2.one;
         codePanel.offsetMin = Vector2.zero;
         codePanel.offsetMax = Vector2.zero;
 
-        // Monitor + console. Monitor sits in the band between the console
-        // (top ~184) and the editor (bottom ~262) so the three regions read as
-        // separate with clear gutters.
-        var monitorLine = UIFactory.CreatePanel(workspace, "Monitor",
-                                                new Vector2(0f, 0f), new Vector2(1f, 0f),
-                                                UIFactory.PanelDark);
-        monitorLine.offsetMin = new Vector2(14f, 202f);
-        monitorLine.offsetMax = new Vector2(-14f, 232f);
-        var monitorText = UIFactory.CreateText(monitorLine, "Text", "", 17f,
-                                               UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
-        monitorText.rectTransform.offsetMin = new Vector2(10f, 0f);
-        monitorText.rectTransform.offsetMax = new Vector2(-10f, 0f);
-        var monitor = monitorLine.gameObject.AddComponent<StateMonitorController>();
-        SceneBuilderUtil.Wire(monitor, "label", monitorText);
-
-        ConsoleController console = AutomationDriveSceneBuilder.BuildConsole(workspace);
+        // (The old bottom "terminal" band — a state-monitor line + console log — was
+        // removed; the editor now fills that reclaimed space and the in-window AI
+        // chat replaces the old separate readouts.)
 
         // --- Commands / README panel (hidden until opened) --------------------------
 
@@ -210,7 +197,7 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "blockCanvas",    blockCanvas);
         SceneBuilderUtil.Wire(controller, "palette",        paletteCtrl);
         SceneBuilderUtil.Wire(controller, "codeEditor",     codeEditor);
-        SceneBuilderUtil.Wire(controller, "codeChatButton", codeChatButton);
+        SceneBuilderUtil.Wire(controller, "vibeCtrl",       vibeCtrl);
         SceneBuilderUtil.Wire(controller, "deriveGridFromRoute",   true);
         SceneBuilderUtil.Wire(controller, "workspaceToggleButton", workspaceToggle);
         SceneBuilderUtil.Wire(controller, "workspaceRoot",         workspace.gameObject);
@@ -224,8 +211,6 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "speedLabel",   speedLabel);
         SceneBuilderUtil.Wire(controller, "stepButton",   step);
         SceneBuilderUtil.Wire(controller, "editorModeToggle", editorModeToggle);
-        SceneBuilderUtil.Wire(controller, "console",      console);
-        SceneBuilderUtil.Wire(controller, "monitor",      monitor);
         SceneBuilderUtil.Wire(controller, "results",      results);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
