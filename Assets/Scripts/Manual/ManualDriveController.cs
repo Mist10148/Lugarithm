@@ -64,6 +64,7 @@ public class ManualDriveController : MonoBehaviour
     bool  _finished;
     bool  _storyComplete;   // latched true on first delivery; "Finish leg" then shows permanently
     bool  _revealPlayed;    // the heritage reveal plays once, on delivery (not after the gate)
+    bool  _tutorialComplete; // tutorial is dialogue-driven: ending the story completes the leg
 
     const float StreamLookAhead = 45f;
 
@@ -264,6 +265,15 @@ public class ManualDriveController : MonoBehaviour
         dialogue.Play(convo, () =>
         {
             dialogue.OnEvent -= HandleDialogueEvent;
+
+            // The tutorial is a guided story with no destination to drive to, so
+            // finishing the dialogue IS finishing the leg: trigger the completion
+            // flow (reveal → LEVEL COMPLETE card) once the conversation fully ends.
+            if (_tutorialComplete && !_storyComplete)
+            {
+                _storyComplete = true;
+                OnStoryComplete();
+            }
         });
     }
 
@@ -290,9 +300,15 @@ public class ManualDriveController : MonoBehaviour
                 StartCoroutine(ResumeDialogueAfter(1.5f));
                 break;
 
+            // End of the tutorial story — latch it so the dialogue-finished callback
+            // (PlayBoardingDialogue) completes the leg once the conversation closes.
+            case DialogueEventKind.TutorialComplete:
+                _tutorialComplete = true;
+                StartCoroutine(ResumeDialogueAfter(0.1f));
+                break;
+
             case DialogueEventKind.Arrive:
             case DialogueEventKind.Advance:
-            case DialogueEventKind.TutorialComplete:
             case DialogueEventKind.Continue:
             default:
                 StartCoroutine(ResumeDialogueAfter(0.1f));

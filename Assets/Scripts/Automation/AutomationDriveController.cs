@@ -103,6 +103,7 @@ public class AutomationDriveController : MonoBehaviour
     float _startTime;
     bool  _won;
     bool  _revealPlayed;   // heritage reveal plays once, on reaching the goal (not after the gate)
+    bool  _tutorialComplete; // tutorial is dialogue-driven: ending the story completes the leg
 
     void Start()
     {
@@ -339,6 +340,12 @@ public class AutomationDriveController : MonoBehaviour
         dialogue.Play(convo, () =>
         {
             dialogue.OnEvent -= HandleDialogueEvent;
+
+            // The tutorial is a guided story: ending the dialogue completes the leg
+            // (reveal → PUZZLE/TUTORIAL COMPLETE card) so the player is never stranded
+            // after the story with no way to progress.
+            if (_tutorialComplete && !_won)
+                CompleteStoryLeg();
         });
     }
 
@@ -362,9 +369,15 @@ public class AutomationDriveController : MonoBehaviour
                 StartCoroutine(ResumeDialogueAfter(1.5f));
                 break;
 
+            // End of the tutorial story — latch it so the dialogue-finished callback
+            // (PlayBoardingDialogue) completes the leg once the conversation closes.
+            case DialogueEventKind.TutorialComplete:
+                _tutorialComplete = true;
+                StartCoroutine(ResumeDialogueAfter(0.1f));
+                break;
+
             case DialogueEventKind.Arrive:
             case DialogueEventKind.Advance:
-            case DialogueEventKind.TutorialComplete:
             case DialogueEventKind.Continue:
             default:
                 StartCoroutine(ResumeDialogueAfter(0.1f));
@@ -763,6 +776,24 @@ public class AutomationDriveController : MonoBehaviour
             console.Warn(gap ?? "the program ended without reaching the goal.");
             console.Info("edit your program and press RUN to try again.");
         }
+    }
+
+    /// <summary>Completes the leg from the story (not from solving the grid puzzle) —
+    /// used by the dialogue-driven tutorial. Mirrors the win path in HandleFinished.</summary>
+    void CompleteStoryLeg()
+    {
+        if (_won) return;
+        _won = true;
+        PlayRevealOnReach(() =>
+        {
+            if (legCompletion != null)
+                legCompletion.ShowComplete(
+                    $"TUTORIAL COMPLETE — {_level.displayName}",
+                    "That's the whole story — you can drive, board, collect, sense, patch, and refuel.\nFinish the leg to bank your run and unlock what's next.",
+                    allowExplore: false);   // fixed automation layout: no free-roam
+            else
+                BeginResults();
+        });
     }
 
     void OnFinishLeg()
