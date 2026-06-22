@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -17,6 +18,12 @@ public static class UIFactory
     public static readonly Color Accent      = new Color(0.95f, 0.65f, 0.15f, 1f);
     public static readonly Color TextBright  = new Color(0.93f, 0.93f, 0.88f, 1f);
     public static readonly Color TextDim     = new Color(0.62f, 0.64f, 0.66f, 1f);
+
+    /// <summary>
+    /// Optional menu-specific TMP font. Scene builders can set this while
+    /// assembling a screen that needs a custom face, then restore it after.
+    /// </summary>
+    public static TMP_FontAsset FontOverride { get; set; }
 
     // -------------------------------------------------------------------------
     // Canvas
@@ -101,7 +108,7 @@ public static class UIFactory
         tmp.alignment     = alignment;
         tmp.raycastTarget = false;
 
-        TMP_FontAsset font = DefaultFont();
+        TMP_FontAsset font = FontOverride != null ? FontOverride : DefaultFont();
         if (font != null)
             tmp.font = font;
 
@@ -157,10 +164,106 @@ public static class UIFactory
         button.colors = colors;
 
         var text = CreateText(rt, "Label", label, fontSize, TextBright);
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Overflow;
         text.rectTransform.offsetMin = new Vector2(8f, 4f);
         text.rectTransform.offsetMax = new Vector2(-8f, -4f);
 
         return button;
+    }
+
+    /// <summary>
+    /// Button built from a custom sprite atlas/sheet slice. Keeps the same TMP
+    /// label structure as <see cref="CreateButton"/> so menu builders can swap
+    /// in pixel-art UI without changing interaction code.
+    /// </summary>
+    public static Button CreateArtButton(Transform parent, string name, string label,
+                                         Vector2 size, Sprite sprite,
+                                         float fontSize = 28f,
+                                         Color? textColor = null)
+    {
+        var button = CreateButton(parent, name, label, size, fontSize);
+        var image = button.image;
+        image.sprite = sprite;
+        image.type   = Image.Type.Simple;
+        image.color  = Color.white;
+        image.preserveAspect = false;
+
+        if (textColor.HasValue)
+        {
+            var tmp = button.GetComponentInChildren<TextMeshProUGUI>();
+            if (tmp != null)
+                tmp.color = textColor.Value;
+        }
+
+        return button;
+    }
+
+    /// <summary>
+    /// Menu-only helper that builds an icon-led tile with the caption inside
+    /// the tile, leaving room for a clean press animation and a visible icon.
+    /// </summary>
+    public static Button CreateIconButton(Transform parent, string name, string caption,
+                                          Vector2 size, Sprite faceSprite, Sprite iconSprite,
+                                          float captionFontSize = 14f,
+                                          Color? captionColor = null,
+                                          float iconSize = 28f)
+    {
+        var button = CreateArtButton(parent, name, caption ?? string.Empty, size, faceSprite,
+                                     captionFontSize, captionColor ?? TextBright);
+
+        var face = button.image;
+        if (face != null)
+        {
+            // Keep the sheet slice as a full sprite so the tile fills its
+            // rect cleanly while preserving the intended square proportions.
+            face.type = Image.Type.Simple;
+            face.preserveAspect = true;
+            face.color = Color.white;
+        }
+
+        // Keep the label low in the tile so the icon has room above it.
+        var label = button.GetComponentInChildren<TextMeshProUGUI>();
+        if (label != null)
+        {
+            label.alignment = TextAlignmentOptions.Bottom;
+            label.enableAutoSizing = true;
+            label.fontSizeMin = captionFontSize - 2f;
+            label.fontSizeMax = captionFontSize;
+            label.rectTransform.anchorMin = new Vector2(0f, 0f);
+            label.rectTransform.anchorMax = new Vector2(1f, 1f);
+            label.rectTransform.offsetMin = new Vector2(6f, 2f);
+            label.rectTransform.offsetMax = new Vector2(-6f, -34f);
+            label.raycastTarget = false;
+            if (string.IsNullOrWhiteSpace(caption))
+                label.gameObject.SetActive(false);
+        }
+
+        if (iconSprite != null)
+        {
+            var icon = CreateRect(button.transform, "Icon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            icon.sizeDelta = new Vector2(iconSize, iconSize);
+            icon.anchoredPosition = new Vector2(0f, 20f);
+            var iconImage = icon.gameObject.AddComponent<Image>();
+            iconImage.sprite = iconSprite;
+            iconImage.color = Color.white;
+            iconImage.preserveAspect = true;
+            iconImage.raycastTarget = false;
+        }
+
+        return button;
+    }
+
+    /// <summary>
+    /// Menu-only press feedback: light face -> dark face -> return to light,
+    /// then run the supplied action.
+    /// </summary>
+    public static MenuButtonPressFlash AddPressFlash(Button button)
+    {
+        var flash = button.gameObject.GetComponent<MenuButtonPressFlash>();
+        if (flash == null)
+            flash = button.gameObject.AddComponent<MenuButtonPressFlash>();
+        return flash;
     }
 
     // -------------------------------------------------------------------------
@@ -289,7 +392,7 @@ public static class UIFactory
         text.rectTransform.anchorMax = Vector2.one;
         text.rectTransform.offsetMin = Vector2.zero;
         text.rectTransform.offsetMax = Vector2.zero;
-        text.enableWordWrapping = false;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
         text.raycastTarget = false;
 
         var placeholder = CreateText(textArea, "Placeholder", "", fontSize, TextDim, TextAlignmentOptions.TopLeft);

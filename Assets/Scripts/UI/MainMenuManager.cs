@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System;
 
 /// <summary>
 /// Drives the Main Menu screen.
@@ -29,45 +30,76 @@ public class MainMenuManager : MonoBehaviour
 
     // -------------------------------------------------------------------------
 
+    void OnEnable()
+    {
+        ConfigureButtons();
+    }
+
     void Start()
     {
-        // Gray out Continue if there's no active run.
-        continueButton.interactable = SaveSystem.HasSave();
+        ConfigureButtons();
+    }
 
-        // Wire buttons
-        newGameButton.onClick.AddListener(OnNewGame);
-        continueButton.onClick.AddListener(OnContinue);
-        settingsButton.onClick.AddListener(OnOpenSettings);
-        journalButton?.onClick.AddListener(OnOpenJournal);
-        quitButton.onClick.AddListener(OnQuit);
+    void ConfigureButtons()
+    {
+        // Gray out Continue if there's no active run.
+        if (continueButton != null)
+            continueButton.interactable = SaveSystem.HasSave();
+
+        WireMenuButton(newGameButton, OnNewGame);
+        WireMenuButton(continueButton, OnContinue);
+        WireMenuButton(settingsButton, OnOpenSettings);
+        WireMenuButton(journalButton, OnOpenJournal);
+        WireMenuButton(quitButton, OnQuit);
+    }
+
+    void WireMenuButton(Button button, Action action)
+    {
+        if (button == null)
+            return;
+
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(() => PlayMenuButton(button, action));
+    }
+
+    void PlayMenuButton(Button button, Action action)
+    {
+        if (button == null)
+            return;
+
+        var flash = button.GetComponent<MenuButtonPressFlash>();
+        if (flash != null)
+            flash.Play(action);
+        else
+            action?.Invoke();
     }
 
     // -------------------------------------------------------------------------
     // Button Handlers
 
-    void OnNewGame()
+    public void OnNewGame()
     {
         SaveSystem.StartNewRun();        // resets progress, keeps settings
         LoadScene(levelSelectSceneName);
     }
 
-    void OnContinue()
+    public void OnContinue()
     {
         LoadScene(levelSelectSceneName);
     }
 
-    void OnOpenSettings()
+    public void OnOpenSettings()
     {
         if (settingsPanel != null)
             settingsPanel.Open();
     }
 
-    void OnOpenJournal()
+    public void OnOpenJournal()
     {
         AlmanacManager.Instance?.Open();
     }
 
-    void OnQuit()
+    public void OnQuit()
     {
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
