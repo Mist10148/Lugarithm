@@ -12,7 +12,7 @@ public static class BuildPipelineEntry
 {
     static readonly string[] SceneNames =
     {
-        "Bootstrap", "MainMenu", "LevelSelect", "ManualDrive", "AutomationDrive", "CodeDrive",
+        "Bootstrap", "MainMenu", "LevelSelect", "TopDownLevel", "ManualDrive", "AutomationDrive", "CodeDrive",
     };
 
     // -------------------------------------------------------------------------
@@ -27,6 +27,7 @@ public static class BuildPipelineEntry
         BootstrapSceneBuilder.Build();
         MainMenuSceneBuilder.Build();
         LevelSelectSceneBuilder.Build();
+        TopDownSceneBuilder.Build();
         ManualDriveSceneBuilder.Build();
         AutomationDriveSceneBuilder.Build();
         CodeDriveSceneBuilder.Build();
@@ -51,6 +52,9 @@ public static class BuildPipelineEntry
 
     [MenuItem("Lugarithm/Build Scene/LevelSelect")]
     public static void BuildLevelSelect() => LevelSelectSceneBuilder.Build();
+
+    [MenuItem("Lugarithm/Build Scene/TopDownLevel")]
+    public static void BuildTopDownLevel() => TopDownSceneBuilder.Build();
 
     [MenuItem("Lugarithm/Build Scene/ManualDrive")]
     public static void BuildManualDrive() => ManualDriveSceneBuilder.Build();

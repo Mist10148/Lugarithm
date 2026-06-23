@@ -102,6 +102,14 @@ public class LevelSelectManager : MonoBehaviour
         if (GameManager.Instance != null)
             GameManager.Instance.SelectedLevelIndex = levelIndex;
 
+        // If the level has an overworld scene, go there instead of the jeep minigame
+        LevelDefinition def = LevelLibrary.Get(levelIndex);
+        if (!string.IsNullOrEmpty(def.overworldSceneName))
+        {
+            LoadScene(def.overworldSceneName);
+            return;
+        }
+
         bool manual = SaveSystem.Current.settings.manualMode;
         LoadScene(manual ? manualSceneName : automationSceneName);
     }

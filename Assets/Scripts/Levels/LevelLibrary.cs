@@ -114,6 +114,7 @@ public static class LevelLibrary
             displayName = Names[0],
             hasContent  = true,
             fares       = new FareTable(),
+            overworldSceneName = "TopDownLevel",
 
             manual = manual,
 

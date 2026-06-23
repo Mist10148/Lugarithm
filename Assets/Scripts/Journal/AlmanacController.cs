@@ -4,8 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Drives the two-page Almanac UI: tab switching, sidebar lock states,
-/// heritage/coding content, and the close button.
+/// Drives the three-tab Almanac UI: tab switching, the sidebar (towns for Heritage,
+/// programming concepts for Coding Reference), the detail content, and the close button.
 /// </summary>
 public class AlmanacController : MonoBehaviour
 {
@@ -46,9 +46,9 @@ public class AlmanacController : MonoBehaviour
     static readonly Color TextDim    = new Color(0.62f, 0.64f, 0.66f, 1f);
 
     Tab _currentTab = Tab.Heritage;
-    int _selectedPageId;
+    int _selectedPageId;      // Heritage selection (town / level)
+    int _selectedConceptId;   // Coding selection (programming concept)
     bool _bound;
-    bool _entriesBuilt;
     readonly List<Button> _sidebarEntries = new List<Button>();
 
     // -------------------------------------------------------------------------
@@ -60,7 +60,7 @@ public class AlmanacController : MonoBehaviour
     void Start()
     {
         Bind();
-        BuildSidebarEntries();
+        RebuildSidebar();
         if (bookRoot != null) bookRoot.SetActive(false);
     }
 
@@ -70,9 +70,7 @@ public class AlmanacController : MonoBehaviour
     public void Open()
     {
         Bind();
-        BuildSidebarEntries();
-        RefreshSidebarLockStates();
-        ShowPage(_selectedPageId);
+        RebuildSidebar();
         if (bookRoot != null) bookRoot.SetActive(true);
     }
 
@@ -118,7 +116,7 @@ public class AlmanacController : MonoBehaviour
         if (oraclePane != null) oraclePane.SetActive(oracle);
         if (detailPane != null) detailPane.SetActive(!oracle);
 
-        if (!oracle) ShowPage(_selectedPageId);
+        if (!oracle) RebuildSidebar();
     }
 
     void RefreshTabVisuals()
@@ -137,53 +135,85 @@ public class AlmanacController : MonoBehaviour
     }
 
     // -------------------------------------------------------------------------
+    // Sidebar — rebuilt per tab: towns (Heritage) vs concepts (Coding).
 
-    void BuildSidebarEntries()
+    void RebuildSidebar()
     {
-        if (_entriesBuilt) return;
         if (sidebarEntryTemplate == null || sidebarContent == null) return;
+        if (_currentTab == Tab.Oracle) return;   // Oracle has no sidebar list
 
-        _entriesBuilt = true;
+        foreach (Button b in _sidebarEntries)
+            if (b != null) Destroy(b.gameObject);
+        _sidebarEntries.Clear();
 
+        if (_currentTab == Tab.Coding) BuildConceptEntries();
+        else                           BuildPlaceEntries();
+
+        RefreshSidebarLockStates();
+
+        if (_currentTab == Tab.Coding) ShowConcept(_selectedConceptId);
+        else                           ShowPage(_selectedPageId);
+    }
+
+    void BuildPlaceEntries()
+    {
         for (int i = 0; i < JournalPageLibrary.Pages.Count; i++)
         {
             int pageId = i;
-            Button entry = Instantiate(sidebarEntryTemplate, sidebarContent);
-            entry.gameObject.SetActive(true);
-            entry.name = $"SidebarEntry_{pageId}";
-
-            var label = entry.GetComponentInChildren<TMP_Text>(true);
-            if (label != null)
-                label.text = LevelLibrary.Names[pageId];
-
+            Button entry = NewEntry($"SidebarEntry_{pageId}", LevelLibrary.Names[pageId]);
             entry.onClick.AddListener(() => SelectPage(pageId));
             _sidebarEntries.Add(entry);
         }
     }
 
+    void BuildConceptEntries()
+    {
+        for (int i = 0; i < CodingConceptLibrary.Concepts.Count; i++)
+        {
+            int conceptId = i;
+            Button entry = NewEntry($"ConceptEntry_{conceptId}", CodingConceptLibrary.Concepts[conceptId].title);
+            entry.onClick.AddListener(() => SelectConcept(conceptId));
+            _sidebarEntries.Add(entry);
+        }
+    }
+
+    Button NewEntry(string name, string label)
+    {
+        Button entry = Instantiate(sidebarEntryTemplate, sidebarContent);
+        entry.gameObject.SetActive(true);
+        entry.name = name;
+        var text = entry.GetComponentInChildren<TMP_Text>(true);
+        if (text != null) text.text = label;
+        return entry;
+    }
+
     void RefreshSidebarLockStates()
     {
+        bool coding = _currentTab == Tab.Coding;
+        int  selected = coding ? _selectedConceptId : _selectedPageId;
+
         for (int i = 0; i < _sidebarEntries.Count; i++)
         {
             Button entry = _sidebarEntries[i];
             if (entry == null) continue;
 
-            bool unlocked = ProgressionRules.IsUnlocked(SaveSystem.Current, i);
-            bool selected = i == _selectedPageId;
+            // Concepts are reference material — always available. Towns gate on progress.
+            bool unlocked = coding || ProgressionRules.IsUnlocked(SaveSystem.Current, i);
+            bool isSelected = i == selected;
 
             entry.interactable = true;
 
             var label = entry.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
             {
-                if (selected)      label.color = Accent;
+                if (isSelected)    label.color = Accent;
                 else if (unlocked) label.color = TextBright;
                 else               label.color = TextDim;
             }
 
             var image = entry.image;
             if (image != null)
-                image.color = selected ? new Color(Accent.r, Accent.g, Accent.b, 0.25f) : PanelDark;
+                image.color = isSelected ? new Color(Accent.r, Accent.g, Accent.b, 0.25f) : PanelDark;
         }
     }
 
@@ -194,7 +224,15 @@ public class AlmanacController : MonoBehaviour
         ShowPage(pageId);
     }
 
+    void SelectConcept(int conceptId)
+    {
+        _selectedConceptId = conceptId;
+        RefreshSidebarLockStates();
+        ShowConcept(conceptId);
+    }
+
     // -------------------------------------------------------------------------
+    // Heritage content
 
     void ShowPage(int pageId)
     {
@@ -211,32 +249,16 @@ public class AlmanacController : MonoBehaviour
 
         JournalPageDefinition page = JournalPageLibrary.Pages[pageId];
 
-        if (_currentTab == Tab.Heritage)
-        {
-            if (contentTitle != null)
-                contentTitle.text = page.heritageTitle;
+        if (contentTitle != null)
+            contentTitle.text = page.heritageTitle;
 
-            if (contentBody != null)
-            {
-                contentBody.text =
-                    $"<b>{LevelLibrary.Names[pageId]}</b>\n\n" +
-                    $"{page.heritageBody}\n\n" +
-                    $"<color=#{ColorUtility.ToHtmlStringRGB(TextDim)}><i>{page.artifactCardDescription}</i></color>" +
-                    BuildDiscoveredFacts(pageId);
-            }
-        }
-        else
+        if (contentBody != null)
         {
-            if (contentTitle != null)
-                contentTitle.text = page.codingConceptName;
-
-            if (contentBody != null)
-            {
-                contentBody.text =
-                    $"<b>{page.codingConceptName}</b>\n\n" +
-                    $"{page.codingReferenceBody}\n\n" +
-                    $"<color=#{ColorUtility.ToHtmlStringRGB(Accent)}>{page.codeExample}</color>";
-            }
+            contentBody.text =
+                $"<b>{LevelLibrary.Names[pageId]}</b>\n\n" +
+                $"{page.heritageBody}\n\n" +
+                $"<color=#{ColorUtility.ToHtmlStringRGB(TextDim)}><i>{page.artifactCardDescription}</i></color>" +
+                BuildDiscoveredFacts(pageId);
         }
 
         RefreshBodyHeight();
@@ -251,8 +273,32 @@ public class AlmanacController : MonoBehaviour
         {
             contentBody.text =
                 "Complete this leg of the journey to recover this page.\n\n" +
-                "The journal entry and coding reference will appear here once the town is unlocked." +
+                "The journal entry will appear here once the town is unlocked." +
                 BuildDiscoveredFacts(_selectedPageId);
+        }
+
+        RefreshBodyHeight();
+    }
+
+    // -------------------------------------------------------------------------
+    // Coding Reference content
+
+    void ShowConcept(int conceptId)
+    {
+        if (conceptId < 0 || conceptId >= CodingConceptLibrary.Concepts.Count) return;
+
+        CodingConceptEntry concept = CodingConceptLibrary.Concepts[conceptId];
+        SetConceptArt();
+
+        if (contentTitle != null)
+            contentTitle.text = concept.title;
+
+        if (contentBody != null)
+        {
+            contentBody.text =
+                $"<b>{concept.title}</b>\n\n" +
+                $"{concept.body}\n\n" +
+                $"<color=#{ColorUtility.ToHtmlStringRGB(Accent)}>{concept.codeExample}</color>";
         }
 
         RefreshBodyHeight();
@@ -267,6 +313,12 @@ public class AlmanacController : MonoBehaviour
             entryArt.color = unlocked ? ArtColor(name) : new Color(0.20f, 0.20f, 0.23f, 1f);
         if (entryArtLabel != null)
             entryArtLabel.text = unlocked ? Initials(name) : "?";
+    }
+
+    void SetConceptArt()
+    {
+        if (entryArt != null)      entryArt.color = new Color(0.18f, 0.30f, 0.42f, 1f);
+        if (entryArtLabel != null) entryArtLabel.text = "</>";
     }
 
     static Color ArtColor(string s)

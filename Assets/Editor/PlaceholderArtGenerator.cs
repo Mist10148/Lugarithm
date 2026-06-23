@@ -42,6 +42,26 @@ public static class PlaceholderArtGenerator
     static readonly Color DestGreen    = new Color(0.35f, 0.85f, 0.45f);
     static readonly Color StopAmber    = new Color(0.95f, 0.75f, 0.25f);
 
+    // Top-down level palette
+    static readonly Color TDGrass       = new Color(0.38f, 0.58f, 0.30f);
+    static readonly Color TDGrassDark   = new Color(0.30f, 0.48f, 0.24f);
+    static readonly Color TDPath        = new Color(0.72f, 0.62f, 0.45f);
+    static readonly Color TDPathDark    = new Color(0.60f, 0.50f, 0.36f);
+    static readonly Color TDWall       = new Color(0.45f, 0.38f, 0.32f);
+    static readonly Color TDWallTop     = new Color(0.55f, 0.48f, 0.40f);
+    static readonly Color TDWallCap     = new Color(0.62f, 0.55f, 0.46f);
+    static readonly Color TDWater       = new Color(0.30f, 0.50f, 0.72f);
+    static readonly Color TDWaterLight  = new Color(0.42f, 0.62f, 0.82f);
+    static readonly Color TDPlayerBody  = new Color(0.25f, 0.55f, 0.85f);
+    static readonly Color TDPlayerHead  = new Color(0.85f, 0.72f, 0.55f);
+    static readonly Color TDPlayerHair = new Color(0.30f, 0.22f, 0.15f);
+    static readonly Color TDNpcBody    = new Color(0.80f, 0.30f, 0.30f);
+    static readonly Color TDNpcHead    = new Color(0.85f, 0.72f, 0.55f);
+    static readonly Color TDNpcHair    = new Color(0.20f, 0.15f, 0.10f);
+    static readonly Color TDJeepStop   = new Color(0.85f, 0.75f, 0.20f);
+    static readonly Color TDJeepStopDark = new Color(0.60f, 0.50f, 0.15f);
+    static readonly Color TDInteract    = new Color(1.0f, 0.90f, 0.20f);
+
     // -------------------------------------------------------------------------
 
     public static void GenerateAll()
@@ -78,6 +98,18 @@ public static class PlaceholderArtGenerator
         Make("needle", 6, 48, 64, (x, y, w, h) => Color.white, pivot: new Vector2(0.5f, 0.08f));
         Make("coin", 24, 24, 64, Coin);
         Make("bill", 36, 22, 64, Bill);
+
+        // Top-down level tiles
+        Make("td_grass", 16, 16, 64, TDGrassPainter);
+        Make("td_path",  16, 16, 64, TDPathPainter);
+        Make("td_wall",  16, 16, 64, TDWallPainter);
+        Make("td_water", 16, 16, 64, TDWaterPainter);
+        Make("td_jeep_stop", 16, 16, 64, TDJeepStopPainter);
+        Make("td_interaction", 16, 16, 64, (x, y, w, h) => TDInteractionPainter(x, y, w, h));
+
+        // Top-down characters
+        Make("td_player", 16, 24, 64, TDPlayerPainter, pivot: new Vector2(0.5f, 0.25f));
+        Make("td_npc",    16, 24, 64, TDNpcPainter,    pivot: new Vector2(0.5f, 0.25f));
 
         AssetDatabase.Refresh();
         Debug.Log("[Lugarithm] Placeholder art generated in " + Dir);
@@ -252,6 +284,129 @@ public static class PlaceholderArtGenerator
     {
         bool border = x < 2 || y < 2 || x > w - 3 || y > h - 3;
         return border ? BillEdge : BillGreen;
+    }
+
+    // -------------------------------------------------------------------------
+    // Top-down level painters
+
+    static Color TDGrassPainter(int x, int y, int w, int h)
+    {
+        // Green with deterministic speckle.
+        bool speck = ((x * 7 + y * 13) % 31) == 0;
+        bool edge  = x == 0 || y == 0 || x == w - 1 || y == h - 1;
+        if (speck) return TDGrassDark;
+        if (edge) return TDGrassDark * 0.95f;
+        return TDGrass;
+    }
+
+    static Color TDPathPainter(int x, int y, int w, int h)
+    {
+        // Tan/dirt path with pebble texture.
+        bool pebble = ((x * 5 + y * 11) % 23) == 0;
+        bool edge   = x == 0 || y == 0 || x == w - 1 || y == h - 1;
+        if (pebble) return TDPathDark;
+        if (edge) return TDPathDark * 0.95f;
+        return TDPath;
+    }
+
+    static Color TDWallPainter(int x, int y, int w, int h)
+    {
+        // Building wall: darker sides on bottom-left, lighter cap on top-right.
+        bool edge = x == 0 || y == 0 || x == w - 1 || y == h - 1;
+        // Highlight on top row and right column (fake 3D)
+        if (y == 0 || x == w - 1) return TDWallCap;
+        // Shadow on bottom row and left column
+        if (y == h - 1 || x == 0) return TDWall * 0.7f;
+        if (edge) return TDWallTop;
+        // Brick pattern
+        bool mortar = (y % 4 == 0) || (x % 6 == 0 && (y / 4) % 2 == 0) || (x % 6 == 3 && (y / 4) % 2 == 1);
+        if (mortar) return TDWall * 0.65f;
+        return TDWall;
+    }
+
+    static Color TDWaterPainter(int x, int y, int w, int h)
+    {
+        // Blue water with ripple.
+        bool edge = x == 0 || y == 0 || x == w - 1 || y == h - 1;
+        if (edge) return TDWater * 0.8f;
+        // Horizontal wave lines
+        bool wave = ((x + y) % 6 < 2) && (y % 4 == 0);
+        if (wave) return TDWaterLight;
+        return TDWater;
+    }
+
+    static Color TDJeepStopPainter(int x, int y, int w, int h)
+    {
+        // Amber/yellow marker on a dark base — indicates jeep boarding.
+        float cx = w * 0.5f, cy = h * 0.5f;
+        float dx = Mathf.Abs(x - cx + 0.5f) / (w * 0.5f);
+        float dy = Mathf.Abs(y - cy + 0.5f) / (h * 0.5f);
+        float d = dx + dy;
+        bool edge = x == 0 || y == 0 || x == w - 1 || y == h - 1;
+        if (edge) return TDJeepStopDark;
+        // Center diamond marker
+        if (d <= 0.45f) return TDJeepStop;
+        if (d <= 0.6f) return TDJeepStopDark;
+        return TDPath * 0.85f;
+    }
+
+    static Color TDInteractionPainter(int x, int y, int w, int h)
+    {
+        // Yellow exclamation mark on transparent background.
+        float cx = w * 0.5f;
+        if (x < 6 || x > 9 || y < 2 || y > 13) return Color.clear;
+        // Exclamation mark body (vertical bar)
+        if (x >= 6 && x <= 9 && y >= 3 && y <= 9) return TDInteract;
+        // Exclamation dot
+        if (x >= 6 && x <= 9 && y >= 11 && y <= 12) return TDInteract;
+        return Color.clear;
+    }
+
+    static Color TDPlayerPainter(int x, int y, int w, int h)
+    {
+        // Top-down character: body (blue shirt), head, hair.
+        float cx = w * 0.5f;
+        bool border = x < 2 || x > w - 3 || y < 2 || y > h - 3;
+        if (border) return Color.clear;
+
+        // Head (top area, circular-ish)
+        float headCx = cx, headCy = h * 0.78f, headR = w * 0.32f;
+        float hdx = x - headCx, hdy = y - headCy;
+        bool inHead = hdx * hdx + hdy * hdy <= headR * headR;
+
+        if (inHead)
+        {
+            // Hair on top portion of head
+            if (hdy > headR * 0.15f) return TDPlayerHair;
+            return TDPlayerHead; // face
+        }
+
+        // Body
+        if (y >= 4 && y < h * 0.62f && x >= 4 && x < w - 4) return TDPlayerBody;
+
+        return Color.clear;
+    }
+
+    static Color TDNpcPainter(int x, int y, int w, int h)
+    {
+        // Same shape as player but red body, darker hair.
+        float cx = w * 0.5f;
+        bool border = x < 2 || x > w - 3 || y < 2 || y > h - 3;
+        if (border) return Color.clear;
+
+        float headCx = cx, headCy = h * 0.78f, headR = w * 0.32f;
+        float hdx = x - headCx, hdy = y - headCy;
+        bool inHead = hdx * hdx + hdy * hdy <= headR * headR;
+
+        if (inHead)
+        {
+            if (hdy > headR * 0.15f) return TDNpcHair;
+            return TDNpcHead;
+        }
+
+        if (y >= 4 && y < h * 0.62f && x >= 4 && x < w - 4) return TDNpcBody;
+
+        return Color.clear;
     }
 
     // -------------------------------------------------------------------------
