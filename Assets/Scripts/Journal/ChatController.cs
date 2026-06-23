@@ -5,11 +5,13 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Oracle chat controller for the right-hand Almanac page.
-/// Player messages are forwarded to <see cref="GeminiClient"/> via
-/// <see cref="HeritageOracleService"/>; a fallback string is used when the
-/// API is unavailable.  Lock-checks run before any API call so spoilers
-/// never reach Gemini's context.
+/// Oracle chat controller for the right-hand Almanac page. Renders a
+/// Messenger-style transcript — the player's messages as amber bubbles on the
+/// right, the Oracle's as grey bubbles on the left, one row per message. Player
+/// messages are forwarded to <see cref="GeminiClient"/> via
+/// <see cref="HeritageOracleService"/>; greetings and out-of-domain questions are
+/// answered locally (no API spend), and a fallback string is used when the API is
+/// unavailable. Lock-checks run before any API call so spoilers never reach Gemini.
 /// </summary>
 public class ChatController : MonoBehaviour
 {
@@ -17,11 +19,15 @@ public class ChatController : MonoBehaviour
     [SerializeField] private TMP_Text       bubbleTemplate;
     [SerializeField] private TMP_InputField chatInput;
     [SerializeField] private Button         sendButton;
+    [SerializeField] private Button         clearButton;
 
-    static readonly Color TextBright = new Color(0.93f, 0.93f, 0.88f, 1f);
-    static readonly Color TextDim    = new Color(0.62f, 0.64f, 0.66f, 1f);
+    // Messenger-style palette: warm amber for the player, neutral grey for the Oracle.
+    static readonly Color PlayerBubble = new Color(0.95f, 0.65f, 0.15f, 0.95f);
+    static readonly Color PlayerText   = new Color(0.10f, 0.09f, 0.06f, 1f);
+    static readonly Color OracleBubble = new Color(0.16f, 0.18f, 0.22f, 0.98f);
+    static readonly Color OracleText   = new Color(0.93f, 0.93f, 0.88f, 1f);
 
-    readonly List<TMP_Text> _bubbles = new List<TMP_Text>();
+    readonly List<GameObject> _rows    = new List<GameObject>();
     readonly List<string> _history = new List<string>();
     bool _bound;
 
@@ -33,8 +39,11 @@ public class ChatController : MonoBehaviour
     {
         if (_bound) return;
         _bound = true;
-        if (sendButton != null) sendButton.onClick.AddListener(OnSend);
-        if (chatInput  != null) chatInput.onSubmit.AddListener(_ => OnSend());
+        if (sendButton  != null) sendButton.onClick.AddListener(OnSend);
+        if (clearButton != null) clearButton.onClick.AddListener(ClearChat);
+        if (chatInput   != null) chatInput.onSubmit.AddListener(_ => OnSend());
+
+        ChatBubbleFactory.PrepareContent(chatContent);
     }
 
     void OnSend()
@@ -52,6 +61,7 @@ public class ChatController : MonoBehaviour
         if (lockMsg != null)
         {
             AddBubble(lockMsg, player: false);
+            Remember(text, lockMsg);
             chatInput.ActivateInputField();
             return;
         }
@@ -62,17 +72,20 @@ public class ChatController : MonoBehaviour
 
     IEnumerator AskOracle(string input)
     {
-        var typingBubble = AddBubble("...", player: false);
-
+        // Greetings, small talk and out-of-domain questions resolve locally — no API
+        // call — so the Oracle still feels chatty without spending tokens.
         if (!HeritageOracleService.TryBuildRequest(input, SaveSystem.Current, _history,
                 out AiRequest request, out IReadOnlyList<KnowledgeHit> hits, out string local))
         {
-            UpdateBubble(typingBubble, local);
+            var localBubble = AddBubble("", player: false);
+            yield return RevealBubble(localBubble, local);
             Remember(input, local);
             SetInputEnabled(true);
             chatInput.ActivateInputField();
             yield break;
         }
+
+        var typingBubble = AddBubble("…", player: false);
 
         AiResult result = null;
         int packets = 0;
@@ -113,6 +126,7 @@ public class ChatController : MonoBehaviour
             UpdateBubble(bubble, visible);
             if (i % 4 == 3) yield return null;
         }
+        UpdateBubble(bubble, response);
     }
 
     void SetInputEnabled(bool enabled)
@@ -121,54 +135,31 @@ public class ChatController : MonoBehaviour
         if (sendButton != null) sendButton.interactable = enabled;
     }
 
+    /// <summary>Empties the transcript. Called by the Clear button and automatically
+    /// when the Almanac closes, so each visit starts fresh.</summary>
+    public void ClearChat()
+    {
+        foreach (GameObject row in _rows)
+            if (row != null) Destroy(row);
+        _rows.Clear();
+        _history.Clear();
+    }
+
+    // -------------------------------------------------------------------------
+    // Bubble construction (delegated to the shared ChatBubbleFactory)
+
     TMP_Text AddBubble(string text, bool player)
     {
-        if (bubbleTemplate == null || chatContent == null) return null;
-
-        var bubble = Instantiate(bubbleTemplate, chatContent);
-        bubble.gameObject.SetActive(true);
-        bubble.text      = text;
-        bubble.color     = player ? TextBright : TextDim;
-        bubble.alignment = player ? TextAlignmentOptions.TopRight : TextAlignmentOptions.TopLeft;
-
-        var le = bubble.GetComponent<LayoutElement>();
-        if (le == null) le = bubble.gameObject.AddComponent<LayoutElement>();
-        le.flexibleWidth = 1f;
-
-        _bubbles.Add(bubble);
-        RebuildBubbleHeights();
-        ScrollToBottom();
-        return bubble;
+        TMP_Text label = ChatBubbleFactory.Add(chatContent, bubbleTemplate, text, player,
+            player ? PlayerBubble : OracleBubble, player ? PlayerText : OracleText, out GameObject row);
+        if (row != null) _rows.Add(row);
+        ChatBubbleFactory.ScrollToBottom(chatContent);
+        return label;
     }
 
     void UpdateBubble(TMP_Text bubble, string text)
     {
-        if (bubble == null) return;
-        bubble.text = text;
-        RebuildBubbleHeights();
-        ScrollToBottom();
-    }
-
-    void RebuildBubbleHeights()
-    {
-        Canvas.ForceUpdateCanvases();
-        foreach (var bubble in _bubbles)
-        {
-            if (bubble == null) continue;
-            var le = bubble.GetComponent<LayoutElement>();
-            if (le != null)
-                le.preferredHeight = Mathf.Max(bubble.preferredHeight + 12f, 36f);
-        }
-        LayoutRebuilder.ForceRebuildLayoutImmediate(chatContent);
-    }
-
-    void ScrollToBottom()
-    {
-        var scroll = chatContent.GetComponentInParent<ScrollRect>();
-        if (scroll != null)
-        {
-            Canvas.ForceUpdateCanvases();
-            scroll.verticalNormalizedPosition = 0f;
-        }
+        ChatBubbleFactory.SetText(bubble, text, chatContent);
+        ChatBubbleFactory.ScrollToBottom(chatContent);
     }
 }

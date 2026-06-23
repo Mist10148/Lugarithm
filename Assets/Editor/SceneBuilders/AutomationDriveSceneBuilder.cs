@@ -353,19 +353,41 @@ public static class AutomationDriveSceneBuilder
         var chatBody = UIFactory.CreateRect(content, "ChatBody", Vector2.zero, Vector2.one,
                                             Vector2.zero, Vector2.zero);
 
-        // Chat history (scroll) fills the top; the input row is pinned to the bottom.
+        // Mode bar (Ask / Plan / Agent) pinned to the top of the chat body.
+        var modeBar = UIFactory.CreateRect(chatBody, "ModeBar", new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                           new Vector2(6f, -34f), new Vector2(-6f, -4f));
+        UIFactory.AddHorizontalLayout(modeBar, 6f, new RectOffset(0, 0, 0, 0), TextAnchor.MiddleLeft);
+        Button askBtn   = UIFactory.CreateButton(modeBar, "AskMode",   "Ask",   new Vector2(70f, 26f), 15f);
+        Button planBtn  = UIFactory.CreateButton(modeBar, "PlanMode",  "Plan",  new Vector2(70f, 26f), 15f);
+        Button agentBtn = UIFactory.CreateButton(modeBar, "AgentMode", "Agent", new Vector2(80f, 26f), 15f);
+        foreach (Button b in new[] { askBtn, planBtn, agentBtn })
+        {
+            var le = b.gameObject.AddComponent<LayoutElement>();
+            le.preferredWidth  = ((RectTransform)b.transform).sizeDelta.x;
+            le.preferredHeight = 26f;
+        }
+
+        // Chat history (scroll) fills the middle; the input row is pinned to the bottom.
         ScrollRect scroll = UIFactory.CreateScrollView(chatBody, "ChatHistory",
                                                        Vector2.zero, Vector2.one,
                                                        out RectTransform chatContent);
         var scrollRt = (RectTransform)scroll.transform;
         scrollRt.offsetMin = new Vector2(6f, 50f);
-        scrollRt.offsetMax = new Vector2(-6f, -6f);
+        scrollRt.offsetMax = new Vector2(-6f, -40f);
         scroll.vertical = true;
 
         TMP_Text historyLabel = UIFactory.CreateText(chatContent, "History",
-            "Ask me anything about your code — or tell me what the jeepney should do.",
+            "Ask me about your code, ask me to plan an approach, or switch to Agent and tell me what the jeepney should do.",
             18f, UIFactory.TextDim, TextAlignmentOptions.TopLeft);
         historyLabel.enableWordWrapping = true;
+
+        // Inactive bubble template for the Messenger-style transcript.
+        TMP_Text vibeBubbleTemplate = UIFactory.CreateText(chatContent, "BubbleTemplate", "", 18f,
+                                                           UIFactory.TextBright, TextAlignmentOptions.TopLeft);
+        vibeBubbleTemplate.textWrappingMode = TextWrappingModes.Normal;
+        var vibeBubbleLe = vibeBubbleTemplate.gameObject.AddComponent<LayoutElement>();
+        vibeBubbleLe.preferredHeight = 30f;
+        vibeBubbleTemplate.gameObject.SetActive(false);
 
         TMP_InputField inputField = UIFactory.CreateMultilineInput(chatBody, "ChatInput",
                                                                    new Vector2(0f, 0f), new Vector2(1f, 0f), 18f);
@@ -400,12 +422,17 @@ public static class AutomationDriveSceneBuilder
         }
 
         chat = window.gameObject.AddComponent<VibeCodingController>();
-        SceneBuilderUtil.Wire(chat, "chatInput",    inputField);
-        SceneBuilderUtil.Wire(chat, "historyLabel", historyLabel);
-        SceneBuilderUtil.Wire(chat, "sendButton",   sendBtn);
-        SceneBuilderUtil.Wire(chat, "codeEditor",   editor);
-        SceneBuilderUtil.Wire(chat, "editorBody",   editorBody.gameObject);
-        SceneBuilderUtil.Wire(chat, "chatBody",     chatBody.gameObject);
+        SceneBuilderUtil.Wire(chat, "chatInput",      inputField);
+        SceneBuilderUtil.Wire(chat, "historyLabel",   historyLabel);
+        SceneBuilderUtil.Wire(chat, "chatContent",    chatContent);
+        SceneBuilderUtil.Wire(chat, "bubbleTemplate", vibeBubbleTemplate);
+        SceneBuilderUtil.Wire(chat, "sendButton",     sendBtn);
+        SceneBuilderUtil.Wire(chat, "codeEditor",     editor);
+        SceneBuilderUtil.Wire(chat, "editorBody",     editorBody.gameObject);
+        SceneBuilderUtil.Wire(chat, "chatBody",       chatBody.gameObject);
+        SceneBuilderUtil.Wire(chat, "askButton",      askBtn);
+        SceneBuilderUtil.Wire(chat, "planButton",     planBtn);
+        SceneBuilderUtil.Wire(chat, "agentButton",    agentBtn);
         if (aiBtn   != null) SceneBuilderUtil.Wire(chat, "aiButton",   aiBtn);
         if (codeBtn != null) SceneBuilderUtil.Wire(chat, "codeButton", codeBtn);
 

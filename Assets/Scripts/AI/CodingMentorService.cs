@@ -58,7 +58,7 @@ public static class CodingMentorService
                 "Lead with what worked, then explain one or two improvements plainly. Never invent performance measurements.",
             Prompt = prompt.ToString(),
             ResponseJsonSchema = ResponseSchema,
-            MaxOutputTokens = 1200
+            MaxOutputTokens = 800
         };
     }
 

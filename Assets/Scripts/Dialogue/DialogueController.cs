@@ -365,6 +365,21 @@ public class DialogueController : MonoBehaviour
     IEnumerator RephraseLine(DialogueLine line, PassengerDefinition pax)
     {
         _awaitingRephrase = true;
+
+        // Token guard: short, trivial lines are delivered as authored — no API call.
+        if (!LivingStoryService.ShouldRephrase(line.text))
+        {
+            if (dialogBox != null)
+            {
+                dialogBox.BeginStreaming(line.speaker);
+                dialogBox.CompleteStreaming(line.text);
+            }
+            if (_waitingForRevealAdvance && revealBody != null)
+                revealBody.text = $"<color=#EAEADC>{line.text}</color>";
+            _awaitingRephrase = false;
+            yield break;
+        }
+
         _dialogueCancellation?.Cancel();
         _dialogueCancellation = new AiCancellation();
         if (dialogBox != null) dialogBox.BeginStreaming(line.speaker);

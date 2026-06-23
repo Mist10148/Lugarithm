@@ -97,6 +97,8 @@ public class AutomationDriveController : MonoBehaviour
     bool _codeTabActive;
     bool _lastRunWasCode;
     int  _runCount;
+    int  _failCount;
+    bool _struggleNudged;
     int  _hintTier;
     int  _lastExecutedLine;
     int  _townPuzzleBonus;
@@ -245,7 +247,11 @@ public class AutomationDriveController : MonoBehaviour
             // Bind the level's vocabulary so AI-generated code stays in-grammar.
             // The chat still swaps/answers on its own wiring if this is skipped.
             if (vibeCtrl != null && codeEditor != null)
+            {
                 vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
+                // Give the agent live access to the maze + jeepney so it can read state.
+                vibeCtrl.SetWorldContext(grid, sim, _def);
+            }
         }
         catch (System.Exception e)
         {
@@ -775,6 +781,20 @@ public class AutomationDriveController : MonoBehaviour
             string gap = exec.Sim.DescribeGoalGap(_def);
             console.Warn(gap ?? "the program ended without reaching the goal.");
             console.Info("edit your program and press RUN to try again.");
+        }
+
+        // Struggle nudge: after a couple of failed runs, gently offer a hint. It stays
+        // on-demand — we only surface the button and a one-time, dismissable nudge.
+        _failCount++;
+        if (_failCount >= 2 && hintButton != null)
+        {
+            hintButton.gameObject.SetActive(true);
+            if (!_struggleNudged)
+            {
+                _struggleNudged = true;
+                if (hintLabel != null)
+                    hintLabel.text = "Stuck? Tap Hint and I'll give you a nudge — I won't spoil the answer.";
+            }
         }
     }
 

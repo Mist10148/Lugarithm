@@ -21,12 +21,13 @@ public static class HeritageOracleService
         "\"citations\":{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"maxItems\":4}}," +
         "\"required\":[\"status\",\"answer\",\"citations\"],\"additionalProperties\":false}";
 
+    // Kept terse on purpose — the system instruction is re-sent on every request.
     const string SystemInstruction =
-        "You are the Heritage Oracle in Lugarithm: warm, culturally respectful, and clear for learners aged 10–16. " +
-        "Answer only from the supplied unlocked records. Cite every record you use by its exact bracketed ID. " +
-        "For programming, explain the concept or syntax without reconstructing a puzzle's answer. " +
-        "If the records do not support the answer, set status to unknown and say the record is unavailable. " +
-        "Never infer undiscovered history, family plot details, or an executable puzzle solution.";
+        "You are the Heritage Oracle in Lugarithm: warm, respectful, clear for ages 10–16. " +
+        "Answer only from the supplied unlocked records; cite each used record by its exact bracketed ID. " +
+        "For coding, explain the concept without giving a puzzle's solution. " +
+        "If records don't support it, set status=unknown and say so. " +
+        "Never invent history, family-plot details, or puzzle answers.";
 
     public static bool TryBuildRequest(string question, SaveData save, IReadOnlyList<string> history,
                                        out AiRequest request, out IReadOnlyList<KnowledgeHit> hits,
@@ -39,11 +40,21 @@ public static class HeritageOracleService
             return false;
         }
 
-        hits = KnowledgeRagService.Retrieve(question, save, 4);
+        // Greetings and small talk get a warm local reply — no API call needed.
+        if (TryLocalChat(question, out localResponse))
+        {
+            request = null;
+            hits = Array.Empty<KnowledgeHit>();
+            return false;
+        }
+
+        hits = KnowledgeRagService.Retrieve(question, save, 3);
         if (hits.Count == 0)
         {
             request = null;
-            localResponse = "Those records are not in my recovered archive yet. Try asking about an unlocked town or coding lesson.";
+            localResponse =
+                "I keep two kinds of records: the heritage and stories of the towns you've reached, " +
+                "and the coding lessons you've unlocked. Ask me about either and I'll dig through the archive.";
             return false;
         }
 
@@ -53,7 +64,7 @@ public static class HeritageOracleService
         if (history != null && history.Count > 0)
         {
             prompt.AppendLine("RECENT CHAT (context only; records remain authoritative):");
-            foreach (string turn in history.TakeLast(4)) prompt.AppendLine(turn);
+            foreach (string turn in history.TakeLast(3)) prompt.AppendLine(turn);
         }
         prompt.AppendLine("PLAYER QUESTION:");
         prompt.Append(question);
@@ -64,7 +75,7 @@ public static class HeritageOracleService
             SystemInstruction = SystemInstruction,
             Prompt = prompt.ToString(),
             ResponseJsonSchema = ResponseSchema,
-            MaxOutputTokens = 450
+            MaxOutputTokens = 320
         };
         localResponse = null;
         return true;
@@ -82,6 +93,48 @@ public static class HeritageOracleService
         if (response.status == "answered" && (response.citations == null || response.citations.Length == 0))
             return false;
         return KnowledgeRagService.AreCitationsValid(response.citations ?? Array.Empty<string>(), supplied);
+    }
+
+    // Greetings, thanks, and "what can you do" — handled locally so casual chat never
+    // costs a token. Everything else falls through to the gated RAG + model path.
+    static readonly string[] Greetings =
+        { "hi", "hello", "hey", "yo", "kumusta", "kamusta", "musta", "good morning",
+          "good afternoon", "good evening", "magandang" };
+    static readonly string[] Thanks =
+        { "thanks", "thank you", "salamat", "maraming salamat" };
+    static readonly string[] MetaAsks =
+        { "who are you", "what are you", "what can you do", "what do you do",
+          "how can you help", "what can i ask", "help me", "what is this" };
+
+    static bool TryLocalChat(string question, out string response)
+    {
+        string q = (question ?? "").Trim().ToLowerInvariant().Trim('?', '!', '.', ',');
+
+        foreach (string g in Greetings)
+            if (q == g || q.StartsWith(g + " "))
+            {
+                response = "Hello, traveler. I'm the Heritage Oracle — I keep the stories of the towns " +
+                           "you've reached and the coding lessons you've unlocked. What would you like to explore?";
+                return true;
+            }
+
+        foreach (string t in Thanks)
+            if (q == t || q.StartsWith(t))
+            {
+                response = "Anytime. Keep driving the coast and more records will surface for us to talk about.";
+                return true;
+            }
+
+        foreach (string m in MetaAsks)
+            if (q.Contains(m))
+            {
+                response = "Ask me about two things: the heritage, characters and storyline of the towns you've " +
+                           "visited, or any coding concept you've unlocked — commands, loops, conditionals, and more.";
+                return true;
+            }
+
+        response = null;
+        return false;
     }
 
     public static string FallbackResponse(int currentLevelIndex)

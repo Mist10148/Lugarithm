@@ -11,8 +11,130 @@ public sealed class VibeCodeResponse
     public string code;
 }
 
+/// <summary>The Copilot-style interaction modes for the in-editor agent.</summary>
+public enum VibeMode
+{
+    Ask,    // read-only: sees the world + editor, answers questions, never edits
+    Plan,   // returns a numbered plan in plain language, never edits
+    Agent   // returns a structured action graph that is compiled into the editor
+}
+
 public static class VibeCodingService
 {
+    // -------------------------------------------------------------------------
+    // Copilot-style agent: world-aware Ask / Plan / Agent requests.
+
+    /// <summary>A compact, token-conscious snapshot of the puzzle the agent can read:
+    /// the maze, the jeepney's state, the editor mode + contents, and the unlocked
+    /// vocabulary. Shared by every mode.</summary>
+    public static string BuildWorldContext(GridModel grid, AgentSim sim, AutomationPuzzleDefinition def,
+                                           bool blockMode, string editorText,
+                                           string[] allowedBlocks, string[] allowedQueries)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("GOAL: " + (def != null && !string.IsNullOrWhiteSpace(def.goalText)
+            ? def.goalText : "Reach the destination (D)."));
+
+        if (grid != null)
+        {
+            sb.AppendLine($"GRID {grid.Width}x{grid.Height} (#=wall .=road S=start D=dest P=stop, @=jeepney):");
+            for (int y = 0; y < grid.Height; y++)
+            {
+                var row = new StringBuilder();
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    if (sim != null && sim.Position.x == x && sim.Position.y == y) { row.Append('@'); continue; }
+                    switch (grid.Get(x, y))
+                    {
+                        case GridModel.Cell.Wall:        row.Append('#'); break;
+                        case GridModel.Cell.Road:        row.Append('.'); break;
+                        case GridModel.Cell.Start:       row.Append('S'); break;
+                        case GridModel.Cell.Destination: row.Append('D'); break;
+                        case GridModel.Cell.Stop:        row.Append('P'); break;
+                    }
+                }
+                sb.AppendLine(row.ToString());
+            }
+        }
+
+        if (sim != null)
+            sb.AppendLine($"JEEPNEY: at ({sim.Position.x},{sim.Position.y}) facing " +
+                          $"{AgentSim.FacingNames[sim.Facing]}; {sim.PassengersAboard} aboard.");
+
+        sb.AppendLine("EDITOR: " + (blockMode ? "block mode" : "code mode"));
+        sb.AppendLine("UNLOCKED ACTIONS/CONTROL: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
+        sb.AppendLine("UNLOCKED QUERIES: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
+
+        if (!string.IsNullOrWhiteSpace(editorText))
+        {
+            string trimmed = editorText.Length > 700 ? editorText.Substring(0, 700) + "…" : editorText;
+            sb.AppendLine("CURRENT EDITOR CONTENTS:");
+            sb.AppendLine(trimmed);
+        }
+        return sb.ToString();
+    }
+
+    public static AiRequest BuildAgentRequest(VibeMode mode, string message, string worldContext)
+    {
+        switch (mode)
+        {
+            case VibeMode.Ask:
+                return new AiRequest
+                {
+                    Feature = AiFeature.VibeCode,
+                    SystemInstruction =
+                        "You are Lugarithm's in-editor coding tutor for ages 10–16. You can see the maze, the " +
+                        "jeepney's state, and the player's current code, but you are READ-ONLY: never write or " +
+                        "change code. Answer the question in two to four clear, encouraging sentences.",
+                    Prompt = worldContext + "\nPLAYER QUESTION:\n" + message,
+                    MaxOutputTokens = 280
+                };
+
+            case VibeMode.Plan:
+                return new AiRequest
+                {
+                    Feature = AiFeature.VibeCode,
+                    SystemInstruction =
+                        "You are Lugarithm's planning assistant for ages 10–16. Using what you can see of the maze " +
+                        "and the jeepney, lay out a short numbered plan (3–6 steps) in plain language for how to " +
+                        "solve it. Do NOT write code — describe the approach so the player can write it.",
+                    Prompt = worldContext + "\nWHAT TO PLAN FOR:\n" + message,
+                    MaxOutputTokens = 320
+                };
+
+            default: // Agent
+                return new AiRequest
+                {
+                    Feature = AiFeature.VibeCode,
+                    SystemInstruction =
+                        "You are Lugarithm's in-editor coding agent for ages 10–16. Read the maze and the jeepney's " +
+                        "state, then return a program as a flat action graph (the 'nodes' list). Use ONLY the unlocked " +
+                        "actions, control structures, and queries. Express control flow with explicit markers: open with " +
+                        "op 'if'/'while' and close with 'endif'/'endwhile'; use 'elif'/'else' between them. Conditions go " +
+                        "in the 'condition' field and may combine unlocked queries with and/or/not. Put each command in an " +
+                        "'action' node ('name' is the command, 'arg' an optional count). Add short, friendly 'comment' " +
+                        "fields so the player learns from the code. Keep 'message' to one or two sentences.",
+                    Prompt = worldContext + "\nTASK:\n" + message,
+                    ResponseJsonSchema = ActionGraphCompiler.ResponseSchema,
+                    MaxOutputTokens = 900
+                };
+        }
+    }
+
+    /// <summary>Agent-mode retry after a compiled graph failed local validation. Sends
+    /// only the error (not the rejected program) to keep the prompt small.</summary>
+    public static AiRequest BuildAgentRepairRequest(string message, string worldContext, string validationError)
+    {
+        AiRequest request = BuildAgentRequest(VibeMode.Agent, message, worldContext);
+        request.Prompt += "\nThe previous action graph was rejected: " + validationError +
+                          "\nReturn one corrected action graph using only the unlocked vocabulary.";
+        return request;
+    }
+
+    // -------------------------------------------------------------------------
+    // Legacy single-shot tutor (kept for compatibility / tests).
+
+
     public const string ResponseSchema =
         "{\"type\":\"object\",\"properties\":{" +
         "\"kind\":{\"type\":\"string\",\"enum\":[\"explanation\",\"code\"]}," +

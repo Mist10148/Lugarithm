@@ -77,6 +77,8 @@ public class AlmanacController : MonoBehaviour
     public void Close()
     {
         if (bookRoot != null) bookRoot.SetActive(false);
+        // Each visit to the Oracle starts fresh — wipe the transcript on close.
+        if (chatController != null) chatController.ClearChat();
     }
 
     public void Toggle()

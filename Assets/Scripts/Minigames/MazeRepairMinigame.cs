@@ -41,6 +41,7 @@ public class MazeRepairMinigame : MonoBehaviour
     [SerializeField] private BlockCanvasController  blockCanvas;
     [SerializeField] private BlockPaletteController palette;
     [SerializeField] private CodeEditorController   codeEditor;
+    [SerializeField] private VibeCodingController   vibeCtrl;
 
     [Header("Execution")]
     [SerializeField] private ExecutionController exec;
@@ -126,6 +127,13 @@ public class MazeRepairMinigame : MonoBehaviour
         if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, null);
         if (palette     != null) palette.Init(_def.allowedBlocks, blockCanvas);
         if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold);
+
+        // Give the in-editor AI agent the level vocabulary + live maze/jeepney state.
+        if (vibeCtrl != null)
+        {
+            vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
+            vibeCtrl.SetWorldContext(grid, _sim, _def);
+        }
 
         bool blockMode = SaveSystem.Current != null && SaveSystem.Current.settings.blockMode;
         _codeActive = !blockMode;

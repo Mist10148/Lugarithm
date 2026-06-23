@@ -116,4 +116,52 @@ public class AiIntegrationTests
             out VibeCodeResponse response));
         Assert.AreEqual("moveForward()", response.code);
     }
+
+    [Test]
+    public void ActionGraph_CompilesNestedControlFlowWithIndentationAndComments()
+    {
+        var graph = new ActionGraphResponse
+        {
+            message = "Wall-follow to the exit.",
+            nodes = new[]
+            {
+                new ActionGraphNode { op = "while", condition = "not atDestination()" },
+                new ActionGraphNode { op = "if", condition = "frontIsClear()" },
+                new ActionGraphNode { op = "action", name = "moveForward", comment = "step ahead" },
+                new ActionGraphNode { op = "else" },
+                new ActionGraphNode { op = "action", name = "turnLeft" },
+                new ActionGraphNode { op = "endif" },
+                new ActionGraphNode { op = "endwhile" },
+            }
+        };
+
+        Assert.IsTrue(ActionGraphCompiler.TryCompile(graph, out string source, out string error), error);
+
+        string expected =
+            "while not atDestination():\n" +
+            "    if frontIsClear():\n" +
+            "        moveForward()  # step ahead\n" +
+            "    else:\n" +
+            "        turnLeft()";
+        Assert.AreEqual(expected, source);
+
+        // The compiled program must parse under the real language grammar.
+        Parser.Compile(source, out List<LangError> parseErrors);
+        Assert.IsEmpty(parseErrors);
+    }
+
+    [Test]
+    public void ActionGraph_RejectsUnbalancedBlocks()
+    {
+        var graph = new ActionGraphResponse
+        {
+            nodes = new[]
+            {
+                new ActionGraphNode { op = "action", name = "moveForward" },
+                new ActionGraphNode { op = "endif" },   // no matching if
+            }
+        };
+        Assert.IsFalse(ActionGraphCompiler.TryCompile(graph, out _, out string error));
+        Assert.IsNotEmpty(error);
+    }
 }

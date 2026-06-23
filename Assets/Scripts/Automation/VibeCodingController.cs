@@ -1,40 +1,65 @@
 using System.Collections;
-using System.Text;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// In-window AI helper for the CODE editor. The title-bar "AI" button swaps the
-/// editor body for this chat; the "Code" button swaps back. The player can ask
-/// free-form questions (a friendly tutor answers in plain language) or ask for
-/// code, in which case Gemini's reply includes a program that is dropped straight
-/// into the editor. Lives on the CodeWindow itself, so it self-wires in Awake and
-/// works even where <see cref="Init"/> is never called (e.g. the maze minigame).
+/// In-window AI agent for the CODE editor — a Copilot-style helper with three modes:
+/// <b>Ask</b> (read-only tutor), <b>Plan</b> (numbered approach, no edits), and
+/// <b>Agent</b> (generates a structured action graph that is compiled and dropped into
+/// the editor for the player to RUN). The agent sees the maze, the jeepney's state, and
+/// the current editor contents. The title-bar "AI" button swaps the editor body for the
+/// chat; "Code" swaps back. Self-wires in Awake so it works even where <see cref="Init"/>
+/// is never called.
 /// </summary>
 public class VibeCodingController : MonoBehaviour
 {
     [Header("Chat")]
     [SerializeField] TMP_InputField      chatInput;
-    [SerializeField] TMP_Text            historyLabel;
     [SerializeField] Button              sendButton;
     [SerializeField] CodeEditorController codeEditor;
 
+    [Header("Transcript")]
+    [SerializeField] RectTransform chatContent;     // bubble container (preferred)
+    [SerializeField] TMP_Text      bubbleTemplate;  // inactive TMP template for bubbles
+    [SerializeField] TMP_Text      historyLabel;    // legacy/intro line (optional)
+
+    [Header("Modes (Ask / Plan / Agent)")]
+    [SerializeField] Button askButton;
+    [SerializeField] Button planButton;
+    [SerializeField] Button agentButton;
+
     [Header("View swap (AI ⇄ Code)")]
-    [SerializeField] GameObject editorBody;   // the code editor, hidden while chatting
-    [SerializeField] GameObject chatBody;     // this chat panel, hidden while editing
-    [SerializeField] Button     aiButton;     // title bar: show chat
-    [SerializeField] Button     codeButton;   // title bar: show editor
+    [SerializeField] GameObject editorBody;
+    [SerializeField] GameObject chatBody;
+    [SerializeField] Button     aiButton;
+    [SerializeField] Button     codeButton;
+
+    static readonly Color PlayerBubble = new Color(0.95f, 0.65f, 0.15f, 0.95f);
+    static readonly Color PlayerText   = new Color(0.10f, 0.09f, 0.06f, 1f);
+    static readonly Color AiBubble     = new Color(0.16f, 0.18f, 0.22f, 0.98f);
+    static readonly Color AiText       = new Color(0.93f, 0.93f, 0.88f, 1f);
+    static readonly Color ModeActive   = new Color(0.30f, 0.45f, 0.75f, 1f);
+    static readonly Color ModeIdle     = new Color(0.18f, 0.22f, 0.30f, 1f);
 
     string[] _allowedBlocks;
     string[] _allowedQueries;
-    readonly StringBuilder _history = new StringBuilder();
+    readonly List<GameObject> _rows = new List<GameObject>();
+    VibeMode _mode = VibeMode.Agent;
+
+    // Live world context (references, so we always read the current state).
+    GridModel                  _grid;
+    AgentSim                   _sim;
+    AutomationPuzzleDefinition _def;
+
     bool _wired;
 
     void Awake()
     {
         Wire();
-        ShowEditor();   // editor is the default face of the window
+        ShowEditor();
+        SetMode(_mode);
     }
 
     void Wire()
@@ -42,10 +67,15 @@ public class VibeCodingController : MonoBehaviour
         if (_wired) return;
         _wired = true;
 
-        if (sendButton != null) sendButton.onClick.AddListener(OnSend);
-        if (chatInput  != null) chatInput.onSubmit.AddListener(_ => OnSend());
-        if (aiButton   != null) aiButton.onClick.AddListener(ShowChat);
-        if (codeButton != null) codeButton.onClick.AddListener(ShowEditor);
+        if (sendButton  != null) sendButton.onClick.AddListener(OnSend);
+        if (chatInput   != null) chatInput.onSubmit.AddListener(_ => OnSend());
+        if (aiButton    != null) aiButton.onClick.AddListener(ShowChat);
+        if (codeButton  != null) codeButton.onClick.AddListener(ShowEditor);
+        if (askButton   != null) askButton.onClick.AddListener(() => SetMode(VibeMode.Ask));
+        if (planButton  != null) planButton.onClick.AddListener(() => SetMode(VibeMode.Plan));
+        if (agentButton != null) agentButton.onClick.AddListener(() => SetMode(VibeMode.Agent));
+
+        ChatBubbleFactory.PrepareContent(chatContent);
     }
 
     /// <summary>Constrains generated code to the level's vocabulary and (re)binds the
@@ -56,6 +86,32 @@ public class VibeCodingController : MonoBehaviour
         _allowedQueries = allowedQueries;
         if (editor != null) codeEditor = editor;
         Wire();
+    }
+
+    /// <summary>Gives the agent live access to the maze + jeepney so it can read the
+    /// world. Call from the host (automation drive or maze minigame) at setup.</summary>
+    public void SetWorldContext(GridModel grid, AgentSim sim, AutomationPuzzleDefinition def)
+    {
+        _grid = grid;
+        _sim  = sim;
+        _def  = def;
+    }
+
+    // -------------------------------------------------------------------------
+    // Modes
+
+    void SetMode(VibeMode mode)
+    {
+        _mode = mode;
+        Tint(askButton,   mode == VibeMode.Ask);
+        Tint(planButton,  mode == VibeMode.Plan);
+        Tint(agentButton, mode == VibeMode.Agent);
+    }
+
+    void Tint(Button button, bool active)
+    {
+        if (button != null && button.image != null)
+            button.image.color = active ? ModeActive : ModeIdle;
     }
 
     // -------------------------------------------------------------------------
@@ -80,7 +136,6 @@ public class VibeCodingController : MonoBehaviour
     void OnSend()
     {
         if (chatInput == null) return;
-
         string text = chatInput.text;
         if (string.IsNullOrWhiteSpace(text)) return;
 
@@ -91,76 +146,123 @@ public class VibeCodingController : MonoBehaviour
 
     IEnumerator Respond(string message)
     {
-        AppendHistory($"You: {message}");
-        AppendHistory("Tutor: generating…");
+        AddBubble(message, player: true);
+        TMP_Text reply = AddBubble("…", player: false);
 
+        bool blockMode = SaveSystem.Current != null && SaveSystem.Current.settings != null &&
+                         SaveSystem.Current.settings.blockMode;
+        string editorText = codeEditor != null && codeEditor.input != null ? codeEditor.input.text : "";
+        string world = VibeCodingService.BuildWorldContext(_grid, _sim, _def, blockMode, editorText,
+                                                           _allowedBlocks, _allowedQueries);
+
+        if (_mode == VibeMode.Agent)
+            yield return RunAgent(message, world, reply);
+        else
+            yield return RunTextMode(message, world, reply);
+
+        SetEnabled(true);
+        if (chatInput != null) chatInput.ActivateInputField();
+    }
+
+    /// <summary>Ask / Plan: a plain-text answer, no edits.</summary>
+    IEnumerator RunTextMode(string message, string world, TMP_Text reply)
+    {
         AiResult result = null;
-        int packets = 0;
-        yield return GeminiClient.Stream(
-            VibeCodingService.BuildTutorRequest(message, _allowedBlocks, _allowedQueries),
-            _ =>
-            {
-                packets++;
-                UpdateLastHistory("Tutor: generating" + new string('.', 1 + packets % 3));
-            },
-            completed => result = completed);
+        yield return GeminiClient.Stream(VibeCodingService.BuildAgentRequest(_mode, message, world),
+            null, completed => result = completed);
 
-        if (result == null || !result.Success || !VibeCodingService.TryParse(result.Text, out VibeCodeResponse response))
+        UpdateBubble(reply, result != null && result.Success && !string.IsNullOrWhiteSpace(result.Text)
+            ? result.Text.Trim()
+            : "(couldn't reach the AI — check your connection and try again)");
+    }
+
+    /// <summary>Agent: generate an action graph, compile + validate it, and place the
+    /// resulting code into the editor. Write-only — the player presses RUN.</summary>
+    IEnumerator RunAgent(string message, string world, TMP_Text reply)
+    {
+        AiResult result = null;
+        yield return GeminiClient.Stream(VibeCodingService.BuildAgentRequest(VibeMode.Agent, message, world),
+            null, completed => result = completed);
+
+        if (result == null || !result.Success ||
+            !ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
         {
-            UpdateLastHistory("Tutor: (couldn't reach the AI — check your connection and try again)");
-            SetEnabled(true);
+            UpdateBubble(reply, "(couldn't reach the AI — check your connection and try again)");
             yield break;
         }
 
-        UpdateLastHistory("Tutor: " + response.message.Trim());
-        if (response.kind == "code")
+        string code = null;
+        if (ActionGraphCompiler.TryCompile(graph, out string compiled, out string compileError) &&
+            VibeCodingService.Validate(compiled, _allowedBlocks, _allowedQueries, out _) == null)
         {
-            string validation = VibeCodingService.Validate(response.code, _allowedBlocks, _allowedQueries, out _);
-            if (validation != null)
-            {
-                AppendHistory("Tutor: checking one correction…");
-                AiResult repairedResult = null;
-                yield return GeminiClient.Stream(
-                    VibeCodingService.BuildRepairRequest(message, response, validation, _allowedBlocks, _allowedQueries),
-                    null, completed => repairedResult = completed);
-                if (repairedResult != null && repairedResult.Success &&
-                    VibeCodingService.TryParse(repairedResult.Text, out VibeCodeResponse repaired))
-                {
-                    response = repaired;
-                    validation = VibeCodingService.Validate(response.code, _allowedBlocks, _allowedQueries, out _);
-                }
-            }
+            code = compiled;
+        }
+        else
+        {
+            // One repair round, sending only the error back.
+            UpdateBubble(reply, (graph.message ?? "Let me fix that…").Trim() + "  (checking one correction…)");
+            string err = compileError ?? "the program used something that isn't unlocked here";
+            AiResult repair = null;
+            yield return GeminiClient.Stream(
+                VibeCodingService.BuildAgentRepairRequest(message, world, err),
+                null, completed => repair = completed);
 
-            if (validation == null && codeEditor != null)
+            if (repair != null && repair.Success &&
+                ActionGraphCompiler.TryParse(repair.Text, out ActionGraphResponse fixedGraph) &&
+                ActionGraphCompiler.TryCompile(fixedGraph, out string recompiled, out _) &&
+                VibeCodingService.Validate(recompiled, _allowedBlocks, _allowedQueries, out _) == null)
             {
-                codeEditor.input.SetTextWithoutNotify(response.code);
-                codeEditor.RefreshLineNumbers();
-                codeEditor.RefreshHighlight();
-                AppendHistory("Tutor: ✓ Validated and placed in your editor. Press Code to review it, then RUN when you're ready.");
-            }
-            else
-            {
-                AppendHistory("Tutor: I kept your existing code unchanged because the generated program did not pass this level's rules.");
+                code = recompiled;
+                graph = fixedGraph;
             }
         }
 
-        SetEnabled(true);
+        if (code != null && codeEditor != null && codeEditor.input != null)
+        {
+            codeEditor.input.SetTextWithoutNotify(code);
+            codeEditor.RefreshLineNumbers();
+            codeEditor.RefreshHighlight();
+            UpdateBubble(reply, (graph.message ?? "Here's a program for you.").Trim() +
+                "\n✓ Placed in your editor. Press Code to review it, then RUN when you're ready.");
+        }
+        else
+        {
+            UpdateBubble(reply, "I couldn't make a program that fits this level's rules, so I left your code " +
+                "unchanged. Try asking in Plan mode for the approach.");
+        }
     }
 
-    void AppendHistory(string line)
+    // -------------------------------------------------------------------------
+    // Transcript
+
+    TMP_Text AddBubble(string text, bool player)
     {
-        _history.AppendLine(line);
-        if (historyLabel != null) historyLabel.text = _history.ToString();
+        if (chatContent != null && bubbleTemplate != null)
+        {
+            TMP_Text label = ChatBubbleFactory.Add(chatContent, bubbleTemplate, text, player,
+                player ? PlayerBubble : AiBubble, player ? PlayerText : AiText, out GameObject row);
+            if (row != null) _rows.Add(row);
+            ChatBubbleFactory.ScrollToBottom(chatContent);
+            return label;
+        }
+
+        // Fallback: append to the legacy single label if no bubble container is wired.
+        if (historyLabel != null)
+            historyLabel.text += (historyLabel.text.Length > 0 ? "\n" : "") + (player ? "You: " : "AI: ") + text;
+        return historyLabel;
     }
 
-    void UpdateLastHistory(string line)
+    void UpdateBubble(TMP_Text bubble, string text)
     {
-        // Replace the last appended line (the "Tutor: …" placeholder).
-        string s = _history.ToString();
-        int last = s.LastIndexOf('\n', s.Length - 2);
-        _history.Clear();
-        _history.Append(last < 0 ? line : s.Substring(0, last + 1) + line);
-        if (historyLabel != null) historyLabel.text = _history.ToString();
+        if (chatContent != null && bubbleTemplate != null)
+        {
+            ChatBubbleFactory.SetText(bubble, text, chatContent);
+            ChatBubbleFactory.ScrollToBottom(chatContent);
+        }
+        else if (bubble != null)
+        {
+            bubble.text = text;
+        }
     }
 
     void SetEnabled(bool on)
