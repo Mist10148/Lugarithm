@@ -32,12 +32,17 @@ public static class EnvConfigSync
     const string Placeholder  = "YOUR_GEMINI_API_KEY_HERE";
     const int    MaxKeys      = 5;
 
-    // Default per-key model fallback order: latest flash, latest lite, then the
-    // previous-generation flash + lite. These two are the project's known-good IDs;
-    // add the previous-generation IDs (or override the whole list) via
-    // GEMINI_MODEL_LADDER in .env, or by editing ai_config.json directly.
+    // Default per-key model fallback order, walked in this exact order for every key
+    // before advancing to the next key. Override the whole list via GEMINI_MODEL_LADDER
+    // in .env, or by editing ai_config.json directly.
     static readonly string[] DefaultLadder =
-        { "gemini-3.5-flash", "gemini-3.1-flash-lite" };
+    {
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-3.0-flash"
+    };
 
     [MenuItem("Lugarithm/Sync AI config from .env")]
     public static void SyncMenu()

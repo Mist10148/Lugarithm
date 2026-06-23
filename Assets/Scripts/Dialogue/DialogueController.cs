@@ -33,6 +33,11 @@ public class DialogueController : MonoBehaviour
 
     public event Action<DialogueEventKind, string> OnEvent;
 
+    // Hard wall-clock cap on how long a line waits for the AI rephrase before falling
+    // back to the authored text. The transport may walk several keys/models, so this
+    // bounds the *total* wait the player sees, not any single attempt.
+    const float DialogueAiBudgetSeconds = 4f;
+
     DialogueRuntime _runtime;
     DialogueConversation _conversation;
     Action          _onFinished;
@@ -381,28 +386,42 @@ public class DialogueController : MonoBehaviour
         }
 
         _dialogueCancellation?.Cancel();
-        _dialogueCancellation = new AiCancellation();
+        AiCancellation cancellation = _dialogueCancellation = new AiCancellation();
         if (dialogBox != null) dialogBox.BeginStreaming(line.speaker);
 
         AiRequest request = LivingStoryService.BuildRequest(line.text, pax,
             SaveSystem.Current.currentLevelIndex,
             _runtime != null ? _runtime.Tone : DialogueTone.Neutral,
             _runtime != null ? _runtime.Affinity : 0);
-        request.Cancellation = _dialogueCancellation;
+        request.Cancellation = cancellation;
         AiResult result = null;
+        bool streamDone = false;
         string streamed = "";
         string validationContext = LivingStoryService.ContextForValidation(line.text);
-        yield return GeminiClient.Stream(request, delta =>
+
+        // Run the stream concurrently so we can enforce the wall-clock budget below.
+        StartCoroutine(GeminiClient.Stream(request, delta =>
         {
+            if (cancellation.IsCancellationRequested) return; // drop late deltas after fallback
             streamed += delta;
             string trimmed = streamed.TrimEnd();
             bool completeSentence = trimmed.EndsWith(".") || trimmed.EndsWith("!") || trimmed.EndsWith("?");
             if (completeSentence && dialogBox != null &&
                 AiGroundingValidator.ValidatePartial(line.text, streamed, validationContext))
                 dialogBox.UpdateStreaming(streamed.Trim());
-        }, completed => result = completed);
+        }, completed => { result = completed; streamDone = true; }));
 
-        if (_dialogueCancellation.IsCancellationRequested) yield break;
+        float deadline = Time.realtimeSinceStartup + DialogueAiBudgetSeconds;
+        while (!streamDone && Time.realtimeSinceStartup < deadline)
+        {
+            if (cancellation.IsCancellationRequested) yield break; // superseded / disabled / skipped
+            yield return null;
+        }
+
+        if (!streamDone)
+            cancellation.Cancel();        // budget elapsed — abort in-flight, fall back to authored
+        else if (cancellation.IsCancellationRequested)
+            yield break;                  // cancelled during the final stream callback
 
         string final = result != null && result.Success ? result.Text.Trim() : null;
         if (!AiGroundingValidator.ValidateParaphrase(line.text, final, validationContext, out string reason))

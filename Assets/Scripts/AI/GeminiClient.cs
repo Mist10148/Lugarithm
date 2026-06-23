@@ -385,14 +385,13 @@ sealed class GeminiRestTransport : IAiTransport
 
     static string ComboKey(int keyIndex, string model) => keyIndex + "#" + model;
 
-    /// <summary>Preferred order to walk the model ladder for a feature. The canonical
-    /// ladder is [latest-flash, latest-lite, prev-flash, prev-lite]. Code features lead
-    /// with flash; lighter features lead with lite to conserve flash quota, then fall
-    /// through to flash if needed.</summary>
+    /// <summary>Order to walk the model ladder for a feature. The ladder array itself
+    /// encodes priority (configured highest-preference first), so every feature walks it
+    /// in declared order — for each key we try model 0, then 1, … then the last, before
+    /// advancing to the next key. This guarantees all models are attempted, in the exact
+    /// order configured in ai_config.json / GEMINI_MODEL_LADDER.</summary>
     static int[] LadderOrder(AiFeature feature, int ladderLen)
     {
-        if (ladderLen >= 4)
-            return IsCodeFeature(feature) ? new[] { 0, 1, 2, 3 } : new[] { 1, 3, 0, 2 };
         int[] order = new int[ladderLen];
         for (int i = 0; i < ladderLen; i++) order[i] = i;
         return order;
@@ -516,7 +515,7 @@ sealed class GeminiRestTransport : IAiTransport
         {
             switch (request.Feature)
             {
-                case AiFeature.Dialogue: return new FeatureLimits(3f, 6f, 120);
+                case AiFeature.Dialogue: return new FeatureLimits(3f, 4f, 120);
                 case AiFeature.Hint: return new FeatureLimits(3f, 6f, 220);
                 case AiFeature.Oracle: return new FeatureLimits(3f, 12f, 320);
                 case AiFeature.Mentor: return new FeatureLimits(5f, 18f, 800);
