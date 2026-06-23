@@ -85,6 +85,19 @@ public class ChatController : MonoBehaviour
             yield break;
         }
 
+        // Cache hit: this question against the same unlocked records was already answered —
+        // replay it instantly without spending a token.
+        string cacheKey = HeritageOracleService.CacheKey(input, hits);
+        if (AiResponseCache.Oracle.TryGet(cacheKey, out string cachedAnswer))
+        {
+            var cachedBubble = AddBubble("", player: false);
+            yield return RevealBubble(cachedBubble, cachedAnswer);
+            Remember(input, cachedAnswer);
+            SetInputEnabled(true);
+            chatInput.ActivateInputField();
+            yield break;
+        }
+
         var typingBubble = AddBubble("…", player: false);
 
         AiResult result = null;
@@ -98,7 +111,10 @@ public class ChatController : MonoBehaviour
         string response = null;
         if (result != null && result.Success &&
             HeritageOracleService.TryParseAndValidate(result.Text, hits, out OracleResponse parsed))
+        {
             response = parsed.answer;
+            AiResponseCache.Oracle.Put(cacheKey, response);   // only validated answers are cached
+        }
         response ??= HeritageOracleService.FallbackResponse(SaveSystem.Current.currentLevelIndex);
         yield return RevealBubble(typingBubble, response);
         Remember(input, response);

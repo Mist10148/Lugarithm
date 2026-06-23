@@ -176,45 +176,54 @@ public class VibeCodingController : MonoBehaviour
             : "(couldn't reach the AI — check your connection and try again)");
     }
 
-    /// <summary>Agent: generate an action graph, compile + validate it, and place the
-    /// resulting code into the editor. Write-only — the player presses RUN.</summary>
+    /// <summary>Agent: generate an action graph, compile + validate it, dry-run it against the
+    /// maze, and place it into the editor only when it actually reaches the goal. Write-only —
+    /// the player presses RUN. Up to two repair rounds correct syntax (compile/vocabulary) or
+    /// logic (the program ran but missed the goal), sending only the error back each time.</summary>
     IEnumerator RunAgent(string message, string world, TMP_Text reply)
     {
-        AiResult result = null;
-        yield return GeminiClient.Stream(VibeCodingService.BuildAgentRequest(VibeMode.Agent, message, world),
-            null, completed => result = completed);
-
-        if (result == null || !result.Success ||
-            !ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
-        {
-            UpdateBubble(reply, "(couldn't reach the AI — check your connection and try again)");
-            yield break;
-        }
-
+        const int maxRepairs = 2;
+        AiRequest request = VibeCodingService.BuildAgentRequest(VibeMode.Agent, message, world);
         string code = null;
-        if (ActionGraphCompiler.TryCompile(graph, out string compiled, out string compileError) &&
-            VibeCodingService.Validate(compiled, _allowedBlocks, _allowedQueries, out _) == null)
-        {
-            code = compiled;
-        }
-        else
-        {
-            // One repair round, sending only the error back.
-            UpdateBubble(reply, (graph.message ?? "Let me fix that…").Trim() + "  (checking one correction…)");
-            string err = compileError ?? "the program used something that isn't unlocked here";
-            AiResult repair = null;
-            yield return GeminiClient.Stream(
-                VibeCodingService.BuildAgentRepairRequest(message, world, err),
-                null, completed => repair = completed);
+        string lastMessage = null;
 
-            if (repair != null && repair.Success &&
-                ActionGraphCompiler.TryParse(repair.Text, out ActionGraphResponse fixedGraph) &&
-                ActionGraphCompiler.TryCompile(fixedGraph, out string recompiled, out _) &&
-                VibeCodingService.Validate(recompiled, _allowedBlocks, _allowedQueries, out _) == null)
+        for (int attempt = 0; attempt <= maxRepairs; attempt++)
+        {
+            AiResult result = null;
+            yield return GeminiClient.Stream(request, null, completed => result = completed);
+
+            if (result == null || !result.Success ||
+                !ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
             {
-                code = recompiled;
-                graph = fixedGraph;
+                UpdateBubble(reply, "(couldn't reach the AI — check your connection and try again)");
+                yield break;
             }
+            lastMessage = graph.message;
+
+            // Syntax + vocabulary: compile the flat graph and check it against the level's
+            // unlocked names. A failure here is repaired with the compile/validation error.
+            if (!ActionGraphCompiler.TryCompile(graph, out string compiled, out string compileError) ||
+                VibeCodingService.Validate(compiled, _allowedBlocks, _allowedQueries, out _) != null)
+            {
+                if (attempt == maxRepairs) break;
+                string err = compileError ?? "the program used something that isn't unlocked here";
+                UpdateBubble(reply, (graph.message ?? "Let me fix that…").Trim() + "  (checking one correction…)");
+                request = VibeCodingService.BuildAgentRepairRequest(message, world, err);
+                continue;
+            }
+
+            // Logic: dry-run the program against a fresh copy of the world. If it doesn't reach
+            // the goal, repair with the goal gap so the model fixes the route, not the grammar.
+            if (TryVerify(compiled, out string goalGap))
+            {
+                code = compiled;
+                break;
+            }
+
+            if (attempt == maxRepairs) break;
+            UpdateBubble(reply, (graph.message ?? "Let me check my route…").Trim() + "  (testing and refining…)");
+            request = VibeCodingService.BuildAgentRepairRequest(message, world,
+                "the program ran but didn't solve it — " + goalGap);
         }
 
         if (code != null && codeEditor != null && codeEditor.input != null)
@@ -222,7 +231,7 @@ public class VibeCodingController : MonoBehaviour
             codeEditor.input.SetTextWithoutNotify(code);
             codeEditor.RefreshLineNumbers();
             codeEditor.RefreshHighlight();
-            UpdateBubble(reply, (graph.message ?? "Here's a program for you.").Trim() +
+            UpdateBubble(reply, (lastMessage ?? "Here's a program for you.").Trim() +
                 "\n✓ Placed in your editor. Press Code to review it, then RUN when you're ready.");
         }
         else
@@ -230,6 +239,23 @@ public class VibeCodingController : MonoBehaviour
             UpdateBubble(reply, "I couldn't make a program that fits this level's rules, so I left your code " +
                 "unchanged. Try asking in Plan mode for the approach.");
         }
+    }
+
+    /// <summary>Dry-runs compiled source against a fresh copy of the live world. Returns true
+    /// (and leaves <paramref name="goalGap"/> null) when the program reaches the goal, or when
+    /// there is no live world bound to verify against — then the syntactic checks stand alone.</summary>
+    bool TryVerify(string source, out string goalGap)
+    {
+        goalGap = null;
+        if (_grid == null || _sim == null || _def == null) return true; // nothing to dry-run
+
+        ProgramNode program = Parser.Compile(source, out List<LangError> errors);
+        if (errors != null && errors.Count > 0)
+        {
+            goalGap = errors[0].Message;
+            return false;
+        }
+        return HeadlessProgramRunner.Verify(program, _sim.CloneFresh(), _def, out goalGap);
     }
 
     // -------------------------------------------------------------------------

@@ -125,6 +125,28 @@ public class AgentSim : IAgentApi
         Reset();
     }
 
+    /// <summary>A fresh sim over the same grid, fares, start facing and rides, in its
+    /// puzzle-start state. Used to dry-run a generated program (headless verification)
+    /// without disturbing the live sim the player sees.</summary>
+    public AgentSim CloneFresh()
+    {
+        var copy = new AgentSim(_grid, _fares, _startFacing) { SeatCapacity = SeatCapacity };
+        if (_rides != null)
+        {
+            // Rides carry mutable run-state (aboard/delivered/paid); clone them so the dry
+            // run can't bleed into the originals. LoadRides resets the copies to start.
+            var ridesCopy = new List<GridRide>(_rides.Count);
+            foreach (GridRide ride in _rides)
+                ridesCopy.Add(new GridRide
+                {
+                    id = ride.id, origin = ride.origin, dest = ride.dest,
+                    fare = ride.fare, color = ride.color,
+                });
+            copy.LoadRides(ridesCopy);
+        }
+        return copy;
+    }
+
     /// <summary>Puts the world back to its puzzle-start state.</summary>
     public void Reset()
     {

@@ -93,7 +93,13 @@ public static class GeminiClient
             yield break;
         }
 
-        yield return Transport.Send(request, onDelta, onDone);
+        // Single seam for usage tracking: every feature's call flows through here, so we record
+        // the outcome (model, tokens, success/error) before handing the result to the caller.
+        yield return Transport.Send(request, onDelta, result =>
+        {
+            AiUsageTracker.Record(request.Feature, result);
+            onDone?.Invoke(result);
+        });
     }
 
     /// <summary>Compatibility wrapper for older callers while integrations migrate.</summary>
@@ -202,7 +208,7 @@ sealed class GeminiRestTransport : IAiTransport
 
         string body = BuildRequestJson(aiRequest);
         FeatureLimits limits = FeatureLimits.For(aiRequest);
-        int[] ladderOrder = LadderOrder(aiRequest.Feature, config.Ladder.Length);
+        int[] ladderOrder = LadderOrder(config.Ladder.Length);
 
         // Build the full attempt order: walk keys from the cursor, and within each key
         // walk the feature's preferred model order. Combos still cooling down are tried
@@ -385,12 +391,12 @@ sealed class GeminiRestTransport : IAiTransport
 
     static string ComboKey(int keyIndex, string model) => keyIndex + "#" + model;
 
-    /// <summary>Order to walk the model ladder for a feature. The ladder array itself
-    /// encodes priority (configured highest-preference first), so every feature walks it
-    /// in declared order — for each key we try model 0, then 1, … then the last, before
-    /// advancing to the next key. This guarantees all models are attempted, in the exact
-    /// order configured in ai_config.json / GEMINI_MODEL_LADDER.</summary>
-    static int[] LadderOrder(AiFeature feature, int ladderLen)
+    /// <summary>Order to walk the model ladder. The ladder array itself encodes priority
+    /// (configured highest-preference first), so every feature walks it in declared order —
+    /// for each key we try model 0, then 1, … then the last, before advancing to the next key.
+    /// This guarantees all models are attempted, in the exact order configured in
+    /// ai_config.json / GEMINI_MODEL_LADDER.</summary>
+    static int[] LadderOrder(int ladderLen)
     {
         int[] order = new int[ladderLen];
         for (int i = 0; i < ladderLen; i++) order[i] = i;

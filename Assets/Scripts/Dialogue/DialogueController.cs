@@ -385,14 +385,31 @@ public class DialogueController : MonoBehaviour
             yield break;
         }
 
+        int levelIndex = SaveSystem.Current.currentLevelIndex;
+        DialogueTone tone = _runtime != null ? _runtime.Tone : DialogueTone.Neutral;
+        int affinity = _runtime != null ? _runtime.Affinity : 0;
+        string cacheKey = LivingStoryService.CacheKey(line.text, pax, levelIndex, tone, affinity);
+
+        // Cache hit: a validated rephrase for this exact line + character + rapport is on hand —
+        // deliver it instantly, no API call and no budget wait.
+        if (AiResponseCache.Dialogue.TryGet(cacheKey, out string cached))
+        {
+            if (dialogBox != null)
+            {
+                dialogBox.BeginStreaming(line.speaker);
+                dialogBox.CompleteStreaming(cached);
+            }
+            if (_waitingForRevealAdvance && revealBody != null)
+                revealBody.text = $"<color=#EAEADC>{cached}</color>";
+            _awaitingRephrase = false;
+            yield break;
+        }
+
         _dialogueCancellation?.Cancel();
         AiCancellation cancellation = _dialogueCancellation = new AiCancellation();
         if (dialogBox != null) dialogBox.BeginStreaming(line.speaker);
 
-        AiRequest request = LivingStoryService.BuildRequest(line.text, pax,
-            SaveSystem.Current.currentLevelIndex,
-            _runtime != null ? _runtime.Tone : DialogueTone.Neutral,
-            _runtime != null ? _runtime.Affinity : 0);
+        AiRequest request = LivingStoryService.BuildRequest(line.text, pax, levelIndex, tone, affinity);
         request.Cancellation = cancellation;
         AiResult result = null;
         bool streamDone = false;
@@ -424,7 +441,12 @@ public class DialogueController : MonoBehaviour
             yield break;                  // cancelled during the final stream callback
 
         string final = result != null && result.Success ? result.Text.Trim() : null;
-        if (!AiGroundingValidator.ValidateParaphrase(line.text, final, validationContext, out string reason))
+        if (AiGroundingValidator.ValidateParaphrase(line.text, final, validationContext, out string reason))
+        {
+            // Only validated rephrases are cached, so a fallback can never be memoised.
+            AiResponseCache.Dialogue.Put(cacheKey, final);
+        }
+        else
         {
             if (result != null && result.Success)
                 Debug.LogWarning($"[LivingStory] Rejected paraphrase ({reason}); using authored line.");

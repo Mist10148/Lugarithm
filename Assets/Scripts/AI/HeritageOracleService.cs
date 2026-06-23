@@ -81,6 +81,19 @@ public static class HeritageOracleService
         return true;
     }
 
+    /// <summary>Cache key for a validated answer: the normalized question plus the ordered
+    /// IDs of the records it was grounded in. Same question against the same unlocked records
+    /// yields the same answer, so a hit is safe to replay without another API call.</summary>
+    public static string CacheKey(string question, IReadOnlyList<KnowledgeHit> hits)
+    {
+        string q = (question ?? "").Trim().ToLowerInvariant();
+        var ids = new List<string>();
+        if (hits != null)
+            foreach (KnowledgeHit hit in hits)
+                if (hit?.Chunk != null) ids.Add(hit.Chunk.id);
+        return q + "::" + string.Join(",", ids);
+    }
+
     public static bool TryParseAndValidate(string json, IReadOnlyList<KnowledgeHit> supplied,
                                            out OracleResponse response)
     {

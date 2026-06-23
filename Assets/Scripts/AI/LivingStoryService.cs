@@ -52,6 +52,18 @@ public static class LivingStoryService
         };
     }
 
+    /// <summary>Cache key for a validated rephrase. Mirrors the inputs <see cref="BuildRequest"/>
+    /// varies the prompt on (speaker, leg, tone, rapport) so a hit always corresponds to the
+    /// same in-character delivery. Affinity is bucketed by sign — it only colours warmth, never
+    /// the grounded content — so small swings still hit the cache.</summary>
+    public static string CacheKey(string originalLine, PassengerDefinition passenger,
+                                  int currentLevelIndex, DialogueTone tone, int affinity)
+    {
+        int affinityBucket = affinity == 0 ? 0 : (affinity > 0 ? 1 : -1);
+        string speaker = passenger != null ? passenger.id : "?";
+        return $"{speaker}|{currentLevelIndex}|{tone}|{affinityBucket}|{originalLine}";
+    }
+
     /// <summary>Token guard: short, trivial lines (greetings, one-word reactions) aren't
     /// worth an API round-trip — the authored line is delivered verbatim instead.</summary>
     public static bool ShouldRephrase(string line)

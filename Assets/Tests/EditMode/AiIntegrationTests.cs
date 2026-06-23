@@ -164,4 +164,111 @@ public class AiIntegrationTests
         Assert.IsFalse(ActionGraphCompiler.TryCompile(graph, out _, out string error));
         Assert.IsNotEmpty(error);
     }
+
+    // -------------------------------------------------------------------------
+    // #2 Local result cache
+
+    [Test]
+    public void ResponseCache_HitMissAndLruEviction()
+    {
+        var cache = new AiResponseCache(2);
+        Assert.IsFalse(cache.TryGet("a", out _));
+
+        cache.Put("a", "A");
+        cache.Put("b", "B");
+        Assert.IsTrue(cache.TryGet("a", out string va));   // touches "a" → "b" is now LRU
+        Assert.AreEqual("A", va);
+
+        cache.Put("c", "C");                                // over capacity → evicts "b"
+        Assert.IsFalse(cache.TryGet("b", out _));
+        Assert.IsTrue(cache.TryGet("a", out _));
+        Assert.IsTrue(cache.TryGet("c", out _));
+    }
+
+    [Test]
+    public void DialogueCacheKey_IsStableAndToneSensitive()
+    {
+        var pax = new PassengerDefinition { id = "lola" };
+        string k1 = LivingStoryService.CacheKey("Welcome aboard, child.", pax, 1, DialogueTone.Neutral, 0);
+        string k2 = LivingStoryService.CacheKey("Welcome aboard, child.", pax, 1, DialogueTone.Neutral, 0);
+        Assert.AreEqual(k1, k2, "same inputs must produce the same key");
+
+        string warm = LivingStoryService.CacheKey("Welcome aboard, child.", pax, 1, DialogueTone.Warm, 0);
+        Assert.AreNotEqual(k1, warm, "a tone change must change the key");
+    }
+
+    [Test]
+    public void OracleCacheKey_NormalizesQuestionAndVariesWithChunks()
+    {
+        var hitsA = new List<KnowledgeHit> { new KnowledgeHit { Chunk = new KnowledgeChunk { id = "x" } } };
+        var hitsB = new List<KnowledgeHit> { new KnowledgeHit { Chunk = new KnowledgeChunk { id = "y" } } };
+
+        string ka = HeritageOracleService.CacheKey("tell me about molo", hitsA);
+        Assert.AreEqual(ka, HeritageOracleService.CacheKey("  Tell Me About Molo  ", hitsA),
+            "casing/whitespace must not change the key");
+        Assert.AreNotEqual(ka, HeritageOracleService.CacheKey("tell me about molo", hitsB),
+            "different retrieved records must change the key");
+    }
+
+    // -------------------------------------------------------------------------
+    // #3 Headless agent verification
+
+    [Test]
+    public void HeadlessRunner_VerifiesCanonicalSolution()
+    {
+        AutomationPuzzleDefinition def = LevelLibrary.Get(0).auto;
+        ProgramNode program = Parser.Compile(def.optimalSolutionText, out List<LangError> errors);
+        CollectionAssert.IsEmpty(errors);
+        var grid = GridModel.Parse(def.gridMap, out _);
+        var sim = new AgentSim(grid, new FareTable(), def.startFacing);
+
+        Assert.IsTrue(HeadlessProgramRunner.Verify(program, sim, def, out string gap), gap);
+        Assert.IsNull(gap);
+    }
+
+    [Test]
+    public void HeadlessRunner_RejectsProgramThatMissesTheGoal()
+    {
+        AutomationPuzzleDefinition def = LevelLibrary.Get(0).auto;
+        ProgramNode program = Parser.Compile("wait()", out _);   // does nothing, never reaches D
+        var grid = GridModel.Parse(def.gridMap, out _);
+        var sim = new AgentSim(grid, new FareTable(), def.startFacing);
+
+        Assert.IsFalse(HeadlessProgramRunner.Verify(program, sim, def, out string gap));
+        Assert.IsNotEmpty(gap);
+    }
+
+    [Test]
+    public void CloneFresh_LeavesTheLiveSimUntouched()
+    {
+        AutomationPuzzleDefinition def = LevelLibrary.Get(0).auto;
+        var grid = GridModel.Parse(def.gridMap, out _);
+        var sim = new AgentSim(grid, new FareTable(), def.startFacing);
+        var startPos = sim.Position;
+
+        ProgramNode program = Parser.Compile(def.optimalSolutionText, out _);
+        HeadlessProgramRunner.Verify(program, sim.CloneFresh(), def, out _);
+
+        Assert.AreEqual(startPos, sim.Position, "verifying on a clone must not move the live sim");
+        Assert.AreEqual(0, sim.StepsUsed, "verifying on a clone must not advance the live sim");
+    }
+
+    // -------------------------------------------------------------------------
+    // #4 AI usage tracker
+
+    [Test]
+    public void UsageTracker_AggregatesAndResets()
+    {
+        AiUsageTracker.Reset();
+        AiUsageTracker.Record(AiFeature.Oracle,
+            new AiResult { Success = true, Model = "gemini-test", PromptTokens = 10, OutputTokens = 5 });
+        AiUsageTracker.Record(AiFeature.Oracle, AiResult.Failed(AiErrorKind.Timeout, "slow", "gemini-test"));
+
+        string summary = AiUsageTracker.Summary();
+        StringAssert.Contains("Oracle", summary);
+        StringAssert.Contains("10 in + 5 out", summary);
+
+        AiUsageTracker.Reset();
+        StringAssert.Contains("No AI calls", AiUsageTracker.Summary());
+    }
 }
