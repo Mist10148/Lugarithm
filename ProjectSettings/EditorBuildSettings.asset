@@ -15,6 +15,9 @@ EditorBuildSettings:
     path: Assets/Scenes/LevelSelect.unity
     guid: 81375dcd79e2e3447aa7e420eb528e45
   - enabled: 1
+    path: Assets/Scenes/TopDownLevel.unity
+    guid: 83b8efe58c1cc064988c79bfc8913edb
+  - enabled: 1
     path: Assets/Scenes/ManualDrive.unity
     guid: 8d9347f5016ec7e4a8d2a332440437fd
   - enabled: 1

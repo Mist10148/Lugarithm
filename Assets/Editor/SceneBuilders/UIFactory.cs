@@ -196,12 +196,20 @@ public static class UIFactory
                 tmp.color = textColor.Value;
         }
 
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            var tmp = button.GetComponentInChildren<TextMeshProUGUI>();
+            if (tmp != null)
+                tmp.gameObject.SetActive(false);
+        }
+
         return button;
     }
 
     /// <summary>
-    /// Menu-only helper that builds an icon-led tile with the caption inside
-    /// the tile, leaving room for a clean press animation and a visible icon.
+    /// Menu-only helper that builds a square face with one centered icon and an
+    /// optional caption. This keeps the bottom menu actions readable without
+    /// relying on baked-in composite art.
     /// </summary>
     public static Button CreateIconButton(Transform parent, string name, string caption,
                                           Vector2 size, Sprite faceSprite, Sprite iconSprite,
@@ -215,14 +223,27 @@ public static class UIFactory
         var face = button.image;
         if (face != null)
         {
-            // Keep the sheet slice as a full sprite so the tile fills its
-            // rect cleanly while preserving the intended square proportions.
             face.type = Image.Type.Simple;
-            face.preserveAspect = true;
+            face.preserveAspect = false;
             face.color = Color.white;
         }
 
-        // Keep the label low in the tile so the icon has room above it.
+        if (iconSprite != null)
+        {
+            var icon = CreateRect(button.transform, "Icon",
+                                  new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            icon.sizeDelta = new Vector2(iconSize, iconSize);
+            icon.anchoredPosition = Vector2.zero;
+            icon.pivot = new Vector2(0.5f, 0.5f);
+
+            var iconImage = icon.gameObject.AddComponent<Image>();
+            iconImage.sprite = iconSprite;
+            iconImage.type = Image.Type.Simple;
+            iconImage.color = Color.white;
+            iconImage.preserveAspect = true;
+            iconImage.raycastTarget = false;
+        }
+
         var label = button.GetComponentInChildren<TextMeshProUGUI>();
         if (label != null)
         {
@@ -239,17 +260,68 @@ public static class UIFactory
                 label.gameObject.SetActive(false);
         }
 
+        return button;
+    }
+
+    /// <summary>
+    /// Menu tile helper for the lower main-menu options.
+    /// Builds a clean face button with a centered icon and a separate caption
+    /// underneath so the text never sits inside the clickable area.
+    /// </summary>
+    public static Button CreateIconCaptionTile(Transform parent, string name, string caption,
+                                               Vector2 buttonSize, Sprite faceSprite,
+                                               Sprite iconSprite, float iconSize = 36f,
+                                               float captionFontSize = 14f,
+                                               Color? captionColor = null)
+    {
+        var button = CreateArtButton(parent, name, string.Empty, buttonSize, faceSprite,
+                                     captionFontSize, captionColor ?? TextBright);
+
+        var face = button.image;
+        if (face != null)
+        {
+            face.type = Image.Type.Simple;
+            face.preserveAspect = true;
+            face.color = Color.white;
+        }
+
+        var hiddenLabel = button.transform.Find("Label");
+        if (hiddenLabel != null)
+            UnityEngine.Object.DestroyImmediate(hiddenLabel.gameObject);
+
+        var buttonRect = button.GetComponent<RectTransform>();
+        buttonRect.anchorMin = new Vector2(0.5f, 1f);
+        buttonRect.anchorMax = new Vector2(0.5f, 1f);
+        buttonRect.pivot = new Vector2(0.5f, 1f);
+        buttonRect.anchoredPosition = new Vector2(0f, -6f);
+        buttonRect.sizeDelta = buttonSize;
+
         if (iconSprite != null)
         {
-            var icon = CreateRect(button.transform, "Icon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            var icon = CreateRect(button.transform, "Icon",
+                                  new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
             icon.sizeDelta = new Vector2(iconSize, iconSize);
-            icon.anchoredPosition = new Vector2(0f, 20f);
+            icon.anchoredPosition = Vector2.zero;
+            icon.pivot = new Vector2(0.5f, 0.5f);
+
             var iconImage = icon.gameObject.AddComponent<Image>();
             iconImage.sprite = iconSprite;
+            iconImage.type = Image.Type.Simple;
             iconImage.color = Color.white;
             iconImage.preserveAspect = true;
             iconImage.raycastTarget = false;
         }
+
+        var label = CreateText(parent, $"{name}Caption", caption ?? string.Empty, captionFontSize,
+                               captionColor ?? TextBright, TextAlignmentOptions.Center);
+        label.rectTransform.anchorMin = new Vector2(0.5f, 0f);
+        label.rectTransform.anchorMax = new Vector2(0.5f, 0f);
+        label.rectTransform.pivot = new Vector2(0.5f, 0f);
+        label.rectTransform.anchoredPosition = new Vector2(0f, 12f);
+        label.rectTransform.sizeDelta = new Vector2(buttonSize.x + 48f, 24f);
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.overflowMode = TextOverflowModes.Overflow;
+        label.raycastTarget = false;
 
         return button;
     }

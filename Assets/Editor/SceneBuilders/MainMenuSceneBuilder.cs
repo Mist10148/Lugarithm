@@ -114,28 +114,34 @@ public static class MainMenuSceneBuilder
 
             var secondaryRow = UIFactory.CreateRect(heroContent, "SecondaryRow",
                                                     new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-            UIFactory.Place(secondaryRow, new Vector2(0.5f, 0f), new Vector2(0f, 18f), new Vector2(624f, 132f));
+            UIFactory.Place(secondaryRow, new Vector2(0.5f, 0f), new Vector2(0f, 4f), new Vector2(560f, 126f));
 
-            settings = UIFactory.CreateIconButton(secondaryRow, "SettingsButton", "SETTINGS",
-                                                   new Vector2(100f, 108f),
-                                                   SproutLandsUiLibrary.SmallSquareButton,
-                                                   SproutLandsUiLibrary.MenuIconSettings,
-                                                   13f, MenuInk, 20f);
-            UIFactory.Place(settings, new Vector2(0.5f, 0f), new Vector2(-168f, 10f), new Vector2(100f, 108f));
+            var settingsRoot = UIFactory.CreateRect(secondaryRow, "SettingsOption",
+                                                    new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+            UIFactory.Place(settingsRoot, new Vector2(0.5f, 0f), new Vector2(-158f, 0f), new Vector2(136f, 118f));
+            settings = UIFactory.CreateIconCaptionTile(settingsRoot, "SettingsButton", "Settings",
+                                                        new Vector2(132f, 56f),
+                                                        SproutLandsUiLibrary.BigPlayBlank,
+                                                        SproutLandsUiLibrary.MenuIconSettings,
+                                                        28f, 14f, MenuInk);
 
-            journal = UIFactory.CreateIconButton(secondaryRow, "JournalButton", "JOURNAL",
-                                                  new Vector2(100f, 108f),
-                                                  SproutLandsUiLibrary.SmallSquareButton,
-                                                  SproutLandsUiLibrary.MenuIconBook,
-                                                  13f, MenuInk, 20f);
-            UIFactory.Place(journal, new Vector2(0.5f, 0f), new Vector2(0f, 10f), new Vector2(100f, 108f));
+            var journalRoot = UIFactory.CreateRect(secondaryRow, "JournalOption",
+                                                   new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+            UIFactory.Place(journalRoot, new Vector2(0.5f, 0f), new Vector2(0f, 0f), new Vector2(136f, 118f));
+            journal = UIFactory.CreateIconCaptionTile(journalRoot, "JournalButton", "Journal",
+                                                      new Vector2(132f, 56f),
+                                                      SproutLandsUiLibrary.BigPlayBlank,
+                                                      SproutLandsUiLibrary.MenuIconBook,
+                                                      28f, 14f, MenuInk);
 
-            quit = UIFactory.CreateIconButton(secondaryRow, "QuitButton", "QUIT",
-                                              new Vector2(100f, 108f),
-                                              SproutLandsUiLibrary.SmallSquareButton,
-                                              SproutLandsUiLibrary.MenuIconQuit,
-                                              13f, MenuInk, 20f);
-            UIFactory.Place(quit, new Vector2(0.5f, 0f), new Vector2(168f, 10f), new Vector2(100f, 108f));
+            var quitRoot = UIFactory.CreateRect(secondaryRow, "QuitOption",
+                                                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+            UIFactory.Place(quitRoot, new Vector2(0.5f, 0f), new Vector2(158f, 0f), new Vector2(136f, 118f));
+            quit = UIFactory.CreateIconCaptionTile(quitRoot, "QuitButton", "Quit",
+                                                   new Vector2(132f, 56f),
+                                                   SproutLandsUiLibrary.BigPlayBlank,
+                                                   SproutLandsUiLibrary.MenuIconQuit,
+                                                   28f, 14f, MenuInk);
 
             // Version tag
             var version = UIFactory.CreateText(canvas.transform, "Version",

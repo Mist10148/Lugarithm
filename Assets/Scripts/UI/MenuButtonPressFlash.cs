@@ -70,7 +70,19 @@ public sealed class MenuButtonPressFlash : MonoBehaviour
             _face = _button.image;
 
         if (_caption == null)
+        {
             _caption = GetComponentInChildren<TextMeshProUGUI>(true);
+            if (_caption == null && transform.parent != null)
+            {
+                string captionName = _button != null
+                    ? _button.name.Replace("Button", "Caption")
+                    : $"{gameObject.name}Caption";
+
+                var captionTransform = transform.parent.Find(captionName);
+                if (captionTransform != null)
+                    _caption = captionTransform.GetComponent<TextMeshProUGUI>();
+            }
+        }
 
         if (_icon == null)
         {

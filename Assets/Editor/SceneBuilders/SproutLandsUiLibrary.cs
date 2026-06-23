@@ -25,7 +25,6 @@ public static class SproutLandsUiLibrary
     public static Sprite SquareButtonWarm => Get("Square Buttons 26x26.png", "Square26_0_1");
 
     public static Sprite SmallSquareButton => Get("Small Square Buttons.png", "SmallSquare_0_0");
-    public static Sprite MenuOptionTile    => Get("MenuOptionTile.png", "MenuOptionTile_0");
 
     public static Sprite SettingsSheet => Get("UI Settings Buttons.png", "UISettings_0_0");
 
