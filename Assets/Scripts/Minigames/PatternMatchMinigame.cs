@@ -15,6 +15,7 @@ public class PatternMatchMinigame : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private GameObject root;
+    [SerializeField] private MinigameResultsPanel resultsPanel;
     [SerializeField] private TMP_Text   titleLabel;
     [SerializeField] private TMP_Text   feedbackLabel;
     [SerializeField] private Image[]    targetSlots;   // 5
@@ -186,6 +187,9 @@ public class PatternMatchMinigame : MonoBehaviour
 
         Action<MinigameResult> done = _onDone;
         _onDone = null;
-        done?.Invoke(result);
+        if (resultsPanel != null)
+            resultsPanel.Show("MINIGAME · Non-code", "ENGINE REPAIR", result, null, () => done?.Invoke(result));
+        else
+            done?.Invoke(result);
     }
 }

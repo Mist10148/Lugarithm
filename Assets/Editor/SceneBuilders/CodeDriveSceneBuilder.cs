@@ -125,6 +125,17 @@ public static class CodeDriveSceneBuilder
         UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-10f, -108f), new Vector2(170f, 42f));
         journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
 
+        // Front-seat story-passenger card (top-center): who you're coding for + talking to.
+        var frontSeat = UIFactory.CreatePanel(canvas.transform, "FrontSeatCard",
+                                              new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                              new Color(0.10f, 0.12f, 0.16f, 0.92f));
+        UIFactory.Place(frontSeat, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(320f, 52f));
+        TMP_Text frontSeatLabel = UIFactory.CreateText(frontSeat, "Label", "", 22f,
+                                                       UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        frontSeatLabel.rectTransform.offsetMin = new Vector2(16f, 0f);
+        frontSeatLabel.rectTransform.offsetMax = new Vector2(-12f, 0f);
+        frontSeat.gameObject.SetActive(false);
+
         Button commands = UIFactory.CreateButton(canvas.transform, "CommandsButton",
                                                  "Commands ?", new Vector2(160f, 42f), 20f);
         UIFactory.Place(commands, new Vector2(1f, 1f), new Vector2(-190f, -58f), new Vector2(160f, 42f));
@@ -218,6 +229,8 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "refuelMinigame",     refuel);
         SceneBuilderUtil.Wire(controller, "dialogue",     dialogue);
         SceneBuilderUtil.Wire(controller, "legCompletion", legCompletion);
+        SceneBuilderUtil.Wire(controller, "frontSeatCard",  frontSeat.gameObject);
+        SceneBuilderUtil.Wire(controller, "frontSeatLabel", frontSeatLabel);
 
         SceneBuilderUtil.SaveScene(scene, "CodeDrive");
     }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -36,6 +37,10 @@ public class ManualDriveController : MonoBehaviour
     [Header("Dialogue")]
     [SerializeField] private DialogueController dialogue;
 
+    [Header("Front-seat story passenger")]
+    [SerializeField] private GameObject frontSeatCard;   // small HUD card: who's riding up front
+    [SerializeField] private TMP_Text   frontSeatLabel;
+
     [Header("Leg completion")]
     [SerializeField] private LegCompletionController legCompletion;
 
@@ -65,6 +70,9 @@ public class ManualDriveController : MonoBehaviour
     bool  _storyComplete;   // latched true on first delivery; "Finish leg" then shows permanently
     bool  _revealPlayed;    // the heritage reveal plays once, on delivery (not after the gate)
     bool  _tutorialComplete; // tutorial is dialogue-driven: ending the story completes the leg
+    bool  _conversationDone; // story passenger's chat finished — a completion gate (with arrival)
+    bool  _arrivedNudged;    // showed the "finish your chat" nudge once on early arrival
+    string _storyPassengerName = "Your passenger";
 
     const float StreamLookAhead = 45f;
 
@@ -256,19 +264,30 @@ public class ManualDriveController : MonoBehaviour
 
     void PlayBoardingDialogue()
     {
-        if (dialogue == null) return;
+        // No conversation for this leg → nothing to finish talking about; let arrival
+        // alone complete the leg (don't deadlock the conversation gate).
+        if (dialogue == null) { _conversationDone = true; return; }
 
         DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: true);
-        if (convo == null) return;
+        if (convo == null) { _conversationDone = true; return; }
+
+        // The front-seat story passenger we're carrying + conversing with this leg.
+        PassengerDefinition pax = PassengerLibrary.Get(convo.passengerId);
+        if (pax != null && !string.IsNullOrEmpty(pax.displayName)) _storyPassengerName = pax.displayName;
+        ShowFrontSeatCard(pax);
 
         dialogue.OnEvent += HandleDialogueEvent;
         dialogue.Play(convo, () =>
         {
             dialogue.OnEvent -= HandleDialogueEvent;
 
+            // Conversation reached its end ("…we're almost there"): the player is done
+            // talking. For story levels this is one of two completion gates — the other
+            // is delivering the passenger (ArrivedAtDestination), checked in Update().
+            _conversationDone = true;
+
             // The tutorial is a guided story with no destination to drive to, so
-            // finishing the dialogue IS finishing the leg: trigger the completion
-            // flow (reveal → LEVEL COMPLETE card) once the conversation fully ends.
+            // finishing the dialogue IS finishing the leg.
             if (_tutorialComplete && !_storyComplete)
             {
                 _storyComplete = true;
@@ -347,6 +366,18 @@ public class ManualDriveController : MonoBehaviour
             dialogue.ResumeAfterEvent();
     }
 
+    /// <summary>Shows the persistent front-seat card naming the story passenger we're
+    /// carrying + conversing with this leg.</summary>
+    void ShowFrontSeatCard(PassengerDefinition pax)
+    {
+        if (frontSeatCard == null) return;
+        if (pax == null) { frontSeatCard.SetActive(false); return; }
+
+        if (frontSeatLabel != null)
+            frontSeatLabel.text = $"<size=70%>FRONT SEAT</size>\n{_storyPassengerName}";
+        frontSeatCard.SetActive(true);
+    }
+
     // -------------------------------------------------------------------------
 
     void Update()
@@ -372,13 +403,22 @@ public class ManualDriveController : MonoBehaviour
         bool servicing  = _passengers != null && _passengers.IsServicing;
         bool arrived    = _passengers != null && _passengers.ArrivedAtDestination;
 
-        // The story ends the first time the destination is delivered + settled.
-        // Latch it so streaming's AppendChunk()->ResetDestinationArrival() can no
-        // longer hide the button: the leg is "finishable" forever after.
-        if (arrived && !drawerBusy && !servicing && !_storyComplete)
+        // The leg ends only when BOTH gates are met: the story passenger is delivered
+        // (arrived + settled) AND their conversation has finished. Either order is fine
+        // — whichever happens last triggers it. Latched so streaming's
+        // AppendChunk()->ResetDestinationArrival() can't re-hide the button afterwards.
+        bool deliverable = arrived && !drawerBusy && !servicing;
+        if (deliverable && _conversationDone && !_storyComplete)
         {
             _storyComplete = true;
             OnStoryComplete();
+        }
+        else if (deliverable && !_conversationDone && !_storyComplete && !_arrivedNudged)
+        {
+            // Arrived but still mid-conversation — nudge once; completion waits for the chat.
+            _arrivedNudged = true;
+            if (toast != null)
+                toast.Show($"{_storyPassengerName} still has more to say — finish your chat.");
         }
 
         // Once the story is complete the Finish button stays up permanently,

@@ -12,6 +12,60 @@ using UnityEngine.UI;
 /// </summary>
 public static class MinigameOverlayBuilder
 {
+    /// <summary>
+    /// Compact post-minigame results card, parented alongside a minigame overlay.
+    /// Non-code drills show outcome + score; code drills also reveal a CODE ANALYSIS
+    /// block (hidden by default, toggled on by <see cref="MinigameResultsPanel"/>).
+    /// </summary>
+    internal static MinigameResultsPanel BuildResultsCard(Transform parent)
+    {
+        var overlay = UIFactory.CreatePanel(parent, "MinigameResultsOverlay",
+                                            Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.8f));
+
+        var window = UIFactory.CreatePanel(overlay, "Window",
+                                           new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), UIFactory.PanelDark);
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560f, 470f));
+
+        var category = UIFactory.CreateText(window, "Category", "MINIGAME", 18f,
+                                            UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(category, new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(520f, 22f));
+
+        var title = UIFactory.CreateText(window, "Title", "", 32f, UIFactory.Accent, TextAlignmentOptions.Center);
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -46f), new Vector2(520f, 44f));
+
+        var stats = UIFactory.CreateText(window, "Stats", "", 24f, UIFactory.TextBright, TextAlignmentOptions.Top);
+        UIFactory.Place(stats, new Vector2(0.5f, 1f), new Vector2(0f, -106f), new Vector2(480f, 120f));
+        stats.lineSpacing = 8f;
+
+        // CODE ANALYSIS block — hidden for non-code drills.
+        var analysisGroup = UIFactory.CreatePanel(window, "AnalysisGroup",
+                                                  new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                                                  new Color(0.06f, 0.07f, 0.10f, 1f));
+        UIFactory.Place(analysisGroup, new Vector2(0.5f, 0f), new Vector2(0f, 98f), new Vector2(500f, 138f));
+        var analysisHeader = UIFactory.CreateText(analysisGroup, "Header", "CODE ANALYSIS", 16f,
+                                                  UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(analysisHeader, new Vector2(0.5f, 1f), new Vector2(0f, -8f), new Vector2(480f, 20f));
+        var analysis = UIFactory.CreateText(analysisGroup, "Body", "", 19f,
+                                            UIFactory.TextBright, TextAlignmentOptions.Top);
+        UIFactory.Place(analysis, new Vector2(0.5f, 1f), new Vector2(0f, -32f), new Vector2(470f, 100f));
+        analysis.enableWordWrapping = true;
+        analysisGroup.gameObject.SetActive(false);
+
+        Button cont = UIFactory.CreateButton(window, "ContinueButton", "Continue", new Vector2(240f, 56f));
+        UIFactory.Place(cont, new Vector2(0.5f, 0f), new Vector2(0f, 26f), new Vector2(240f, 56f));
+        cont.image.color = new Color(0.85f, 0.55f, 0.12f);
+
+        var panel = overlay.gameObject.AddComponent<MinigameResultsPanel>();
+        SceneBuilderUtil.Wire(panel, "root",           overlay.gameObject);
+        SceneBuilderUtil.Wire(panel, "categoryLabel",  category);
+        SceneBuilderUtil.Wire(panel, "titleLabel",     title);
+        SceneBuilderUtil.Wire(panel, "statsLabel",     stats);
+        SceneBuilderUtil.Wire(panel, "analysisGroup",  analysisGroup.gameObject);
+        SceneBuilderUtil.Wire(panel, "analysisLabel",  analysis);
+        SceneBuilderUtil.Wire(panel, "continueButton", cont);
+        return panel;
+    }
+
     public static FlowConnectMinigame BuildFlowConnect(Transform parent)
     {
         var overlay = UIFactory.CreatePanel(parent, "FlowConnectOverlay",
@@ -84,6 +138,7 @@ public static class MinigameOverlayBuilder
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(660f, 32f));
 
         var game = overlay.gameObject.AddComponent<FlowConnectMinigame>();
+        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
@@ -154,6 +209,7 @@ public static class MinigameOverlayBuilder
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(660f, 32f));
 
         var game = overlay.gameObject.AddComponent<CrateStackMinigame>();
+        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
@@ -222,6 +278,7 @@ public static class MinigameOverlayBuilder
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 18f), new Vector2(560f, 36f));
 
         var minigame = overlay.gameObject.AddComponent<PatternMatchMinigame>();
+        SceneBuilderUtil.Wire(minigame, "resultsPanel", BuildResultsCard(parent));
         SceneBuilderUtil.Wire(minigame, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(minigame, "titleLabel",    title);
         SceneBuilderUtil.Wire(minigame, "feedbackLabel", feedback);
@@ -290,6 +347,7 @@ public static class MinigameOverlayBuilder
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(560f, 32f));
 
         var game = overlay.gameObject.AddComponent<RefuelMinigame>();
+        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
@@ -452,6 +510,7 @@ public static class MinigameOverlayBuilder
         var exec = overlay.gameObject.AddComponent<ExecutionController>();
 
         var game = overlay.gameObject.AddComponent<MazeRepairMinigame>();
+        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "goalLabel",     goal);

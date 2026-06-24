@@ -71,6 +71,10 @@ public class AutomationDriveController : MonoBehaviour
     [Header("Dialogue")]
     [SerializeField] private DialogueController dialogue;
 
+    [Header("Front-seat story passenger")]
+    [SerializeField] private GameObject frontSeatCard;
+    [SerializeField] private TMP_Text   frontSeatLabel;
+
     [Header("Co-Pilot Hints")]
     [SerializeField] private Button   hintButton;
     [SerializeField] private TMP_Text hintLabel;
@@ -106,6 +110,10 @@ public class AutomationDriveController : MonoBehaviour
     bool  _won;
     bool  _revealPlayed;   // heritage reveal plays once, on reaching the goal (not after the gate)
     bool  _tutorialComplete; // tutorial is dialogue-driven: ending the story completes the leg
+    bool  _conversationDone; // story passenger's chat finished — a completion gate (with the win)
+    bool  _storyLegShown;    // the reveal + LEVEL COMPLETE card have been shown (guard)
+    bool  _solvedNudged;     // showed the "finish your chat" nudge once after an early solve
+    string _storyPassengerName = "Your passenger";
 
     void Start()
     {
@@ -337,21 +345,28 @@ public class AutomationDriveController : MonoBehaviour
 
     void PlayBoardingDialogue()
     {
-        if (dialogue == null) return;
+        // No conversation → nothing to finish talking about; let the puzzle win alone
+        // complete the leg (don't deadlock the conversation gate).
+        if (dialogue == null) { _conversationDone = true; return; }
 
         DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
-        if (convo == null) return;
+        if (convo == null) { _conversationDone = true; return; }
+
+        PassengerDefinition pax = PassengerLibrary.Get(convo.passengerId);
+        if (pax != null && !string.IsNullOrEmpty(pax.displayName)) _storyPassengerName = pax.displayName;
+        ShowFrontSeatCard(pax);
 
         dialogue.OnEvent += HandleDialogueEvent;
         dialogue.Play(convo, () =>
         {
             dialogue.OnEvent -= HandleDialogueEvent;
 
-            // The tutorial is a guided story: ending the dialogue completes the leg
-            // (reveal → PUZZLE/TUTORIAL COMPLETE card) so the player is never stranded
-            // after the story with no way to progress.
-            if (_tutorialComplete && !_won)
-                CompleteStoryLeg();
+            // Conversation finished — one of two completion gates. The tutorial has no
+            // puzzle, so its chat alone completes; story levels also need the win.
+            _conversationDone = true;
+            TryShowStoryComplete(_tutorialComplete
+                ? $"TUTORIAL COMPLETE — {_level.displayName}"
+                : $"PUZZLE SOLVED — {_level.displayName}");
         });
     }
 
@@ -761,18 +776,15 @@ public class AutomationDriveController : MonoBehaviour
         if (win)
         {
             _won = true;
-            // Play the heritage reveal here, on reaching the goal — inline, before
-            // the player presses Finish (parity with Manual's reveal-on-delivery).
-            PlayRevealOnReach(() =>
+            // The leg completes only when the puzzle is solved AND the story passenger's
+            // chat is finished. If the chat is still going, hold and nudge once.
+            if (!_conversationDone && !_tutorialComplete && !_solvedNudged)
             {
-                if (legCompletion != null)
-                    legCompletion.ShowComplete(
-                        $"PUZZLE SOLVED — {_level.displayName}",
-                        "Great work — your program reached the goal!\nFinish the leg to bank your run and unlock what's next.",
-                        allowExplore: false);   // fixed automation layout: no free-roam
-                else
-                    BeginResults();
-            });
+                _solvedNudged = true;
+                if (console != null)
+                    console.Info($"Solved! Finish your chat with {_storyPassengerName} to wrap up the leg.");
+            }
+            TryShowStoryComplete($"PUZZLE SOLVED — {_level.displayName}");
             return;
         }
 
@@ -798,22 +810,41 @@ public class AutomationDriveController : MonoBehaviour
         }
     }
 
-    /// <summary>Completes the leg from the story (not from solving the grid puzzle) —
-    /// used by the dialogue-driven tutorial. Mirrors the win path in HandleFinished.</summary>
-    void CompleteStoryLeg()
+    /// <summary>
+    /// Shows the heritage reveal + LEVEL COMPLETE card once the leg's completion gates
+    /// are met: the tutorial needs only its chat to finish; story levels need BOTH the
+    /// puzzle solved (<see cref="_won"/>) and the conversation finished. Called from the
+    /// win path and from the dialogue-finished callback, so whichever happens last fires it.
+    /// </summary>
+    void TryShowStoryComplete(string title)
     {
-        if (_won) return;
-        _won = true;
+        if (_storyLegShown) return;
+        bool ready = _tutorialComplete ? _conversationDone : (_won && _conversationDone);
+        if (!ready) return;
+
+        _storyLegShown = true;
         PlayRevealOnReach(() =>
         {
             if (legCompletion != null)
                 legCompletion.ShowComplete(
-                    $"TUTORIAL COMPLETE — {_level.displayName}",
-                    "That's the whole story — you can drive, board, collect, sense, patch, and refuel.\nFinish the leg to bank your run and unlock what's next.",
+                    title,
+                    "Great work — your program reached the goal and the story's told.\nFinish the leg to bank your run and unlock what's next.",
                     allowExplore: false);   // fixed automation layout: no free-roam
             else
                 BeginResults();
         });
+    }
+
+    /// <summary>Shows the persistent front-seat card naming the story passenger we're
+    /// coding the route for + conversing with this leg.</summary>
+    void ShowFrontSeatCard(PassengerDefinition pax)
+    {
+        if (frontSeatCard == null) return;
+        if (pax == null) { frontSeatCard.SetActive(false); return; }
+
+        if (frontSeatLabel != null)
+            frontSeatLabel.text = $"<size=70%>FRONT SEAT</size>\n{_storyPassengerName}";
+        frontSeatCard.SetActive(true);
     }
 
     void OnFinishLeg()
@@ -931,7 +962,9 @@ public class AutomationDriveController : MonoBehaviour
                         LoadScene("LevelSelect");
                 },
                 onReplay: () => LoadScene(SceneManager.GetActiveScene().name),
-                analysis: analysis);
+                analysis: analysis,
+                category: _lastRunWasCode ? "MAIN GAMEPLAY · Automation (Code)"
+                                          : "MAIN GAMEPLAY · Automation (Blocks)");
 
             StartCoroutine(FetchMentorFeedback(playerSolution, analysis));
         }

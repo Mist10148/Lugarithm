@@ -125,6 +125,17 @@ public static class AutomationDriveSceneBuilder
         UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-10f, -58f), new Vector2(190f, 40f));
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
+        // Front-seat story-passenger card (top-center): who you're coding for + talking to.
+        var frontSeat = UIFactory.CreatePanel(canvas.transform, "FrontSeatCard",
+                                              new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                              new Color(0.10f, 0.12f, 0.16f, 0.92f));
+        UIFactory.Place(frontSeat, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(320f, 52f));
+        TMP_Text frontSeatLabel = UIFactory.CreateText(frontSeat, "Label", "", 22f,
+                                                       UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        frontSeatLabel.rectTransform.offsetMin = new Vector2(16f, 0f);
+        frontSeatLabel.rectTransform.offsetMax = new Vector2(-12f, 0f);
+        frontSeat.gameObject.SetActive(false);
+
         // --- Floating editor windows (Block / Code) ---------------------------------
 
         var editorArea = UIFactory.CreateRect(canvas.transform, "EditorArea",
@@ -210,6 +221,8 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "hintLabel",      hintLbl);
         SceneBuilderUtil.Wire(controller, "vibeCtrl",       vibeCtrl);
         SceneBuilderUtil.Wire(controller, "legCompletion",  legCompletion);
+        SceneBuilderUtil.Wire(controller, "frontSeatCard",  frontSeat.gameObject);
+        SceneBuilderUtil.Wire(controller, "frontSeatLabel", frontSeatLabel);
 
         SceneBuilderUtil.SaveScene(scene, "AutomationDrive");
     }
@@ -729,14 +742,19 @@ public static class AutomationDriveSceneBuilder
                                            UIFactory.PanelDark);
         UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1240f, 850f));
 
-        var title = UIFactory.CreateText(window, "Title", "PUZZLE SOLVED", 38f, UIFactory.Accent);
-        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(1100f, 52f));
+        var category = UIFactory.CreateText(window, "Category", "MAIN GAMEPLAY · Automation", 18f,
+                                            UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(category, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(1100f, 22f));
+
+        var title = UIFactory.CreateText(window, "Title", "PUZZLE SOLVED", 36f, UIFactory.Accent);
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -42f), new Vector2(1100f, 48f));
 
         var playerHeader = UIFactory.CreateText(window, "PlayerHeader", "YOUR SOLUTION", 22f, UIFactory.TextDim);
-        UIFactory.Place(playerHeader, new Vector2(0.5f, 1f), new Vector2(-285f, -82f), new Vector2(520f, 30f));
+        UIFactory.Place(playerHeader, new Vector2(0.5f, 1f), new Vector2(-285f, -94f), new Vector2(520f, 30f));
 
-        var optimalHeader = UIFactory.CreateText(window, "OptimalHeader", "OPTIMAL SOLUTION", 22f, UIFactory.TextDim);
-        UIFactory.Place(optimalHeader, new Vector2(0.5f, 1f), new Vector2(285f, -82f), new Vector2(520f, 30f));
+        var optimalHeader = UIFactory.CreateText(window, "OptimalHeader", "AI'S BETTER VERSION", 22f,
+                                                 new Color(0.55f, 0.78f, 1f), TextAlignmentOptions.Center);
+        UIFactory.Place(optimalHeader, new Vector2(0.5f, 1f), new Vector2(285f, -94f), new Vector2(520f, 30f));
 
         var playerPanel = UIFactory.CreatePanel(window, "PlayerPanel",
                                                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -795,6 +813,7 @@ public static class AutomationDriveSceneBuilder
 
         var panel = overlay.gameObject.AddComponent<AutomationResultsPanel>();
         SceneBuilderUtil.Wire(panel, "root",                 overlay.gameObject);
+        SceneBuilderUtil.Wire(panel, "categoryLabel",        category);
         SceneBuilderUtil.Wire(panel, "titleLabel",           title);
         SceneBuilderUtil.Wire(panel, "playerSolutionLabel",  playerText);
         SceneBuilderUtil.Wire(panel, "optimalSolutionLabel", optimalText);

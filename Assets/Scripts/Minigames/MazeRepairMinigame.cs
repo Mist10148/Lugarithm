@@ -22,6 +22,7 @@ public class MazeRepairMinigame : MonoBehaviour
 {
     [Header("Root")]
     [SerializeField] private GameObject root;
+    [SerializeField] private MinigameResultsPanel resultsPanel;
 
     [Header("Labels")]
     [SerializeField] private TMP_Text titleLabel;
@@ -272,6 +273,25 @@ public class MazeRepairMinigame : MonoBehaviour
 
         Action<MinigameResult> cb = _onDone;
         _onDone = null;
-        cb?.Invoke(result);
+
+        if (resultsPanel != null)
+        {
+            // Code-based drill → show the same kind of code analysis as the main
+            // Automation panel (deterministic; no per-drill AI call).
+            string playerSource = _codeActive
+                ? (codeEditor  != null ? codeEditor.Source : "")
+                : (blockCanvas != null ? blockCanvas.ToSourceText() : "");
+            float elapsed = Mathf.Max(0f, softTimerSeconds - _timeLeft);
+            CodeAnalysis analysis = CodeAnalyticsService.Analyze(
+                playerSource, _def != null ? _def.optimalSolutionText : "",
+                _sim != null ? _sim.StepsUsed : 0, _def != null ? _def.parSteps : 1,
+                retries, elapsed, softTimerSeconds, exec != null ? exec.LineHits : null);
+
+            resultsPanel.Show("MINIGAME · Code", "MAZE REPAIR", result, analysis, () => cb?.Invoke(result));
+        }
+        else
+        {
+            cb?.Invoke(result);
+        }
     }
 }
