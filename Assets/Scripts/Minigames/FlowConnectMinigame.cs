@@ -15,6 +15,7 @@ public class FlowConnectMinigame : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private GameObject root;
+    [SerializeField] private MinigameResultsPanel resultsPanel;
     [SerializeField] private TMP_Text   titleLabel;
     [SerializeField] private TMP_Text   feedbackLabel;
     [SerializeField] private FlowCell[] cells;        // Size×Size, row-major (y*Size + x)
@@ -210,6 +211,9 @@ public class FlowConnectMinigame : MonoBehaviour
 
         Action<MinigameResult> done = _onDone;
         _onDone = null;
-        done?.Invoke(result);
+        if (resultsPanel != null)
+            resultsPanel.Show("MINIGAME · Non-code", "FLOW CONNECT", result, null, () => done?.Invoke(result));
+        else
+            done?.Invoke(result);
     }
 }

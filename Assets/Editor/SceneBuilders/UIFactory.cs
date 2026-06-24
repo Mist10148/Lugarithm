@@ -439,6 +439,43 @@ public static class UIFactory
         return scroll;
     }
 
+    /// <summary>
+    /// Adds a draggable vertical scrollbar pinned to the right edge of a
+    /// <see cref="CreateScrollView"/> result, and insets the viewport so content
+    /// never sits under the bar. Auto-hides when the content fits.
+    /// </summary>
+    public static Scrollbar AddVerticalScrollbar(ScrollRect scroll, float width = 12f)
+    {
+        var sbRt = CreateRect(scroll.transform, "Scrollbar Vertical",
+                              new Vector2(1f, 0f), new Vector2(1f, 1f),
+                              new Vector2(-width - 2f, 4f), new Vector2(-2f, -4f));
+        var track = sbRt.gameObject.AddComponent<Image>();
+        track.color = new Color(PanelDarker.r, PanelDarker.g, PanelDarker.b, 0.9f);
+
+        var scrollbar = sbRt.gameObject.AddComponent<Scrollbar>();
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+
+        var slidingArea = CreateRect(sbRt, "Sliding Area", Vector2.zero, Vector2.one,
+                                     new Vector2(1f, 1f), new Vector2(-1f, -1f));
+        var handle = CreateRect(slidingArea, "Handle", Vector2.zero, Vector2.one);
+        var handleImage = handle.gameObject.AddComponent<Image>();
+        handleImage.sprite = BuiltinSprite("UISprite.psd");
+        handleImage.type   = Image.Type.Sliced;
+        handleImage.color  = Accent;
+
+        scrollbar.handleRect    = handle;
+        scrollbar.targetGraphic = handleImage;
+
+        scroll.verticalScrollbar = scrollbar;
+        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+
+        // Keep content clear of the bar.
+        if (scroll.viewport != null)
+            scroll.viewport.offsetMax = new Vector2(scroll.viewport.offsetMax.x - width - 4f,
+                                                    scroll.viewport.offsetMax.y);
+        return scrollbar;
+    }
+
     // -------------------------------------------------------------------------
     // Multiline input (code editor)
 

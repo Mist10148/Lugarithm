@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -92,7 +93,13 @@ public static class GeminiClient
             yield break;
         }
 
-        yield return Transport.Send(request, onDelta, onDone);
+        // Single seam for usage tracking: every feature's call flows through here, so we record
+        // the outcome (model, tokens, success/error) before handing the result to the caller.
+        yield return Transport.Send(request, onDelta, result =>
+        {
+            AiUsageTracker.Record(request.Feature, result);
+            onDone?.Invoke(result);
+        });
     }
 
     /// <summary>Compatibility wrapper for older callers while integrations migrate.</summary>
@@ -158,39 +165,114 @@ public sealed class GeminiSseParser
 sealed class GeminiRestTransport : IAiTransport
 {
     const string ApiRoot = "https://generativelanguage.googleapis.com/v1beta/models/";
+    // Back-compat defaults used only when ai_config.json carries no model_ladder.
     const string FastModel = "gemini-3.1-flash-lite";
     const string CodeModel = "gemini-3.5-flash";
 
-    static string _cachedKey;
+    // How long a key+model combo is deprioritised after a quota/availability failure.
+    const float QuotaCooldownSeconds = 90f;
 
-    static string ApiKey
+    static EndpointConfig _config;
+    // Last key index that produced a success — subsequent calls start here so we don't
+    // re-hammer an exhausted key 1 on every request. Survives until a domain reload.
+    static int _keyCursor;
+    // key "#" model  ->  realtime at which the combo becomes eligible again.
+    static readonly System.Collections.Generic.Dictionary<string, float> _cooldownUntil =
+        new System.Collections.Generic.Dictionary<string, float>();
+
+    static EndpointConfig Config
     {
         get
         {
-            if (_cachedKey != null) return _cachedKey;
+            if (_config != null) return _config;
             TextAsset cfg = Resources.Load<TextAsset>("ai_config");
-            if (cfg == null) return _cachedKey = "";
-            AiConfig parsed = JsonUtility.FromJson<AiConfig>(cfg.text);
-            string key = parsed?.gemini_api_key?.Trim() ?? "";
-            if (key.Contains("YOUR_") || key.Contains("PLACEHOLDER")) key = "";
-            return _cachedKey = key;
+            return _config = EndpointConfig.Parse(cfg != null ? cfg.text : null);
         }
     }
 
-    internal static void ResetApiKeyCache() => _cachedKey = null;
+    internal static void ResetApiKeyCache()
+    {
+        _config = null;
+        _keyCursor = 0;
+        _cooldownUntil.Clear();
+    }
 
     public IEnumerator Send(AiRequest aiRequest, Action<string> onDelta, Action<AiResult> onDone)
     {
-        if (string.IsNullOrWhiteSpace(ApiKey))
+        EndpointConfig config = Config;
+        if (config.Keys.Length == 0)
         {
-            onDone?.Invoke(AiResult.Failed(AiErrorKind.MissingKey, "GEMINI_API_KEY is not configured."));
+            onDone?.Invoke(AiResult.Failed(AiErrorKind.MissingKey, "No usable GEMINI_API_KEY in ai_config.json."));
             yield break;
         }
 
-        string model = IsCodeFeature(aiRequest.Feature) ? CodeModel : FastModel;
-        string url = $"{ApiRoot}{model}:streamGenerateContent?alt=sse";
         string body = BuildRequestJson(aiRequest);
         FeatureLimits limits = FeatureLimits.For(aiRequest);
+        int[] ladderOrder = LadderOrder(config.Ladder.Length);
+
+        // Build the full attempt order: walk keys from the cursor, and within each key
+        // walk the feature's preferred model order. Combos still cooling down are tried
+        // last so we always attempt everything but prefer fresh quota.
+        var fresh = new System.Collections.Generic.List<(int key, int model)>();
+        var cooling = new System.Collections.Generic.List<(int key, int model)>();
+        float now = Time.realtimeSinceStartup;
+        for (int k = 0; k < config.Keys.Length; k++)
+        {
+            int keyIndex = (_keyCursor + k) % config.Keys.Length;
+            foreach (int modelIndex in ladderOrder)
+            {
+                var combo = (keyIndex, modelIndex);
+                if (IsCooling(keyIndex, config.Ladder[modelIndex], now)) cooling.Add(combo);
+                else fresh.Add(combo);
+            }
+        }
+        fresh.AddRange(cooling);
+
+        AiResult lastFailure = null;
+        foreach ((int keyIndex, int modelIndex) in fresh)
+        {
+            if (aiRequest.Cancellation?.IsCancellationRequested == true)
+            {
+                onDone?.Invoke(AiResult.Failed(AiErrorKind.Cancelled, "AI request cancelled."));
+                yield break;
+            }
+
+            string key = config.Keys[keyIndex];
+            string model = config.Ladder[modelIndex];
+            AiResult attempt = null;
+            yield return Attempt(key, model, body, limits, aiRequest.Cancellation, onDelta, r => attempt = r);
+
+            if (attempt != null && attempt.Success)
+            {
+                _keyCursor = keyIndex;                 // stick to the key that worked
+                onDone?.Invoke(attempt);
+                yield break;
+            }
+
+            lastFailure = attempt;
+            if (attempt != null && IsRetryable(attempt))
+            {
+                if (attempt.ErrorKind == AiErrorKind.Http &&
+                    (attempt.HttpStatus == 429 || attempt.HttpStatus == 403))
+                    _cooldownUntil[ComboKey(keyIndex, model)] = now + QuotaCooldownSeconds;
+                continue;                              // try the next key/model combo
+            }
+
+            // Terminal (safety, parse, empty, cancel) — falling back won't help.
+            onDone?.Invoke(attempt ?? AiResult.Failed(AiErrorKind.Network, "AI request failed."));
+            yield break;
+        }
+
+        onDone?.Invoke(lastFailure ?? AiResult.Failed(AiErrorKind.Network,
+            "All AI keys and models are exhausted or cooling down."));
+    }
+
+    /// <summary>One streamed request against a single key+model. Reports the outcome
+    /// (success or a classified failure) via <paramref name="onAttempt"/>.</summary>
+    IEnumerator Attempt(string key, string model, string body, FeatureLimits limits,
+                        AiCancellation cancellation, Action<string> onDelta, Action<AiResult> onAttempt)
+    {
+        string url = $"{ApiRoot}{model}:streamGenerateContent?alt=sse";
         StringBuilder combined = new StringBuilder();
         AiErrorKind parseError = AiErrorKind.None;
         int promptTokens = 0, outputTokens = 0;
@@ -220,16 +302,16 @@ sealed class GeminiRestTransport : IAiTransport
         request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
         request.downloadHandler = new SseDownloadHandler(parser);
         request.SetRequestHeader("Content-Type", "application/json");
-        request.SetRequestHeader("x-goog-api-key", ApiKey);
+        request.SetRequestHeader("x-goog-api-key", key);
 
         float started = Time.realtimeSinceStartup;
         UnityWebRequestAsyncOperation operation = request.SendWebRequest();
         while (!operation.isDone)
         {
-            if (aiRequest.Cancellation?.IsCancellationRequested == true)
+            if (cancellation?.IsCancellationRequested == true)
             {
                 request.Abort();
-                onDone?.Invoke(AiResult.Failed(AiErrorKind.Cancelled, "AI request cancelled.", model));
+                onAttempt?.Invoke(AiResult.Failed(AiErrorKind.Cancelled, "AI request cancelled.", model));
                 yield break;
             }
 
@@ -237,14 +319,14 @@ sealed class GeminiRestTransport : IAiTransport
             if (!receivedPacket && elapsed >= limits.FirstPacketSeconds)
             {
                 request.Abort();
-                onDone?.Invoke(AiResult.Failed(AiErrorKind.FirstPacketTimeout,
+                onAttempt?.Invoke(AiResult.Failed(AiErrorKind.FirstPacketTimeout,
                     "AI did not respond before the first-packet deadline.", model));
                 yield break;
             }
             if (elapsed >= limits.TotalSeconds)
             {
                 request.Abort();
-                onDone?.Invoke(AiResult.Failed(AiErrorKind.Timeout, "AI request timed out.", model));
+                onAttempt?.Invoke(AiResult.Failed(AiErrorKind.Timeout, "AI request timed out.", model));
                 yield break;
             }
             yield return null;
@@ -256,13 +338,13 @@ sealed class GeminiRestTransport : IAiTransport
             AiErrorKind kind = request.result == UnityWebRequest.Result.ProtocolError
                 ? AiErrorKind.Http : AiErrorKind.Network;
             Debug.LogWarning($"[GeminiClient] {model}: {request.error} ({request.responseCode})");
-            onDone?.Invoke(AiResult.Failed(kind, request.error, model, request.responseCode));
+            onAttempt?.Invoke(AiResult.Failed(kind, request.error, model, request.responseCode));
             yield break;
         }
 
         if (parseError != AiErrorKind.None)
         {
-            onDone?.Invoke(AiResult.Failed(parseError,
+            onAttempt?.Invoke(AiResult.Failed(parseError,
                 parseError == AiErrorKind.Safety ? "AI response was safety-blocked." : "AI stream could not be parsed.", model));
             yield break;
         }
@@ -270,11 +352,11 @@ sealed class GeminiRestTransport : IAiTransport
         string text = combined.ToString().Trim();
         if (text.Length == 0)
         {
-            onDone?.Invoke(AiResult.Failed(AiErrorKind.EmptyResponse, "AI returned no text.", model));
+            onAttempt?.Invoke(AiResult.Failed(AiErrorKind.EmptyResponse, "AI returned no text.", model));
             yield break;
         }
 
-        onDone?.Invoke(new AiResult
+        onAttempt?.Invoke(new AiResult
         {
             Success = true,
             Text = text,
@@ -284,6 +366,41 @@ sealed class GeminiRestTransport : IAiTransport
             PromptTokens = promptTokens,
             OutputTokens = outputTokens
         });
+    }
+
+    /// <summary>A failure worth retrying on the next key/model: quota, throttling,
+    /// outages, and slow/no responses. Safety blocks, parse errors, empty responses
+    /// and cancellation are terminal — another model won't fix them.</summary>
+    static bool IsRetryable(AiResult r)
+    {
+        switch (r.ErrorKind)
+        {
+            case AiErrorKind.Network:
+            case AiErrorKind.FirstPacketTimeout:
+            case AiErrorKind.Timeout:
+                return true;
+            case AiErrorKind.Http:
+                return r.HttpStatus == 429 || r.HttpStatus == 403 || r.HttpStatus >= 500;
+            default:
+                return false;
+        }
+    }
+
+    static bool IsCooling(int keyIndex, string model, float now)
+        => _cooldownUntil.TryGetValue(ComboKey(keyIndex, model), out float until) && now < until;
+
+    static string ComboKey(int keyIndex, string model) => keyIndex + "#" + model;
+
+    /// <summary>Order to walk the model ladder. The ladder array itself encodes priority
+    /// (configured highest-preference first), so every feature walks it in declared order —
+    /// for each key we try model 0, then 1, … then the last, before advancing to the next key.
+    /// This guarantees all models are attempted, in the exact order configured in
+    /// ai_config.json / GEMINI_MODEL_LADDER.</summary>
+    static int[] LadderOrder(int ladderLen)
+    {
+        int[] order = new int[ladderLen];
+        for (int i = 0; i < ladderLen; i++) order[i] = i;
+        return order;
     }
 
     static bool IsCodeFeature(AiFeature feature)
@@ -396,21 +513,72 @@ sealed class GeminiRestTransport : IAiTransport
             MaxOutputTokens = max;
         }
 
+        // Token budgets (output caps) are deliberately conservative — callers pass
+        // their own MaxOutputTokens, and these are the fallback ceilings. First-packet
+        // and total timeouts bound how long each attempt waits before the transport
+        // falls through to the next key/model.
         public static FeatureLimits For(AiRequest request)
         {
             switch (request.Feature)
             {
-                case AiFeature.Dialogue: return new FeatureLimits(3f, 6f, 180);
+                case AiFeature.Dialogue: return new FeatureLimits(3f, 4f, 120);
                 case AiFeature.Hint: return new FeatureLimits(3f, 6f, 220);
-                case AiFeature.Oracle: return new FeatureLimits(3f, 12f, 450);
-                case AiFeature.Mentor: return new FeatureLimits(5f, 18f, 1200);
+                case AiFeature.Oracle: return new FeatureLimits(3f, 12f, 320);
+                case AiFeature.Mentor: return new FeatureLimits(5f, 18f, 800);
                 case AiFeature.VibeCode: return new FeatureLimits(5f, 15f, 900);
                 default: return new FeatureLimits(3f, 10f, 300);
             }
         }
     }
 
-    [Serializable] sealed class AiConfig { public string gemini_api_key; }
+    [Serializable] sealed class AiConfig
+    {
+        public string gemini_api_key;
+        public string[] gemini_api_keys;
+        public string[] model_ladder;
+    }
+
+    /// <summary>Resolved, validated endpoint settings: the usable keys (in order) and
+    /// the model fallback ladder. Built once from ai_config.json and cached.</summary>
+    sealed class EndpointConfig
+    {
+        public string[] Keys = Array.Empty<string>();
+        public string[] Ladder = { CodeModel, FastModel };
+
+        public static EndpointConfig Parse(string jsonText)
+        {
+            var config = new EndpointConfig();
+            if (string.IsNullOrWhiteSpace(jsonText)) return config;
+
+            AiConfig parsed;
+            try { parsed = JsonUtility.FromJson<AiConfig>(jsonText); }
+            catch { return config; }
+            if (parsed == null) return config;
+
+            var keys = new System.Collections.Generic.List<string>();
+            void Add(string raw)
+            {
+                if (string.IsNullOrWhiteSpace(raw)) return;
+                string k = raw.Trim();
+                if (k.Contains("YOUR_") || k.Contains("PLACEHOLDER")) return;
+                if (!keys.Contains(k)) keys.Add(k);
+            }
+            if (parsed.gemini_api_keys != null)
+                foreach (string k in parsed.gemini_api_keys) Add(k);
+            Add(parsed.gemini_api_key);   // back-compat / slot-1 alias
+            config.Keys = keys.ToArray();
+
+            if (parsed.model_ladder != null)
+            {
+                string[] ladder = parsed.model_ladder
+                    .Where(m => !string.IsNullOrWhiteSpace(m))
+                    .Select(m => m.Trim())
+                    .ToArray();
+                if (ladder.Length > 0) config.Ladder = ladder;
+            }
+            return config;
+        }
+    }
     [Serializable] sealed class GeminiResponse
     {
         public GeminiCandidate[] candidates;

@@ -11,6 +11,7 @@ public class DriveResultsPanel : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private GameObject root;
+    [SerializeField] private TMP_Text   categoryLabel;   // "MAIN GAMEPLAY · Manual"
     [SerializeField] private TMP_Text   titleLabel;
     [SerializeField] private TMP_Text   breakdownLabel;
     [SerializeField] private TMP_Text   scoreLabel;
@@ -33,14 +34,15 @@ public class DriveResultsPanel : MonoBehaviour
     }
 
     public void Show(string title, string breakdown, int score, int currency,
-                     Action onContinue, Action onReplay)
+                     Action onContinue, Action onReplay, string category = "MAIN GAMEPLAY · Manual")
     {
         _onContinue = onContinue;
         _onReplay   = onReplay;
 
+        if (categoryLabel  != null) categoryLabel.text  = category;
         if (titleLabel     != null) titleLabel.text     = title;
         if (breakdownLabel != null) breakdownLabel.text = breakdown;
-        if (scoreLabel     != null) scoreLabel.text     = $"SCORE  {score}      EARNED  ₱{currency}";
+        if (scoreLabel     != null) scoreLabel.text     = $"SCORE  <b>{score}</b>      EARNED  <b>₱{currency}</b>";
         if (root           != null) root.SetActive(true);
     }
 }

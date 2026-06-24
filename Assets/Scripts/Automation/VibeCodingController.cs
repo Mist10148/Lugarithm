@@ -1,40 +1,68 @@
 using System.Collections;
-using System.Text;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// In-window AI helper for the CODE editor. The title-bar "AI" button swaps the
-/// editor body for this chat; the "Code" button swaps back. The player can ask
-/// free-form questions (a friendly tutor answers in plain language) or ask for
-/// code, in which case Gemini's reply includes a program that is dropped straight
-/// into the editor. Lives on the CodeWindow itself, so it self-wires in Awake and
-/// works even where <see cref="Init"/> is never called (e.g. the maze minigame).
+/// In-window AI agent for the CODE editor — a Copilot-style helper with three modes:
+/// <b>Ask</b> (read-only tutor), <b>Plan</b> (numbered approach, no edits), and
+/// <b>Agent</b> (generates a structured action graph that is compiled and dropped into
+/// the editor for the player to RUN). The agent sees the maze, the jeepney's state, and
+/// the current editor contents. The title-bar "AI" button swaps the editor body for the
+/// chat; "Code" swaps back. Self-wires in Awake so it works even where <see cref="Init"/>
+/// is never called.
 /// </summary>
 public class VibeCodingController : MonoBehaviour
 {
     [Header("Chat")]
     [SerializeField] TMP_InputField      chatInput;
-    [SerializeField] TMP_Text            historyLabel;
     [SerializeField] Button              sendButton;
     [SerializeField] CodeEditorController codeEditor;
 
+    [Header("Transcript")]
+    [SerializeField] RectTransform chatContent;     // bubble container (preferred)
+    [SerializeField] TMP_Text      bubbleTemplate;  // inactive TMP template for bubbles
+    [SerializeField] TMP_Text      historyLabel;    // legacy/intro line (optional)
+
+    [Header("Modes (Auto / Ask / Plan / Agent / Refactor)")]
+    [SerializeField] Button autoButton;
+    [SerializeField] Button askButton;
+    [SerializeField] Button planButton;
+    [SerializeField] Button agentButton;
+    [SerializeField] Button refactorButton;
+
     [Header("View swap (AI ⇄ Code)")]
-    [SerializeField] GameObject editorBody;   // the code editor, hidden while chatting
-    [SerializeField] GameObject chatBody;     // this chat panel, hidden while editing
-    [SerializeField] Button     aiButton;     // title bar: show chat
-    [SerializeField] Button     codeButton;   // title bar: show editor
+    [SerializeField] GameObject editorBody;
+    [SerializeField] GameObject chatBody;
+    [SerializeField] Button     aiButton;
+    [SerializeField] Button     codeButton;
+
+    static readonly Color PlayerBubble = new Color(0.95f, 0.65f, 0.15f, 0.95f);
+    static readonly Color PlayerText   = new Color(0.10f, 0.09f, 0.06f, 1f);
+    static readonly Color AiBubble     = new Color(0.16f, 0.18f, 0.22f, 0.98f);
+    static readonly Color AiText       = new Color(0.93f, 0.93f, 0.88f, 1f);
+    static readonly Color ModeActive   = new Color(0.30f, 0.45f, 0.75f, 1f);
+    static readonly Color ModeIdle     = new Color(0.18f, 0.22f, 0.30f, 1f);
 
     string[] _allowedBlocks;
     string[] _allowedQueries;
-    readonly StringBuilder _history = new StringBuilder();
+    readonly List<GameObject> _rows = new List<GameObject>();
+    VibeMode _mode = VibeMode.Auto;
+    string   _stashedCode;   // the editor text before the last refactor, for a one-tap "undo"
+
+    // Live world context (references, so we always read the current state).
+    GridModel                  _grid;
+    AgentSim                   _sim;
+    AutomationPuzzleDefinition _def;
+
     bool _wired;
 
     void Awake()
     {
         Wire();
-        ShowEditor();   // editor is the default face of the window
+        ShowEditor();
+        SetMode(_mode);
     }
 
     void Wire()
@@ -42,10 +70,17 @@ public class VibeCodingController : MonoBehaviour
         if (_wired) return;
         _wired = true;
 
-        if (sendButton != null) sendButton.onClick.AddListener(OnSend);
-        if (chatInput  != null) chatInput.onSubmit.AddListener(_ => OnSend());
-        if (aiButton   != null) aiButton.onClick.AddListener(ShowChat);
-        if (codeButton != null) codeButton.onClick.AddListener(ShowEditor);
+        if (sendButton  != null) sendButton.onClick.AddListener(OnSend);
+        if (chatInput   != null) chatInput.onSubmit.AddListener(_ => OnSend());
+        if (aiButton    != null) aiButton.onClick.AddListener(ShowChat);
+        if (codeButton  != null) codeButton.onClick.AddListener(ShowEditor);
+        if (autoButton     != null) autoButton.onClick.AddListener(() => SetMode(VibeMode.Auto));
+        if (askButton      != null) askButton.onClick.AddListener(() => SetMode(VibeMode.Ask));
+        if (planButton     != null) planButton.onClick.AddListener(() => SetMode(VibeMode.Plan));
+        if (agentButton    != null) agentButton.onClick.AddListener(() => SetMode(VibeMode.Agent));
+        if (refactorButton != null) refactorButton.onClick.AddListener(() => SetMode(VibeMode.Refactor));
+
+        ChatBubbleFactory.PrepareContent(chatContent);
     }
 
     /// <summary>Constrains generated code to the level's vocabulary and (re)binds the
@@ -56,6 +91,34 @@ public class VibeCodingController : MonoBehaviour
         _allowedQueries = allowedQueries;
         if (editor != null) codeEditor = editor;
         Wire();
+    }
+
+    /// <summary>Gives the agent live access to the maze + jeepney so it can read the
+    /// world. Call from the host (automation drive or maze minigame) at setup.</summary>
+    public void SetWorldContext(GridModel grid, AgentSim sim, AutomationPuzzleDefinition def)
+    {
+        _grid = grid;
+        _sim  = sim;
+        _def  = def;
+    }
+
+    // -------------------------------------------------------------------------
+    // Modes
+
+    void SetMode(VibeMode mode)
+    {
+        _mode = mode;
+        Tint(autoButton,     mode == VibeMode.Auto);
+        Tint(askButton,      mode == VibeMode.Ask);
+        Tint(planButton,     mode == VibeMode.Plan);
+        Tint(agentButton,    mode == VibeMode.Agent);
+        Tint(refactorButton, mode == VibeMode.Refactor);
+    }
+
+    void Tint(Button button, bool active)
+    {
+        if (button != null && button.image != null)
+            button.image.color = active ? ModeActive : ModeIdle;
     }
 
     // -------------------------------------------------------------------------
@@ -80,7 +143,6 @@ public class VibeCodingController : MonoBehaviour
     void OnSend()
     {
         if (chatInput == null) return;
-
         string text = chatInput.text;
         if (string.IsNullOrWhiteSpace(text)) return;
 
@@ -91,76 +153,271 @@ public class VibeCodingController : MonoBehaviour
 
     IEnumerator Respond(string message)
     {
-        AppendHistory($"You: {message}");
-        AppendHistory("Tutor: generating…");
+        AddBubble(message, player: true);
+        TMP_Text reply = AddBubble("…", player: false);
 
-        AiResult result = null;
-        int packets = 0;
-        yield return GeminiClient.Stream(
-            VibeCodingService.BuildTutorRequest(message, _allowedBlocks, _allowedQueries),
-            _ =>
-            {
-                packets++;
-                UpdateLastHistory("Tutor: generating" + new string('.', 1 + packets % 3));
-            },
-            completed => result = completed);
+        bool blockMode = SaveSystem.Current != null && SaveSystem.Current.settings != null &&
+                         SaveSystem.Current.settings.blockMode;
+        string editorText = codeEditor != null && codeEditor.input != null ? codeEditor.input.text : "";
+        string world = VibeCodingService.BuildWorldContext(_grid, _sim, _def, blockMode, editorText,
+                                                           _allowedBlocks, _allowedQueries);
 
-        if (result == null || !result.Success || !VibeCodingService.TryParse(result.Text, out VibeCodeResponse response))
+        // A one-tap "undo" after a refactor restores the player's original code (no AI call).
+        if (_stashedCode != null && VibeIntentRouter.IsUndo(message))
         {
-            UpdateLastHistory("Tutor: (couldn't reach the AI — check your connection and try again)");
-            SetEnabled(true);
-            yield break;
+            RevertStash(reply);
         }
-
-        UpdateLastHistory("Tutor: " + response.message.Trim());
-        if (response.kind == "code")
+        else
         {
-            string validation = VibeCodingService.Validate(response.code, _allowedBlocks, _allowedQueries, out _);
-            if (validation != null)
-            {
-                AppendHistory("Tutor: checking one correction…");
-                AiResult repairedResult = null;
-                yield return GeminiClient.Stream(
-                    VibeCodingService.BuildRepairRequest(message, response, validation, _allowedBlocks, _allowedQueries),
-                    null, completed => repairedResult = completed);
-                if (repairedResult != null && repairedResult.Success &&
-                    VibeCodingService.TryParse(repairedResult.Text, out VibeCodeResponse repaired))
-                {
-                    response = repaired;
-                    validation = VibeCodingService.Validate(response.code, _allowedBlocks, _allowedQueries, out _);
-                }
-            }
+            // In Auto, classify the message; an explicit mode button overrides the router.
+            VibeMode effective = _mode == VibeMode.Auto
+                ? VibeIntentRouter.Classify(message, !string.IsNullOrWhiteSpace(editorText))
+                : _mode;
 
-            if (validation == null && codeEditor != null)
+            switch (effective)
             {
-                codeEditor.input.SetTextWithoutNotify(response.code);
-                codeEditor.RefreshLineNumbers();
-                codeEditor.RefreshHighlight();
-                AppendHistory("Tutor: ✓ Validated and placed in your editor. Press Code to review it, then RUN when you're ready.");
-            }
-            else
-            {
-                AppendHistory("Tutor: I kept your existing code unchanged because the generated program did not pass this level's rules.");
+                case VibeMode.Agent:    yield return RunAgent(message, world, reply); break;
+                case VibeMode.Refactor: yield return RunRefactor(world, reply, editorText); break;
+                default:                yield return RunTextMode(effective, message, world, reply); break;
             }
         }
 
         SetEnabled(true);
+        if (chatInput != null) chatInput.ActivateInputField();
     }
 
-    void AppendHistory(string line)
+    /// <summary>Ask / Plan: a plain-text answer, no edits.</summary>
+    IEnumerator RunTextMode(VibeMode mode, string message, string world, TMP_Text reply)
     {
-        _history.AppendLine(line);
-        if (historyLabel != null) historyLabel.text = _history.ToString();
+        AiResult result = null;
+        yield return GeminiClient.Stream(VibeCodingService.BuildAgentRequest(mode, message, world),
+            null, completed => result = completed);
+
+        UpdateBubble(reply, result != null && result.Success && !string.IsNullOrWhiteSpace(result.Text)
+            ? result.Text.Trim()
+            : "(couldn't reach the AI — check your connection and try again)");
     }
 
-    void UpdateLastHistory(string line)
+    /// <summary>Agent: generate an action graph, compile + validate it, dry-run it against the
+    /// maze, and place it into the editor only when it actually reaches the goal. Write-only —
+    /// the player presses RUN. Up to two repair rounds correct syntax (compile/vocabulary) or
+    /// logic (the program ran but missed the goal), sending only the error back each time.</summary>
+    IEnumerator RunAgent(string message, string world, TMP_Text reply)
     {
-        // Replace the last appended line (the "Tutor: …" placeholder).
-        string s = _history.ToString();
-        int last = s.LastIndexOf('\n', s.Length - 2);
-        _history.Clear();
-        _history.Append(last < 0 ? line : s.Substring(0, last + 1) + line);
-        if (historyLabel != null) historyLabel.text = _history.ToString();
+        const int maxRepairs = 2;
+        AiRequest request = VibeCodingService.BuildAgentRequest(VibeMode.Agent, message, world);
+        string code = null;
+        string lastMessage = null;
+
+        for (int attempt = 0; attempt <= maxRepairs; attempt++)
+        {
+            AiResult result = null;
+            yield return GeminiClient.Stream(request, null, completed => result = completed);
+
+            if (result == null || !result.Success ||
+                !ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            {
+                UpdateBubble(reply, "(couldn't reach the AI — check your connection and try again)");
+                yield break;
+            }
+            lastMessage = graph.message;
+
+            // Syntax + vocabulary: compile the flat graph and check it against the level's
+            // unlocked names. A failure here is repaired with the compile/validation error.
+            if (!ActionGraphCompiler.TryCompile(graph, out string compiled, out string compileError) ||
+                VibeCodingService.Validate(compiled, _allowedBlocks, _allowedQueries, out _) != null)
+            {
+                if (attempt == maxRepairs) break;
+                string err = compileError ?? "the program used something that isn't unlocked here";
+                UpdateBubble(reply, (graph.message ?? "Let me fix that…").Trim() + "  (checking one correction…)");
+                request = VibeCodingService.BuildAgentRepairRequest(message, world, err);
+                continue;
+            }
+
+            // Logic: dry-run the program against a fresh copy of the world. If it doesn't reach
+            // the goal, repair with the goal gap so the model fixes the route, not the grammar.
+            if (TryVerify(compiled, out string goalGap))
+            {
+                code = compiled;
+                break;
+            }
+
+            if (attempt == maxRepairs) break;
+            UpdateBubble(reply, (graph.message ?? "Let me check my route…").Trim() + "  (testing and refining…)");
+            request = VibeCodingService.BuildAgentRepairRequest(message, world,
+                "the program ran but didn't solve it — " + goalGap);
+        }
+
+        if (code != null && codeEditor != null && codeEditor.input != null)
+        {
+            codeEditor.input.SetTextWithoutNotify(code);
+            codeEditor.RefreshLineNumbers();
+            codeEditor.RefreshHighlight();
+            UpdateBubble(reply, (lastMessage ?? "Here's a program for you.").Trim() +
+                "\n✓ Placed in your editor. Press Code to review it, then RUN when you're ready.");
+        }
+        else
+        {
+            UpdateBubble(reply, "I couldn't make a program that fits this level's rules, so I left your code " +
+                "unchanged. Try asking in Plan mode for the approach.");
+        }
+    }
+
+    /// <summary>Refactor: take the player's already-working code and offer a shorter version that
+    /// uses loops. Accepts the rewrite only if it compiles, stays within the unlocked vocabulary,
+    /// still WINS, and is strictly fewer statements (the "same goal + fewer steps" rule). Stashes
+    /// the original so the player can say "undo". Refactor only operates on working code — an empty,
+    /// broken, or losing program is redirected to the diagnostic path instead.</summary>
+    IEnumerator RunRefactor(string world, TMP_Text reply, string editorText)
+    {
+        if (string.IsNullOrWhiteSpace(editorText))
+        {
+            UpdateBubble(reply, "Write a few lines first, then I'll streamline them for you.");
+            yield break;
+        }
+
+        // Refactor presupposes correct code. Compile + (when a world is bound) dry-run it first.
+        ProgramNode current = Parser.Compile(editorText, out List<LangError> cerr);
+        if ((cerr != null && cerr.Count > 0) || current == null)
+        {
+            UpdateBubble(reply, "Let's get it running first — there's still a syntax error to fix. " +
+                "Ask me \"why isn't this working?\" and I'll help.");
+            yield break;
+        }
+        if (_grid != null && _sim != null && _def != null &&
+            !HeadlessProgramRunner.VerifyReport(current, _sim.CloneFresh(), _def, out RunReport rep))
+        {
+            UpdateBubble(reply, "This doesn't solve the level yet, so I won't shorten it — let's make it " +
+                "work first. Ask me \"why isn't this working?\" and I'll help. (" + (rep?.GoalGap ?? "") + ")");
+            yield break;
+        }
+
+        int playerStatements = CodeAnalyticsService.Measure(editorText).Statements;
+
+        const int maxRepairs = 2;
+        AiRequest request = VibeCodingService.BuildRefactorRequest(editorText, world);
+        string code = null;
+        string lastMessage = null;
+
+        for (int attempt = 0; attempt <= maxRepairs; attempt++)
+        {
+            AiResult result = null;
+            yield return GeminiClient.Stream(request, null, completed => result = completed);
+
+            if (result == null || !result.Success ||
+                !ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            {
+                UpdateBubble(reply, "(couldn't reach the AI — check your connection and try again)");
+                yield break;
+            }
+            lastMessage = graph.message;
+
+            if (!ActionGraphCompiler.TryCompile(graph, out string compiled, out string compileError) ||
+                VibeCodingService.Validate(compiled, _allowedBlocks, _allowedQueries, out _) != null)
+            {
+                if (attempt == maxRepairs) break;
+                string err = compileError ?? "the rewrite used something that isn't unlocked here";
+                UpdateBubble(reply, "Tidying that up…");
+                request = VibeCodingService.BuildRefactorRepairRequest(editorText, world, err);
+                continue;
+            }
+
+            // Must still win AND be strictly shorter than the player's version.
+            bool wins = TryVerify(compiled, out string goalGap);
+            int newStatements = CodeAnalyticsService.Measure(compiled).Statements;
+            if (wins && (playerStatements == 0 || newStatements < playerStatements))
+            {
+                code = compiled;
+                break;
+            }
+
+            if (attempt == maxRepairs) break;
+            string reason = !wins
+                ? "the shorter version stopped solving it — " + goalGap
+                : "it wasn't actually shorter; replace repeated lines with a loop";
+            UpdateBubble(reply, "Refining…");
+            request = VibeCodingService.BuildRefactorRepairRequest(editorText, world, reason);
+        }
+
+        if (code != null && codeEditor != null && codeEditor.input != null)
+        {
+            _stashedCode = editorText;   // enable a one-tap revert
+            int saved = playerStatements - CodeAnalyticsService.Measure(code).Statements;
+            codeEditor.input.SetTextWithoutNotify(code);
+            codeEditor.RefreshLineNumbers();
+            codeEditor.RefreshHighlight();
+            string note = saved > 0 ? $"Made it {saved} line(s) shorter with a loop. " : "Tightened it up with a loop. ";
+            UpdateBubble(reply, (lastMessage ?? "").Trim() + (lastMessage != null ? "\n" : "") + note +
+                "Press Code to review — say \"undo\" to put your version back, then RUN when ready.");
+        }
+        else
+        {
+            UpdateBubble(reply, "I couldn't make it shorter while keeping it correct, so I left your code as " +
+                "is — it's already pretty tight!");
+        }
+    }
+
+    /// <summary>Restores the editor to the text stashed before the last refactor.</summary>
+    void RevertStash(TMP_Text reply)
+    {
+        if (codeEditor != null && codeEditor.input != null)
+        {
+            codeEditor.input.SetTextWithoutNotify(_stashedCode);
+            codeEditor.RefreshLineNumbers();
+            codeEditor.RefreshHighlight();
+        }
+        _stashedCode = null;
+        UpdateBubble(reply, "Done — I put your original version back.");
+    }
+
+    /// <summary>Dry-runs compiled source against a fresh copy of the live world. Returns true
+    /// (and leaves <paramref name="goalGap"/> null) when the program reaches the goal, or when
+    /// there is no live world bound to verify against — then the syntactic checks stand alone.</summary>
+    bool TryVerify(string source, out string goalGap)
+    {
+        goalGap = null;
+        if (_grid == null || _sim == null || _def == null) return true; // nothing to dry-run
+
+        ProgramNode program = Parser.Compile(source, out List<LangError> errors);
+        if (errors != null && errors.Count > 0)
+        {
+            goalGap = errors[0].Message;
+            return false;
+        }
+        return HeadlessProgramRunner.Verify(program, _sim.CloneFresh(), _def, out goalGap);
+    }
+
+    // -------------------------------------------------------------------------
+    // Transcript
+
+    TMP_Text AddBubble(string text, bool player)
+    {
+        if (chatContent != null && bubbleTemplate != null)
+        {
+            TMP_Text label = ChatBubbleFactory.Add(chatContent, bubbleTemplate, text, player,
+                player ? PlayerBubble : AiBubble, player ? PlayerText : AiText, out GameObject row);
+            if (row != null) _rows.Add(row);
+            ChatBubbleFactory.ScrollToBottom(chatContent);
+            return label;
+        }
+
+        // Fallback: append to the legacy single label if no bubble container is wired.
+        if (historyLabel != null)
+            historyLabel.text += (historyLabel.text.Length > 0 ? "\n" : "") + (player ? "You: " : "AI: ") + text;
+        return historyLabel;
+    }
+
+    void UpdateBubble(TMP_Text bubble, string text)
+    {
+        if (chatContent != null && bubbleTemplate != null)
+        {
+            ChatBubbleFactory.SetText(bubble, text, chatContent);
+            ChatBubbleFactory.ScrollToBottom(chatContent);
+        }
+        else if (bubble != null)
+        {
+            bubble.text = text;
+        }
     }
 
     void SetEnabled(bool on)

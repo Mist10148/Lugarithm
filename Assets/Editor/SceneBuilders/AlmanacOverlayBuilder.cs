@@ -70,6 +70,7 @@ public static class AlmanacOverlayBuilder
                                                               new Vector2(0f, 0f), new Vector2(0.4f, 1f),
                                                               out RectTransform sidebarContent);
         ((RectTransform)sidebarScroll.transform).offsetMax = new Vector2(-4f, 0f);
+        UIFactory.AddVerticalScrollbar(sidebarScroll);
 
         // Swap the default vertical list for a PvZ-style grid of cards.
         var defaultLayout = sidebarContent.GetComponent<VerticalLayoutGroup>();
@@ -123,6 +124,7 @@ public static class AlmanacOverlayBuilder
                                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
                                                               out RectTransform contentBodyRect);
         ((RectTransform)contentScroll.transform).offsetMax = new Vector2(0f, -214f);
+        UIFactory.AddVerticalScrollbar(contentScroll);
 
         var contentBody = UIFactory.CreateText(contentBodyRect, "Body", "", 20f,
                                                UIFactory.TextBright, TextAlignmentOptions.TopLeft);
@@ -142,7 +144,14 @@ public static class AlmanacOverlayBuilder
         oracleFlavour.rectTransform.anchorMin = new Vector2(0f, 1f);
         oracleFlavour.rectTransform.anchorMax = new Vector2(1f, 1f);
         oracleFlavour.rectTransform.offsetMin = new Vector2(8f, -34f);
-        oracleFlavour.rectTransform.offsetMax = new Vector2(-8f, -4f);
+        oracleFlavour.rectTransform.offsetMax = new Vector2(-104f, -4f);
+
+        // Clear button (top-right) — wipes the transcript on demand.
+        Button clearChatButton = UIFactory.CreateButton(oraclePane, "ClearChatButton", "Clear",
+                                                        new Vector2(90f, 30f), 16f);
+        clearChatButton.image.color = UIFactory.PanelDarker;
+        UIFactory.Place(clearChatButton, new Vector2(1f, 1f), new Vector2(-6f, -4f), new Vector2(90f, 30f));
+        SetLabelColor(clearChatButton, UIFactory.TextDim);
 
         ScrollRect chatScroll = UIFactory.CreateScrollView(oraclePane, "ChatScroll",
                                                            new Vector2(0f, 0f), new Vector2(1f, 1f),
@@ -150,6 +159,7 @@ public static class AlmanacOverlayBuilder
         var chatScrollRt = (RectTransform)chatScroll.transform;
         chatScrollRt.offsetMin = new Vector2(0f, 72f);
         chatScrollRt.offsetMax = new Vector2(0f, -40f);
+        UIFactory.AddVerticalScrollbar(chatScroll);
 
         var bubbleTemplate = UIFactory.CreateText(chatContent, "BubbleTemplate", "", 18f,
                                                   UIFactory.TextBright, TextAlignmentOptions.TopLeft);
@@ -218,6 +228,7 @@ public static class AlmanacOverlayBuilder
         SceneBuilderUtil.Wire(chatController, "bubbleTemplate", bubbleTemplate);
         SceneBuilderUtil.Wire(chatController, "chatInput",      chatInput);
         SceneBuilderUtil.Wire(chatController, "sendButton",     sendButton);
+        SceneBuilderUtil.Wire(chatController, "clearButton",    clearChatButton);
 
         backdrop.gameObject.SetActive(false);
         return manager;

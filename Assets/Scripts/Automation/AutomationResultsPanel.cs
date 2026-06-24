@@ -14,6 +14,7 @@ public class AutomationResultsPanel : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private GameObject root;
+    [SerializeField] private TMP_Text categoryLabel;   // "MAIN GAMEPLAY · Automation (Code)"
     [SerializeField] private TMP_Text titleLabel;
     [SerializeField] private TMP_Text playerSolutionLabel;
     [SerializeField] private TMP_Text optimalSolutionLabel;
@@ -46,13 +47,15 @@ public class AutomationResultsPanel : MonoBehaviour
     }
 
     public void Show(string title, string playerSolution, string optimalSolution,
-                     string stats, Action onContinue, Action onReplay, CodeAnalysis analysis = null)
+                     string stats, Action onContinue, Action onReplay, CodeAnalysis analysis = null,
+                     string category = "MAIN GAMEPLAY · Automation")
     {
         _onContinue = onContinue;
         _onReplay   = onReplay;
         _playerSource = playerSolution ?? "";
         _optimalSource = optimalSolution ?? "";
 
+        if (categoryLabel        != null) categoryLabel.text        = category;
         if (titleLabel           != null) titleLabel.text           = title;
         if (playerSolutionLabel  != null) playerSolutionLabel.text  = playerSolution;
         if (optimalSolutionLabel != null) optimalSolutionLabel.text = optimalSolution;

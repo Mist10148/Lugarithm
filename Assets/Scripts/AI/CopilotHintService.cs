@@ -8,6 +8,7 @@ public sealed class HintContext
     public string PlayerSource;
     public string ParserFeedback;
     public string GoalGap;
+    public string Diagnostics;
     public string Concept;
     public string[] AllowedBlocks;
     public string[] AllowedQueries;
@@ -30,6 +31,7 @@ public static class CopilotHintService
         prompt.AppendLine($"Allowed actions: {string.Join(", ", context.AllowedBlocks ?? new string[0])}");
         prompt.AppendLine($"Allowed queries: {string.Join(", ", context.AllowedQueries ?? new string[0])}");
         prompt.AppendLine($"Observed goal gap: {context.GoalGap ?? "No run result yet."}");
+        prompt.AppendLine($"Diagnosed issues (pre-analyzed, trustworthy): {context.Diagnostics ?? "None."}");
         prompt.AppendLine($"Parser/runtime feedback: {context.ParserFeedback ?? "None."}");
         prompt.AppendLine("PLAYER PROGRAM:");
         prompt.AppendLine(string.IsNullOrWhiteSpace(context.PlayerSource) ? "(empty)" : context.PlayerSource);

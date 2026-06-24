@@ -87,6 +87,17 @@ public static class ManualDriveSceneBuilder
                         new Vector2(130f, 44f));
         journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
 
+        // Front-seat story-passenger card (top-left): who you're carrying + talking to.
+        var frontSeat = UIFactory.CreatePanel(canvas.transform, "FrontSeatCard",
+                                              new Vector2(0f, 1f), new Vector2(0f, 1f),
+                                              new Color(0.10f, 0.12f, 0.16f, 0.92f));
+        UIFactory.Place(frontSeat, new Vector2(0f, 1f), new Vector2(24f, -24f), new Vector2(320f, 58f));
+        TMP_Text frontSeatLabel = UIFactory.CreateText(frontSeat, "Label", "", 22f,
+                                                       UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        frontSeatLabel.rectTransform.offsetMin = new Vector2(16f, 0f);
+        frontSeatLabel.rectTransform.offsetMax = new Vector2(-12f, 0f);
+        frontSeat.gameObject.SetActive(false);
+
         // --- Orchestrator ------------------------------------------------------------
 
         var controllerGo = new GameObject("DriveController");
@@ -122,6 +133,8 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "dialogue",     dialogue);
         SceneBuilderUtil.Wire(controller, "legCompletion", legCompletion);
         SceneBuilderUtil.Wire(controller, "dulogMarkers", dulog);
+        SceneBuilderUtil.Wire(controller, "frontSeatCard",  frontSeat.gameObject);
+        SceneBuilderUtil.Wire(controller, "frontSeatLabel", frontSeatLabel);
 
         SceneBuilderUtil.SaveScene(scene, "ManualDrive");
     }
@@ -304,17 +317,34 @@ public static class ManualDriveSceneBuilder
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
-        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(780f, 640f));
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 660f));
+
+        // Category chip (top) — labels which analytics surface this is.
+        var category = UIFactory.CreateText(window, "Category", "MAIN GAMEPLAY · Manual", 18f,
+                                            UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(category, new Vector2(0.5f, 1f), new Vector2(0f, -22f), new Vector2(700f, 24f));
 
         var title = UIFactory.CreateText(window, "Title", "LEG COMPLETE", 40f, UIFactory.Accent);
-        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(720f, 56f));
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -54f), new Vector2(700f, 52f));
 
-        var breakdown = UIFactory.CreateText(window, "Breakdown", "", 26f, UIFactory.TextBright,
+        // A thin divider under the header keeps the breakdown zone visually separate.
+        var rule = UIFactory.CreatePanel(window, "Rule", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                         new Color(1f, 1f, 1f, 0.08f));
+        UIFactory.Place(rule, new Vector2(0.5f, 1f), new Vector2(0f, -116f), new Vector2(680f, 2f));
+
+        // Breakdown rows — the leg's line-items, generously spaced.
+        var breakdown = UIFactory.CreateText(window, "Breakdown", "", 25f, UIFactory.TextBright,
                                              TextAlignmentOptions.TopLeft);
-        UIFactory.Place(breakdown, new Vector2(0.5f, 1f), new Vector2(0f, -100f), new Vector2(640f, 360f));
+        UIFactory.Place(breakdown, new Vector2(0.5f, 1f), new Vector2(0f, -140f), new Vector2(640f, 340f));
+        breakdown.lineSpacing = 12f;
 
-        var score = UIFactory.CreateText(window, "Score", "", 34f, UIFactory.Accent);
-        UIFactory.Place(score, new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(700f, 50f));
+        // Score hero band near the bottom.
+        var scoreBg = UIFactory.CreatePanel(window, "ScoreBand", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                                            new Color(0.06f, 0.07f, 0.10f, 1f));
+        UIFactory.Place(scoreBg, new Vector2(0.5f, 0f), new Vector2(0f, 104f), new Vector2(700f, 64f));
+        var score = UIFactory.CreateText(scoreBg, "Score", "", 32f, UIFactory.Accent);
+        score.rectTransform.offsetMin = Vector2.zero;
+        score.rectTransform.offsetMax = Vector2.zero;
 
         Button cont = UIFactory.CreateButton(window, "ContinueButton", "Continue", new Vector2(240f, 60f));
         UIFactory.Place(cont, new Vector2(0.5f, 0f), new Vector2(130f, 28f), new Vector2(240f, 60f));
@@ -325,6 +355,7 @@ public static class ManualDriveSceneBuilder
 
         var panel = overlay.gameObject.AddComponent<DriveResultsPanel>();
         SceneBuilderUtil.Wire(panel, "root",           overlay.gameObject);
+        SceneBuilderUtil.Wire(panel, "categoryLabel",  category);
         SceneBuilderUtil.Wire(panel, "titleLabel",     title);
         SceneBuilderUtil.Wire(panel, "breakdownLabel", breakdown);
         SceneBuilderUtil.Wire(panel, "scoreLabel",     score);

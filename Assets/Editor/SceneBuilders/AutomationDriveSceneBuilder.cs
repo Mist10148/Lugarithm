@@ -125,6 +125,17 @@ public static class AutomationDriveSceneBuilder
         UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-10f, -58f), new Vector2(190f, 40f));
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
+        // Front-seat story-passenger card (top-center): who you're coding for + talking to.
+        var frontSeat = UIFactory.CreatePanel(canvas.transform, "FrontSeatCard",
+                                              new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                              new Color(0.10f, 0.12f, 0.16f, 0.92f));
+        UIFactory.Place(frontSeat, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(320f, 52f));
+        TMP_Text frontSeatLabel = UIFactory.CreateText(frontSeat, "Label", "", 22f,
+                                                       UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        frontSeatLabel.rectTransform.offsetMin = new Vector2(16f, 0f);
+        frontSeatLabel.rectTransform.offsetMax = new Vector2(-12f, 0f);
+        frontSeat.gameObject.SetActive(false);
+
         // --- Floating editor windows (Block / Code) ---------------------------------
 
         var editorArea = UIFactory.CreateRect(canvas.transform, "EditorArea",
@@ -191,6 +202,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "blockCanvas",    blockCanvas);
         SceneBuilderUtil.Wire(controller, "palette",        paletteCtrl);
         SceneBuilderUtil.Wire(controller, "codeEditor",     codeEditor);
+        SceneBuilderUtil.Wire(controller, "ghost",          codeEditor.GetComponent<GhostTextController>());
         SceneBuilderUtil.Wire(controller, "runButton",      run);
         SceneBuilderUtil.Wire(controller, "pauseButton",    pause);
         SceneBuilderUtil.Wire(controller, "resetButton",    reset);
@@ -210,6 +222,8 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "hintLabel",      hintLbl);
         SceneBuilderUtil.Wire(controller, "vibeCtrl",       vibeCtrl);
         SceneBuilderUtil.Wire(controller, "legCompletion",  legCompletion);
+        SceneBuilderUtil.Wire(controller, "frontSeatCard",  frontSeat.gameObject);
+        SceneBuilderUtil.Wire(controller, "frontSeatLabel", frontSeatLabel);
 
         SceneBuilderUtil.SaveScene(scene, "AutomationDrive");
     }
@@ -353,19 +367,43 @@ public static class AutomationDriveSceneBuilder
         var chatBody = UIFactory.CreateRect(content, "ChatBody", Vector2.zero, Vector2.one,
                                             Vector2.zero, Vector2.zero);
 
-        // Chat history (scroll) fills the top; the input row is pinned to the bottom.
+        // Mode bar (Ask / Plan / Agent) pinned to the top of the chat body.
+        var modeBar = UIFactory.CreateRect(chatBody, "ModeBar", new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                           new Vector2(6f, -34f), new Vector2(-6f, -4f));
+        UIFactory.AddHorizontalLayout(modeBar, 6f, new RectOffset(0, 0, 0, 0), TextAnchor.MiddleLeft);
+        Button autoBtn     = UIFactory.CreateButton(modeBar, "AutoMode",     "Auto",     new Vector2(70f, 26f), 15f);
+        Button askBtn      = UIFactory.CreateButton(modeBar, "AskMode",      "Ask",      new Vector2(64f, 26f), 15f);
+        Button planBtn     = UIFactory.CreateButton(modeBar, "PlanMode",     "Plan",     new Vector2(64f, 26f), 15f);
+        Button agentBtn    = UIFactory.CreateButton(modeBar, "AgentMode",    "Agent",    new Vector2(74f, 26f), 15f);
+        Button refactorBtn = UIFactory.CreateButton(modeBar, "RefactorMode", "Refactor", new Vector2(96f, 26f), 15f);
+        foreach (Button b in new[] { autoBtn, askBtn, planBtn, agentBtn, refactorBtn })
+        {
+            var le = b.gameObject.AddComponent<LayoutElement>();
+            le.preferredWidth  = ((RectTransform)b.transform).sizeDelta.x;
+            le.preferredHeight = 26f;
+        }
+
+        // Chat history (scroll) fills the middle; the input row is pinned to the bottom.
         ScrollRect scroll = UIFactory.CreateScrollView(chatBody, "ChatHistory",
                                                        Vector2.zero, Vector2.one,
                                                        out RectTransform chatContent);
         var scrollRt = (RectTransform)scroll.transform;
         scrollRt.offsetMin = new Vector2(6f, 50f);
-        scrollRt.offsetMax = new Vector2(-6f, -6f);
+        scrollRt.offsetMax = new Vector2(-6f, -40f);
         scroll.vertical = true;
 
         TMP_Text historyLabel = UIFactory.CreateText(chatContent, "History",
-            "Ask me anything about your code — or tell me what the jeepney should do.",
+            "Ask me about your code, ask me to plan an approach, or switch to Agent and tell me what the jeepney should do.",
             18f, UIFactory.TextDim, TextAlignmentOptions.TopLeft);
         historyLabel.enableWordWrapping = true;
+
+        // Inactive bubble template for the Messenger-style transcript.
+        TMP_Text vibeBubbleTemplate = UIFactory.CreateText(chatContent, "BubbleTemplate", "", 18f,
+                                                           UIFactory.TextBright, TextAlignmentOptions.TopLeft);
+        vibeBubbleTemplate.textWrappingMode = TextWrappingModes.Normal;
+        var vibeBubbleLe = vibeBubbleTemplate.gameObject.AddComponent<LayoutElement>();
+        vibeBubbleLe.preferredHeight = 30f;
+        vibeBubbleTemplate.gameObject.SetActive(false);
 
         TMP_InputField inputField = UIFactory.CreateMultilineInput(chatBody, "ChatInput",
                                                                    new Vector2(0f, 0f), new Vector2(1f, 0f), 18f);
@@ -400,12 +438,19 @@ public static class AutomationDriveSceneBuilder
         }
 
         chat = window.gameObject.AddComponent<VibeCodingController>();
-        SceneBuilderUtil.Wire(chat, "chatInput",    inputField);
-        SceneBuilderUtil.Wire(chat, "historyLabel", historyLabel);
-        SceneBuilderUtil.Wire(chat, "sendButton",   sendBtn);
-        SceneBuilderUtil.Wire(chat, "codeEditor",   editor);
-        SceneBuilderUtil.Wire(chat, "editorBody",   editorBody.gameObject);
-        SceneBuilderUtil.Wire(chat, "chatBody",     chatBody.gameObject);
+        SceneBuilderUtil.Wire(chat, "chatInput",      inputField);
+        SceneBuilderUtil.Wire(chat, "historyLabel",   historyLabel);
+        SceneBuilderUtil.Wire(chat, "chatContent",    chatContent);
+        SceneBuilderUtil.Wire(chat, "bubbleTemplate", vibeBubbleTemplate);
+        SceneBuilderUtil.Wire(chat, "sendButton",     sendBtn);
+        SceneBuilderUtil.Wire(chat, "codeEditor",     editor);
+        SceneBuilderUtil.Wire(chat, "editorBody",     editorBody.gameObject);
+        SceneBuilderUtil.Wire(chat, "chatBody",       chatBody.gameObject);
+        SceneBuilderUtil.Wire(chat, "autoButton",     autoBtn);
+        SceneBuilderUtil.Wire(chat, "askButton",      askBtn);
+        SceneBuilderUtil.Wire(chat, "planButton",     planBtn);
+        SceneBuilderUtil.Wire(chat, "agentButton",    agentBtn);
+        SceneBuilderUtil.Wire(chat, "refactorButton", refactorBtn);
         if (aiBtn   != null) SceneBuilderUtil.Wire(chat, "aiButton",   aiBtn);
         if (codeBtn != null) SceneBuilderUtil.Wire(chat, "codeButton", codeBtn);
 
@@ -620,6 +665,25 @@ public static class AutomationDriveSceneBuilder
         autocomplete.input = input;
         autocomplete.highlight = highlight;
 
+        // Inline ghost-text overlay (Copilot-style next-line suggestion). Faint, non-interactive,
+        // glyph-aligned over the input like the highlight layer; the controller lives on the same
+        // GameObject as the editor so hosts can fetch it with GetComponent<GhostTextController>().
+        var ghostText = UIFactory.CreateText(input.textViewport, "GhostText", "", 22f,
+                                             UIFactory.TextDim, TextAlignmentOptions.TopLeft);
+        ghostText.rectTransform.anchorMin = Vector2.zero;
+        ghostText.rectTransform.anchorMax = Vector2.one;
+        ghostText.rectTransform.offsetMin = Vector2.zero;
+        ghostText.rectTransform.offsetMax = Vector2.zero;
+        ghostText.enableWordWrapping = false;
+        ghostText.raycastTarget = false;
+        ghostText.richText = true;
+        if (mono != null) ghostText.font = mono;
+        ghostText.gameObject.SetActive(false);
+
+        var ghost = parent.gameObject.AddComponent<GhostTextController>();
+        SceneBuilderUtil.Wire(ghost, "editor",     editor);
+        SceneBuilderUtil.Wire(ghost, "ghostLabel", ghostText);
+
         return editor;
     }
 
@@ -702,14 +766,19 @@ public static class AutomationDriveSceneBuilder
                                            UIFactory.PanelDark);
         UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1240f, 850f));
 
-        var title = UIFactory.CreateText(window, "Title", "PUZZLE SOLVED", 38f, UIFactory.Accent);
-        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(1100f, 52f));
+        var category = UIFactory.CreateText(window, "Category", "MAIN GAMEPLAY · Automation", 18f,
+                                            UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(category, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(1100f, 22f));
+
+        var title = UIFactory.CreateText(window, "Title", "PUZZLE SOLVED", 36f, UIFactory.Accent);
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -42f), new Vector2(1100f, 48f));
 
         var playerHeader = UIFactory.CreateText(window, "PlayerHeader", "YOUR SOLUTION", 22f, UIFactory.TextDim);
-        UIFactory.Place(playerHeader, new Vector2(0.5f, 1f), new Vector2(-285f, -82f), new Vector2(520f, 30f));
+        UIFactory.Place(playerHeader, new Vector2(0.5f, 1f), new Vector2(-285f, -94f), new Vector2(520f, 30f));
 
-        var optimalHeader = UIFactory.CreateText(window, "OptimalHeader", "OPTIMAL SOLUTION", 22f, UIFactory.TextDim);
-        UIFactory.Place(optimalHeader, new Vector2(0.5f, 1f), new Vector2(285f, -82f), new Vector2(520f, 30f));
+        var optimalHeader = UIFactory.CreateText(window, "OptimalHeader", "AI'S BETTER VERSION", 22f,
+                                                 new Color(0.55f, 0.78f, 1f), TextAlignmentOptions.Center);
+        UIFactory.Place(optimalHeader, new Vector2(0.5f, 1f), new Vector2(285f, -94f), new Vector2(520f, 30f));
 
         var playerPanel = UIFactory.CreatePanel(window, "PlayerPanel",
                                                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -768,6 +837,7 @@ public static class AutomationDriveSceneBuilder
 
         var panel = overlay.gameObject.AddComponent<AutomationResultsPanel>();
         SceneBuilderUtil.Wire(panel, "root",                 overlay.gameObject);
+        SceneBuilderUtil.Wire(panel, "categoryLabel",        category);
         SceneBuilderUtil.Wire(panel, "titleLabel",           title);
         SceneBuilderUtil.Wire(panel, "playerSolutionLabel",  playerText);
         SceneBuilderUtil.Wire(panel, "optimalSolutionLabel", optimalText);

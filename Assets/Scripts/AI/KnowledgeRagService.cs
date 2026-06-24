@@ -227,6 +227,25 @@ public static class KnowledgeRagService
                 concepts = Array.Empty<string>()
             });
         }
+
+        // Characters along the route — so the Oracle can discuss the storyline and the
+        // people in it, gated to towns the player has actually reached.
+        foreach (PassengerDefinition p in PassengerLibrary.All)
+        {
+            chunks.Add(new KnowledgeChunk
+            {
+                id = $"character:{p.id}",
+                domain = KnowledgeDomain.Heritage,
+                levelIndex = p.levelIndex,
+                gate = KnowledgeGate.UnlockedLevel,
+                town = p.town,
+                title = $"{p.displayName} — {p.role}",
+                body = $"{p.background} Voice: {p.voice} Connection to your father: {p.relationshipToFather}",
+                sourceLabel = $"Story Records — {p.displayName}",
+                aliases = new[] { p.displayName, p.speakerName, p.town, p.role },
+                concepts = new[] { "story", "character", p.town }
+            });
+        }
         return chunks;
     }
 
