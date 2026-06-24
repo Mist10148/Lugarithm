@@ -14,9 +14,11 @@ public sealed class VibeCodeResponse
 /// <summary>The Copilot-style interaction modes for the in-editor agent.</summary>
 public enum VibeMode
 {
-    Ask,    // read-only: sees the world + editor, answers questions, never edits
-    Plan,   // returns a numbered plan in plain language, never edits
-    Agent   // returns a structured action graph that is compiled into the editor
+    Auto,     // no explicit mode: classify the message and route to one of the below
+    Ask,      // read-only: sees the world + editor, answers questions, never edits
+    Plan,     // returns a numbered plan in plain language, never edits
+    Agent,    // returns a structured action graph that is compiled into the editor
+    Refactor  // rewrites the player's working code shorter (loops), verified equivalent-or-better
 }
 
 public static class VibeCodingService
@@ -129,6 +131,69 @@ public static class VibeCodingService
         request.Prompt += "\nThe previous action graph was rejected: " + validationError +
                           "\nReturn one corrected action graph using only the unlocked vocabulary.";
         return request;
+    }
+
+    /// <summary>Refactor mode: rewrite the player's already-working program to do the SAME thing
+    /// in fewer instructions using the unlocked loops. Returns an action graph so it flows through
+    /// the same compile + vocabulary + dry-run gate as agent mode.</summary>
+    public static AiRequest BuildRefactorRequest(string playerCode, string worldContext)
+    {
+        return new AiRequest
+        {
+            Feature = AiFeature.VibeCode,
+            SystemInstruction =
+                "You are Lugarithm's refactoring coach for ages 10–16. The player's program already " +
+                "works. Rewrite it to do the SAME thing in FEWER instructions by using the unlocked loops " +
+                "(while/for) and control structures instead of repeating actions. Keep the behavior and the " +
+                "route identical — only make it shorter and clearer. Return a program as a flat action graph " +
+                "(the 'nodes' list) using ONLY unlocked actions, control structures, and queries. Express " +
+                "control flow with explicit markers: open 'if'/'while' and close 'endif'/'endwhile'; use " +
+                "'elif'/'else' between them. Put each command in an 'action' node ('name' is the command, " +
+                "'arg' an optional count). Add short, friendly 'comment' fields that teach why the loop helps. " +
+                "Keep 'message' to one or two sentences naming what you compressed.",
+            Prompt = worldContext + "\nREWRITE THIS SHORTER — same behavior, use loops instead of repeats:\n" + playerCode,
+            ResponseJsonSchema = ActionGraphCompiler.ResponseSchema,
+            MaxOutputTokens = 900
+        };
+    }
+
+    /// <summary>Refactor retry after the rewrite failed validation, didn't solve, or wasn't shorter.</summary>
+    public static AiRequest BuildRefactorRepairRequest(string playerCode, string worldContext, string reason)
+    {
+        AiRequest request = BuildRefactorRequest(playerCode, worldContext);
+        request.Prompt += "\nThe previous rewrite was rejected: " + reason +
+                          "\nReturn one corrected, shorter action graph that still solves it, using only the unlocked vocabulary.";
+        return request;
+    }
+
+    // -------------------------------------------------------------------------
+    // Inline ghost-text completion (Copilot-style next-line suggestion).
+
+    /// <summary>A deliberately tiny, fast request: complete ONLY the next single line after the
+    /// cursor. Short output cap + a compact prompt keep latency and free-tier token spend minimal;
+    /// pair it with <see cref="AiResponseCache.Ghost"/> so repeated prefixes never hit the API.</summary>
+    public static AiRequest BuildGhostRequest(string codeBeforeCursor, string goalText,
+                                              string[] allowedBlocks, string[] allowedQueries)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("GOAL: " + (string.IsNullOrWhiteSpace(goalText) ? "Reach the destination (D)." : goalText));
+        sb.AppendLine("UNLOCKED ACTIONS/CONTROL: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
+        sb.AppendLine("UNLOCKED QUERIES: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
+        sb.AppendLine("CODE SO FAR (the cursor is at the very end):");
+        sb.Append(codeBeforeCursor);
+
+        return new AiRequest
+        {
+            Feature = AiFeature.VibeCode,
+            SystemInstruction =
+                "You are an inline code-completion engine for a simple Python-like language that drives a " +
+                "jeepney through a maze, for kids aged 10–16. Output ONLY the single next line of code that " +
+                "should follow the cursor — no explanation, no markdown fences, no blank lines, nothing else. " +
+                "Use only the unlocked actions, control structures, and queries. Match the indentation the next " +
+                "line should have. If no useful next line is obvious, output nothing at all.",
+            Prompt = sb.ToString(),
+            MaxOutputTokens = 32
+        };
     }
 
     // -------------------------------------------------------------------------

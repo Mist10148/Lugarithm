@@ -495,6 +495,17 @@ public static class MinigameOverlayBuilder
         Button reset = UIFactory.CreateButton(left, "ResetButton", "↺ Reset", new Vector2(180f, 56f));
         UIFactory.Place(reset, new Vector2(0.5f, 0f), new Vector2(100f, 16f), new Vector2(180f, 56f));
 
+        // Co-Pilot hint (shared flow, minigame voice) — hidden until the player struggles.
+        Button hintBtn = UIFactory.CreateButton(left, "HintButton", "💡 Hint", new Vector2(150f, 44f), 18f);
+        UIFactory.Place(hintBtn, new Vector2(1f, 0f), new Vector2(-10f, 78f), new Vector2(150f, 44f));
+        hintBtn.image.color = UIFactory.Accent;
+        hintBtn.gameObject.SetActive(false);
+
+        TMP_Text hintLbl = UIFactory.CreateText(left, "HintLabel", "", 16f, UIFactory.TextDim,
+                                                TextAlignmentOptions.TopLeft);
+        UIFactory.Place(hintLbl, new Vector2(0.5f, 0f), new Vector2(0f, 112f), new Vector2(520f, 36f));
+        hintLbl.enableWordWrapping = true;
+
         // --- Right column: the two editor windows (one shown per the setting) -----
         var editorArea = UIFactory.CreateRect(window, "EditorArea",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
@@ -526,9 +537,12 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(game, "palette",       palette);
         SceneBuilderUtil.Wire(game, "codeEditor",    codeEditor);
         SceneBuilderUtil.Wire(game, "vibeCtrl",      mazeVibe);
+        SceneBuilderUtil.Wire(game, "ghost",         codeEditor.GetComponent<GhostTextController>());
         SceneBuilderUtil.Wire(game, "exec",          exec);
         SceneBuilderUtil.Wire(game, "runButton",     run);
         SceneBuilderUtil.Wire(game, "resetButton",   reset);
+        SceneBuilderUtil.Wire(game, "hintButton",    hintBtn);
+        SceneBuilderUtil.Wire(game, "hintLabel",     hintLbl);
 
         return game;
     }

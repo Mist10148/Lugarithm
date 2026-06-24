@@ -202,6 +202,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "blockCanvas",    blockCanvas);
         SceneBuilderUtil.Wire(controller, "palette",        paletteCtrl);
         SceneBuilderUtil.Wire(controller, "codeEditor",     codeEditor);
+        SceneBuilderUtil.Wire(controller, "ghost",          codeEditor.GetComponent<GhostTextController>());
         SceneBuilderUtil.Wire(controller, "runButton",      run);
         SceneBuilderUtil.Wire(controller, "pauseButton",    pause);
         SceneBuilderUtil.Wire(controller, "resetButton",    reset);
@@ -370,10 +371,12 @@ public static class AutomationDriveSceneBuilder
         var modeBar = UIFactory.CreateRect(chatBody, "ModeBar", new Vector2(0f, 1f), new Vector2(1f, 1f),
                                            new Vector2(6f, -34f), new Vector2(-6f, -4f));
         UIFactory.AddHorizontalLayout(modeBar, 6f, new RectOffset(0, 0, 0, 0), TextAnchor.MiddleLeft);
-        Button askBtn   = UIFactory.CreateButton(modeBar, "AskMode",   "Ask",   new Vector2(70f, 26f), 15f);
-        Button planBtn  = UIFactory.CreateButton(modeBar, "PlanMode",  "Plan",  new Vector2(70f, 26f), 15f);
-        Button agentBtn = UIFactory.CreateButton(modeBar, "AgentMode", "Agent", new Vector2(80f, 26f), 15f);
-        foreach (Button b in new[] { askBtn, planBtn, agentBtn })
+        Button autoBtn     = UIFactory.CreateButton(modeBar, "AutoMode",     "Auto",     new Vector2(70f, 26f), 15f);
+        Button askBtn      = UIFactory.CreateButton(modeBar, "AskMode",      "Ask",      new Vector2(64f, 26f), 15f);
+        Button planBtn     = UIFactory.CreateButton(modeBar, "PlanMode",     "Plan",     new Vector2(64f, 26f), 15f);
+        Button agentBtn    = UIFactory.CreateButton(modeBar, "AgentMode",    "Agent",    new Vector2(74f, 26f), 15f);
+        Button refactorBtn = UIFactory.CreateButton(modeBar, "RefactorMode", "Refactor", new Vector2(96f, 26f), 15f);
+        foreach (Button b in new[] { autoBtn, askBtn, planBtn, agentBtn, refactorBtn })
         {
             var le = b.gameObject.AddComponent<LayoutElement>();
             le.preferredWidth  = ((RectTransform)b.transform).sizeDelta.x;
@@ -443,9 +446,11 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(chat, "codeEditor",     editor);
         SceneBuilderUtil.Wire(chat, "editorBody",     editorBody.gameObject);
         SceneBuilderUtil.Wire(chat, "chatBody",       chatBody.gameObject);
+        SceneBuilderUtil.Wire(chat, "autoButton",     autoBtn);
         SceneBuilderUtil.Wire(chat, "askButton",      askBtn);
         SceneBuilderUtil.Wire(chat, "planButton",     planBtn);
         SceneBuilderUtil.Wire(chat, "agentButton",    agentBtn);
+        SceneBuilderUtil.Wire(chat, "refactorButton", refactorBtn);
         if (aiBtn   != null) SceneBuilderUtil.Wire(chat, "aiButton",   aiBtn);
         if (codeBtn != null) SceneBuilderUtil.Wire(chat, "codeButton", codeBtn);
 
@@ -659,6 +664,25 @@ public static class AutomationDriveSceneBuilder
 
         autocomplete.input = input;
         autocomplete.highlight = highlight;
+
+        // Inline ghost-text overlay (Copilot-style next-line suggestion). Faint, non-interactive,
+        // glyph-aligned over the input like the highlight layer; the controller lives on the same
+        // GameObject as the editor so hosts can fetch it with GetComponent<GhostTextController>().
+        var ghostText = UIFactory.CreateText(input.textViewport, "GhostText", "", 22f,
+                                             UIFactory.TextDim, TextAlignmentOptions.TopLeft);
+        ghostText.rectTransform.anchorMin = Vector2.zero;
+        ghostText.rectTransform.anchorMax = Vector2.one;
+        ghostText.rectTransform.offsetMin = Vector2.zero;
+        ghostText.rectTransform.offsetMax = Vector2.zero;
+        ghostText.enableWordWrapping = false;
+        ghostText.raycastTarget = false;
+        ghostText.richText = true;
+        if (mono != null) ghostText.font = mono;
+        ghostText.gameObject.SetActive(false);
+
+        var ghost = parent.gameObject.AddComponent<GhostTextController>();
+        SceneBuilderUtil.Wire(ghost, "editor",     editor);
+        SceneBuilderUtil.Wire(ghost, "ghostLabel", ghostText);
 
         return editor;
     }

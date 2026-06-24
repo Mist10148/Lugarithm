@@ -81,6 +81,7 @@ public class AutomationDriveController : MonoBehaviour
 
     [Header("AI helper (in-window chat)")]
     [SerializeField] private VibeCodingController vibeCtrl;
+    [SerializeField] private GhostTextController  ghost;   // inline next-line completion (optional)
 
     [Header("Leg completion")]
     [SerializeField] private LegCompletionController legCompletion;
@@ -104,6 +105,7 @@ public class AutomationDriveController : MonoBehaviour
     int  _failCount;
     bool _struggleNudged;
     int  _hintTier;
+    int  _bestDelivered;   // best passengers-delivered across runs; eases the hint tier on progress
     int  _lastExecutedLine;
     int  _townPuzzleBonus;
     float _startTime;
@@ -260,6 +262,7 @@ public class AutomationDriveController : MonoBehaviour
                 // Give the agent live access to the maze + jeepney so it can read state.
                 vibeCtrl.SetWorldContext(grid, sim, _def);
             }
+            if (ghost != null) ghost.Bind(_def);
         }
         catch (System.Exception e)
         {
@@ -623,23 +626,13 @@ public class AutomationDriveController : MonoBehaviour
         string source = _codeTabActive && codeEditor != null
             ? codeEditor.Source
             : blockCanvas != null ? blockCanvas.ToSourceText() : "";
-        Parser.Compile(source, out List<LangError> errors);
-        string parserFeedback = errors.Count > 0 ? string.Join("; ", errors.ConvertAll(e => e.ToString())) : "None";
-        string gap = exec != null && exec.Sim != null ? exec.Sim.DescribeGoalGap(_def) : null;
         string concept = _levelIndex >= 0 && _levelIndex < JournalPageLibrary.Pages.Count
             ? JournalPageLibrary.Pages[_levelIndex].codingConceptName : "program logic";
-        AiRequest request = CopilotHintService.BuildRequest(new HintContext
-        {
-            AuthoredFallback = authoredText,
-            Passenger = pax,
-            Tier = tier,
-            PlayerSource = source,
-            ParserFeedback = parserFeedback,
-            GoalGap = gap,
-            Concept = concept,
-            AllowedBlocks = _def.allowedBlocks,
-            AllowedQueries = _def.allowedQueries
-        });
+
+        // Shared builder: compiles, dry-runs for a fresh gap, and pre-analyzes the code into
+        // concrete diagnostics before packaging the tier-aware request.
+        AgentSim sim = exec != null ? exec.Sim : null;
+        AiRequest request = CopilotHintFlow.BuildRequest(source, sim, _def, authoredText, pax, tier, concept);
         AiResult result = null;
         string streamed = "";
         yield return GeminiClient.Stream(request, delta =>
@@ -798,6 +791,16 @@ public class AutomationDriveController : MonoBehaviour
         // Struggle nudge: after a couple of failed runs, gently offer a hint. It stays
         // on-demand — we only surface the button and a one-time, dismissable nudge.
         _failCount++;
+
+        // Ease the next hint's tier when the player makes real progress (one more passenger
+        // delivered) so a small new mistake doesn't escalate them straight to pseudocode.
+        int delivered = exec != null && exec.Sim != null ? exec.Sim.PassengersDelivered : 0;
+        if (delivered > _bestDelivered)
+        {
+            _bestDelivered = delivered;
+            _hintTier = Mathf.Max(0, _hintTier - 1);
+        }
+
         if (_failCount >= 2 && hintButton != null)
         {
             hintButton.gameObject.SetActive(true);
@@ -805,7 +808,8 @@ public class AutomationDriveController : MonoBehaviour
             {
                 _struggleNudged = true;
                 if (hintLabel != null)
-                    hintLabel.text = "Stuck? Tap Hint and I'll give you a nudge — I won't spoil the answer.";
+                    hintLabel.text = "Stuck? Tap Hint — I'll look at what you wrote and nudge you " +
+                                     "in the right direction, no spoilers.";
             }
         }
     }

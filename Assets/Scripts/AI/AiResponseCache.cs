@@ -70,4 +70,8 @@ public sealed class AiResponseCache
     // bounded store so one busy feature can't evict the other.
     public static readonly AiResponseCache Dialogue = new AiResponseCache(64);
     public static readonly AiResponseCache Oracle   = new AiResponseCache(64);
+
+    // Inline ghost-text completions, keyed by goal + vocabulary + code-before-cursor. Heavily
+    // hit while typing, so a generous store keeps repeated prefixes instant and token-free.
+    public static readonly AiResponseCache Ghost    = new AiResponseCache(128);
 }

@@ -89,6 +89,10 @@ public class AgentSim : IAgentApi
 
     public int RemainingWaiting => _rides != null ? CountRemainingRides() : _waiting.Count;
 
+    /// <summary>Total passengers this puzzle expects delivered — ride count in ride mode,
+    /// stop count otherwise. Pairs with <see cref="PassengersDelivered"/> for "k of N" progress.</summary>
+    public int TotalPassengers => _rides != null ? _rides.Count : _grid.StopCells.Count;
+
     // Ride mode (procedural town / self-driving) and the nav-macro move queue.
     List<GridRide> _rides;
     readonly Queue<string> _pending = new Queue<string>();
@@ -470,25 +474,31 @@ public class AgentSim : IAgentApi
         return true;
     }
 
-    /// <summary>Plain-English reason the goal isn't met yet, or null if it is.</summary>
+    /// <summary>Plain-English reason the goal isn't met yet, or null if it is. Names the
+    /// specific where/what (final cell vs destination, how many of N riders are left) so the
+    /// co-pilot can diagnose the actual gap rather than restate a generic miss.</summary>
     public string DescribeGoalGap(AutomationPuzzleDefinition def)
     {
         if (Position != _grid.DestPos)
-            return "The jeepney never reached the destination (D).";
+            return $"The jeepney stopped at ({Position.x},{Position.y}) but the destination (D) " +
+                   $"is at ({_grid.DestPos.x},{_grid.DestPos.y}) — it never reached D.";
 
         if (def != null && def.requireAllPassengersDelivered)
         {
             if (_rides != null)
             {
-                foreach (GridRide ride in _rides)
-                    if (!ride.delivered)
-                        return "A passenger still needs delivering to their stop — tend every rider before finishing at D.";
+                int left = 0;
+                foreach (GridRide ride in _rides) if (!ride.delivered) left++;
+                if (left > 0)
+                    return $"{left} of {_rides.Count} passengers still need dropping at their stop — " +
+                           "tend every rider before finishing at D.";
                 return null;
             }
             if (_waiting.Count > 0)
-                return "A passenger is still waiting at a stop (P) — pickUp() when you're on their cell.";
+                return $"{_waiting.Count} passenger(s) still waiting at a stop (P) — " +
+                       "pickUp() when you're on their cell.";
             if (PassengersAboard > 0)
-                return "Passengers are still aboard — dropOff() at the destination.";
+                return $"{PassengersAboard} passenger(s) still aboard — dropOff() at the destination.";
         }
 
         return null;

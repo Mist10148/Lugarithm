@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -43,6 +44,7 @@ public class MazeRepairMinigame : MonoBehaviour
     [SerializeField] private BlockPaletteController palette;
     [SerializeField] private CodeEditorController   codeEditor;
     [SerializeField] private VibeCodingController   vibeCtrl;
+    [SerializeField] private GhostTextController    ghost;   // inline next-line completion (optional)
 
     [Header("Execution")]
     [SerializeField] private ExecutionController exec;
@@ -50,6 +52,10 @@ public class MazeRepairMinigame : MonoBehaviour
     [Header("Controls")]
     [SerializeField] private Button runButton;
     [SerializeField] private Button resetButton;
+
+    [Header("Co-Pilot hint (optional)")]
+    [SerializeField] private Button   hintButton;
+    [SerializeField] private TMP_Text hintLabel;
 
     [Header("Tuning")]
     [Tooltip("Maze size in cells (square). Kept small so a wall-follower finishes fast.")]
@@ -66,10 +72,21 @@ public class MazeRepairMinigame : MonoBehaviour
     int   _attempts;
     float _timeLeft;
 
+    // Co-pilot hint state (mirrors AutomationDriveController's tiered, struggle-aware flow).
+    int  _hintTier;
+    int  _failCount;
+    bool _struggleNudged;
+    int  _bestDelivered;
+
     void Awake()
     {
         if (runButton   != null) runButton.onClick.AddListener(OnRun);
         if (resetButton != null) resetButton.onClick.AddListener(OnReset);
+        if (hintButton  != null)
+        {
+            hintButton.gameObject.SetActive(false);
+            hintButton.onClick.AddListener(OnHintRequested);
+        }
 
         if (exec != null)
         {
@@ -89,6 +106,7 @@ public class MazeRepairMinigame : MonoBehaviour
     {
         if (runButton   != null) runButton.onClick.RemoveListener(OnRun);
         if (resetButton != null) resetButton.onClick.RemoveListener(OnReset);
+        if (hintButton  != null) hintButton.onClick.RemoveListener(OnHintRequested);
 
         if (exec != null)
         {
@@ -108,6 +126,13 @@ public class MazeRepairMinigame : MonoBehaviour
         _onDone   = onDone;
         _attempts = 0;
         _timeLeft = softTimerSeconds;
+
+        _hintTier = 0;
+        _failCount = 0;
+        _struggleNudged = false;
+        _bestDelivered = 0;
+        if (hintButton != null) hintButton.gameObject.SetActive(false);
+        if (hintLabel  != null) hintLabel.text = "";
 
         // Generate a fresh perfect maze; it is always solvable by a wall-follower.
         _def = MazeGenerator.Generate(mazeCells, mazeCells, seed);
@@ -135,6 +160,7 @@ public class MazeRepairMinigame : MonoBehaviour
             vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
             vibeCtrl.SetWorldContext(grid, _sim, _def);
         }
+        if (ghost != null) ghost.Bind(_def);
 
         bool blockMode = SaveSystem.Current != null && SaveSystem.Current.settings.blockMode;
         _codeActive = !blockMode;
@@ -249,6 +275,58 @@ public class MazeRepairMinigame : MonoBehaviour
 
         if (feedbackLabel != null)
             feedbackLabel.text = "The jeepney didn't reach the exit. Edit your program and RUN again.";
+
+        // Struggle nudge: after a couple of failed runs, surface the on-demand hint button.
+        _failCount++;
+        int delivered = _sim != null ? _sim.PassengersDelivered : 0;
+        if (delivered > _bestDelivered)
+        {
+            _bestDelivered = delivered;
+            _hintTier = Mathf.Max(0, _hintTier - 1);
+        }
+        if (_failCount >= 2 && hintButton != null)
+        {
+            hintButton.gameObject.SetActive(true);
+            if (!_struggleNudged)
+            {
+                _struggleNudged = true;
+                if (hintLabel != null)
+                    hintLabel.text = "Stuck? Tap Hint — I'll look at your code and nudge you, no spoilers.";
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Co-Pilot hint (shared flow, minigame fallback voice)
+
+    public void OnHintRequested()
+    {
+        int tier = Mathf.Min(_hintTier, MinigameHintLibrary.MazeHints.Length - 1);
+        _hintTier = Mathf.Min(_hintTier + 1, MinigameHintLibrary.MazeHints.Length - 1);
+        StartCoroutine(FetchHint(tier));
+    }
+
+    IEnumerator FetchHint(int tier)
+    {
+        if (hintLabel != null) hintLabel.text = "…";
+
+        string source = _codeActive
+            ? (codeEditor  != null ? codeEditor.Source : "")
+            : (blockCanvas != null ? blockCanvas.ToSourceText() : "");
+        string authored = MinigameHintLibrary.MazeHints[tier];
+        AiRequest request = CopilotHintFlow.BuildRequest(source, _sim, _def, authored,
+            MinigameHintLibrary.Mechanic, tier, MinigameHintLibrary.MazeConcept);
+
+        AiResult result = null;
+        string streamed = "";
+        yield return GeminiClient.Stream(request, delta =>
+        {
+            streamed += delta;
+            if (hintLabel != null) hintLabel.text = streamed;
+        }, completed => result = completed);
+
+        if (hintLabel != null)
+            hintLabel.text = result != null && result.Success ? result.Text : authored;
     }
 
     // -------------------------------------------------------------------------

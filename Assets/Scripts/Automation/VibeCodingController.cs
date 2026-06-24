@@ -25,10 +25,12 @@ public class VibeCodingController : MonoBehaviour
     [SerializeField] TMP_Text      bubbleTemplate;  // inactive TMP template for bubbles
     [SerializeField] TMP_Text      historyLabel;    // legacy/intro line (optional)
 
-    [Header("Modes (Ask / Plan / Agent)")]
+    [Header("Modes (Auto / Ask / Plan / Agent / Refactor)")]
+    [SerializeField] Button autoButton;
     [SerializeField] Button askButton;
     [SerializeField] Button planButton;
     [SerializeField] Button agentButton;
+    [SerializeField] Button refactorButton;
 
     [Header("View swap (AI ⇄ Code)")]
     [SerializeField] GameObject editorBody;
@@ -46,7 +48,8 @@ public class VibeCodingController : MonoBehaviour
     string[] _allowedBlocks;
     string[] _allowedQueries;
     readonly List<GameObject> _rows = new List<GameObject>();
-    VibeMode _mode = VibeMode.Agent;
+    VibeMode _mode = VibeMode.Auto;
+    string   _stashedCode;   // the editor text before the last refactor, for a one-tap "undo"
 
     // Live world context (references, so we always read the current state).
     GridModel                  _grid;
@@ -71,9 +74,11 @@ public class VibeCodingController : MonoBehaviour
         if (chatInput   != null) chatInput.onSubmit.AddListener(_ => OnSend());
         if (aiButton    != null) aiButton.onClick.AddListener(ShowChat);
         if (codeButton  != null) codeButton.onClick.AddListener(ShowEditor);
-        if (askButton   != null) askButton.onClick.AddListener(() => SetMode(VibeMode.Ask));
-        if (planButton  != null) planButton.onClick.AddListener(() => SetMode(VibeMode.Plan));
-        if (agentButton != null) agentButton.onClick.AddListener(() => SetMode(VibeMode.Agent));
+        if (autoButton     != null) autoButton.onClick.AddListener(() => SetMode(VibeMode.Auto));
+        if (askButton      != null) askButton.onClick.AddListener(() => SetMode(VibeMode.Ask));
+        if (planButton     != null) planButton.onClick.AddListener(() => SetMode(VibeMode.Plan));
+        if (agentButton    != null) agentButton.onClick.AddListener(() => SetMode(VibeMode.Agent));
+        if (refactorButton != null) refactorButton.onClick.AddListener(() => SetMode(VibeMode.Refactor));
 
         ChatBubbleFactory.PrepareContent(chatContent);
     }
@@ -103,9 +108,11 @@ public class VibeCodingController : MonoBehaviour
     void SetMode(VibeMode mode)
     {
         _mode = mode;
-        Tint(askButton,   mode == VibeMode.Ask);
-        Tint(planButton,  mode == VibeMode.Plan);
-        Tint(agentButton, mode == VibeMode.Agent);
+        Tint(autoButton,     mode == VibeMode.Auto);
+        Tint(askButton,      mode == VibeMode.Ask);
+        Tint(planButton,     mode == VibeMode.Plan);
+        Tint(agentButton,    mode == VibeMode.Agent);
+        Tint(refactorButton, mode == VibeMode.Refactor);
     }
 
     void Tint(Button button, bool active)
@@ -155,20 +162,35 @@ public class VibeCodingController : MonoBehaviour
         string world = VibeCodingService.BuildWorldContext(_grid, _sim, _def, blockMode, editorText,
                                                            _allowedBlocks, _allowedQueries);
 
-        if (_mode == VibeMode.Agent)
-            yield return RunAgent(message, world, reply);
+        // A one-tap "undo" after a refactor restores the player's original code (no AI call).
+        if (_stashedCode != null && VibeIntentRouter.IsUndo(message))
+        {
+            RevertStash(reply);
+        }
         else
-            yield return RunTextMode(message, world, reply);
+        {
+            // In Auto, classify the message; an explicit mode button overrides the router.
+            VibeMode effective = _mode == VibeMode.Auto
+                ? VibeIntentRouter.Classify(message, !string.IsNullOrWhiteSpace(editorText))
+                : _mode;
+
+            switch (effective)
+            {
+                case VibeMode.Agent:    yield return RunAgent(message, world, reply); break;
+                case VibeMode.Refactor: yield return RunRefactor(world, reply, editorText); break;
+                default:                yield return RunTextMode(effective, message, world, reply); break;
+            }
+        }
 
         SetEnabled(true);
         if (chatInput != null) chatInput.ActivateInputField();
     }
 
     /// <summary>Ask / Plan: a plain-text answer, no edits.</summary>
-    IEnumerator RunTextMode(string message, string world, TMP_Text reply)
+    IEnumerator RunTextMode(VibeMode mode, string message, string world, TMP_Text reply)
     {
         AiResult result = null;
-        yield return GeminiClient.Stream(VibeCodingService.BuildAgentRequest(_mode, message, world),
+        yield return GeminiClient.Stream(VibeCodingService.BuildAgentRequest(mode, message, world),
             null, completed => result = completed);
 
         UpdateBubble(reply, result != null && result.Success && !string.IsNullOrWhiteSpace(result.Text)
@@ -239,6 +261,113 @@ public class VibeCodingController : MonoBehaviour
             UpdateBubble(reply, "I couldn't make a program that fits this level's rules, so I left your code " +
                 "unchanged. Try asking in Plan mode for the approach.");
         }
+    }
+
+    /// <summary>Refactor: take the player's already-working code and offer a shorter version that
+    /// uses loops. Accepts the rewrite only if it compiles, stays within the unlocked vocabulary,
+    /// still WINS, and is strictly fewer statements (the "same goal + fewer steps" rule). Stashes
+    /// the original so the player can say "undo". Refactor only operates on working code — an empty,
+    /// broken, or losing program is redirected to the diagnostic path instead.</summary>
+    IEnumerator RunRefactor(string world, TMP_Text reply, string editorText)
+    {
+        if (string.IsNullOrWhiteSpace(editorText))
+        {
+            UpdateBubble(reply, "Write a few lines first, then I'll streamline them for you.");
+            yield break;
+        }
+
+        // Refactor presupposes correct code. Compile + (when a world is bound) dry-run it first.
+        ProgramNode current = Parser.Compile(editorText, out List<LangError> cerr);
+        if ((cerr != null && cerr.Count > 0) || current == null)
+        {
+            UpdateBubble(reply, "Let's get it running first — there's still a syntax error to fix. " +
+                "Ask me \"why isn't this working?\" and I'll help.");
+            yield break;
+        }
+        if (_grid != null && _sim != null && _def != null &&
+            !HeadlessProgramRunner.VerifyReport(current, _sim.CloneFresh(), _def, out RunReport rep))
+        {
+            UpdateBubble(reply, "This doesn't solve the level yet, so I won't shorten it — let's make it " +
+                "work first. Ask me \"why isn't this working?\" and I'll help. (" + (rep?.GoalGap ?? "") + ")");
+            yield break;
+        }
+
+        int playerStatements = CodeAnalyticsService.Measure(editorText).Statements;
+
+        const int maxRepairs = 2;
+        AiRequest request = VibeCodingService.BuildRefactorRequest(editorText, world);
+        string code = null;
+        string lastMessage = null;
+
+        for (int attempt = 0; attempt <= maxRepairs; attempt++)
+        {
+            AiResult result = null;
+            yield return GeminiClient.Stream(request, null, completed => result = completed);
+
+            if (result == null || !result.Success ||
+                !ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            {
+                UpdateBubble(reply, "(couldn't reach the AI — check your connection and try again)");
+                yield break;
+            }
+            lastMessage = graph.message;
+
+            if (!ActionGraphCompiler.TryCompile(graph, out string compiled, out string compileError) ||
+                VibeCodingService.Validate(compiled, _allowedBlocks, _allowedQueries, out _) != null)
+            {
+                if (attempt == maxRepairs) break;
+                string err = compileError ?? "the rewrite used something that isn't unlocked here";
+                UpdateBubble(reply, "Tidying that up…");
+                request = VibeCodingService.BuildRefactorRepairRequest(editorText, world, err);
+                continue;
+            }
+
+            // Must still win AND be strictly shorter than the player's version.
+            bool wins = TryVerify(compiled, out string goalGap);
+            int newStatements = CodeAnalyticsService.Measure(compiled).Statements;
+            if (wins && (playerStatements == 0 || newStatements < playerStatements))
+            {
+                code = compiled;
+                break;
+            }
+
+            if (attempt == maxRepairs) break;
+            string reason = !wins
+                ? "the shorter version stopped solving it — " + goalGap
+                : "it wasn't actually shorter; replace repeated lines with a loop";
+            UpdateBubble(reply, "Refining…");
+            request = VibeCodingService.BuildRefactorRepairRequest(editorText, world, reason);
+        }
+
+        if (code != null && codeEditor != null && codeEditor.input != null)
+        {
+            _stashedCode = editorText;   // enable a one-tap revert
+            int saved = playerStatements - CodeAnalyticsService.Measure(code).Statements;
+            codeEditor.input.SetTextWithoutNotify(code);
+            codeEditor.RefreshLineNumbers();
+            codeEditor.RefreshHighlight();
+            string note = saved > 0 ? $"Made it {saved} line(s) shorter with a loop. " : "Tightened it up with a loop. ";
+            UpdateBubble(reply, (lastMessage ?? "").Trim() + (lastMessage != null ? "\n" : "") + note +
+                "Press Code to review — say \"undo\" to put your version back, then RUN when ready.");
+        }
+        else
+        {
+            UpdateBubble(reply, "I couldn't make it shorter while keeping it correct, so I left your code as " +
+                "is — it's already pretty tight!");
+        }
+    }
+
+    /// <summary>Restores the editor to the text stashed before the last refactor.</summary>
+    void RevertStash(TMP_Text reply)
+    {
+        if (codeEditor != null && codeEditor.input != null)
+        {
+            codeEditor.input.SetTextWithoutNotify(_stashedCode);
+            codeEditor.RefreshLineNumbers();
+            codeEditor.RefreshHighlight();
+        }
+        _stashedCode = null;
+        UpdateBubble(reply, "Done — I put your original version back.");
     }
 
     /// <summary>Dry-runs compiled source against a fresh copy of the live world. Returns true
