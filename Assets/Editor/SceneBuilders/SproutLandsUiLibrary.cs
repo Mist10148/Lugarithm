@@ -21,8 +21,10 @@ public static class SproutLandsUiLibrary
     public static Sprite BigPlayAction   => Get("UI Big Play Button.png", "BigPlay_1_0");
     public static Sprite BigPlayActionDark => Get("UI Big Play Button.png", "BigPlay_1_1");
 
+    public static Sprite MainMenuBackground => Get("MainMenuCoastBackground.png");
+    public static Sprite MenuIconButton => Get("MenuIconButtonSoft.png");
+
     public static Sprite SquareButton    => Get("Square Buttons 26x26.png", "Square26_0_0");
-    public static Sprite SquareButtonWarm => Get("Square Buttons 26x26.png", "Square26_0_1");
 
     public static Sprite SmallSquareButton => Get("Small Square Buttons.png", "SmallSquare_0_0");
 
@@ -31,6 +33,8 @@ public static class SproutLandsUiLibrary
     public static Sprite MenuIconSettings => GetCustomIcon("SettingsGear.png");
     public static Sprite MenuIconBook     => GetCustomIcon("JournalBook.png");
     public static Sprite MenuIconQuit      => GetCustomIcon("QuitExit.png");
+    public static Sprite MenuIconJeep      => GetCustomIcon("JeepMenuIcon.png");
+    public static Sprite MenuIconRoute     => GetCustomIcon("RouteMenuIcon.png");
 
     static Sprite Get(string fileName, string spriteName)
     {
@@ -76,6 +80,12 @@ public static class SproutLandsUiLibrary
         var singleSprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
         if (singleSprite != null)
             return singleSprite;
+
+        var sprite = AssetDatabase.LoadAllAssetRepresentationsAtPath(path)
+                                  .OfType<Sprite>()
+                                  .FirstOrDefault();
+        if (sprite != null)
+            return sprite;
 
         throw new Exception($"Unable to load custom icon sprite asset '{path}'. Make sure the fallback icons were imported.");
     }

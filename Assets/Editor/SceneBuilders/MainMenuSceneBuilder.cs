@@ -3,12 +3,15 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Builds MainMenu.unity with a Sprout Lands hero layout:
-/// title, one dominant New Game action, and secondary action tiles below.
+/// Builds MainMenu.unity with a scenic coastal background and a right-aligned
+/// title/menu composition.
 /// </summary>
 public static class MainMenuSceneBuilder
 {
-    static readonly Color MenuInk   = new Color(0.32f, 0.23f, 0.15f, 1f);
+    static readonly Color ButtonFill = new Color(0.34f, 0.27f, 0.48f, 0.78f);
+    static readonly Color ButtonFillDisabled = new Color(0.28f, 0.24f, 0.30f, 0.68f);
+    static readonly Color ButtonStroke = new Color(0.95f, 0.91f, 1f, 0.88f);
+    static readonly Color ButtonText = new Color(0.98f, 0.96f, 1f, 1f);
 
     public static void Build()
     {
@@ -20,29 +23,18 @@ public static class MainMenuSceneBuilder
 
         var canvas = UIFactory.CreateCanvas("MenuCanvas");
 
-        // Background
-        UIFactory.CreatePanel(canvas.transform, "Background",
-                              Vector2.zero, Vector2.one, new Color(0.04f, 0.05f, 0.08f, 1f));
-        var backgroundImage = canvas.transform.Find("Background")?.GetComponent<Image>();
+        var background = UIFactory.CreatePanel(canvas.transform, "Background",
+                                               Vector2.zero, Vector2.one, Color.white);
+        var backgroundImage = background.GetComponent<Image>();
         if (backgroundImage != null)
+        {
+            backgroundImage.sprite = SproutLandsUiLibrary.MainMenuBackground;
+            backgroundImage.type = Image.Type.Simple;
+            backgroundImage.preserveAspect = false;
             backgroundImage.raycastTarget = false;
-        var horizon = UIFactory.CreatePanel(canvas.transform, "HorizonGlow",
-                                            new Vector2(0f, 0.52f), new Vector2(1f, 0.86f),
-                                            new Color(1f, 1f, 1f, 0.03f));
-        horizon.offsetMin = new Vector2(0f, -220f);
-        horizon.offsetMax = new Vector2(0f, 180f);
-        var horizonImage = horizon.GetComponent<Image>();
-        if (horizonImage != null)
-            horizonImage.raycastTarget = false;
+        }
 
-        var stripe = UIFactory.CreatePanel(canvas.transform, "RoadStripe",
-                                           new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
-                                           new Color(1f, 1f, 1f, 0.025f));
-        stripe.offsetMin = new Vector2(0f, -250f);
-        stripe.offsetMax = new Vector2(0f, 250f);
-        var stripeImage = stripe.GetComponent<Image>();
-        if (stripeImage != null)
-            stripeImage.raycastTarget = false;
+        AddReadabilityWash(canvas.transform);
 
         Button newGame = null;
         Button cont = null;
@@ -54,98 +46,43 @@ public static class MainMenuSceneBuilder
         UIFactory.FontOverride = SproutLandsMenuFont.EnsureFontAsset();
         try
         {
-            // Title block
             var titleShadow = UIFactory.CreateText(canvas.transform, "TitleShadow",
-                                                   "LUGARITHM", 104f, new Color(0f, 0f, 0f, 0.45f));
-            UIFactory.Place(titleShadow, new Vector2(0.5f, 1f), new Vector2(2f, -128f), new Vector2(1440f, 96f));
+                                                   "LUGARITHM", 88f,
+                                                   new Color(0.05f, 0.03f, 0.08f, 0.82f),
+                                                   TextAlignmentOptions.Right);
+            UIFactory.Place(titleShadow, new Vector2(1f, 1f), new Vector2(-68f, -70f), new Vector2(760f, 92f));
 
-            var title = UIFactory.CreateText(canvas.transform, "Title", "LUGARITHM", 104f, UIFactory.Accent);
-            UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -132f), new Vector2(1440f, 96f));
+            var title = UIFactory.CreateText(canvas.transform, "Title", "LUGARITHM",
+                                             88f, UIFactory.Accent, TextAlignmentOptions.Right);
+            UIFactory.Place(title, new Vector2(1f, 1f), new Vector2(-72f, -74f), new Vector2(760f, 92f));
 
             var subtitle = UIFactory.CreateText(canvas.transform, "Subtitle",
                                                 "Drive the coast. Recover the pages. Learn the history.",
-                                                20f, UIFactory.TextDim);
-            UIFactory.Place(subtitle, new Vector2(0.5f, 1f), new Vector2(0f, -238f), new Vector2(1360f, 30f));
+                                                18f, new Color(0.96f, 0.91f, 0.84f, 1f),
+                                                TextAlignmentOptions.Right);
+            subtitle.textWrappingMode = TextWrappingModes.NoWrap;
+            UIFactory.Place(subtitle, new Vector2(1f, 1f), new Vector2(-78f, -158f), new Vector2(760f, 30f));
 
-            // Hero card
-            var heroShadow = UIFactory.CreatePanel(canvas.transform, "HeroShadow",
-                                                   new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                                                   new Color(0f, 0f, 0f, 0.22f));
-            UIFactory.Place(heroShadow, new Vector2(0.5f, 0.5f), new Vector2(0f, -28f), new Vector2(960f, 650f));
-            var heroShadowImage = heroShadow.GetComponent<Image>();
-            if (heroShadowImage != null)
-                heroShadowImage.raycastTarget = false;
+            var menuStack = UIFactory.CreateRect(canvas.transform, "MenuStack",
+                                                 new Vector2(1f, 0f), new Vector2(1f, 0f));
+            menuStack.pivot = new Vector2(1f, 0f);
+            menuStack.anchoredPosition = new Vector2(-72f, 108f);
+            menuStack.sizeDelta = new Vector2(326f, 354f);
 
-            var heroCard = UIFactory.CreateRect(canvas.transform, "HeroCard",
-                                                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-            UIFactory.Place(heroCard, new Vector2(0.5f, 0.5f), new Vector2(0f, -34f), new Vector2(920f, 610f));
-            var heroCardImage = heroCard.gameObject.AddComponent<Image>();
-            heroCardImage.sprite = SproutLandsUiLibrary.MenuCardBlank;
-            heroCardImage.type = Image.Type.Simple;
-            heroCardImage.color = new Color(1f, 1f, 1f, 0.98f);
-            heroCardImage.raycastTarget = false;
+            newGame = CreateMenuRowButton(menuStack, "NewGameButton", "JEEP JOURNEY",
+                                          SproutLandsUiLibrary.MenuIconJeep, 0f, false);
+            cont = CreateMenuRowButton(menuStack, "ContinueButton", "CONTINUE",
+                                       SproutLandsUiLibrary.MenuIconRoute, -68f, true);
+            journal = CreateMenuRowButton(menuStack, "JournalButton", "JOURNAL",
+                                          SproutLandsUiLibrary.MenuIconBook, -136f, false);
+            settings = CreateMenuRowButton(menuStack, "SettingsButton", "SETTINGS",
+                                           SproutLandsUiLibrary.MenuIconSettings, -204f, false);
+            quit = CreateMenuRowButton(menuStack, "QuitButton", "EXIT",
+                                       SproutLandsUiLibrary.MenuIconQuit, -272f, false);
 
-            var heroContent = UIFactory.CreateRect(heroCard, "Content",
-                                                   Vector2.zero, Vector2.one,
-                                                   new Vector2(44f, 36f), new Vector2(-44f, -36f));
-
-            var sectionTitle = UIFactory.CreateText(heroContent, "SectionTitle", "START YOUR RUN",
-                                                    22f, MenuInk, TextAlignmentOptions.Center);
-            UIFactory.Place(sectionTitle, new Vector2(0.5f, 1f), new Vector2(0f, -62f), new Vector2(340f, 28f));
-
-            var sectionTag = UIFactory.CreateText(heroContent, "SectionTag",
-                                                  "A bright start, then the coast awaits.",
-                                                  15f, UIFactory.TextDim, TextAlignmentOptions.Center);
-            UIFactory.Place(sectionTag, new Vector2(0.5f, 1f), new Vector2(0f, -92f), new Vector2(460f, 22f));
-
-            newGame = UIFactory.CreateArtButton(heroContent, "NewGameButton", "NEW GAME",
-                                                new Vector2(392f, 128f),
-                                                SproutLandsUiLibrary.BigPlayBlank,
-                                                28f, MenuInk);
-            newGame.image.preserveAspect = true;
-            UIFactory.Place(newGame, new Vector2(0.5f, 1f), new Vector2(0f, -140f), new Vector2(392f, 128f));
-
-            cont = UIFactory.CreateArtButton(heroContent, "ContinueButton", "CONTINUE",
-                                             new Vector2(304f, 96f),
-                                             SproutLandsUiLibrary.BigPlayDark,
-                                             24f, MenuInk);
-            cont.image.preserveAspect = true;
-            UIFactory.Place(cont, new Vector2(0.5f, 1f), new Vector2(0f, -294f), new Vector2(304f, 96f));
-
-            var secondaryRow = UIFactory.CreateRect(heroContent, "SecondaryRow",
-                                                    new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-            UIFactory.Place(secondaryRow, new Vector2(0.5f, 0f), new Vector2(0f, 4f), new Vector2(560f, 126f));
-
-            var settingsRoot = UIFactory.CreateRect(secondaryRow, "SettingsOption",
-                                                    new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-            UIFactory.Place(settingsRoot, new Vector2(0.5f, 0f), new Vector2(-158f, 0f), new Vector2(136f, 118f));
-            settings = UIFactory.CreateIconCaptionTile(settingsRoot, "SettingsButton", "Settings",
-                                                        new Vector2(132f, 56f),
-                                                        SproutLandsUiLibrary.BigPlayBlank,
-                                                        SproutLandsUiLibrary.MenuIconSettings,
-                                                        28f, 14f, MenuInk);
-
-            var journalRoot = UIFactory.CreateRect(secondaryRow, "JournalOption",
-                                                   new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-            UIFactory.Place(journalRoot, new Vector2(0.5f, 0f), new Vector2(0f, 0f), new Vector2(136f, 118f));
-            journal = UIFactory.CreateIconCaptionTile(journalRoot, "JournalButton", "Journal",
-                                                      new Vector2(132f, 56f),
-                                                      SproutLandsUiLibrary.BigPlayBlank,
-                                                      SproutLandsUiLibrary.MenuIconBook,
-                                                      28f, 14f, MenuInk);
-
-            var quitRoot = UIFactory.CreateRect(secondaryRow, "QuitOption",
-                                                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-            UIFactory.Place(quitRoot, new Vector2(0.5f, 0f), new Vector2(158f, 0f), new Vector2(136f, 118f));
-            quit = UIFactory.CreateIconCaptionTile(quitRoot, "QuitButton", "Quit",
-                                                   new Vector2(132f, 56f),
-                                                   SproutLandsUiLibrary.BigPlayBlank,
-                                                   SproutLandsUiLibrary.MenuIconQuit,
-                                                   28f, 14f, MenuInk);
-
-            // Version tag
             var version = UIFactory.CreateText(canvas.transform, "Version",
-                                               "v0.1-dev  ·  Cyfer", 12f, UIFactory.TextDim,
+                                               "v0.1-dev  ·  Cyfer", 12f,
+                                               new Color(0.86f, 0.84f, 0.90f, 0.78f),
                                                TextAlignmentOptions.BottomLeft);
             UIFactory.Place(version, new Vector2(0f, 0f), new Vector2(24f, 16f), new Vector2(400f, 28f));
         }
@@ -154,16 +91,15 @@ public static class MainMenuSceneBuilder
             UIFactory.FontOverride = previousFontOverride;
         }
 
-        // Settings panel + manager
         SettingsPanel settingsPanel = SettingsPanelBuilder.Build(canvas.transform);
 
         var manager = canvas.gameObject.AddComponent<MainMenuManager>();
-        SceneBuilderUtil.Wire(manager, "newGameButton",  newGame);
+        SceneBuilderUtil.Wire(manager, "newGameButton", newGame);
         SceneBuilderUtil.Wire(manager, "continueButton", cont);
         SceneBuilderUtil.Wire(manager, "settingsButton", settings);
-        SceneBuilderUtil.Wire(manager, "journalButton",  journal);
-        SceneBuilderUtil.Wire(manager, "quitButton",     quit);
-        SceneBuilderUtil.Wire(manager, "settingsPanel",  settingsPanel);
+        SceneBuilderUtil.Wire(manager, "journalButton", journal);
+        SceneBuilderUtil.Wire(manager, "quitButton", quit);
+        SceneBuilderUtil.Wire(manager, "settingsPanel", settingsPanel);
         SceneBuilderUtil.Wire(manager, "levelSelectSceneName", "LevelSelect");
 
         UIFactory.AddPressFlash(newGame);
@@ -173,5 +109,100 @@ public static class MainMenuSceneBuilder
         UIFactory.AddPressFlash(quit);
 
         SceneBuilderUtil.SaveScene(scene, "MainMenu");
+    }
+
+    static void AddReadabilityWash(Transform canvas)
+    {
+        var fullWash = UIFactory.CreatePanel(canvas, "BackgroundWash",
+                                             Vector2.zero, Vector2.one,
+                                             new Color(0.02f, 0.015f, 0.04f, 0.16f));
+        SetNonInteractive(fullWash);
+
+        var rightWash = UIFactory.CreatePanel(canvas, "RightReadabilityWash",
+                                              new Vector2(0.54f, 0f), Vector2.one,
+                                              new Color(0.08f, 0.04f, 0.12f, 0.30f));
+        SetNonInteractive(rightWash);
+
+        var lowerWash = UIFactory.CreatePanel(canvas, "LowerReadabilityWash",
+                                              new Vector2(0f, 0f), new Vector2(1f, 0.46f),
+                                              new Color(0.02f, 0.015f, 0.04f, 0.20f));
+        SetNonInteractive(lowerWash);
+    }
+
+    static Button CreateMenuRowButton(RectTransform parent, string name, string label,
+                                      Sprite iconSprite, float y, bool disabledTint)
+    {
+        var row = UIFactory.CreateRect(parent, name, new Vector2(1f, 1f), new Vector2(1f, 1f));
+        row.pivot = new Vector2(1f, 1f);
+        row.anchoredPosition = new Vector2(0f, y);
+        row.sizeDelta = new Vector2(318f, 56f);
+
+        var image = row.gameObject.AddComponent<Image>();
+        image.color = disabledTint ? ButtonFillDisabled : ButtonFill;
+        image.raycastTarget = true;
+
+        var outline = row.gameObject.AddComponent<Outline>();
+        outline.effectColor = ButtonStroke;
+        outline.effectDistance = new Vector2(2f, -2f);
+        outline.useGraphicAlpha = true;
+
+        var button = row.gameObject.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.ColorTint;
+        var colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1.13f, 1.10f, 1.18f, 1f);
+        colors.pressedColor = new Color(0.82f, 0.78f, 0.90f, 1f);
+        colors.selectedColor = new Color(1.04f, 1.02f, 1.08f, 1f);
+        colors.disabledColor = new Color(0.70f, 0.68f, 0.74f, 0.68f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        var iconCell = UIFactory.CreatePanel(row, "IconCell",
+                                             new Vector2(0f, 0f), new Vector2(0f, 1f),
+                                             new Color(0.18f, 0.14f, 0.26f, 0.54f));
+        iconCell.pivot = new Vector2(0f, 0.5f);
+        iconCell.sizeDelta = new Vector2(62f, 0f);
+        SetNonInteractive(iconCell);
+
+        var divider = UIFactory.CreatePanel(row, "IconDivider",
+                                            new Vector2(0f, 0f), new Vector2(0f, 1f),
+                                            new Color(0.96f, 0.92f, 1f, 0.72f));
+        divider.pivot = new Vector2(0f, 0.5f);
+        divider.anchoredPosition = new Vector2(62f, 0f);
+        divider.sizeDelta = new Vector2(2f, 0f);
+        SetNonInteractive(divider);
+
+        var icon = UIFactory.CreateRect(row, "Icon",
+                                        new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+        icon.pivot = new Vector2(0.5f, 0.5f);
+        icon.anchoredPosition = new Vector2(31f, 0f);
+        icon.sizeDelta = new Vector2(30f, 30f);
+        var iconImage = icon.gameObject.AddComponent<Image>();
+        iconImage.sprite = iconSprite;
+        iconImage.type = Image.Type.Simple;
+        iconImage.color = ButtonText;
+        iconImage.preserveAspect = true;
+        iconImage.raycastTarget = false;
+
+        var text = UIFactory.CreateText(row, "Label", label, 24f, ButtonText,
+                                        TextAlignmentOptions.Left);
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        text.fontStyle = FontStyles.Bold;
+        text.rectTransform.anchorMin = new Vector2(0f, 0f);
+        text.rectTransform.anchorMax = new Vector2(1f, 1f);
+        text.rectTransform.offsetMin = new Vector2(82f, 4f);
+        text.rectTransform.offsetMax = new Vector2(-18f, -3f);
+
+        return button;
+    }
+
+    static void SetNonInteractive(RectTransform rect)
+    {
+        var image = rect.GetComponent<Image>();
+        if (image != null)
+            image.raycastTarget = false;
     }
 }
