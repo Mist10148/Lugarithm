@@ -468,6 +468,18 @@ public static class AutomationDriveSceneBuilder
         // Leave a strip at the bottom for the trash zone.
         ((RectTransform)scroll.transform).offsetMin = new Vector2(0f, 44f);
 
+        // Scratch-style canvas: blocks hug their content and stack flush-left so
+        // the stack reads as connected puzzle pieces rather than a full-width grid.
+        var contentLayout = content.GetComponent<VerticalLayoutGroup>();
+        if (contentLayout != null)
+        {
+            contentLayout.spacing              = 0f;
+            contentLayout.childForceExpandWidth = false;
+            contentLayout.childControlWidth     = true;
+            contentLayout.childAlignment        = TextAnchor.UpperLeft;
+            contentLayout.padding               = new RectOffset(10, 10, 10, 10);
+        }
+
         // Trash zone (drag a block here to delete it).
         var trash = UIFactory.CreatePanel(parent, "TrashZone",
                                           new Vector2(0f, 0f), new Vector2(1f, 0f),
@@ -497,45 +509,67 @@ public static class AutomationDriveSceneBuilder
 
     static BlockRowView BuildBlockRowTemplate(RectTransform parent)
     {
+        // Outer row = [indent spacer][colored card]. The card hugs its content so
+        // blocks render as left-aligned pills; the spacer shifts a nested block
+        // right, leaving room for its parent C-block's arm.
         var row = UIFactory.CreateRect(parent, "BlockRowTemplate",
-                                       new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-        row.sizeDelta = new Vector2(620f, 46f);
+                                       new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+        row.sizeDelta = new Vector2(420f, 46f);
         UIFactory.SetLayoutSize(row, -1f, 46f);
 
-        var bg = row.gameObject.AddComponent<Image>();
+        var rowLayout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+        rowLayout.spacing = 0f;
+        rowLayout.padding = new RectOffset(0, 0, 0, 0);
+        rowLayout.childAlignment = TextAnchor.MiddleLeft;
+        rowLayout.childControlWidth      = true;
+        rowLayout.childControlHeight     = true;
+        rowLayout.childForceExpandWidth  = false;
+        rowLayout.childForceExpandHeight = false;
+        // No ContentSizeFitter: the parent VerticalLayoutGroup (childControlWidth)
+        // sizes the row from this HorizontalLayoutGroup's reported preferred width.
+
+        // Indent spacer (transparent; width = depth * 24 set at runtime).
+        var spacer = UIFactory.CreateRect(row, "Indent", Vector2.zero, Vector2.zero);
+        var spacerLayout = spacer.gameObject.AddComponent<LayoutElement>();
+        spacerLayout.preferredWidth = 0f;
+        spacerLayout.flexibleWidth  = 0f;
+
+        // The card itself: rounded colored background hugging label + chips.
+        var card = UIFactory.CreateRect(row, "Card", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+        UIFactory.SetLayoutSize(card, -1f, 44f);
+        var bg = card.gameObject.AddComponent<Image>();
         bg.sprite = UIFactory.BuiltinSprite("UISprite.psd");
         bg.type   = Image.Type.Sliced;
         bg.color  = new Color(0.22f, 0.30f, 0.42f, 1f);
 
-        var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-        layout.spacing = 4f;
-        layout.padding = new RectOffset(6, 6, 4, 4);
-        layout.childAlignment = TextAnchor.MiddleLeft;
-        layout.childControlWidth = true;
-        layout.childControlHeight = true;
-        layout.childForceExpandWidth = false;
-        layout.childForceExpandHeight = false;
+        var cardLayout = card.gameObject.AddComponent<HorizontalLayoutGroup>();
+        cardLayout.spacing = 6f;
+        cardLayout.padding = new RectOffset(14, 12, 4, 4);
+        cardLayout.childAlignment = TextAnchor.MiddleLeft;
+        cardLayout.childControlWidth      = true;
+        cardLayout.childControlHeight     = true;
+        cardLayout.childForceExpandWidth  = false;
+        cardLayout.childForceExpandHeight = false;
+        // The row's HorizontalLayoutGroup sizes this card from this group's
+        // reported preferred width — so no ContentSizeFitter here either.
 
-        // Indent spacer
-        var spacer = UIFactory.CreateRect(row, "Indent", Vector2.zero, Vector2.zero);
-        var spacerLayout = spacer.gameObject.AddComponent<LayoutElement>();
-        spacerLayout.preferredWidth = 0f;
-
-        // Label (the keyword / action name)
-        var label = UIFactory.CreateText(row, "Label", "moveForward()", 20f,
+        // Label (the keyword / action name) — sizes to its text.
+        var label = UIFactory.CreateText(card, "Label", "moveForward()", 20f,
                                          UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        label.enableWordWrapping = false;
         var labelLayout = label.gameObject.AddComponent<LayoutElement>();
-        labelLayout.preferredWidth  = 150f;
-        labelLayout.flexibleWidth   = 1f;
+        labelLayout.preferredWidth  = -1f;   // let TMP drive the pill width
+        labelLayout.flexibleWidth   = 0f;
+        labelLayout.minWidth        = 70f;
         labelLayout.preferredHeight = 36f;
 
         // Condition chip (containers only) — click to cycle the query
-        Button cond = MakeRowButton(row, "CondButton", "frontIsClear()", 168f);
+        Button cond = MakeRowButton(card, "CondButton", "frontIsClear()", 168f);
         var condLabel = cond.GetComponentInChildren<TMP_Text>();
         cond.image.color = new Color(0.20f, 0.24f, 0.34f, 1f);
 
-        Button not = MakeRowButton(row, "NotButton", "not", 50f);
-        Button del = MakeRowButton(row, "DeleteButton", "✕", 36f);
+        Button not = MakeRowButton(card, "NotButton", "not", 50f);
+        Button del = MakeRowButton(card, "DeleteButton", "✕", 36f);
 
         var view = row.gameObject.AddComponent<BlockRowView>();
         SceneBuilderUtil.Wire(view, "background",      bg);
@@ -553,21 +587,44 @@ public static class AutomationDriveSceneBuilder
 
     static BlockDropSlot BuildSlotTemplate(RectTransform parent)
     {
+        // Slot = [indent spacer][guide bar]. The root height is the gap that opens
+        // while dragging; the bar is a thin centered guide line. Indented to its
+        // nesting level so the cursor's x picks the right C-block to snap into.
         var slot = UIFactory.CreateRect(parent, "SlotTemplate",
-                                        new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-        slot.sizeDelta = new Vector2(620f, 12f);
+                                        new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+        slot.sizeDelta = new Vector2(420f, 12f);
 
-        var layout = slot.gameObject.AddComponent<LayoutElement>();
-        layout.preferredHeight = 12f;
+        var slotLayout = slot.gameObject.AddComponent<HorizontalLayoutGroup>();
+        slotLayout.spacing = 0f;
+        slotLayout.padding = new RectOffset(0, 0, 0, 0);
+        slotLayout.childAlignment = TextAnchor.MiddleLeft;
+        slotLayout.childControlWidth      = true;
+        slotLayout.childControlHeight     = true;
+        slotLayout.childForceExpandWidth  = false;
+        slotLayout.childForceExpandHeight = false;
 
-        var bar = UIFactory.CreatePanel(slot, "Bar", new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
-                                        new Color(0.50f, 0.55f, 0.62f, 0.45f));
-        bar.offsetMin = new Vector2(6f, -3f);
-        bar.offsetMax = new Vector2(-6f, 3f);
-        bar.GetComponent<Image>().raycastTarget = false;
+        var sizer = slot.gameObject.AddComponent<LayoutElement>();
+        sizer.preferredHeight = 12f;
+
+        var spacer = UIFactory.CreateRect(slot, "Indent", Vector2.zero, Vector2.zero);
+        var spacerLayout = spacer.gameObject.AddComponent<LayoutElement>();
+        spacerLayout.preferredWidth = 0f;
+        spacerLayout.flexibleWidth  = 0f;
+
+        var barHolder = UIFactory.CreateRect(slot, "Bar", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+        var barHolderLe = barHolder.gameObject.AddComponent<LayoutElement>();
+        barHolderLe.preferredWidth  = 220f;
+        barHolderLe.preferredHeight = 8f;
+        var barImg = barHolder.gameObject.AddComponent<Image>();
+        barImg.sprite = UIFactory.BuiltinSprite("UISprite.psd");
+        barImg.type   = Image.Type.Sliced;
+        barImg.color  = new Color(0.55f, 0.60f, 0.68f, 0.40f);
+        barImg.raycastTarget = false;
 
         var view = slot.gameObject.AddComponent<BlockDropSlot>();
-        SceneBuilderUtil.Wire(view, "bar", bar.GetComponent<Image>());
+        SceneBuilderUtil.Wire(view, "bar",          barImg);
+        SceneBuilderUtil.Wire(view, "sizer",        sizer);
+        SceneBuilderUtil.Wire(view, "indentSpacer", spacerLayout);
 
         slot.gameObject.SetActive(false);
         return view;

@@ -8,8 +8,20 @@ using UnityEngine.UI;
 /// </summary>
 public static class DialogueOverlayBuilder
 {
-    public static DialogueController BuildDriveDialogue(Transform parent)
+    /// <summary>
+    /// Builds the drive dialogue overlay. <paramref name="boxSize"/> /
+    /// <paramref name="boxAnchoredPos"/> override the bottom-right dialogue card's
+    /// footprint so a scene can keep it clear of its own HUD (ManualDrive passes a
+    /// compact card that sits to the right of the bottom-center dashboard). When
+    /// null the default wide card is used (Automation / CodeDrive).
+    /// </summary>
+    public static DialogueController BuildDriveDialogue(Transform parent,
+                                                        Vector2? boxSize = null,
+                                                        Vector2? boxAnchoredPos = null)
     {
+        Vector2 dlgSize = boxSize ?? new Vector2(1160f, 196f);
+        Vector2 dlgPos  = boxAnchoredPos ?? new Vector2(-24f, 24f);
+
         // --- Reveal / cutscene panel (full screen, hidden) ----------------------
 
         var revealRoot = UIFactory.CreatePanel(parent, "RevealRoot",
@@ -71,7 +83,7 @@ public static class DialogueOverlayBuilder
         var root = UIFactory.CreatePanel(parent, "DialogueBar",
                                          new Vector2(1f, 0f), new Vector2(1f, 0f),
                                          new Color(0.06f, 0.07f, 0.10f, 0.92f));
-        UIFactory.Place(root, new Vector2(1f, 0f), new Vector2(-24f, 24f), new Vector2(1160f, 196f));
+        UIFactory.Place(root, new Vector2(1f, 0f), dlgPos, dlgSize);
 
         // Accent bar across the top edge of the box.
         var accentBar = UIFactory.CreatePanel(root, "AccentBar",
@@ -95,7 +107,8 @@ public static class DialogueOverlayBuilder
         // Speaker name (accent) to the right of the portrait, with an underline.
         var speakerLabel = UIFactory.CreateText(root, "SpeakerLabel", "", 24f, UIFactory.Accent,
                                                 TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(speakerLabel, new Vector2(0f, 1f), new Vector2(98f, -18f), new Vector2(700f, 34f));
+        UIFactory.Place(speakerLabel, new Vector2(0f, 1f), new Vector2(98f, -18f),
+                        new Vector2(Mathf.Min(700f, dlgSize.x - 120f), 34f));
         speakerLabel.fontStyle = FontStyles.Bold;
 
         var nameUnderline = UIFactory.CreatePanel(root, "NameUnderline",

@@ -70,7 +70,13 @@ public static class ManualDriveSceneBuilder
         ToastNotification toast = BuildToast(canvas);
         FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
-        DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(canvas.transform);
+        // Compact dialogue card pinned bottom-right so it clears the bottom-center
+        // dashboard (speedometer + fuel) and the right-side choice pills. The wide
+        // default card overlaps the dashboard in ManualDrive only.
+        DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(
+                                              canvas.transform,
+                                              boxSize: new Vector2(680f, 200f),
+                                              boxAnchoredPos: new Vector2(-24f, 24f));
         LegCompletionController legCompletion = LegCompletionOverlayBuilder.Build(canvas.transform);
 
         // Exit (top-right, under currency)

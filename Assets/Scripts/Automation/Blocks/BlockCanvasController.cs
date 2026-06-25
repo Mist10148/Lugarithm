@@ -155,7 +155,7 @@ public class BlockCanvasController : MonoBehaviour
     {
         for (int i = 0; i <= list.Count; i++)
         {
-            SpawnSlot(list, i);
+            SpawnSlot(list, i, indent);
 
             if (i == list.Count) break;
 
@@ -171,18 +171,56 @@ public class BlockCanvasController : MonoBehaviour
                     SpawnElseHeader(indent);
                     RenderList(node.ElseBody, indent + 1);
                 }
+
+                // Footer cap closes the C-block so its body reads as enclosed.
+                SpawnCap(indent, CategoryColor(node.Type));
             }
         }
     }
 
-    void SpawnSlot(List<BlockNode> list, int index)
+    void SpawnSlot(List<BlockNode> list, int index, int indent)
     {
         BlockDropSlot slot = Instantiate(slotTemplate, content);
         slot.gameObject.SetActive(true);
-        slot.Setup(list, index);
+        slot.Setup(list, index, indent);
         slot.SetVisible(false);
         _spawned.Add(slot.gameObject);
         _slots.Add(slot);
+    }
+
+    /// <summary>
+    /// A short colored stub under a container's body — the bottom arm of the
+    /// Scratch-style C-block. Built inline (no template) since it carries no data.
+    /// </summary>
+    void SpawnCap(int indent, Color color)
+    {
+        var go = new GameObject("BlockCap", typeof(RectTransform));
+        var rt = (RectTransform)go.transform;
+        rt.SetParent(content, false);
+
+        var hl = go.AddComponent<HorizontalLayoutGroup>();
+        hl.childAlignment        = TextAnchor.MiddleLeft;
+        hl.spacing               = 0f;
+        hl.childControlWidth      = true;
+        hl.childControlHeight     = true;
+        hl.childForceExpandWidth  = false;
+        hl.childForceExpandHeight = false;
+        go.AddComponent<LayoutElement>().preferredHeight = 14f;
+
+        var spacer = new GameObject("Indent", typeof(RectTransform));
+        spacer.transform.SetParent(rt, false);
+        spacer.AddComponent<LayoutElement>().preferredWidth = indent * 24f;
+
+        var capGo = new GameObject("Cap", typeof(RectTransform));
+        capGo.transform.SetParent(rt, false);
+        var img = capGo.AddComponent<Image>();
+        img.color = new Color(color.r, color.g, color.b, 0.92f);
+        img.raycastTarget = false;
+        var cle = capGo.AddComponent<LayoutElement>();
+        cle.preferredWidth  = 54f;
+        cle.preferredHeight = 12f;
+
+        _spawned.Add(go);
     }
 
     void SpawnRow(BlockNode node, int indent)
@@ -229,7 +267,9 @@ public class BlockCanvasController : MonoBehaviour
     {
         _dragNode    = node;
         _paletteType = null;
-        CreateGhost(BlockProgram.Label(node));
+        int carried = CountDescendants(node);
+        string label = BlockProgram.Label(node) + (carried > 0 ? $"  +{carried}" : "");
+        CreateGhost(label, CategoryColor(node.Type));
         ShowSlots(excludeSubtreeOf: node);
         UpdateDrag(e);
     }
@@ -238,9 +278,17 @@ public class BlockCanvasController : MonoBehaviour
     {
         _paletteType = type;
         _dragNode    = null;
-        CreateGhost(PaletteGhostLabel(type));
+        CreateGhost(PaletteGhostLabel(type), CategoryColor(type));
         ShowSlots(excludeSubtreeOf: null);
         UpdateDrag(e);
+    }
+
+    static int CountDescendants(BlockNode node)
+    {
+        int count = 0;
+        foreach (BlockNode child in node.Body)     count += 1 + CountDescendants(child);
+        foreach (BlockNode child in node.ElseBody) count += 1 + CountDescendants(child);
+        return count;
     }
 
     public void UpdateDrag(PointerEventData e)
@@ -310,7 +358,7 @@ public class BlockCanvasController : MonoBehaviour
                RectTransformUtility.RectangleContainsScreenPoint(trashZone, screenPos, null);
     }
 
-    void CreateGhost(string text)
+    void CreateGhost(string text, Color color)
     {
         DestroyGhost();
         if (dragLayer == null) return;
@@ -321,7 +369,7 @@ public class BlockCanvasController : MonoBehaviour
         rt.sizeDelta = new Vector2(210f, 42f);
 
         var img = go.AddComponent<Image>();
-        img.color = new Color(0.95f, 0.65f, 0.15f, 0.85f);
+        img.color = new Color(color.r, color.g, color.b, 0.88f);
 
         var labelGo = new GameObject("Text", typeof(RectTransform));
         var labelRt = (RectTransform)labelGo.transform;
