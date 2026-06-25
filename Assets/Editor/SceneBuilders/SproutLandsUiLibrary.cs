@@ -22,7 +22,9 @@ public static class SproutLandsUiLibrary
     public static Sprite BigPlayActionDark => Get("UI Big Play Button.png", "BigPlay_1_1");
 
     public static Sprite MainMenuBackground => Get("MainMenuCoastBackground.png");
-    public static Sprite MenuIconButton => Get("MenuIconButtonSoft.png");
+    public static Sprite MainMenuTitle => Get("LugarithmTitle.png");
+    public static Sprite MainMenuButton => Get("MainMenuButton.png");
+    public static Sprite MainMenuButtonDisabled => Get("MainMenuButtonDisabled.png");
 
     public static Sprite SquareButton    => Get("Square Buttons 26x26.png", "Square26_0_0");
 

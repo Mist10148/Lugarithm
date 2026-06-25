@@ -8,9 +8,6 @@ using UnityEngine.UI;
 /// </summary>
 public static class MainMenuSceneBuilder
 {
-    static readonly Color ButtonFill = new Color(0.34f, 0.27f, 0.48f, 0.78f);
-    static readonly Color ButtonFillDisabled = new Color(0.28f, 0.24f, 0.30f, 0.68f);
-    static readonly Color ButtonStroke = new Color(0.95f, 0.91f, 1f, 0.88f);
     static readonly Color ButtonText = new Color(0.98f, 0.96f, 1f, 1f);
 
     public static void Build()
@@ -46,39 +43,33 @@ public static class MainMenuSceneBuilder
         UIFactory.FontOverride = SproutLandsMenuFont.EnsureFontAsset();
         try
         {
-            var titleShadow = UIFactory.CreateText(canvas.transform, "TitleShadow",
-                                                   "LUGARITHM", 88f,
-                                                   new Color(0.05f, 0.03f, 0.08f, 0.82f),
-                                                   TextAlignmentOptions.Right);
-            UIFactory.Place(titleShadow, new Vector2(1f, 1f), new Vector2(-68f, -70f), new Vector2(760f, 92f));
-
-            var title = UIFactory.CreateText(canvas.transform, "Title", "LUGARITHM",
-                                             88f, UIFactory.Accent, TextAlignmentOptions.Right);
-            UIFactory.Place(title, new Vector2(1f, 1f), new Vector2(-72f, -74f), new Vector2(760f, 92f));
-
-            var subtitle = UIFactory.CreateText(canvas.transform, "Subtitle",
-                                                "Drive the coast. Recover the pages. Learn the history.",
-                                                18f, new Color(0.96f, 0.91f, 0.84f, 1f),
-                                                TextAlignmentOptions.Right);
-            subtitle.textWrappingMode = TextWrappingModes.NoWrap;
-            UIFactory.Place(subtitle, new Vector2(1f, 1f), new Vector2(-78f, -158f), new Vector2(760f, 30f));
+            var titleArt = UIFactory.CreateRect(canvas.transform, "TitleArt",
+                                                new Vector2(1f, 1f), new Vector2(1f, 1f));
+            titleArt.pivot = new Vector2(1f, 1f);
+            titleArt.anchoredPosition = new Vector2(-102f, -28f);
+            titleArt.sizeDelta = new Vector2(820f, 292f);
+            var titleImage = titleArt.gameObject.AddComponent<Image>();
+            titleImage.sprite = SproutLandsUiLibrary.MainMenuTitle;
+            titleImage.type = Image.Type.Simple;
+            titleImage.preserveAspect = true;
+            titleImage.raycastTarget = false;
 
             var menuStack = UIFactory.CreateRect(canvas.transform, "MenuStack",
                                                  new Vector2(1f, 0f), new Vector2(1f, 0f));
             menuStack.pivot = new Vector2(1f, 0f);
-            menuStack.anchoredPosition = new Vector2(-72f, 108f);
-            menuStack.sizeDelta = new Vector2(326f, 354f);
+            menuStack.anchoredPosition = new Vector2(-250f, 140f);
+            menuStack.sizeDelta = new Vector2(462f, 486f);
 
             newGame = CreateMenuRowButton(menuStack, "NewGameButton", "JEEP JOURNEY",
                                           SproutLandsUiLibrary.MenuIconJeep, 0f, false);
             cont = CreateMenuRowButton(menuStack, "ContinueButton", "CONTINUE",
-                                       SproutLandsUiLibrary.MenuIconRoute, -68f, true);
+                                       SproutLandsUiLibrary.MenuIconRoute, -92f, true);
             journal = CreateMenuRowButton(menuStack, "JournalButton", "JOURNAL",
-                                          SproutLandsUiLibrary.MenuIconBook, -136f, false);
+                                          SproutLandsUiLibrary.MenuIconBook, -184f, false);
             settings = CreateMenuRowButton(menuStack, "SettingsButton", "SETTINGS",
-                                           SproutLandsUiLibrary.MenuIconSettings, -204f, false);
+                                           SproutLandsUiLibrary.MenuIconSettings, -276f, false);
             quit = CreateMenuRowButton(menuStack, "QuitButton", "EXIT",
-                                       SproutLandsUiLibrary.MenuIconQuit, -272f, false);
+                                       SproutLandsUiLibrary.MenuIconQuit, -368f, false);
 
             var version = UIFactory.CreateText(canvas.transform, "Version",
                                                "v0.1-dev  ·  Cyfer", 12f,
@@ -135,16 +126,14 @@ public static class MainMenuSceneBuilder
         var row = UIFactory.CreateRect(parent, name, new Vector2(1f, 1f), new Vector2(1f, 1f));
         row.pivot = new Vector2(1f, 1f);
         row.anchoredPosition = new Vector2(0f, y);
-        row.sizeDelta = new Vector2(318f, 56f);
+        row.sizeDelta = new Vector2(450f, 76f);
 
         var image = row.gameObject.AddComponent<Image>();
-        image.color = disabledTint ? ButtonFillDisabled : ButtonFill;
+        image.sprite = disabledTint ? SproutLandsUiLibrary.MainMenuButtonDisabled : SproutLandsUiLibrary.MainMenuButton;
+        image.type = Image.Type.Simple;
+        image.preserveAspect = false;
+        image.color = Color.white;
         image.raycastTarget = true;
-
-        var outline = row.gameObject.AddComponent<Outline>();
-        outline.effectColor = ButtonStroke;
-        outline.effectDistance = new Vector2(2f, -2f);
-        outline.useGraphicAlpha = true;
 
         var button = row.gameObject.AddComponent<Button>();
         button.targetGraphic = image;
@@ -163,22 +152,22 @@ public static class MainMenuSceneBuilder
                                              new Vector2(0f, 0f), new Vector2(0f, 1f),
                                              new Color(0.18f, 0.14f, 0.26f, 0.54f));
         iconCell.pivot = new Vector2(0f, 0.5f);
-        iconCell.sizeDelta = new Vector2(62f, 0f);
+        iconCell.sizeDelta = new Vector2(78f, 0f);
         SetNonInteractive(iconCell);
 
         var divider = UIFactory.CreatePanel(row, "IconDivider",
                                             new Vector2(0f, 0f), new Vector2(0f, 1f),
                                             new Color(0.96f, 0.92f, 1f, 0.72f));
         divider.pivot = new Vector2(0f, 0.5f);
-        divider.anchoredPosition = new Vector2(62f, 0f);
+        divider.anchoredPosition = new Vector2(78f, 0f);
         divider.sizeDelta = new Vector2(2f, 0f);
         SetNonInteractive(divider);
 
         var icon = UIFactory.CreateRect(row, "Icon",
                                         new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
         icon.pivot = new Vector2(0.5f, 0.5f);
-        icon.anchoredPosition = new Vector2(31f, 0f);
-        icon.sizeDelta = new Vector2(30f, 30f);
+        icon.anchoredPosition = new Vector2(39f, 0f);
+        icon.sizeDelta = new Vector2(32f, 32f);
         var iconImage = icon.gameObject.AddComponent<Image>();
         iconImage.sprite = iconSprite;
         iconImage.type = Image.Type.Simple;
@@ -187,14 +176,14 @@ public static class MainMenuSceneBuilder
         iconImage.raycastTarget = false;
 
         var text = UIFactory.CreateText(row, "Label", label, 24f, ButtonText,
-                                        TextAlignmentOptions.Left);
+                                        TextAlignmentOptions.MidlineLeft);
         text.textWrappingMode = TextWrappingModes.NoWrap;
         text.overflowMode = TextOverflowModes.Ellipsis;
         text.fontStyle = FontStyles.Bold;
         text.rectTransform.anchorMin = new Vector2(0f, 0f);
         text.rectTransform.anchorMax = new Vector2(1f, 1f);
-        text.rectTransform.offsetMin = new Vector2(82f, 4f);
-        text.rectTransform.offsetMax = new Vector2(-18f, -3f);
+        text.rectTransform.offsetMin = new Vector2(106f, 8f);
+        text.rectTransform.offsetMax = new Vector2(-22f, -8f);
 
         return button;
     }
