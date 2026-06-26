@@ -99,6 +99,7 @@ public static class RouteVisualBuilder
                                         ManualLayoutResult delta, float roadHalfWidth)
     {
         if (ctx == null || delta == null) return;
+        if (ctx.Segments == null) ctx.Segments = new List<RoadSegment>();
 
         Sprite roadSprite = Resources.Load<Sprite>("Placeholders/road_tile");
         Transform roadRoot = parent.Find("Road");
@@ -119,16 +120,19 @@ public static class RouteVisualBuilder
         var zones = new List<StopZone>(ctx.Zones);
         foreach (TownNode node in delta.stops)
         {
-            if (ctx.ZoneByNode != null && ctx.ZoneByNode.ContainsKey(node.id))
+            if (ctx.ZoneByNode != null && ctx.ZoneByNode.TryGetValue(node.id, out StopZone existingZone))
             {
-                // Demote old destination to ordinary stop.
-                if (ctx.ZoneByNode[node.id] == ctx.DestinationZone)
-                    ctx.DestinationZone.IsDestination = false;
+                // The previous terminal has just gained a new outgoing road.
+                // Its original one-leg orientation may now point down that road,
+                // so recompute its roadside against the complete graph before
+                // passenger peeps are added by the drive controller.
+                bool remainsDestination = node.id == delta.dest.id;
+                RefreshProceduralStop(existingZone, node, remainsDestination, roadHalfWidth, ctx.Segments);
                 continue;
             }
 
             bool isDest = node.id == delta.dest.id;
-            StopZone zone = BuildProceduralStop(parent, node, zones.Count, isDest, roadHalfWidth, delta.segments);
+            StopZone zone = BuildProceduralStop(parent, node, zones.Count, isDest, roadHalfWidth, ctx.Segments);
             zones.Add(zone);
             if (ctx.ZoneByNode != null) ctx.ZoneByNode[node.id] = zone;
             if (isDest) ctx.DestinationZone = zone;
@@ -251,6 +255,50 @@ public static class RouteVisualBuilder
         labelGo.transform.rotation = Quaternion.identity;   // keep the name upright
 
         return zone;
+    }
+
+    /// <summary>
+    /// Reorients a procedural stop and refreshes the visuals that change when a
+    /// streamed terminal becomes an ordinary stop. Child signs and peeps use
+    /// local coordinates, so rotating the zone moves them together to the new
+    /// roadside without disturbing the stop trigger itself.
+    /// </summary>
+    static void RefreshProceduralStop(StopZone zone, TownNode node, bool isDest,
+                                      float roadHalfWidth, List<RoadSegment> segments)
+    {
+        if (zone == null || node == null) return;
+
+        Vector2 outward = RoadsideOutwardFromSegments(node.pos, segments, roadHalfWidth);
+        zone.transform.rotation = Quaternion.Euler(0f, 0f, Vector2.SignedAngle(Vector2.right, outward));
+        zone.StopName = node.name;
+        zone.IsDestination = isDest;
+
+        Transform sign = zone.transform.Find("Sign");
+        if (sign != null)
+        {
+            sign.localPosition = new Vector3(roadHalfWidth + 1.1f, 0f, 0f);
+            sign.rotation = Quaternion.identity;
+
+            SpriteRenderer signRenderer = sign.GetComponent<SpriteRenderer>();
+            if (signRenderer != null)
+            {
+                signRenderer.color = Color.white;
+                if (isDest)                                signRenderer.color = new Color(0.45f, 1f, 0.5f);
+                else if (node.kind == NodeKind.HeritageSite) signRenderer.color = new Color(1f, 0.85f, 0.4f);
+                else if (node.kind == NodeKind.NpcDrop)      signRenderer.color = new Color(0.6f, 0.8f, 1f);
+            }
+        }
+
+        Transform label = zone.transform.Find("StopLabel");
+        if (label != null)
+        {
+            TMPro.TextMeshPro text = label.GetComponent<TMPro.TextMeshPro>();
+            if (text != null)
+                text.text = isDest
+                    ? $"<color=#7CFC72>{node.name}</color>\n<color=#FFD700>TERMINAL</color>"
+                    : node.name;
+            label.rotation = Quaternion.identity;
+        }
     }
 
     /// <summary>
