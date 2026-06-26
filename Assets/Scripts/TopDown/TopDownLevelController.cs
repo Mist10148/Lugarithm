@@ -33,6 +33,9 @@ public class TopDownLevelController : MonoBehaviour
     [SerializeField] private TMP_Text promptLabel;
     [SerializeField] private Button exitButton;
 
+    [Header("Dialogue")]
+    [SerializeField] private DialogueController dialogue;
+
     [Header("Tile assets (wired by builder)")]
     [SerializeField] private Tile grassTile;
     [SerializeField] private Tile pathTile;
@@ -53,6 +56,7 @@ public class TopDownLevelController : MonoBehaviour
     private int _levelIndex;
     private InteractionTrigger _activeTrigger;
     private List<InteractionTrigger> _triggers = new List<InteractionTrigger>();
+    private bool _dialogueActive;
 
     // -------------------------------------------------------------------------
     // Lifecycle
@@ -207,7 +211,8 @@ public class TopDownLevelController : MonoBehaviour
 
         // Configure via SerializedObject-style workaround: set fields directly
         // (the builder wires them; but we also set defaults here for runtime spawns)
-        trigger.Init(EntityType.Npc, entity.displayName, "Press E to talk");
+        string label = string.IsNullOrEmpty(entity.displayName) ? "Talk" : entity.displayName;
+        trigger.Init(EntityType.Npc, label, $"Press E to talk to {label}", entity.npcId);
 
         trigger.OnInteracted += HandleInteraction;
         trigger.OnPlayerEntered += HandlePlayerEntered;
@@ -353,29 +358,54 @@ public class TopDownLevelController : MonoBehaviour
 
     void HandleNpcInteraction(InteractionTrigger trigger)
     {
-        // For now, show a placeholder dialogue. Later: wire into DialogueSystem.
-        Debug.Log($"[TopDownLevel] Talking to NPC: {trigger.PromptLabel}");
+        // Ignore re-presses while a conversation is already up.
+        if (_dialogueActive) return;
 
-        // Lock input during dialogue (placeholder — unlock after a short delay)
-        if (playerController != null)
+        DialogueConversation convo = TownNpcDialogueLibrary.Get(_levelIndex, trigger.NpcId);
+
+        // No conversation wired (or no dialogue overlay in the scene) → brief
+        // courtesy pause so the interaction still reads as "talking".
+        if (convo == null || dialogue == null)
         {
-            playerController.InputLocked = true;
-            // Auto-unlock after 1 second as placeholder
-            Invoke(nameof(UnlockInput), 1f);
+            if (playerController != null)
+            {
+                playerController.InputLocked = true;
+                Invoke(nameof(UnlockInput), 1f);
+            }
+            return;
         }
+
+        _dialogueActive = true;
+        if (playerController != null) playerController.InputLocked = true;
+        UpdatePrompt("");   // hide the "Press E" prompt under the dialogue bar
+
+        dialogue.Play(convo, () =>
+        {
+            _dialogueActive = false;
+            if (playerController != null) playerController.InputLocked = false;
+        });
     }
 
     void HandleJeepStopInteraction(InteractionTrigger trigger)
     {
-        // Future: launch the jeep minigame scene and return here after.
-        Debug.Log($"[TopDownLevel] Boarding jeep at: {trigger.PromptLabel}");
+        // Don't board mid-conversation.
+        if (_dialogueActive) return;
 
-        // Placeholder: show a message
-        if (playerController != null)
+        // Locked levels have no jeepney route yet — boarding would just run the
+        // tutorial fallback, so gate it behind a "coming soon" prompt instead.
+        LevelDefinition def = LevelLibrary.Get(_levelIndex);
+        if (def == null || !def.hasContent)
         {
-            playerController.InputLocked = true;
-            Invoke(nameof(UnlockInput), 1f);
+            UpdatePrompt("This route isn't open yet — coming soon!");
+            return;
         }
+
+        // Board the jeepney: launch the drive in the player's chosen mode. The
+        // selected level index is already set, so the drive scene runs this level.
+        bool manual = SaveSystem.Current != null && SaveSystem.Current.settings != null
+            ? SaveSystem.Current.settings.manualMode
+            : true;
+        LoadScene(manual ? "ManualDrive" : "AutomationDrive");
     }
 
     void HandleExitInteraction(InteractionTrigger trigger)
@@ -446,11 +476,6 @@ public class TopDownLevelController : MonoBehaviour
     /// <summary>Returns the overworld map data for the given level index.</summary>
     static OverworldMapData GetMapData(int levelIndex)
     {
-        // For now, only the tutorial has a map. Future levels add cases here
-        // or pull from a ScriptableObject registry.
-        switch (levelIndex)
-        {
-            default: return OverworldMapLibrary.TutorialMap();
-        }
+        return OverworldMapLibrary.ForLevel(levelIndex);
     }
 }

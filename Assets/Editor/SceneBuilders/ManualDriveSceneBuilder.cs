@@ -110,6 +110,7 @@ public static class ManualDriveSceneBuilder
         var controller = controllerGo.AddComponent<ManualDriveController>();
         var passengerMgr = controllerGo.AddComponent<PassengerManager>();
         controllerGo.AddComponent<BreakdownController>();
+        controllerGo.AddComponent<ProgressionGateController>();
 
         // Dulog highlighting (color-coded markers + edge-of-screen arrows).
         var edgeParent = UIFactory.CreateRect(canvas.transform, "DulogEdgeLayer",

@@ -61,6 +61,7 @@ public class ManualDriveController : MonoBehaviour
     DriveScoreTracker _tracker;
     PassengerManager  _passengers;
     BreakdownController _breakdown;
+    ProgressionGateController _progression;
     StreamingTown     _streaming;
     int               _maxChunks;        // int.MaxValue = endless streaming for free-roam
     int               _chunksAppended;
@@ -71,6 +72,7 @@ public class ManualDriveController : MonoBehaviour
     bool  _revealPlayed;    // the heritage reveal plays once, on delivery (not after the gate)
     bool  _tutorialComplete; // tutorial is dialogue-driven: ending the story completes the leg
     bool  _conversationDone; // story passenger's chat finished — a completion gate (with arrival)
+    bool  _destinationFinalized; // chat ended → capped streaming so a real drop-off terminal exists
     bool  _arrivedNudged;    // showed the "finish your chat" nudge once on early arrival
     string _storyPassengerName = "Your passenger";
 
@@ -148,6 +150,13 @@ public class ManualDriveController : MonoBehaviour
             _breakdown.Init(jeepney, engineRepairMinigame, refuelMinigame, mazeRepairMinigame,
                             toast, _tracker,
                             _ctx.TotalLength, _def.manual.breakdownAtRouteFraction);
+
+        // Progression mini-game (town gate) now pops mid-drive at a random point,
+        // not after arrival. Only levels with a town puzzle arm it.
+        _progression = GetComponent<ProgressionGateController>();
+        if (_progression != null)
+            _progression.Init(_def.townPuzzle, flowPuzzle, cratePuzzle, jeepney, toast, _tracker,
+                              _ctx.TotalLength);
 
         _startTime = Time.time;
 
@@ -286,6 +295,10 @@ public class ManualDriveController : MonoBehaviour
             // is delivering the passenger (ArrivedAtDestination), checked in Update().
             _conversationDone = true;
 
+            // Now the chat's over, lock in a concrete drop-off terminal so the
+            // endless procedural stream stops receding and the leg can actually end.
+            FinalizeStoryDestination();
+
             // The tutorial is a guided story with no destination to drive to, so
             // finishing the dialogue IS finishing the leg.
             if (_tutorialComplete && !_storyComplete)
@@ -397,6 +410,11 @@ public class ManualDriveController : MonoBehaviour
         if (_breakdown != null)
             _breakdown.Tick(along);
 
+        // Hold the progression gate while a breakdown is mid-sequence so the two
+        // overlays never stack; it stays armed and fires once the road's clear.
+        if (_progression != null && (_breakdown == null || !_breakdown.InProgress))
+            _progression.Tick(along);
+
         // Leg ends when the player presses "Finish leg" after the destination
         // has been serviced and every fare is settled.
         bool drawerBusy = coinDrawer != null && coinDrawer.Busy;
@@ -462,6 +480,32 @@ public class ManualDriveController : MonoBehaviour
     }
 
     /// <summary>
+    /// Called once the front-seat character's chat ends. In a procedural town the
+    /// trunk streams forever (so free-roam never hits an edge), which meant the
+    /// destination kept receding and the leg could never complete. Capping the
+    /// chunk count makes the current frontier terminal the real, final drop-off —
+    /// after a short buffer chunk so it isn't dropped right on top of the jeepney.
+    /// Authored routes already have a fixed terminal, so this only matters for
+    /// procedural levels.
+    /// </summary>
+    void FinalizeStoryDestination()
+    {
+        if (_destinationFinalized) return;
+        _destinationFinalized = true;
+
+        if (_proceduralActive)
+        {
+            // Allow at most one more chunk (the buffer); after that AppendChunk
+            // early-returns and stops calling ResetDestinationArrival(), so the
+            // frontier terminal's IsDestination lets ArrivedAtDestination latch.
+            _maxChunks = _chunksAppended + 1;
+        }
+
+        if (toast != null && _ctx != null && _ctx.DestinationZone != null)
+            toast.Show($"“Para!”  Drop {_storyPassengerName} at {_ctx.DestinationZone.StopName}");
+    }
+
+    /// <summary>
     /// The story spine just ended (player delivered to the terminal). Play the
     /// heritage reveal inline, then hand control back for optional free-roam —
     /// the latched "Finish leg" button lets them wrap up whenever they want.
@@ -513,24 +557,11 @@ public class ManualDriveController : MonoBehaviour
         _finished = true;
         jeepney.InputLocked = true;
         if (legCompletion != null) legCompletion.Hide();
-        _legElapsed = Time.time - _startTime;   // freeze drive time before the gate
+        _legElapsed = Time.time - _startTime;   // freeze drive time
 
-        // The town gate (non-code Mini-Game 2) must be solved before results.
-        bool shown = ShowTownGate(2000 + _levelIndex, result =>
-        {
-            _tracker.AddSatisfaction(result.Score);   // fold the gate score into the leg
-            PlayRevealThenResults();
-        });
-
-        if (shown)
-        {
-            if (toast != null)
-                toast.Show($"Arrived at {_def.displayName} — clear the gate to finish the leg.");
-        }
-        else
-        {
-            PlayRevealThenResults();
-        }
+        // The progression gate now pops mid-drive (ProgressionGateController), so
+        // arrival leads straight to the reveal + results.
+        PlayRevealThenResults();
     }
 
     void PlayRevealThenResults()
@@ -553,12 +584,6 @@ public class ManualDriveController : MonoBehaviour
 
         JournalPageDefinition page = JournalPageLibrary.Pages[convo.journalPageId];
         dialogue.PlayReveal(convo, page, ShowResults);
-    }
-
-    /// <summary>Runs BOTH town-gate puzzles (random order) before finishing the leg.</summary>
-    bool ShowTownGate(int seed, System.Action<MinigameResult> onDone)
-    {
-        return TownGateRunner.RunBoth(flowPuzzle, cratePuzzle, seed, onDone);
     }
 
     void ShowResults()

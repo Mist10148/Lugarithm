@@ -40,6 +40,11 @@ public class MapEntity
     public int gridY;
     public string displayName;
 
+    /// <summary>For NPC entities: the conversation id resolved against
+    /// <see cref="TownNpcDialogueLibrary"/>. Assigned by the map author in
+    /// row-major spawn order (see <see cref="OverworldMapLibrary"/>).</summary>
+    public string npcId;
+
     /// <summary>World-space position derived from grid coords.</summary>
     public Vector2 WorldPosition(float cellSize)
     {
@@ -168,34 +173,167 @@ public class OverworldMapData
 public static class OverworldMapLibrary
 {
     /// <summary>
-    /// Tutorial overworld map — a small town with paths, buildings, an NPC,
-    /// a jeep stop, and an exit gate. The player starts near the bottom.
+    /// Returns the authored overworld map for a level index. All content levels
+    /// have a walk-around town with 1–4 NPCs, a jeep stop (boards the drive), and
+    /// an exit. Unknown indices fall back to the tutorial map.
     ///
     /// Legend:
     ///   G = grass,  P = path,  W = wall,  ~ = water
     ///   S = player start, N = NPC, J = jeep stop, E = exit
+    /// NPC tiles are tagged with their conversation id + name in row-major spawn
+    /// order (top-to-bottom, left-to-right) via <see cref="Build"/>.
     /// </summary>
+    public static OverworldMapData ForLevel(int levelIndex)
+    {
+        switch (levelIndex)
+        {
+            case 1:  return MoloMap();
+            case 2:  return OtonMap();
+            case 3:  return TigbauanMap();
+            case 4:  return MiagaoMap();
+            case 5:  return SanJoaquinMap();
+            default: return TutorialMap();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+
     public static OverworldMapData TutorialMap()
     {
-        return OverworldMapData.Parse(new[]
+        return Build(new[]
         {
-            "GGGGGGGGGGGGGGGGGGGG",
-            "GWGGGPGGGGGGGGGGWGGG",
-            "GWGPGGGGGGGGGGPGWGGG",
-            "GWPGGGGGGGGGGGGPGWGG",
-            "GPPPPPPPGGPPPPPPPPPG",
-            "GGGGGPGGGGGGGGPGGGGG",
-            "GGGGPPPPPPPPPPPEGGGG",
-            "GGGGGPGGGGGGGGPGGGGG",
-            "GGGPGGGGGGGGGGGPGGGG",
-            "GGGPGGGGNGGGGGGPGGGG",
-            "GGPPPPPPPPPPPPPPPGGG",
-            "GGGGPGGGGPGGGGGGGGGG",
-            "GGGGPGGGGPGGGGJGGGGG",
-            "GGGGPPPPPPPPPGGGGGGG",
-            "GGGGGPGGGGGGPGGGGGGG",
-            "GGSSSSPPPPPPPGGGGGGG",
-            "GGGGGGGGGGGGGGGGGGGG",
-        });
+            "GGGGGGGGGGGGGGGG",
+            "GWWGGGGGGGGGWWGG",
+            "GGNGPPPPPPPGNGGG",
+            "GGGGGGGPGGGGGGGG",
+            "GPPPPPPPPPPPPPPG",
+            "GGGGGGGEGGGGGGGG",
+            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGNGGGGGGGG",
+            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGJGGGGGGGG",
+            "GGGGGGGSGGGGGGGG",
+        },
+            ("il_vendor",  "Manang Rosa"),
+            ("il_student", "Toto"),
+            ("il_tindera", "Aling Bising"));
+    }
+
+    static OverworldMapData MoloMap()
+    {
+        return Build(new[]
+        {
+            "GGGGGGGGGGGGGGGG",
+            "GWWWGGGGGGGWWWGG",
+            "GGNGGGGEGGGGNGGG",
+            "GGGGGGGPGGGGGGGG",
+            "GPPPPPPPPPPPPPPG",
+            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGNGGGGGGGG",
+            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGJGGGGGGGG",
+            "GGGGGGGGGGGGGGGG",
+            "GGGGGGGSGGGGGGGG",
+        },
+            ("molo_cook",      "Manang Pacing"),
+            ("molo_sacristan", "Mang Ambo"),
+            ("molo_kid",       "Inday"));
+    }
+
+    static OverworldMapData OtonMap()
+    {
+        return Build(new[]
+        {
+            "GGGGGGGGGGGGGGGG",
+            "G~~~~~~~~~~~~~~GG",
+            "GGNGGGGGGGGNGGGG",
+            "GGGGGGGGGGGGGGGG",
+            "GGGGGGGEGGGGGGGG",
+            "GPPPPPPPPPPPPPGG",
+            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGJGGGGGGGG",
+            "GGGGGGGGGGGGGGGG",
+            "GGGGGGGSGGGGGGGG",
+        },
+            ("oton_fisher", "Mang Dado"),
+            ("oton_guide",  "Ate Let"));
+    }
+
+    static OverworldMapData TigbauanMap()
+    {
+        return Build(new[]
+        {
+            "GGGGGGGGGGGGGGGG",
+            "GWWWGGGGGGGGGGGG",
+            "GGNGGGGEGGGGGGGG",
+            "GGGGGGGPGGGGGGGG",
+            "GPPPPPPPPPPPPGGG",
+            "GGGGGGGGGNGGGGGG",
+            "GGGGGGGGGPGGGGGG",
+            "GGGGGGGGGJGGGGGG",
+            "GGGGGGGGGGGGGGGG",
+            "GGGGGGGSGGGGGGGG",
+        },
+            ("tig_weaver",  "Nanay Pilar"),
+            ("tig_teacher", "Mr. Tan"));
+    }
+
+    static OverworldMapData MiagaoMap()
+    {
+        return Build(new[]
+        {
+            "GGGGGGGGGGGGGGGG",
+            "GGGGGWWWWWGGGGGG",
+            "GGNGGGGEGGGGNGGG",
+            "GGGGGGGPGGGGGGGG",
+            "GPPPPPPPPPPPPPGG",
+            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGJGGGGGGGG",
+            "GGGGGGGGGGGGGGGG",
+            "GGGGGGGSGGGGGGGG",
+        },
+            ("miag_guide",  "Kuya Boy"),
+            ("miag_weaver", "Lola Ines"));
+    }
+
+    static OverworldMapData SanJoaquinMap()
+    {
+        return Build(new[]
+        {
+            "GGGGGGGGGGGGGGGG",
+            "GGNGGGGEGGGGNGGG",
+            "GGGGGGGPGGGGGGGG",
+            "GPPPPPPPPPPPPPGG",
+            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGJGGGGGGGG",
+            "GGGGGGGSGGGGGGGG",
+            "G~~~~~~~~~~~~~~GG",
+            "G~~~~~~~~~~~~~~GG",
+        },
+            ("sj_keeper", "Manong Edring"),
+            ("sj_fisher", "Aling Cora"));
+    }
+
+    // -------------------------------------------------------------------------
+
+    /// <summary>Parses a map and tags its NPC entities (in row-major spawn order)
+    /// with the given conversation id + display name pairs.</summary>
+    static OverworldMapData Build(string[] rows, params (string id, string name)[] npcs)
+    {
+        OverworldMapData data = OverworldMapData.Parse(rows);
+        int i = 0;
+        foreach (MapEntity e in data.entities)
+        {
+            if (e.type != EntityType.Npc) continue;
+            if (i < npcs.Length)
+            {
+                e.npcId = npcs[i].id;
+                e.displayName = npcs[i].name;
+            }
+            i++;
+        }
+        return data;
     }
 }

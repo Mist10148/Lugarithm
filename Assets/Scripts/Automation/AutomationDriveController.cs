@@ -680,6 +680,10 @@ public class AutomationDriveController : MonoBehaviour
     float _autoFuel = 1f;
     bool  _autoBreakdownActive;
 
+    // Progression gate (town puzzle) now pops mid-run, not after the win.
+    bool  _progressionGateActive;
+    bool  _progressionGateDone;
+
     void AutoFuelTick()
     {
         if (_autoBreakdownActive) return;
@@ -713,6 +717,45 @@ public class AutomationDriveController : MonoBehaviour
         _autoBreakdownActive = false;
     }
 
+    // Mid-run progression gate: at a random step during execution, the level's
+    // town puzzle pops and must be solved before the run continues — same "during
+    // gameplay" feel as a breakdown, but mandatory. BeginResults() is the fallback
+    // if a short run never triggered it.
+    void MaybeTriggerProgressionGate()
+    {
+        if (_progressionGateDone || _progressionGateActive || _autoBreakdownActive) return;
+        if (_level == null || _level.townPuzzle == TownPuzzleKind.None) return;
+        if (UnityEngine.Random.value < 0.02f)
+            StartCoroutine(ProgressionGateRoutine());
+    }
+
+    IEnumerator ProgressionGateRoutine()
+    {
+        _progressionGateActive = true;
+        if (exec != null) exec.SetPaused(true);
+
+        bool done = false;
+        bool shown = ShowSingleTownGate(3000 + _levelIndex, result =>
+        {
+            _townPuzzleBonus += result != null ? result.Score : 0;
+            _progressionGateDone = true;
+            done = true;
+        });
+
+        if (!shown)
+        {
+            if (exec != null) exec.SetPaused(false);
+            _progressionGateActive = false;
+            yield break;
+        }
+
+        if (console != null) console.Info("a town task popped up — clear it to keep driving.");
+        yield return new WaitUntil(() => done);
+
+        if (exec != null) exec.SetPaused(false);
+        _progressionGateActive = false;
+    }
+
     void HandleStepDone(AgentActionResult result, StepResult step)
     {
         _lastExecutedLine = step.Node != null ? step.Node.Line : 0;
@@ -740,6 +783,7 @@ public class AutomationDriveController : MonoBehaviour
             codeEditor.SetHeat(exec.LineHits);
 
         AutoFuelTick();
+        MaybeTriggerProgressionGate();
     }
 
     void HandleHotLine(int line)
@@ -865,17 +909,27 @@ public class AutomationDriveController : MonoBehaviour
     // -------------------------------------------------------------------------
     // Results
 
-    /// <summary>Runs the required non-code town gate (if any) before results.</summary>
+    /// <summary>The town gate now pops mid-run; this is the fallback for a short run
+    /// that never triggered it, keeping the gate mandatory before results.</summary>
     void BeginResults()
     {
-        bool shown = ShowTownGate(2000 + _levelIndex, result =>
+        if (!_progressionGateDone && _level.townPuzzle != TownPuzzleKind.None)
         {
-            _townPuzzleBonus = result.Score;
-            PlayRevealThenResults();
-        });
+            bool shown = ShowSingleTownGate(2000 + _levelIndex, result =>
+            {
+                _townPuzzleBonus += result != null ? result.Score : 0;
+                _progressionGateDone = true;
+                PlayRevealThenResults();
+            });
 
-        if (!shown) PlayRevealThenResults();
-        else if (console != null) console.Info("puzzle solved — now clear the town gate to finish the leg.");
+            if (shown)
+            {
+                if (console != null) console.Info("clear the town gate to finish the leg.");
+                return;
+            }
+        }
+
+        PlayRevealThenResults();
     }
 
     /// <summary>Plays the heritage reveal once, on reaching the goal, then invokes onDone.</summary>
@@ -916,10 +970,21 @@ public class AutomationDriveController : MonoBehaviour
         dialogue.PlayReveal(convo, page, ShowResults);
     }
 
-    /// <summary>Shows the level's required non-code town puzzle. False when there is none.</summary>
-    bool ShowTownGate(int seed, System.Action<MinigameResult> onDone)
+    /// <summary>Shows the level's single town puzzle (matching its TownPuzzleKind).
+    /// False when the level has none or its panel isn't wired.</summary>
+    bool ShowSingleTownGate(int seed, System.Action<MinigameResult> onDone)
     {
-        return TownGateRunner.RunBoth(flowPuzzle, cratePuzzle, seed, onDone);
+        if (_level.townPuzzle == TownPuzzleKind.FlowConnect && flowPuzzle != null)
+        {
+            flowPuzzle.Show(seed, onDone);
+            return true;
+        }
+        if (_level.townPuzzle == TownPuzzleKind.CrateStack && cratePuzzle != null)
+        {
+            cratePuzzle.Show(seed, onDone);
+            return true;
+        }
+        return false;
     }
 
     void ShowResults()

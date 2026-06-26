@@ -214,6 +214,7 @@ public static class LevelLibrary
             hasContent  = true,
             fares       = new FareTable(),
             townPuzzle  = TownPuzzleKind.FlowConnect,   // Molo: non-intersecting transit links
+            overworldSceneName = "TopDownLevel",        // walk Molo + talk to NPCs, then board
 
             manual = manual,
 
@@ -301,6 +302,7 @@ public static class LevelLibrary
             hasContent  = true,
             fares       = new FareTable(),
             townPuzzle  = TownPuzzleKind.CrateStack,
+            overworldSceneName = "TopDownLevel",        // walk Oton + talk to NPCs, then board
             auto        = maze,
 
             manual = new ManualRouteDefinition

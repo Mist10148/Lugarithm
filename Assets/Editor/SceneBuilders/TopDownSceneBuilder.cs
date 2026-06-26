@@ -132,6 +132,14 @@ public static class TopDownSceneBuilder
                                                     new Vector2(120f, 44f));
         UIFactory.Place(exitButton, new Vector2(1f, 1f), new Vector2(-18f, -18f), new Vector2(120f, 44f));
 
+        // Branching dialogue overlay for talking to town NPCs (reuses the same
+        // controller as the drive scenes). Compact card pinned bottom-right so it
+        // clears the bottom-center interaction prompt.
+        DialogueController dialogue = DialogueOverlayBuilder.BuildDriveDialogue(
+                                          canvas.transform,
+                                          boxSize: new Vector2(680f, 200f),
+                                          boxAnchoredPos: new Vector2(-24f, 80f));
+
         // --- Orchestrator -----------------------------------------------------------
 
         var controllerGo = new GameObject("LevelController");
@@ -145,6 +153,7 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(controller, "levelNameLabel", levelName);
         SceneBuilderUtil.Wire(controller, "promptLabel",   promptText);
         SceneBuilderUtil.Wire(controller, "exitButton",    exitButton);
+        SceneBuilderUtil.Wire(controller, "dialogue",      dialogue);
         SceneBuilderUtil.Wire(controller, "grassTile",     tGrass);
         SceneBuilderUtil.Wire(controller, "pathTile",      tPath);
         SceneBuilderUtil.Wire(controller, "wallTile",      tWall);
