@@ -110,6 +110,87 @@ public static class BlockProgram
         return program;
     }
 
+    // -------------------------------------------------------------------------
+    // Reverse compilation: AST → block tree (so the AI agent / refactor can build
+    // and rewrite the canvas, not just the text editor). Only the block-expressible
+    // subset round-trips; anything else (elif chains, for/def/assign/break/continue,
+    // counted calls, non-query conditions) sets <paramref name="fullyRepresentable"/>
+    // false so the caller can fall back to the code editor instead of dropping detail.
+
+    public static List<BlockNode> FromAst(ProgramNode program, out bool fullyRepresentable)
+    {
+        fullyRepresentable = true;
+        var roots = new List<BlockNode>();
+        if (program != null)
+            DecompileList(program.Statements, roots, ref fullyRepresentable);
+        return roots;
+    }
+
+    static void DecompileList(List<StmtNode> source, List<BlockNode> target, ref bool ok)
+    {
+        foreach (StmtNode stmt in source)
+        {
+            switch (stmt)
+            {
+                case CallStmt call:
+                {
+                    BlockType? type = FromPaletteName(call.Name);
+                    bool isAction = type.HasValue && !new BlockNode(type.Value).IsContainer;
+                    if (!isAction || (call.Args != null && call.Args.Count > 0))
+                    {
+                        ok = false;   // unknown command, or a counted call blocks can't show
+                        break;
+                    }
+                    target.Add(new BlockNode(type.Value));
+                    break;
+                }
+
+                case WhileStmt loop:
+                {
+                    var node = new BlockNode(BlockType.While);
+                    if (!ApplyCondition(loop.Condition, node)) ok = false;
+                    DecompileList(loop.Body, node.Body, ref ok);
+                    target.Add(node);
+                    break;
+                }
+
+                case IfStmt branch:
+                {
+                    if (branch.Elifs != null && branch.Elifs.Count > 0) ok = false; // no elif blocks
+                    bool hasElse = branch.ElseBody != null;
+                    var node = new BlockNode(hasElse ? BlockType.IfElse : BlockType.If);
+                    if (!ApplyCondition(branch.Condition, node)) ok = false;
+                    DecompileList(branch.Body, node.Body, ref ok);
+                    if (hasElse) DecompileList(branch.ElseBody, node.ElseBody, ref ok);
+                    target.Add(node);
+                    break;
+                }
+
+                default:
+                    ok = false;   // for / def / assign / break / continue / return
+                    break;
+            }
+        }
+    }
+
+    /// <summary>Maps an AST condition onto a block's query + negate. Blocks only model a
+    /// single (optionally negated) zero-arg query call.</summary>
+    static bool ApplyCondition(ExprNode condition, BlockNode node)
+    {
+        if (condition is UnaryExpr unary && unary.Op == TokenType.KeywordNot)
+        {
+            node.Negate = true;
+            condition = unary.Operand;
+        }
+
+        if (condition is CallExpr call && (call.Args == null || call.Args.Count == 0))
+        {
+            node.Query = call.Name;
+            return true;
+        }
+        return false;   // compound / valued condition — keep the default query, signal partial
+    }
+
     static void CompileList(List<BlockNode> source, List<StmtNode> target,
                             List<LangError> errors, List<BlockNode> offenders)
     {

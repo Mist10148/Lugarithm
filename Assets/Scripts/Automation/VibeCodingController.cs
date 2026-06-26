@@ -19,6 +19,7 @@ public class VibeCodingController : MonoBehaviour
     [SerializeField] TMP_InputField      chatInput;
     [SerializeField] Button              sendButton;
     [SerializeField] CodeEditorController codeEditor;
+    [SerializeField] BlockCanvasController blockCanvas;   // block-mode target (optional)
 
     [Header("Transcript")]
     [SerializeField] RectTransform chatContent;     // bubble container (preferred)
@@ -49,7 +50,8 @@ public class VibeCodingController : MonoBehaviour
     string[] _allowedQueries;
     readonly List<GameObject> _rows = new List<GameObject>();
     VibeMode _mode = VibeMode.Auto;
-    string   _stashedCode;   // the editor text before the last refactor, for a one-tap "undo"
+    string   _stashedCode;   // the program text before the last refactor, for a one-tap "undo"
+    bool     _blockMode;     // set per request: are we editing blocks (vs text) this turn?
 
     // Live world context (references, so we always read the current state).
     GridModel                  _grid;
@@ -85,11 +87,13 @@ public class VibeCodingController : MonoBehaviour
 
     /// <summary>Constrains generated code to the level's vocabulary and (re)binds the
     /// editor. Optional — the chat already works from the serialized wiring.</summary>
-    public void Init(string[] allowedBlocks, string[] allowedQueries, CodeEditorController editor)
+    public void Init(string[] allowedBlocks, string[] allowedQueries, CodeEditorController editor,
+                     BlockCanvasController blocks = null)
     {
         _allowedBlocks  = allowedBlocks;
         _allowedQueries = allowedQueries;
         if (editor != null) codeEditor = editor;
+        if (blocks != null) blockCanvas = blocks;
         Wire();
     }
 
@@ -156,13 +160,25 @@ public class VibeCodingController : MonoBehaviour
         AddBubble(message, player: true);
         TMP_Text reply = AddBubble("…", player: false);
 
-        bool blockMode = SaveSystem.Current != null && SaveSystem.Current.settings != null &&
-                         SaveSystem.Current.settings.blockMode;
-        string editorText = codeEditor != null && codeEditor.input != null ? codeEditor.input.text : "";
-        string world = VibeCodingService.BuildWorldContext(_grid, _sim, _def, blockMode, editorText,
+        _blockMode = SaveSystem.Current != null && SaveSystem.Current.settings != null &&
+                     SaveSystem.Current.settings.blockMode;
+
+        // In block mode the player's program lives on the canvas, not the code editor — read
+        // it as source so the AI sees (and can rewrite) the actual blocks.
+        string currentSource = _blockMode && blockCanvas != null
+            ? blockCanvas.ToSourceText()
+            : (codeEditor != null && codeEditor.input != null ? codeEditor.input.text : "");
+
+        string world = VibeCodingService.BuildWorldContext(_grid, _sim, _def, _blockMode, currentSource,
                                                            _allowedBlocks, _allowedQueries);
 
-        // A one-tap "undo" after a refactor restores the player's original code (no AI call).
+        // Hand the agent the same problem read-out the hint system gets — what the current
+        // program actually does and where it falls short — so it reasons like an IDE copilot.
+        string diagnosis = BuildDiagnosis(currentSource);
+        if (!string.IsNullOrEmpty(diagnosis))
+            world += "\nCURRENT PROGRAM DIAGNOSIS:\n" + diagnosis;
+
+        // A one-tap "undo" after a refactor restores the player's original program (no AI call).
         if (_stashedCode != null && VibeIntentRouter.IsUndo(message))
         {
             RevertStash(reply);
@@ -171,13 +187,13 @@ public class VibeCodingController : MonoBehaviour
         {
             // In Auto, classify the message; an explicit mode button overrides the router.
             VibeMode effective = _mode == VibeMode.Auto
-                ? VibeIntentRouter.Classify(message, !string.IsNullOrWhiteSpace(editorText))
+                ? VibeIntentRouter.Classify(message, !string.IsNullOrWhiteSpace(currentSource))
                 : _mode;
 
             switch (effective)
             {
                 case VibeMode.Agent:    yield return RunAgent(message, world, reply); break;
-                case VibeMode.Refactor: yield return RunRefactor(world, reply, editorText); break;
+                case VibeMode.Refactor: yield return RunRefactor(world, reply, currentSource); break;
                 default:                yield return RunTextMode(effective, message, world, reply); break;
             }
         }
@@ -248,19 +264,62 @@ public class VibeCodingController : MonoBehaviour
                 "the program ran but didn't solve it — " + goalGap);
         }
 
-        if (code != null && codeEditor != null && codeEditor.input != null)
+        if (code != null)
         {
-            codeEditor.input.SetTextWithoutNotify(code);
-            codeEditor.RefreshLineNumbers();
-            codeEditor.RefreshHighlight();
-            UpdateBubble(reply, (lastMessage ?? "Here's a program for you.").Trim() +
-                "\n✓ Placed in your editor. Press Code to review it, then RUN when you're ready.");
+            bool toBlocks = ApplyProgram(code);
+            string note = toBlocks
+                ? "✓ Built it on your block canvas — press RUN when you're ready."
+                : _blockMode
+                    ? "✓ This solution uses code this level can't show as blocks, so I put it in the code editor — switch to Code to use it."
+                    : "✓ Placed in your editor. Press Code to review it, then RUN when you're ready.";
+            UpdateBubble(reply, (lastMessage ?? "Here's a program for you.").Trim() + "\n" + note);
         }
         else
         {
             UpdateBubble(reply, "I couldn't make a program that fits this level's rules, so I left your code " +
                 "unchanged. Try asking in Plan mode for the approach.");
         }
+    }
+
+    /// <summary>Drops a verified program onto the player's active surface: the block canvas in
+    /// block mode (when the program is block-expressible), else the code editor. Returns true
+    /// when it landed as blocks.</summary>
+    bool ApplyProgram(string code)
+    {
+        if (_blockMode && blockCanvas != null)
+        {
+            ProgramNode program = Parser.Compile(code, out List<LangError> errors);
+            if ((errors == null || errors.Count == 0) && program != null && blockCanvas.LoadProgram(program))
+                return true;
+        }
+
+        if (codeEditor != null && codeEditor.input != null)
+        {
+            codeEditor.input.SetTextWithoutNotify(code);
+            codeEditor.RefreshLineNumbers();
+            codeEditor.RefreshHighlight();
+        }
+        return false;
+    }
+
+    /// <summary>Reads the current program (block source in block mode, editor text otherwise),
+    /// dry-runs it, and returns a one-line read-out of what it does + where it falls short.</summary>
+    string BuildDiagnosis(string source)
+    {
+        if (_grid == null || _sim == null || _def == null) return null;
+        if (string.IsNullOrWhiteSpace(source)) return "the program is empty so far.";
+
+        ProgramNode program = Parser.Compile(source, out List<LangError> errors);
+        if (errors != null && errors.Count > 0)
+            return "it doesn't compile yet — " + errors[0].Message;
+
+        HeadlessProgramRunner.VerifyReport(program, _sim.CloneFresh(), _def, out RunReport report);
+        string outcome = report != null && !string.IsNullOrEmpty(report.GoalGap)
+            ? report.GoalGap
+            : "it reaches the goal";
+        DiagnosticsResult diag = CodeDiagnostics.Analyze(source, report, _allowedBlocks);
+        string patterns = diag != null && !string.IsNullOrEmpty(diag.Summary) ? diag.Summary : "None.";
+        return $"outcome: {outcome}; patterns: {patterns}";
     }
 
     /// <summary>Refactor: take the player's already-working code and offer a shorter version that
@@ -339,16 +398,15 @@ public class VibeCodingController : MonoBehaviour
             request = VibeCodingService.BuildRefactorRepairRequest(editorText, world, reason);
         }
 
-        if (code != null && codeEditor != null && codeEditor.input != null)
+        if (code != null)
         {
-            _stashedCode = editorText;   // enable a one-tap revert
+            _stashedCode = editorText;   // enable a one-tap revert (block source or editor text)
             int saved = playerStatements - CodeAnalyticsService.Measure(code).Statements;
-            codeEditor.input.SetTextWithoutNotify(code);
-            codeEditor.RefreshLineNumbers();
-            codeEditor.RefreshHighlight();
-            string note = saved > 0 ? $"Made it {saved} line(s) shorter with a loop. " : "Tightened it up with a loop. ";
+            bool toBlocks = ApplyProgram(code);
+            string where = toBlocks ? "Your blocks are rebuilt" : "Press Code to review";
+            string note = saved > 0 ? $"Made it {saved} step(s) shorter with a loop. " : "Tightened it up with a loop. ";
             UpdateBubble(reply, (lastMessage ?? "").Trim() + (lastMessage != null ? "\n" : "") + note +
-                "Press Code to review — say \"undo\" to put your version back, then RUN when ready.");
+                where + " — say \"undo\" to put your version back, then RUN when ready.");
         }
         else
         {
@@ -357,15 +415,11 @@ public class VibeCodingController : MonoBehaviour
         }
     }
 
-    /// <summary>Restores the editor to the text stashed before the last refactor.</summary>
+    /// <summary>Restores the active surface (blocks or editor) to the program stashed before
+    /// the last refactor.</summary>
     void RevertStash(TMP_Text reply)
     {
-        if (codeEditor != null && codeEditor.input != null)
-        {
-            codeEditor.input.SetTextWithoutNotify(_stashedCode);
-            codeEditor.RefreshLineNumbers();
-            codeEditor.RefreshHighlight();
-        }
+        if (_stashedCode != null) ApplyProgram(_stashedCode);
         _stashedCode = null;
         UpdateBubble(reply, "Done — I put your original version back.");
     }

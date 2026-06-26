@@ -135,6 +135,23 @@ public class BlockCanvasController : MonoBehaviour
         Rebuild();
     }
 
+    /// <summary>Rebuilds the whole canvas from an AST (the AI agent / refactor uses this to
+    /// place a generated program as blocks). Returns false — leaving the canvas untouched —
+    /// when the program isn't fully block-expressible, so the caller can fall back to the
+    /// code editor rather than show a lossy half-program.</summary>
+    public bool LoadProgram(ProgramNode program)
+    {
+        if (program == null) return false;
+
+        List<BlockNode> roots = BlockProgram.FromAst(program, out bool fullyRepresentable);
+        if (!fullyRepresentable) return false;
+
+        _roots.Clear();
+        _roots.AddRange(roots);
+        Rebuild();
+        return true;
+    }
+
     // -------------------------------------------------------------------------
     // Rendering
 

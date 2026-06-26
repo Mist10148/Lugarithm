@@ -51,8 +51,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Manang Rosa scoops a cone. \"What do you want to know about the city?\"")),
                     choices: new[]
                     {
-                        Choice("Why's the food such a big deal here?", "T1", once: true),
-                        Choice("What's this old street?", "T2", once: true),
+                        Choice("Why's the food such a big deal here?", "T1", once: true, discoversFactKey: "iloilo-molo:6"),
+                        Choice("What's this old street?", "T2", once: true, discoversFactKey: "iloilo-molo:3"),
                         Choice("Maybe later, manang.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -76,8 +76,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Toto bounces on his heels. \"Ask me anything!\"")),
                     choices: new[]
                     {
-                        Choice("What's so special about jeepneys?", "T1", once: true),
-                        Choice("What's the big festival here?", "T2", once: true),
+                        Choice("What's so special about jeepneys?", "T1", once: true, discoversFactKey: "iloilo-molo:7"),
+                        Choice("What's the big festival here?", "T2", once: true, discoversFactKey: "iloilo-molo:5"),
                         Choice("Catch you later.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -101,8 +101,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Aling Bising tidies her little shop.")),
                     choices: new[]
                     {
-                        Choice("People say we sound like we're flirting.", "T1", once: true),
-                        Choice("Business good on Calle Real?", "T2", once: true),
+                        Choice("People say we sound like we're flirting.", "T1", once: true, discoversFactKey: "iloilo-molo:8"),
+                        Choice("Business good on Calle Real?", "T2", once: true, discoversFactKey: "iloilo-molo:4"),
                         Choice("I'll let you work.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -137,8 +137,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Manang Pacing stirs a big steaming pot.")),
                     choices: new[]
                     {
-                        Choice("Is pancit Molo really from here?", "T1", once: true),
-                        Choice("These old houses are beautiful.", "T2", once: true),
+                        Choice("Is pancit Molo really from here?", "T1", once: true, discoversFactKey: "iloilo-molo:9"),
+                        Choice("These old houses are beautiful.", "T2", once: true, discoversFactKey: "iloilo-molo:10"),
                         Choice("Smells amazing — but I'd better go.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -162,8 +162,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Mang Ambo nods toward Molo Church.")),
                     choices: new[]
                     {
-                        Choice("What's special about the church?", "T1", once: true),
-                        Choice("Why coral stone?", "T2", once: true),
+                        Choice("What's special about the church?", "T1", once: true, discoversFactKey: "iloilo-molo:0"),
+                        Choice("Why coral stone?", "T2", once: true, discoversFactKey: "iloilo-molo:1"),
                         Choice("Beautiful. I'll be on my way.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -187,7 +187,7 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Inday grins, hands behind her back.")),
                     choices: new[]
                     {
-                        Choice("What do you do around the plaza?", "T1", once: true),
+                        Choice("What do you do around the plaza?", "T1", once: true, discoversFactKey: "iloilo-molo:5"),
                         Choice("Bye for now.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -219,8 +219,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Mang Dado coils a wet rope.")),
                     choices: new[]
                     {
-                        Choice("This town feels old.", "T1", once: true),
-                        Choice("Were there really shipyards here?", "T2", once: true),
+                        Choice("This town feels old.", "T1", once: true, discoversFactKey: "oton:2"),
+                        Choice("Were there really shipyards here?", "T2", once: true, discoversFactKey: "oton:4"),
                         Choice("Fair winds. I'll go.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -244,8 +244,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Ate Let gestures down the road toward San Antonio.")),
                     choices: new[]
                     {
-                        Choice("Gold? What do you mean?", "T1", once: true),
-                        Choice("What's the river like?", "T2", once: true),
+                        Choice("Gold? What do you mean?", "T1", once: true, discoversFactKey: "oton:0"),
+                        Choice("What's the river like?", "T2", once: true, discoversFactKey: "oton:5"),
                         Choice("Thanks — heading off.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -280,8 +280,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Nanay Pilar's hands move even at rest.")),
                     choices: new[]
                     {
-                        Choice("What is hablon?", "T1", once: true),
-                        Choice("How do you keep the patterns straight?", "T2", once: true),
+                        Choice("What is hablon?", "T1", once: true, discoversFactKey: "tigbauan:1"),
+                        Choice("How do you keep the patterns straight?", "T2", once: true, discoversFactKey: "tigbauan:1"),
                         Choice("Lovely. I'll go.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -305,8 +305,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Mr. Tan adjusts his glasses, pleased to have a listener.")),
                     choices: new[]
                     {
-                        Choice("Tell me about the church.", "T1", once: true),
-                        Choice("Anything famous happen here?", "T2", once: true),
+                        Choice("Tell me about the church.", "T1", once: true, discoversFactKey: "tigbauan:3"),
+                        Choice("Anything famous happen here?", "T2", once: true, discoversFactKey: "tigbauan:0"),
                         Choice("Thank you, sir.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -341,8 +341,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Kuya Boy points up the hill at the great facade.")),
                     choices: new[]
                     {
-                        Choice("What makes the church so famous?", "T1", once: true),
-                        Choice("What's carved on the front?", "T2", once: true),
+                        Choice("What makes the church so famous?", "T1", once: true, discoversFactKey: "miag-ao:1"),
+                        Choice("What's carved on the front?", "T2", once: true, discoversFactKey: "miag-ao:2"),
                         Choice("Salamat — heading up.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -366,7 +366,7 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Lola Ines threads a shuttle without looking down.")),
                     choices: new[]
                     {
-                        Choice("You weave here too?", "T1", once: true),
+                        Choice("You weave here too?", "T1", once: true, discoversFactKey: "miag-ao:4"),
                         Choice("Bye, lola.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -398,8 +398,8 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Manong Edring leans on a worn stone wall.")),
                     choices: new[]
                     {
-                        Choice("What's the church known for?", "T1", once: true),
-                        Choice("Tell me about the Campo Santo.", "T2", once: true),
+                        Choice("What's the church known for?", "T1", once: true, discoversFactKey: "san-joaquin:0"),
+                        Choice("Tell me about the Campo Santo.", "T2", once: true, discoversFactKey: "san-joaquin:4"),
                         Choice("Thank you, manong.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -423,7 +423,7 @@ public static class TownNpcDialogueLibrary
                     Lines(Line(s, "Aling Cora spreads a net to dry in the breeze.")),
                     choices: new[]
                     {
-                        Choice("What's life like out here?", "T1", once: true),
+                        Choice("What's life like out here?", "T1", once: true, discoversFactKey: "san-joaquin:3"),
                         Choice("I'll let you work.", "BYE")
                     });
                 c.nodes["T1"] = Node("T1", DialogueNodeKind.Line,
@@ -458,7 +458,8 @@ public static class TownNpcDialogueLibrary
 
     static DialogueLine[] Lines(params DialogueLine[] lines) => lines;
 
-    static DialogueChoice Choice(string label, string target, bool once = false, string[] requires = null)
+    static DialogueChoice Choice(string label, string target, bool once = false,
+                                 string[] requires = null, string discoversFactKey = null)
         => new DialogueChoice
         {
             label = label,
@@ -467,7 +468,8 @@ public static class TownNpcDialogueLibrary
             requires = requires ?? Array.Empty<string>(),
             unlocksEvent = DialogueEventKind.None,
             tone = DialogueTone.Curious,
-            affinityDelta = 0
+            affinityDelta = 0,
+            discoversFactKey = discoversFactKey
         };
 
     static DialogueNode Node(string id, DialogueNodeKind kind, DialogueLine[] lines,

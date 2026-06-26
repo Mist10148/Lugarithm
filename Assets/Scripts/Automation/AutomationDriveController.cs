@@ -258,7 +258,7 @@ public class AutomationDriveController : MonoBehaviour
             // The chat still swaps/answers on its own wiring if this is skipped.
             if (vibeCtrl != null && codeEditor != null)
             {
-                vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
+                vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor, blockCanvas);
                 // Give the agent live access to the maze + jeepney so it can read state.
                 vibeCtrl.SetWorldContext(grid, sim, _def);
             }

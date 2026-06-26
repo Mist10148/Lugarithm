@@ -157,7 +157,7 @@ public class MazeRepairMinigame : MonoBehaviour
         // Give the in-editor AI agent the level vocabulary + live maze/jeepney state.
         if (vibeCtrl != null)
         {
-            vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
+            vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor, blockCanvas);
             vibeCtrl.SetWorldContext(grid, _sim, _def);
         }
         if (ghost != null) ghost.Bind(_def);

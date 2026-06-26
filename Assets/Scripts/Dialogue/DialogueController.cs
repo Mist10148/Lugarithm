@@ -504,9 +504,21 @@ public class DialogueController : MonoBehaviour
         if (_runtime == null) return;
         _choiceClickedThisFrame = true;
 
-        // Discussing a hub topic surfaces the next heritage fun-fact into the Almanac.
-        if (_conversation != null && _runtime.CurrentNodeId == _conversation.hubNode)
+        // Record what the player just learned into the Almanac. A choice that names a
+        // specific fact (town NPCs do this) jots down that exact entry; otherwise the
+        // main-passenger flow surfaces the next heritage fact in order at the hub.
+        if (!string.IsNullOrEmpty(choice.discoversFactKey))
+        {
+            if (SaveSystem.Current != null)
+            {
+                SaveSystem.Current.UnlockFact(choice.discoversFactKey);
+                SaveSystem.AutoSave();
+            }
+        }
+        else if (_conversation != null && _runtime.CurrentNodeId == _conversation.hubNode)
+        {
             DiscoverNextFact();
+        }
 
         _runtime.Choose(choice.target);
         RefreshView();

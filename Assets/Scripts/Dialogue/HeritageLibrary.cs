@@ -95,6 +95,41 @@ public static class HeritageLibrary
                             "In October 2023 Iloilo City became the Philippines' first UNESCO Creative City of Gastronomy, recognizing " +
                             "its living food culture.",
                         holdForReveal = false
+                    },
+                    new HeritageFact
+                    {
+                        headline = "Jeepney — the people's ride",
+                        detail =
+                            "The jeepney is a postwar Filipino reinvention: surplus U.S. military jeeps left after WWII were lengthened, " +
+                            "fitted with facing bench seats, and hand-decorated into shared public transport. Iloilo's routes have run on " +
+                            "them for generations — the Causing family's jeepney among them.",
+                        holdForReveal = false
+                    },
+                    new HeritageFact
+                    {
+                        headline = "The Ilonggo \"malambing\" lilt",
+                        detail =
+                            "Hiligaynon (Ilonggo) is famous for its soft, sing-song cadence — locals call it malambing, \"affectionate.\" " +
+                            "Visitors often swear everyone sounds like they're flirting; a fond \"palangga\" (darling) is never far away.",
+                        holdForReveal = false
+                    },
+                    new HeritageFact
+                    {
+                        headline = "Pancit Molo — the dish named for the district",
+                        detail =
+                            "Pancit Molo, the comforting pork-and-shrimp dumpling soup, takes its name from this very district. The twist: " +
+                            "though \"pancit\" means noodles, there are none in it — the wonton wrappers stand in for them. It's a Chinese-mestizo " +
+                            "adaptation born in Molo's trading kitchens.",
+                        holdForReveal = false
+                    },
+                    new HeritageFact
+                    {
+                        headline = "The Molo mansions",
+                        detail =
+                            "Molo was once its own town and a wealthy Chinese-mestizo district. The trading families built grand stone-and-wood " +
+                            "houses — the \"Molo mansions\" — around the plaza and church; several still stand and are photographed today as " +
+                            "wedding backdrops.",
+                        holdForReveal = false
                     }
                 },
                 driveSpend = "The women's church, Molo food pride, the old streets of Calle Real.",
@@ -161,6 +196,22 @@ public static class HeritageLibrary
                         detail =
                             "Every May, Oton holds the Katagman Festival; students wear costumes with eyes and noses covered in gold-colored paper " +
                             "to remember the burial site where the mask was found.",
+                        holdForReveal = false
+                    },
+                    new HeritageFact
+                    {
+                        headline = "Pandays — smiths of the sea",
+                        detail =
+                            "Oton's old shipyards bred pandays — smiths and shapers who beat iron and bent wood into sea-going boats back when " +
+                            "boats were how the world moved. The craft of working metal and timber by hand ran deep here long before engines arrived.",
+                        holdForReveal = false
+                    },
+                    new HeritageFact
+                    {
+                        headline = "The Batiano River",
+                        detail =
+                            "The Batiano River still threads through Oton as it has for centuries. Together with the Iloilo River it cradled the old " +
+                            "port of Katagman, and the town grew up around its water and tides.",
                         holdForReveal = false
                     }
                 },
