@@ -87,6 +87,12 @@ public static class RouteVisualBuilder
             if (isDest) ctx.DestinationZone = zone;
         }
 
+        // Dress the street: continuous heritage frontage + ambient folk beside the road.
+        var stopPositions = new List<Vector2>(layout.stops.Count);
+        foreach (TownNode n in layout.stops) stopPositions.Add(n.pos);
+        RoadsideDecorator.DecorateSegments(parent, layout.segments, layout.segments,
+                                           stopPositions, roadHalfWidth, seed: 0);
+
         return ctx;
     }
 
@@ -150,6 +156,15 @@ public static class RouteVisualBuilder
             ctx.Waypoints   = SanitizePolyline(delta.trunk);
             ctx.TotalLength = RouteMath.TotalLength(ctx.Waypoints);
         }
+
+        // Dress only this chunk's new trunk, but clear it against the whole graph so
+        // buildings never land on a road the streamed town has wound close by.
+        var stopPositions = new List<Vector2>();
+        if (ctx.ZoneByNode != null)
+            foreach (StopZone z in ctx.ZoneByNode.Values)
+                if (z != null) stopPositions.Add((Vector2)z.transform.position);
+        RoadsideDecorator.DecorateSegments(parent, delta.segments, ctx.Segments,
+                                           stopPositions, roadHalfWidth, seed: 0);
     }
 
     /// <summary>
@@ -351,7 +366,11 @@ public static class RouteVisualBuilder
         if (legs.Count == 0)
             legs.Add(nearestDir);
 
-        return RoadsideOutward(legs);
+        // The incident legs give a consistent "preferred" side; refine it against the
+        // whole graph so the sign/peeps never land on a non-incident road that the
+        // streamed town has wound close by.
+        Vector2 preferred = RoadsideOutward(legs);
+        return RouteMath.ClearestRoadside(pos, segments, roadHalfWidth, preferred);
     }
 
     /// <summary>
