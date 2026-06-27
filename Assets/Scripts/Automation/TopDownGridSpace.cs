@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public class TopDownGridSpace : IGridSpace, IStopView
 {
-    GridTransform _transform;
+    readonly GridTransform _transform;
     readonly RouteContext  _routeContext;
     readonly Transform     _worldRoot;
     readonly float         _roadHalfWidth;
@@ -33,58 +33,27 @@ public class TopDownGridSpace : IGridSpace, IStopView
         _routeContext = RouteVisualBuilder.BuildProcedural(
             worldRoot, ManualLayoutProjector.Project(layout), roadHalfWidth);
 
-        RefreshFromLayout(layout);
-    }
-
-    public void RefreshFromLayout(TownLayout layout, IReadOnlyList<GridRide> rides = null)
-    {
-        if (layout == null) return;
-
-        GridLayoutProjector.ToGridMap(layout, _transform.cellSize, out _transform, out _, out _);
-        _occupied.Clear();
-        _zonesByCell.Clear();
-        _peepColorsByCell.Clear();
-
         foreach (TownNode n in layout.nodes)
             if (n.IsStop)
             {
-                _occupied[n.gridCell] = false;
+                _occupied[n.gridCell] = true;
                 if (_routeContext.ZoneByNode != null &&
                     _routeContext.ZoneByNode.TryGetValue(n.id, out StopZone zone))
                     _zonesByCell[n.gridCell] = zone;
             }
 
-        if (rides != null)
+        foreach (PassengerRequest req in layout.requests)
         {
-            foreach (GridRide ride in rides)
+            TownNode origin = layout.Node(req.originNodeId);
+            if (!_peepColorsByCell.TryGetValue(origin.gridCell, out List<Color> colors))
             {
-                if (ride == null || ride.aboard || ride.delivered) continue;
-                AddWaitingPeepColor(ride.origin, ride.color);
+                colors = new List<Color>();
+                _peepColorsByCell[origin.gridCell] = colors;
             }
+            colors.Add(req.color);
         }
-        else
-        {
-            foreach (PassengerRequest req in layout.requests)
-            {
-                TownNode origin = layout.Node(req.originNodeId);
-                AddWaitingPeepColor(origin.gridCell, req.color);
-            }
-        }
-
-        foreach (Vector2Int cell in _peepColorsByCell.Keys)
-            _occupied[cell] = true;
 
         SpawnWaitingPeeps();
-    }
-
-    void AddWaitingPeepColor(Vector2Int cell, Color color)
-    {
-        if (!_peepColorsByCell.TryGetValue(cell, out List<Color> colors))
-        {
-            colors = new List<Color>();
-            _peepColorsByCell[cell] = colors;
-        }
-        colors.Add(color);
     }
 
     // -------------------------------------------------------------------------
@@ -125,7 +94,7 @@ public class TopDownGridSpace : IGridSpace, IStopView
     {
         var cells = new List<Vector2Int>(_occupied.Keys);
         foreach (Vector2Int cell in cells)
-            _occupied[cell] = _peepColorsByCell.ContainsKey(cell);
+            _occupied[cell] = true;
         SpawnWaitingPeeps();
     }
 

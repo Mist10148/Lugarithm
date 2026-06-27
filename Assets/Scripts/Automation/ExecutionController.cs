@@ -94,24 +94,6 @@ public class ExecutionController : MonoBehaviour
         OnWorldReset?.Invoke();
     }
 
-    /// <summary>
-    /// Swaps the projected grid/world while keeping the current program running.
-    /// Procedural Automation calls this only between queued navigation moves, after
-    /// <see cref="AgentSim.RebindGrid"/> has preserved the jeepney's current cell.
-    /// </summary>
-    public void RebindStreamingWorld(GridModel grid, IGridSpace space, IStopView stopView,
-                                     AutomationPuzzleDefinition def, int startFacing)
-    {
-        _grid        = grid;
-        _space       = space;
-        _stopView    = stopView;
-        _def         = def;
-        _startFacing = startFacing;
-
-        if (_view != null && _sim != null)
-            _view.Init(_space, _sim.Position, _sim.Facing);
-    }
-
     // -------------------------------------------------------------------------
     // Controls
 

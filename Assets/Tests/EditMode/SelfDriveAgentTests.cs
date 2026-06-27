@@ -75,22 +75,6 @@ public class SelfDriveAgentTests
     {
         Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
         CollectionAssert.IsEmpty(errors, "the displayed reference solution must compile");
-        StringAssert.Contains("def drive():", SelfDrivePlanner.ReferenceSolution);
-        StringAssert.Contains("def handlePassengers():", SelfDrivePlanner.ReferenceSolution);
-        StringAssert.Contains("def handleFares():", SelfDrivePlanner.ReferenceSolution);
-    }
-
-    [Test]
-    public void FunctionStructuredReferenceSolution_SolvesProceduralRideMode()
-    {
-        Run r = Build(12);
-        var sim = new AgentSim(r.grid, new FareTable(), r.facing);
-        sim.LoadRides(r.rides);
-
-        ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
-        CollectionAssert.IsEmpty(errors);
-
-        Assert.IsTrue(HeadlessProgramRunner.Verify(program, sim, r.def, out string gap), gap);
     }
 
     [Test]

@@ -65,8 +65,7 @@ no-syntax blocks to a text editor.
 - **MODE-R2** `[x]` Both modes build the procedural world from the same `TownLayout` and dress it with
   `RouteVisualBuilder.BuildProcedural` + `RoadsideDecorator` (Automation via `TopDownGridSpace`).
 - **MODE-R3** `[-]` The Automation procedural town is **present and dressed from the first frame**,
-  laid out ahead of the start and streamed forward during the coded drive, not a stub that only
-  extends after a win.
+  laid out ahead of the start (pre-grown at `Start()`), not a stub that only extends after a win.
   *Verify in-editor that the street + townsfolk render ahead from frame 1.*
 - **MODE-R4** `[-]` Automation driving is **smooth/continuous** (the jeepney eases along the road,
   not visibly teleporting cell-to-cell). *Verify on-screen.*
@@ -75,8 +74,8 @@ no-syntax blocks to a text editor.
   → LevelSelect.
 - **MODE-R6** `[x]` Automation fares/change resolve via code (`collectFare()`/`giveChange(amount)`)
   with the **same `FareMath`** Manual uses; no Coin Drawer in Automation.
-- **MODE-R7** `[-]` Automation streams procedural chunks during program execution at safe grid-rebind
-  boundaries, preserving ride state and the running program. *Verify in-editor under long routes.*
+- **MODE-R7** `[ ]` *Follow-up:* true mid-program world streaming in Automation (today: pre-grow +
+  on-completion append, because rebuilding the interpreter grid mid-run interrupts execution).
 - **MODE-R8** `[-]` Any change to a shared mechanic updates both modes or the shared system; a
   parity audit is maintained. *Audit pending.*
 
@@ -116,8 +115,8 @@ no-syntax blocks to a text editor.
   indexing/slicing, built-ins (`len`, `range`, `print`, `min`, `max`, `sum`, `sorted`, `randint`, …).
 - **LANG-R4** `[x]` **User-defined functions** (`def`), including calls to user functions from within
   other functions; the parser resolves function names regardless of definition order.
-- **LANG-R5** `[-]` Block-mode representation of no-argument "define/call function" helper blocks
-  exists for the autopilot pattern; parameterized/returning functions remain Code Mode.
+- **LANG-R5** `[-]` Block-mode representation of "define/call function" — or a clean fallback to Code
+  mode when a program uses code-only features (the autopilot fallback exists). *Verify coverage.*
 - **LANG-R6** `[x]` Errors are coached in plain language, never raw stack traces.
 - **LANG-R7** `[x]` Domain vocabulary lives in `AgentApi`; per-level allowed sets drive the
   palette/UI; parse validation accepts API actions, builtins, and user-defined functions.
@@ -143,8 +142,8 @@ has a deterministic authored fallback** and per-feature timeouts/token budgets. 
   *Verify adaptation logic.*
 - **AI-R6** `[x]` No keys, provider URLs, or prompt-secrets in scripts; config is synced from `.env`
   to a generated `ai_config.json` by `EnvConfigSync`. Usage is tracked (`AiUsageTracker`).
-- **AI-R7** `[x]` The Vibe-Coding action-graph generator/compiler can emit user-defined `def` blocks
-  and helper calls for route programs.
+- **AI-R7** `[ ]` *Follow-up:* the Vibe-Coding action-graph generator may emit user-defined `def`
+  blocks (the language supports functions; the generator currently emits a flattened action graph).
 
 ## 10. Heritage & Journal Requirements (HER)
 
@@ -207,8 +206,8 @@ features (lambdas, classes, exceptions, imports beyond seeded `random`).
 
 - **Q1** Final currency name. `[ ]`
 - **Q2** Gacha pity threshold / drop rates. `[ ]`
-- **Q3** Mid-program streaming approach for Automation (MODE-R7) vs. the pre-grow compromise. `[x]`
-- **Q4** Whether the Vibe-Coding generator should emit user-defined functions (AI-R7). `[x]`
+- **Q3** Mid-program streaming approach for Automation (MODE-R7) vs. the pre-grow compromise. `[!]`
+- **Q4** Whether the Vibe-Coding generator should emit user-defined functions (AI-R7). `[ ]`
 - **Q5** Team member names/roles for the submission package. `[x]` Resolved — Carlos John
   Aristoki (Lead Developer, Game Design, Narrative, Documentation); Sol Vincent Sartaguda
   (Developer, Narrative, Documentation); Zneb John Delariman (2D Artist, Asset Maker, Design).

@@ -23,10 +23,6 @@ public class BlockCanvasController : MonoBehaviour
     [SerializeField] private RectTransform  dragLayer;
 
     static readonly Color ElseColor = new Color(0.78f, 0.55f, 0.20f, 1f);
-    static readonly string[] FunctionNames =
-    {
-        "drive", "handlePassengers", "handleFares", "handleDropoffs",
-    };
 
     /// <summary>Scratch-style block categories, shared with the palette.</summary>
     public enum BlockCategory { Motion, Passengers, Control }
@@ -41,8 +37,6 @@ public class BlockCanvasController : MonoBehaviour
             case BlockType.PickUp:
             case BlockType.DropOff:
             case BlockType.CollectFare: return BlockCategory.Passengers;
-            case BlockType.FunctionDef:
-            case BlockType.FunctionCall:
             default:                    return BlockCategory.Control;
         }
     }
@@ -253,34 +247,20 @@ public class BlockCanvasController : MonoBehaviour
         _spawned.Add(row.gameObject);
         _rowMap[node] = row;
 
-        string headerText = node.Type == BlockType.FunctionDef
-            ? "def"
-            : node.Type == BlockType.FunctionCall
-                ? "call"
-                : node.IsContainer
+        string headerText  = node.IsContainer
             ? (node.Type == BlockType.While ? "while" : "if")
             : BlockProgram.Label(node);
-        string conditionText = node.Type == BlockType.FunctionDef || node.Type == BlockType.FunctionCall
-            ? node.FunctionName + "()"
-            : (node.Negate ? "not " : "") + node.Query + "()";
-        bool showNamePicker = node.Type == BlockType.FunctionDef || node.Type == BlockType.FunctionCall;
+        string conditionText = (node.Negate ? "not " : "") + node.Query + "()";
 
         row.Configure(this, node, headerText, indent,
                       CategoryColor(node.Type),
                       isContainer: node.IsContainer,
                       negateOn: node.Negate,
                       conditionText: conditionText,
-                      draggable: true,
-                      showConditionButton: node.IsConditional || showNamePicker,
-                      showNotButton: node.IsConditional);
+                      draggable: true);
 
         row.Bind(
-            onCycleCondition: () =>
-            {
-                if (showNamePicker) CycleFunctionName(node);
-                else CycleQuery(node);
-                Rebuild();
-            },
+            onCycleCondition: () => { CycleQuery(node); Rebuild(); },
             onToggleNot:      () => { node.Negate = !node.Negate; Rebuild(); },
             onDelete:         () => { RemoveNode(node); Rebuild(); });
     }
@@ -459,7 +439,7 @@ public class BlockCanvasController : MonoBehaviour
     void InsertNewAt(BlockType type, List<BlockNode> list, int index)
     {
         var node = new BlockNode(type);
-        if (node.IsConditional) node.Query = _allowedQueries[0];
+        if (node.IsContainer) node.Query = _allowedQueries[0];
         list.Insert(Mathf.Clamp(index, 0, list.Count), node);
     }
 
@@ -482,12 +462,6 @@ public class BlockCanvasController : MonoBehaviour
     {
         int current = Array.IndexOf(_allowedQueries, node.Query);
         node.Query = _allowedQueries[(current + 1 + _allowedQueries.Length) % _allowedQueries.Length];
-    }
-
-    void CycleFunctionName(BlockNode node)
-    {
-        int current = Array.IndexOf(FunctionNames, node.FunctionName);
-        node.FunctionName = FunctionNames[(current + 1 + FunctionNames.Length) % FunctionNames.Length];
     }
 
     // -------------------------------------------------------------------------
@@ -525,8 +499,6 @@ public class BlockCanvasController : MonoBehaviour
             case BlockType.If:     return "if …:";
             case BlockType.IfElse: return "if …: else:";
             case BlockType.GiveChange: return "giveChange(changeOwed())";
-            case BlockType.FunctionDef: return "def drive():";
-            case BlockType.FunctionCall: return "drive()";
             default:               return BlockProgram.ActionName(type) + "()";
         }
     }

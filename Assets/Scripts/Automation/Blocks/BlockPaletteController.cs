@@ -81,8 +81,6 @@ public class BlockPaletteController : MonoBehaviour
             case BlockType.If:     return "if …:";
             case BlockType.IfElse: return "if …: else:";
             case BlockType.GiveChange: return "giveChange(changeOwed())";
-            case BlockType.FunctionDef: return "def drive():";
-            case BlockType.FunctionCall: return "drive()";
             default:               return BlockProgram.ActionName(type) + "()";
         }
     }

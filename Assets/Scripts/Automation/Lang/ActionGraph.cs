@@ -12,8 +12,8 @@ using System.Text;
 [Serializable]
 public sealed class ActionGraphNode
 {
-    public string op;         // action | call | assign | comment | def | enddef | if | elif | else | endif | while | endwhile
-    public string name;       // action/call/def: command or function name; assign: variable name
+    public string op;         // action | assign | comment | if | elif | else | endif | while | endwhile
+    public string name;       // action: command name; assign: variable name
     public string arg;        // action: repeat/arg text; assign: right-hand expression
     public string condition;  // if/elif/while: a boolean expression (validated by the parser)
     public string comment;    // optional trailing comment on this line
@@ -41,7 +41,7 @@ public static class ActionGraphCompiler
         "{\"type\":\"object\",\"properties\":{" +
         "\"message\":{\"type\":\"string\"}," +
         "\"nodes\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{" +
-        "\"op\":{\"type\":\"string\",\"enum\":[\"action\",\"call\",\"assign\",\"comment\",\"def\",\"enddef\",\"if\",\"elif\",\"else\",\"endif\",\"while\",\"endwhile\"]}," +
+        "\"op\":{\"type\":\"string\",\"enum\":[\"action\",\"assign\",\"comment\",\"if\",\"elif\",\"else\",\"endif\",\"while\",\"endwhile\"]}," +
         "\"name\":{\"type\":\"string\"},\"arg\":{\"type\":\"string\"}," +
         "\"condition\":{\"type\":\"string\"},\"comment\":{\"type\":\"string\"}}," +
         "\"required\":[\"op\"],\"additionalProperties\":false}}}," +
@@ -83,17 +83,6 @@ public static class ActionGraphCompiler
                     Line($"{node.name.Trim()}({(node.arg ?? "").Trim()}){Trail(node.comment)}");
                     break;
 
-                case "call":
-                    if (string.IsNullOrWhiteSpace(node.name)) { error = "function call with no name"; return false; }
-                    Line($"{node.name.Trim()}(){Trail(node.comment)}");
-                    break;
-
-                case "def":
-                    if (string.IsNullOrWhiteSpace(node.name)) { error = "def with no name"; return false; }
-                    Line($"def {node.name.Trim()}():{Trail(node.comment)}");
-                    indent++;
-                    break;
-
                 case "assign":
                     if (string.IsNullOrWhiteSpace(node.name) || string.IsNullOrWhiteSpace(node.arg))
                     { error = "assign needs a name and value"; return false; }
@@ -126,7 +115,6 @@ public static class ActionGraphCompiler
 
                 case "endif":
                 case "endwhile":
-                case "enddef":
                     if (indent == 0) { error = $"{node.op} without a matching block"; return false; }
                     indent--;
                     break;

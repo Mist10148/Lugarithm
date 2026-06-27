@@ -23,13 +23,13 @@ public static class RoadsideDecorator
         "bldg_nipa",       "bldg_chapel",
     };
 
-    const float FrontGap     = 2.4f;   // sidewalk between road edge and building front
+    const float FrontGap     = 1.6f;   // sidewalk between road edge and building front
     const float BuildingGap  = 0.6f;   // gap between adjacent buildings (continuous frontage)
     const float EndPad       = 2.0f;   // keep clear of segment ends / corners
     const float StopPad      = 3.5f;   // extra clearance around stop signs / waiting peeps
-    const float FolkOffset   = 1.8f;   // sidewalk distance for ambient people
+    const float FolkOffset   = 1.3f;   // sidewalk distance for ambient people
     const float NearbyRadius = 16f;    // clearance checks only look at nearby roads
-    const float RoadMargin   = 1.0f;   // a point is "off-road" past roadHalfWidth + this
+    const float RoadMargin   = 0.6f;   // a point is "off-road" past roadHalfWidth + this
 
     const int BuildingSorting = -10;   // above road (-50), below peeps (5) / jeepney (10)
     const int FolkSorting     = 5;
@@ -88,10 +88,13 @@ public static class RoadsideDecorator
                     if (centerAlong + halfW > len - EndPad) break;
 
                     Vector2 alongPt  = a + dir * centerAlong;
+                    Vector2 nearEdge = alongPt + sideNormal * (roadHalfWidth + FrontGap);
                     Vector2 center   = alongPt + sideNormal * (roadHalfWidth + FrontGap + halfD);
 
-                    bool clear = BuildingFootprintClear(nearby, center, dir, sideNormal,
-                                                        halfW, halfD, roadHalfWidth);
+                    bool clear =
+                        RoadClear(nearby, nearEdge, roadHalfWidth) &&
+                        RoadClear(nearby, nearEdge + dir * halfW, roadHalfWidth) &&
+                        RoadClear(nearby, nearEdge - dir * halfW, roadHalfWidth);
                     // Measure against the centerline point so the stop's clear window
                     // (where its sign + peeps sit) is kept open on BOTH sides of the road.
                     bool nearStop = NearAnyStop(stopPositions, alongPt, halfW + StopPad);
@@ -155,23 +158,6 @@ public static class RoadsideDecorator
 
     static bool RoadClear(List<RoadSegment> segments, Vector2 p, float roadHalfWidth)
         => RouteMath.NearestDistanceToGraph(segments, p) > roadHalfWidth + RoadMargin;
-
-    static bool BuildingFootprintClear(List<RoadSegment> segments, Vector2 center,
-                                       Vector2 dir, Vector2 sideNormal,
-                                       float halfW, float halfD, float roadHalfWidth)
-    {
-        // Sample the rotated sprite footprint, not just the frontage. This catches
-        // the case where a roof's center is clear but a deep corner hangs back onto
-        // a nearby road after the streamed Manhattan town folds close to itself.
-        Vector2[] alongSamples = { -dir * halfW, Vector2.zero, dir * halfW };
-        Vector2[] depthSamples = { -sideNormal * halfD, Vector2.zero, sideNormal * halfD };
-        foreach (Vector2 a in alongSamples)
-            foreach (Vector2 d in depthSamples)
-                if (!RoadClear(segments, center + a + d, roadHalfWidth))
-                    return false;
-
-        return true;
-    }
 
     static bool NearAnyStop(IReadOnlyList<Vector2> stops, Vector2 p, float radius)
     {

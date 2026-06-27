@@ -120,73 +120,47 @@ public static class GeneratedProgramPolicy
         if (errors.Count > 0 || program == null) return false;
         HashSet<string> blocks = new HashSet<string>(allowedBlocks ?? Array.Empty<string>(), StringComparer.Ordinal);
         HashSet<string> queries = new HashSet<string>(allowedQueries ?? Array.Empty<string>(), StringComparer.Ordinal);
-        HashSet<string> functions = CollectFunctionNames(program.Statements);
-        ValidateStatements(program.Statements, blocks, queries, functions, errors);
+        ValidateStatements(program.Statements, blocks, queries, errors);
         return errors.Count == 0;
     }
 
-    static HashSet<string> CollectFunctionNames(IEnumerable<StmtNode> statements)
-    {
-        var names = new HashSet<string>(StringComparer.Ordinal);
-        foreach (StmtNode stmt in statements)
-            if (stmt is FuncDefStmt def)
-                names.Add(def.Name);
-        return names;
-    }
-
     static void ValidateStatements(IEnumerable<StmtNode> statements, HashSet<string> blocks,
-                                   HashSet<string> queries, HashSet<string> functions,
-                                   List<LangError> errors)
+                                   HashSet<string> queries, List<LangError> errors)
     {
         foreach (StmtNode stmt in statements)
         {
             switch (stmt)
             {
                 case CallStmt call:
-                    if (functions.Contains(call.Name))
-                    {
-                        if (!blocks.Contains("callFunction"))
-                            errors.Add(new LangError(call.Line, "function calls are not unlocked in this level."));
-                    }
-                    else if (!blocks.Contains(call.Name))
-                    {
-                        errors.Add(new LangError(call.Line, $"{call.Name}() is not unlocked in this level."));
-                    }
+                    if (!blocks.Contains(call.Name)) errors.Add(new LangError(call.Line, $"{call.Name}() is not unlocked in this level."));
                     foreach (ExprNode arg in call.Args) ValidateExpr(arg, queries, errors);
                     break;
                 case WhileStmt loop:
                     if (!blocks.Contains("while")) errors.Add(new LangError(loop.Line, "while is not unlocked in this level."));
                     ValidateExpr(loop.Condition, queries, errors);
-                    ValidateStatements(loop.Body, blocks, queries, functions, errors);
+                    ValidateStatements(loop.Body, blocks, queries, errors);
                     break;
                 case IfStmt branch:
                     if (!blocks.Contains("if") && !blocks.Contains("ifElse"))
                         errors.Add(new LangError(branch.Line, "if is not unlocked in this level."));
                     ValidateExpr(branch.Condition, queries, errors);
-                    ValidateStatements(branch.Body, blocks, queries, functions, errors);
+                    ValidateStatements(branch.Body, blocks, queries, errors);
                     foreach (ElifClause clause in branch.Elifs)
                     {
                         ValidateExpr(clause.Condition, queries, errors);
-                        ValidateStatements(clause.Body, blocks, queries, functions, errors);
+                        ValidateStatements(clause.Body, blocks, queries, errors);
                     }
-                    if (branch.ElseBody != null) ValidateStatements(branch.ElseBody, blocks, queries, functions, errors);
+                    if (branch.ElseBody != null) ValidateStatements(branch.ElseBody, blocks, queries, errors);
                     break;
                 case ForStmt loop:
                     if (!blocks.Contains("for")) errors.Add(new LangError(loop.Line, "for is not unlocked in this level."));
                     ValidateExpr(loop.Iterable, queries, errors);
-                    ValidateStatements(loop.Body, blocks, queries, functions, errors);
+                    ValidateStatements(loop.Body, blocks, queries, errors);
                     break;
                 case AssignStmt assignment:
                     if (!blocks.Contains("variables") && !blocks.Contains("list"))
                         errors.Add(new LangError(assignment.Line, "variables are not unlocked in this level."));
                     ValidateExpr(assignment.Value, queries, errors);
-                    break;
-                case FuncDefStmt def:
-                    if (!blocks.Contains("functionDef"))
-                        errors.Add(new LangError(def.Line, "function definitions are not unlocked in this level."));
-                    if (def.Params.Count > 0)
-                        errors.Add(new LangError(def.Line, "generated function blocks use no inputs in this level."));
-                    ValidateStatements(def.Body, blocks, queries, functions, errors);
                     break;
                 default:
                     errors.Add(new LangError(stmt.Line, $"{stmt.GetType().Name} is not permitted in generated code for this level."));

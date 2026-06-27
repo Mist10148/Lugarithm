@@ -83,7 +83,6 @@ public static class VibeCodingService
         sb.AppendLine("UNLOCKED ACTIONS/CONTROL: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
         sb.AppendLine("UNLOCKED QUERIES: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
         sb.AppendLine("Fare helpers: collectFare() records tender; giveChange(changeOwed()) settles exact change; procedural routes finish with routeComplete().");
-        sb.AppendLine("Functions: when functionDef/callFunction are unlocked, structure route programs as def drive(), def handlePassengers(), def handleFares(), and def handleDropoffs(), then call drive().");
 
         if (!string.IsNullOrWhiteSpace(editorText))
         {
@@ -132,9 +131,7 @@ public static class VibeCodingService
                         "actions, control structures, and queries. Express control flow with explicit markers: open with " +
                         "op 'if'/'while' and close with 'endif'/'endwhile'; use 'elif'/'else' between them. Conditions go " +
                         "in the 'condition' field and may combine unlocked queries with and/or/not. Put each command in an " +
-                        "'action' node ('name' is the command, 'arg' an optional count). When functionDef/callFunction are " +
-                        "unlocked, prefer helper functions: op 'def' with name drive/handlePassengers/handleFares/handleDropoffs, " +
-                        "close each with 'enddef', and use op 'call' to call drive() or helpers. Add short, friendly 'comment' " +
+                        "'action' node ('name' is the command, 'arg' an optional count). Add short, friendly 'comment' " +
                         "fields so the player learns from the code. Keep 'message' to one or two sentences.",
                     Prompt = worldContext + "\nTASK:\n" + message,
                     ResponseJsonSchema = ActionGraphCompiler.ResponseSchema,
@@ -169,9 +166,7 @@ public static class VibeCodingService
                 "(the 'nodes' list) using ONLY unlocked actions, control structures, and queries. Express " +
                 "control flow with explicit markers: open 'if'/'while' and close 'endif'/'endwhile'; use " +
                 "'elif'/'else' between them. Put each command in an 'action' node ('name' is the command, " +
-                "'arg' an optional count). When functionDef/callFunction are unlocked, use op 'def'/'enddef' " +
-                "and op 'call' to split driving, passenger, fare, and drop-off responsibilities into helpers. " +
-                "Add short, friendly 'comment' fields that teach why the loop helps. " +
+                "'arg' an optional count). Add short, friendly 'comment' fields that teach why the loop helps. " +
                 "Keep 'message' to one or two sentences naming what you compressed.",
             Prompt = worldContext + "\nREWRITE THIS SHORTER — same behavior, use loops instead of repeats:\n" + playerCode,
             ResponseJsonSchema = ActionGraphCompiler.ResponseSchema,
