@@ -40,7 +40,8 @@ public class BlockRowView : MonoBehaviour,
 
     public void Configure(BlockCanvasController owner, BlockNode node, string text, int indent,
                           Color color, bool isContainer, bool negateOn, string conditionText,
-                          bool draggable)
+                          bool draggable, bool showConditionButton = false,
+                          bool showNotButton = false)
     {
         _owner     = owner;
         _node      = node;
@@ -52,9 +53,9 @@ public class BlockRowView : MonoBehaviour,
         _baseColor = color;
         if (background != null) background.color = color;
 
-        if (conditionButton != null) conditionButton.gameObject.SetActive(isContainer);
-        if (notButton       != null) notButton.gameObject.SetActive(isContainer);
-        if (conditionLabel  != null && isContainer) conditionLabel.text = conditionText;
+        if (conditionButton != null) conditionButton.gameObject.SetActive(showConditionButton || isContainer);
+        if (notButton       != null) notButton.gameObject.SetActive(showNotButton);
+        if (conditionLabel  != null && (showConditionButton || isContainer)) conditionLabel.text = conditionText;
         if (notFace         != null) notFace.color = negateOn
             ? new Color(0.95f, 0.65f, 0.15f)
             : new Color(0.25f, 0.28f, 0.34f);

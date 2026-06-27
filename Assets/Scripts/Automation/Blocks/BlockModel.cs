@@ -12,6 +12,8 @@ public enum BlockType
     DropOff,
     CollectFare,
     GiveChange,
+    FunctionDef,
+    FunctionCall,
     If,
     IfElse,
     While,
@@ -26,6 +28,7 @@ public class BlockNode
 {
     public BlockType Type;
     public string    Query  = "frontIsClear";
+    public string    FunctionName = "drive";
     public bool      Negate;
 
     public readonly List<BlockNode> Body     = new List<BlockNode>();
@@ -34,6 +37,10 @@ public class BlockNode
     public BlockNode(BlockType type) { Type = type; }
 
     public bool IsContainer =>
+        Type == BlockType.If || Type == BlockType.IfElse ||
+        Type == BlockType.While || Type == BlockType.FunctionDef;
+
+    public bool IsConditional =>
         Type == BlockType.If || Type == BlockType.IfElse || Type == BlockType.While;
 
     public bool HasElse => Type == BlockType.IfElse;
@@ -63,6 +70,8 @@ public static class BlockProgram
             case BlockType.DropOff:     return "dropOff";
             case BlockType.CollectFare: return "collectFare";
             case BlockType.GiveChange:  return "giveChange";
+            case BlockType.FunctionCall:return null;
+            case BlockType.FunctionDef: return null;
             default:                    return null;
         }
     }
@@ -81,6 +90,9 @@ public static class BlockProgram
             case "dropOff":     return BlockType.DropOff;
             case "collectFare": return BlockType.CollectFare;
             case "giveChange":  return BlockType.GiveChange;
+            case "def":
+            case "functionDef": return BlockType.FunctionDef;
+            case "callFunction": return BlockType.FunctionCall;
             case "if":          return BlockType.If;
             case "ifElse":      return BlockType.IfElse;
             case "while":       return BlockType.While;
@@ -91,6 +103,11 @@ public static class BlockProgram
     /// <summary>Display label for a block row (header line for containers).</summary>
     public static string Label(BlockNode node)
     {
+        if (node.Type == BlockType.FunctionDef)
+            return $"def {node.FunctionName}():";
+        if (node.Type == BlockType.FunctionCall)
+            return $"{node.FunctionName}()";
+
         if (!node.IsContainer)
         {
             if (node.Type == BlockType.GiveChange)
@@ -135,11 +152,24 @@ public static class BlockProgram
         fullyRepresentable = true;
         var roots = new List<BlockNode>();
         if (program != null)
-            DecompileList(program.Statements, roots, ref fullyRepresentable);
+        {
+            HashSet<string> functionNames = CollectFunctionNames(program.Statements);
+            DecompileList(program.Statements, roots, ref fullyRepresentable, functionNames);
+        }
         return roots;
     }
 
-    static void DecompileList(List<StmtNode> source, List<BlockNode> target, ref bool ok)
+    static HashSet<string> CollectFunctionNames(List<StmtNode> statements)
+    {
+        var names = new HashSet<string>();
+        foreach (StmtNode stmt in statements)
+            if (stmt is FuncDefStmt def && def.Params.Count == 0)
+                names.Add(def.Name);
+        return names;
+    }
+
+    static void DecompileList(List<StmtNode> source, List<BlockNode> target, ref bool ok,
+                              HashSet<string> functionNames)
     {
         foreach (StmtNode stmt in source)
         {
@@ -147,6 +177,16 @@ public static class BlockProgram
             {
                 case CallStmt call:
                 {
+                    if (functionNames.Contains(call.Name) &&
+                        (call.Args == null || call.Args.Count == 0))
+                    {
+                        target.Add(new BlockNode(BlockType.FunctionCall)
+                        {
+                            FunctionName = call.Name,
+                        });
+                        break;
+                    }
+
                     BlockType? type = FromPaletteName(call.Name);
                     bool isAction = type.HasValue && !new BlockNode(type.Value).IsContainer;
                     bool canShowArgs = call.Name == "giveChange" && IsChangeOwedArg(call.Args);
@@ -164,7 +204,7 @@ public static class BlockProgram
                 {
                     var node = new BlockNode(BlockType.While);
                     if (!ApplyCondition(loop.Condition, node)) ok = false;
-                    DecompileList(loop.Body, node.Body, ref ok);
+                    DecompileList(loop.Body, node.Body, ref ok, functionNames);
                     target.Add(node);
                     break;
                 }
@@ -175,14 +215,26 @@ public static class BlockProgram
                     bool hasElse = branch.ElseBody != null;
                     var node = new BlockNode(hasElse ? BlockType.IfElse : BlockType.If);
                     if (!ApplyCondition(branch.Condition, node)) ok = false;
-                    DecompileList(branch.Body, node.Body, ref ok);
-                    if (hasElse) DecompileList(branch.ElseBody, node.ElseBody, ref ok);
+                    DecompileList(branch.Body, node.Body, ref ok, functionNames);
+                    if (hasElse) DecompileList(branch.ElseBody, node.ElseBody, ref ok, functionNames);
+                    target.Add(node);
+                    break;
+                }
+
+                case FuncDefStmt def:
+                {
+                    if (def.Params.Count > 0) ok = false;
+                    var node = new BlockNode(BlockType.FunctionDef)
+                    {
+                        FunctionName = def.Name,
+                    };
+                    DecompileList(def.Body, node.Body, ref ok, functionNames);
                     target.Add(node);
                     break;
                 }
 
                 default:
-                    ok = false;   // for / def / assign / break / continue / return
+                    ok = false;   // for / assign / break / continue / return
                     break;
             }
         }
@@ -211,6 +263,12 @@ public static class BlockProgram
     {
         foreach (BlockNode node in source)
         {
+            if (node.Type == BlockType.FunctionCall)
+            {
+                target.Add(new CallStmt { Name = node.FunctionName, SourceRef = node });
+                continue;
+            }
+
             if (!node.IsContainer)
             {
                 var call = new CallStmt { Name = ActionName(node.Type), SourceRef = node };
@@ -220,16 +278,24 @@ public static class BlockProgram
                 continue;
             }
 
-            ExprNode condition = new CallExpr { Name = node.Query };
-            if (node.Negate)
-                condition = new UnaryExpr { Op = TokenType.KeywordNot, Operand = condition };
-
             if (node.Body.Count == 0)
             {
                 errors.Add(new LangError(0,
                     $"the '{Label(node)}' block needs at least one block inside it."));
                 offenders.Add(node);
             }
+
+            if (node.Type == BlockType.FunctionDef)
+            {
+                var def = new FuncDefStmt { Name = node.FunctionName, SourceRef = node };
+                CompileList(node.Body, def.Body, errors, offenders);
+                target.Add(def);
+                continue;
+            }
+
+            ExprNode condition = new CallExpr { Name = node.Query };
+            if (node.Negate)
+                condition = new UnaryExpr { Op = TokenType.KeywordNot, Operand = condition };
 
             if (node.Type == BlockType.While)
             {

@@ -228,6 +228,25 @@ public static class KnowledgeRagService
             });
         }
 
+        // General Coding Reference concepts, available regardless of town progress.
+        for (int i = 0; i < CodingConceptLibrary.Concepts.Count; i++)
+        {
+            CodingConceptEntry concept = CodingConceptLibrary.Concepts[i];
+            chunks.Add(new KnowledgeChunk
+            {
+                id = $"coding-concept:{i}",
+                domain = KnowledgeDomain.Coding,
+                levelIndex = -1,
+                gate = KnowledgeGate.UnlockedLevel,
+                town = "Coding Reference",
+                title = concept.title,
+                body = StripRichText(concept.body + "\n" + concept.codeExample),
+                sourceLabel = $"Coding Reference — {concept.title}",
+                aliases = new[] { concept.title },
+                concepts = Tokenize(concept.title).ToArray()
+            });
+        }
+
         // Characters along the route — so the Oracle can discuss the storyline and the
         // people in it, gated to towns the player has actually reached.
         foreach (PassengerDefinition p in PassengerLibrary.All)

@@ -160,5 +160,27 @@ public class BlockModelTests
         ProgramNode fromBlocks = BlockProgram.ToAst(roots, out var blockErrors, out _);
         CollectionAssert.IsEmpty(blockErrors);
         StringAssert.Contains("giveChange(changeOwed())", AstPrinter.Print(fromBlocks));
+        StringAssert.Contains("def drive():", AstPrinter.Print(fromBlocks));
+        StringAssert.Contains("handlePassengers()", AstPrinter.Print(fromBlocks));
+    }
+
+    [Test]
+    public void FunctionBlocks_CompileToDefAndCall()
+    {
+        var def = new BlockNode(BlockType.FunctionDef) { FunctionName = "drive" };
+        def.Body.Add(Action(BlockType.DriveToNextStop));
+        var roots = new List<BlockNode>
+        {
+            def,
+            new BlockNode(BlockType.FunctionCall) { FunctionName = "drive" },
+        };
+
+        ProgramNode program = BlockProgram.ToAst(roots, out var errors, out _);
+
+        CollectionAssert.IsEmpty(errors);
+        string text = AstPrinter.Print(program);
+        StringAssert.Contains("def drive():", text);
+        StringAssert.Contains("    driveToNextStop()", text);
+        StringAssert.EndsWith("drive()\n", text);
     }
 }

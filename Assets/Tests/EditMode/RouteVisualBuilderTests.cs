@@ -160,6 +160,7 @@ public class RouteVisualBuilderTests
                 Vector2 p = sr.transform.position;
                 Assert.Greater(RouteMath.NearestDistanceToGraph(segments, p), rhw,
                     $"{sr.gameObject.name} must sit beside the road, never on it");
+                AssertSpriteFootprintOffRoad(sr, segments, rhw);
                 Assert.Greater((p - stops[0]).magnitude, rhw,
                     $"{sr.gameObject.name} must stay clear of the stop's sign/peep window");
             }
@@ -167,6 +168,60 @@ public class RouteVisualBuilderTests
         finally
         {
             Object.DestroyImmediate(root);
+        }
+    }
+
+    [Test]
+    public void RoadsideDecorator_NearbyCrossRoad_KeepsWholeBuildingFootprintOffRoad()
+    {
+        if (Resources.Load<Sprite>("Placeholders/bldg_sari_sari") == null)
+            Assert.Ignore("Placeholder building art not generated yet (run Lugarithm/Generate Placeholder Art).");
+
+        const float rhw = 3f;
+        var root = new GameObject("RVB_DecoratorFootprintTest");
+
+        try
+        {
+            var segments = new List<RoadSegment>
+            {
+                new RoadSegment(Vector2.zero, new Vector2(70f, 0f), true),
+                new RoadSegment(new Vector2(22f, -18f), new Vector2(22f, 18f), true),
+                new RoadSegment(new Vector2(48f, -18f), new Vector2(48f, 18f), true),
+            };
+
+            RoadsideDecorator.DecorateSegments(root.transform, segments, segments,
+                                               new List<Vector2>(), rhw, seed: 7);
+
+            SpriteRenderer[] spawned = root.GetComponentsInChildren<SpriteRenderer>();
+            Assert.Greater(spawned.Length, 0, "frontage should still find clear slots around cross roads");
+            foreach (SpriteRenderer sr in spawned)
+                AssertSpriteFootprintOffRoad(sr, segments, rhw);
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    static void AssertSpriteFootprintOffRoad(SpriteRenderer sr, List<RoadSegment> segments, float roadHalfWidth)
+    {
+        if (sr == null || sr.sprite == null) return;
+
+        Bounds b = sr.sprite.bounds;
+        Vector3[] local =
+        {
+            new Vector3(b.min.x, b.min.y, 0f),
+            new Vector3(b.min.x, b.max.y, 0f),
+            new Vector3(b.max.x, b.min.y, 0f),
+            new Vector3(b.max.x, b.max.y, 0f),
+            new Vector3(b.center.x, b.center.y, 0f),
+        };
+
+        foreach (Vector3 point in local)
+        {
+            Vector2 world = sr.transform.TransformPoint(point);
+            Assert.Greater(RouteMath.NearestDistanceToGraph(segments, world), roadHalfWidth,
+                $"{sr.gameObject.name}'s footprint must stay off the road at {world}");
         }
     }
 }

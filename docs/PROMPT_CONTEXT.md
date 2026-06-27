@@ -51,17 +51,16 @@ replace source inspection.
   `while`, `for`/`range`, `repeat`, `break`/`continue`, **user-defined functions** (`def`),
   variables, expressions/operators, lists/dicts/tuples, and built-ins (`len`, `range`, `print`,
   `randint`, …). Domain API in `AgentApi`.
-- **Automation now pre-grows the procedural town** at `Start()` so the dressed street is laid out
-  ahead from the first frame (was a stub extended only after a win). Autopilot/reference solution is
-  function-structured (`drive()`/`handlePassengers()`/`handleFares()`).
+- **Automation now streams the procedural town during the coded drive** using the same generator and
+  visual append path as Manual; the dressed street is present from frame 1 and grows before the
+  jeepney reaches the frontier. Autopilot/reference solution is function-structured
+  (`drive()`/`handlePassengers()`/`handleFares()`/`handleDropoffs()`).
 - **Five Gemini AI systems** implemented with authored fallbacks (see below).
 - **Settings/localization:** sectioned settings with segmented pill selectors; English/Filipino UI
   live switch (`LocalizationManager`/`LocalizedLabel`).
-- **Follow-ups (not yet done):** true mid-program streaming in Automation (currently pre-grow +
-  on-completion append, because rebuilding the interpreter grid mid-run stops execution); the
-  Vibe-Coding *action-graph* generator emitting `def` blocks (the language supports functions; the
-  generator emits a flattened graph); EditMode tests for the new autopilot/pre-grow; a full
-  Manual/Automation mechanic-parity audit.
+- **Follow-ups (not yet done):** in-editor side-by-side verification of the new stream-ahead behavior
+  and completion flow; broader Manual/Automation mechanic-parity audit beyond the shared generation,
+  passenger/fare, function-autopilot, and ending changes covered by Phase 7.
 
 ## Runtime AI — feature budgets & grounding
 

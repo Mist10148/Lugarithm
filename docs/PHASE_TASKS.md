@@ -80,29 +80,30 @@ Make Automation feel 1:1 with Manual. **Maps:** MODE-R3/R4/R5/R6/R7/R8, AUT-R4, 
 
 - `[x]` **7.1 Dressed world (confirm).** Automation's `TopDownGridSpace` already builds the dressed
   street via `RouteVisualBuilder.BuildProcedural` + `RoadsideDecorator`. (MODE-R2.)
-- `[x]` **7.2 Town "already there".** Pre-grow the procedural town a few chunks at
-  `AutomationDriveController.Start()` so the dressed street is laid out ahead from the first frame,
-  instead of a stub that only extends after a win. (MODE-R3.)
-  - `[-]` *In-editor:* confirm the street + townsfolk render ahead from frame 1 and the ride count
-    stays balanced (`ProceduralPreGrowChunks`, tunable).
+- `[x]` **7.2 Town "already there".** Automation builds the dressed procedural town from frame 1
+  and streams additional chunks during the drive through the same `StreamingTownGenerator` /
+  `RouteVisualBuilder.AppendProcedural` path Manual uses. (MODE-R3/R7.)
+  - `[-]` *In-editor:* confirm the street + townsfolk render ahead from frame 1 and chunks append
+    smoothly while a program is running.
 - `[x]` **7.3 Function-structured autopilot.** `SelfDriveAgent.ReferenceSolution` rewritten as
-  `drive()` / `handlePassengers()` / `handleFares()`; scaffold teaches defining functions. (AUT-R4,
-  LANG-R4.)
+  `drive()` / `handlePassengers()` / `handleFares()` / `handleDropoffs()`; scaffold teaches defining
+  functions. (AUT-R4, LANG-R4.)
 - `[x]` **7.4 Identical ending.** Automation completion card matches Manual's `LegCompletionController`
   wording; structural flow already mirrors Manual (deliver + finish chat → reveal → card → results →
   CompleteLevel). (MODE-R5.)
 - `[-]` **7.5 Smoothness.** `TopDownAgentView.PlayContinuousPath` eases the jeepney along the path;
   *verify on-screen it reads as continuous like Manual* (MODE-R4); tune if it still feels stepped.
-- `[ ]` **7.6 Mid-program streaming (follow-up).** True stream-ahead while a program runs, without the
-  grid-rebuild that stops execution. (MODE-R7.)
-- `[ ]` **7.7 Vibe-Coding emits functions (follow-up).** Extend the action-graph generator to produce
-  user-defined `def` blocks. (AI-R7.)
-- `[ ]` **7.8 Block-mode functions (verify/extend).** Confirm block coverage or clean code-mode
-  fallback for `def`. (LANG-R5.)
+- `[x]` **7.6 Mid-program streaming.** Automation now appends procedural chunks at a lookahead
+  boundary while preserving the running program and ride state. (MODE-R7.)
+- `[x]` **7.7 Vibe-Coding emits functions.** The action-graph generator/compiler accepts `def` /
+  `enddef` and function-call nodes for helper-structured route programs. (AI-R7.)
+- `[x]` **7.8 Block-mode functions.** Blocks can represent no-argument helper definitions/calls, enough
+  for the function-structured autopilot; parameters/returns remain Code Mode. (LANG-R5.)
 - `[ ]` **7.9 Parity audit.** Audit shared mechanics (fares, dulog, layout, dialogue) for drift; fix
   any Manual bug surfaced. (MODE-R8.)
-- `[ ]` **7.10 Tests.** EditMode tests for: function define-and-call; function-structured autopilot
-  compiles + wins headlessly (`HeadlessProgramRunner`); pre-grown town generation.
+- `[x]` **7.10 Tests.** EditMode tests added and Unity EditMode suite passed for: function define-and-call; function-structured
+  autopilot compiles + wins headlessly (`HeadlessProgramRunner`); action-graph functions; roadside
+  footprint clearance; streamed continuation remaps rides.
 
 **Verify (Phase 7):** EditMode suite green incl. new tests; regenerate the Automation scenes via
 `AutomationDriveSceneBuilder` / `CodeDriveSceneBuilder`; in-editor side-by-side check that an

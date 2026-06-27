@@ -165,6 +165,37 @@ public class AiIntegrationTests
         Assert.IsNotEmpty(error);
     }
 
+    [Test]
+    public void ActionGraph_CompilesFunctionDefinitionsAndCalls()
+    {
+        var graph = new ActionGraphResponse
+        {
+            message = "Use helpers.",
+            nodes = new[]
+            {
+                new ActionGraphNode { op = "def", name = "drive" },
+                new ActionGraphNode { op = "while", condition = "not routeComplete()" },
+                new ActionGraphNode { op = "action", name = "driveToNextStop" },
+                new ActionGraphNode { op = "call", name = "handlePassengers" },
+                new ActionGraphNode { op = "endwhile" },
+                new ActionGraphNode { op = "enddef" },
+                new ActionGraphNode { op = "def", name = "handlePassengers" },
+                new ActionGraphNode { op = "if", condition = "passengerWaiting()" },
+                new ActionGraphNode { op = "action", name = "pickUp" },
+                new ActionGraphNode { op = "endif" },
+                new ActionGraphNode { op = "enddef" },
+                new ActionGraphNode { op = "call", name = "drive" },
+            }
+        };
+
+        Assert.IsTrue(ActionGraphCompiler.TryCompile(graph, out string source, out string error), error);
+        StringAssert.Contains("def drive():", source);
+        StringAssert.Contains("handlePassengers()", source);
+
+        Parser.Compile(source, out List<LangError> parseErrors);
+        Assert.IsEmpty(parseErrors);
+    }
+
     // -------------------------------------------------------------------------
     // #2 Local result cache
 
