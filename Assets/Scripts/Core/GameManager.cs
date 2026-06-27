@@ -57,6 +57,38 @@ public class GameManager : MonoBehaviour
         SaveSystem.AutoSave();
     }
 
+    /// <summary>
+    /// Spends from the player's visible wallet (saved currency + pending run
+    /// earnings), clamping at zero so gameplay is never blocked by being broke.
+    /// Pending earnings are spent first so the HUD stays consistent mid-run.
+    /// </summary>
+    public int SpendCurrency(int amount)
+    {
+        int pending = PendingCurrency;
+        int spent = SpendCurrency(SaveSystem.Current, ref pending, amount);
+        PendingCurrency = pending;
+        if (spent > 0) SaveSystem.AutoSave();
+        return spent;
+    }
+
+    /// <summary>Pure spending seam for tests and non-MonoBehaviour callers.</summary>
+    public static int SpendCurrency(SaveData save, ref int pendingCurrency, int amount)
+    {
+        if (amount <= 0 || save == null) return 0;
+
+        int spent = 0;
+        int fromPending = Mathf.Min(Mathf.Max(0, pendingCurrency), amount);
+        pendingCurrency -= fromPending;
+        spent += fromPending;
+
+        int remaining = amount - fromPending;
+        int fromSaved = Mathf.Min(Mathf.Max(0, save.currency), remaining);
+        save.currency -= fromSaved;
+        spent += fromSaved;
+
+        return spent;
+    }
+
     /// <summary>Records a best score for a level (keeps the higher of old/new).</summary>
     public void RecordLevelScore(int levelIndex, int score)
     {

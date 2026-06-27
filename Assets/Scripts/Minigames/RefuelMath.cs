@@ -23,6 +23,10 @@ public static class RefuelMath
     const float StartMin    = 0.06f;
     const float StartMax    = 0.20f;
 
+    const int   MinRefuelCost = 15;
+    const int   MaxRefuelCost = 60;
+    const float CostPerMissedScorePoint = 0.5f;
+
     // -------------------------------------------------------------------------
 
     /// <summary>Random target band [lo, hi] for this attempt.</summary>
@@ -57,6 +61,14 @@ public static class RefuelMath
         score -= Mathf.RoundToInt(miss * 300f);
 
         return Mathf.Max(10, score);
+    }
+
+    /// <summary>Money charged for a real refuel, scaled by minigame performance.</summary>
+    public static int CostForScore(int score)
+    {
+        int clampedScore = Mathf.Clamp(score, 0, 100);
+        int cost = MinRefuelCost + Mathf.RoundToInt((100 - clampedScore) * CostPerMissedScorePoint);
+        return Mathf.Clamp(cost, MinRefuelCost, MaxRefuelCost);
     }
 
     // -------------------------------------------------------------------------

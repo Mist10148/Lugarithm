@@ -32282,7 +32282,7 @@ MonoBehaviour:
   laneStepsEachSide: 1
   rotationFollowSpeed: 4
   offRoadSpeedFactor: 0.45
-  fuelDrainPerSecond: 0.004
+  fuelDrainPerSecond: 0.006
 --- !u!212 &1457254547
 SpriteRenderer:
   serializedVersion: 2

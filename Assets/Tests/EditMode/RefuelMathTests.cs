@@ -66,4 +66,26 @@ public class RefuelMathTests
         Assert.IsFalse(RefuelMath.InBand(0.54f, 0.55f, 0.70f));
         Assert.IsFalse(RefuelMath.InBand(0.71f, 0.55f, 0.70f));
     }
+
+    [Test]
+    public void CostForScore_Perfect_IsMinimum()
+    {
+        Assert.AreEqual(15, RefuelMath.CostForScore(100));
+    }
+
+    [Test]
+    public void CostForScore_TimedOutInBand_ScalesFromScore()
+    {
+        int score = RefuelMath.ScoreFor(0.60f, 0.55f, 0.70f, timedOut: true);
+
+        Assert.AreEqual(60, score);
+        Assert.AreEqual(35, RefuelMath.CostForScore(score));
+    }
+
+    [Test]
+    public void CostForScore_LowScore_IsCapped()
+    {
+        Assert.AreEqual(60, RefuelMath.CostForScore(10));
+        Assert.AreEqual(60, RefuelMath.CostForScore(-50));
+    }
 }

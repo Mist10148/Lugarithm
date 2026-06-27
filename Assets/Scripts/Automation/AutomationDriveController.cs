@@ -724,7 +724,20 @@ public class AutomationDriveController : MonoBehaviour
 
         int  seed = UnityEngine.Random.Range(0, 99999);
         bool done = false;
-        System.Action<MinigameResult> onDone = _ => { if (fuel) _autoFuel = 1f; done = true; };
+        System.Action<MinigameResult> onDone = result =>
+        {
+            if (fuel)
+            {
+                _autoFuel = 1f;
+                int cost = RefuelMath.CostForScore(result != null ? result.Score : 0);
+                int spent = GameManager.Instance != null
+                    ? GameManager.Instance.SpendCurrency(cost)
+                    : cost;
+                if (console != null)
+                    console.Info($"refuel cost: PHP {spent}");
+            }
+            done = true;
+        };
 
         if (fuel && refuelMinigame != null)
             refuelMinigame.Show(seed, onDone);
