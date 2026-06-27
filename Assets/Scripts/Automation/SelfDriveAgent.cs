@@ -11,7 +11,7 @@ public static class SelfDrivePlanner
 {
     public static readonly string[] NavBlocks =
     {
-        "moveForward", "turnLeft", "turnRight", "pickUp", "dropOff", "collectFare",
+        "moveForward", "turnLeft", "turnRight", "pickUp", "dropOff", "collectFare", "giveChange",
         "driveToNextStop", "driveToTerminal", "while", "if", "ifElse",
     };
 
@@ -21,6 +21,12 @@ public static class SelfDrivePlanner
         "hasPassengerAboard", "atRequestedStop", "passengerWaiting",
     };
 
+    public static readonly string[] NavReporters =
+    {
+        "fareOwed", "cashTendered", "changeOwed",
+        "seatsLeft", "passengerCount", "distanceToDestination", "distanceTraveled",
+    };
+
     public const string ReferenceSolution =
         "# Self-driving jeepney: keep serving stops until the route is complete.\n" +
         "while not routeComplete():\n" +
@@ -28,6 +34,7 @@ public static class SelfDrivePlanner
         "    if passengerWaiting():\n" +
         "        pickUp()\n" +
         "        collectFare()\n" +
+        "        giveChange(changeOwed())\n" +
         "    if atRequestedStop():\n" +
         "        dropOff()\n";
 
@@ -49,6 +56,7 @@ public static class SelfDrivePlanner
                 origin = stop,
                 dest   = grid.DestPos,
                 fare   = fare,
+                tender = fare,
                 color  = new Color(0.95f, 0.65f, 0.15f),
             });
         return rides;
@@ -67,6 +75,7 @@ public static class SelfDrivePlanner
                 origin = layout.Node(req.originNodeId).gridCell,
                 dest   = layout.Node(req.destNodeId).gridCell,
                 fare   = req.fare,
+                tender = req.tender,
                 color  = req.color,
             });
         return rides;
@@ -93,14 +102,15 @@ public static class SelfDrivePlanner
             requireAllPassengersDelivered = true,
             allowedBlocks   = NavBlocks,
             allowedQueries  = NavQueries,
+            allowedReporters = NavReporters,
             parSteps        = plan.Count,
             softTimerSeconds = 600f,
             goalText = "Self-driving run: program the jeepney to pick up every rider, " +
-                       "collect fares, drop each at their stop, then finish the current route. " +
+                       "collect fares, give exact change, drop each at their stop, then finish the current route. " +
                        "Use driveToNextStop() / driveToTerminal() to navigate.",
             codeScaffold = "# Navigation blocks plan a path for you:\n" +
                            "#   driveToNextStop(), driveToTerminal()\n" +
-                           "# Tend riders: pickUp(), collectFare(), dropOff()\n" +
+                           "# Tend riders: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
                            "# Ask: passengerWaiting(), atRequestedStop(), routeComplete()\n",
             optimalSolutionText = ReferenceSolution,
         };
@@ -137,7 +147,7 @@ public static class SelfDrivePlanner
             foreach (GridRide ride in rides)
                 if (!aboard.Contains(ride.id) && !delivered.Contains(ride.id) && ride.origin == pos)
                 { aboard.Add(ride.id); boarded = true; }
-            if (boarded) { actions.Add("pickUp"); actions.Add("collectFare"); }
+            if (boarded) { actions.Add("pickUp"); actions.Add("collectFare"); actions.Add("giveChange"); }
 
             var dropped = new List<int>();
             foreach (int id in aboard)

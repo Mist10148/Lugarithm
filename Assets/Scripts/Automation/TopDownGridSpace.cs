@@ -14,6 +14,8 @@ public class TopDownGridSpace : IGridSpace, IStopView
     readonly float         _roadHalfWidth;
 
     readonly Dictionary<Vector2Int, bool> _occupied = new Dictionary<Vector2Int, bool>();
+    readonly Dictionary<Vector2Int, StopZone> _zonesByCell = new Dictionary<Vector2Int, StopZone>();
+    readonly Dictionary<Vector2Int, List<Color>> _peepColorsByCell = new Dictionary<Vector2Int, List<Color>>();
 
     public RouteContext RouteContext => _routeContext;
     public Transform    WorldRoot    => _worldRoot;
@@ -33,7 +35,25 @@ public class TopDownGridSpace : IGridSpace, IStopView
 
         foreach (TownNode n in layout.nodes)
             if (n.IsStop)
+            {
                 _occupied[n.gridCell] = true;
+                if (_routeContext.ZoneByNode != null &&
+                    _routeContext.ZoneByNode.TryGetValue(n.id, out StopZone zone))
+                    _zonesByCell[n.gridCell] = zone;
+            }
+
+        foreach (PassengerRequest req in layout.requests)
+        {
+            TownNode origin = layout.Node(req.originNodeId);
+            if (!_peepColorsByCell.TryGetValue(origin.gridCell, out List<Color> colors))
+            {
+                colors = new List<Color>();
+                _peepColorsByCell[origin.gridCell] = colors;
+            }
+            colors.Add(req.color);
+        }
+
+        SpawnWaitingPeeps();
     }
 
     // -------------------------------------------------------------------------
@@ -75,16 +95,35 @@ public class TopDownGridSpace : IGridSpace, IStopView
         var cells = new List<Vector2Int>(_occupied.Keys);
         foreach (Vector2Int cell in cells)
             _occupied[cell] = true;
+        SpawnWaitingPeeps();
     }
 
     public void SetStopOccupied(Vector2Int cell, bool occupied)
     {
         _occupied[cell] = occupied;
+        if (!occupied && _zonesByCell.TryGetValue(cell, out StopZone zone) && zone != null)
+        {
+            GameObject peep = zone.TakeWaitingPeep();
+            if (peep != null) Object.Destroy(peep);
+        }
     }
 
     /// <summary>True if the stop at this cell still has a waiting passenger.</summary>
     public bool IsOccupied(Vector2Int cell)
     {
         return _occupied.TryGetValue(cell, out bool occupied) && occupied;
+    }
+
+    void SpawnWaitingPeeps()
+    {
+        foreach (KeyValuePair<Vector2Int, StopZone> pair in _zonesByCell)
+        {
+            StopZone zone = pair.Value;
+            if (zone == null) continue;
+
+            zone.ClearWaitingPeeps();
+            if (_peepColorsByCell.TryGetValue(pair.Key, out List<Color> colors) && colors.Count > 0)
+                zone.SpawnWaitingPeeps(colors, new Vector2(_roadHalfWidth + 2.1f, -0.8f), Vector2.right);
+        }
     }
 }

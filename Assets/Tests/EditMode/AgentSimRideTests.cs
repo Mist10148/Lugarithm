@@ -23,7 +23,7 @@ public class AgentSimRideTests
         var sim = new AgentSim(grid, new FareTable(), startFacing: 1);
         sim.LoadRides(new List<GridRide>
         {
-            new GridRide { id = 0, origin = new Vector2Int(3, 1), dest = new Vector2Int(5, 1), fare = 17 },
+            new GridRide { id = 0, origin = new Vector2Int(3, 1), dest = new Vector2Int(5, 1), fare = 17, tender = 20 },
         });
 
         Assert.AreEqual(1, sim.RemainingWaiting);
@@ -37,6 +37,9 @@ public class AgentSimRideTests
 
         var fare = sim.Apply("collectFare");
         Assert.AreEqual(17, fare.FareCollected);
+        Assert.AreEqual(20, sim.ReadReporter("cashTendered", new List<Value>()).AsInt());
+        Assert.AreEqual(3, sim.ReadReporter("changeOwed", new List<Value>()).AsInt());
+        Assert.AreEqual(3, sim.Apply("giveChange", new[] { Value.Int(3) }).ChangeGiven);
 
         Assert.IsFalse(sim.EvaluateQuery("atRequestedStop"), "their stop is further along");
         sim.Apply("moveForward");
@@ -114,7 +117,7 @@ public class AgentSimRideTests
         var sim = new AgentSim(grid, new FareTable(), startFacing: 1);
         sim.LoadRides(new List<GridRide>
         {
-            new GridRide { id = 0, origin = new Vector2Int(3, 1), dest = new Vector2Int(5, 1), fare = 21 },
+            new GridRide { id = 0, origin = new Vector2Int(3, 1), dest = new Vector2Int(5, 1), fare = 21, tender = 50 },
         });
 
         Assert.IsFalse(sim.EvaluateQuery("passengerWaiting"));
@@ -126,6 +129,8 @@ public class AgentSimRideTests
         Assert.AreEqual(21, sim.ReadReporter("fareOwed", new List<Value>()).AsInt());
         Assert.AreEqual(21, sim.Apply("collectFare").FareCollected);
         Assert.AreEqual(0, sim.ReadReporter("fareOwed", new List<Value>()).AsInt());
+        Assert.AreEqual(50, sim.ReadReporter("cashTendered", new List<Value>()).AsInt());
+        Assert.AreEqual(29, sim.ReadReporter("changeOwed", new List<Value>()).AsInt());
     }
 
     [Test]
@@ -135,7 +140,7 @@ public class AgentSimRideTests
         var sim = new AgentSim(grid, new FareTable(), startFacing: 1);
         sim.LoadRides(new List<GridRide>
         {
-            new GridRide { id = 0, origin = new Vector2Int(3, 1), dest = new Vector2Int(5, 1), fare = 17 },
+            new GridRide { id = 0, origin = new Vector2Int(3, 1), dest = new Vector2Int(5, 1), fare = 17, tender = 20 },
         });
 
         sim.Apply("driveToNextStop");
@@ -148,5 +153,35 @@ public class AgentSimRideTests
         Assert.IsFalse(early.DroppedOff);
         StringAssert.Contains("collect fare", early.Warning);
         Assert.IsFalse(sim.EvaluateQuery("routeComplete"));
+    }
+
+    [Test]
+    public void RideMode_WrongChangeBlocksDropOff_UntilExactChangeIsGiven()
+    {
+        GridModel grid = StraightGrid();
+        var sim = new AgentSim(grid, new FareTable(), startFacing: 1);
+        sim.LoadRides(new List<GridRide>
+        {
+            new GridRide { id = 0, origin = new Vector2Int(3, 1), dest = new Vector2Int(5, 1), fare = 17, tender = 50 },
+        });
+
+        sim.Apply("driveToNextStop");
+        while (sim.HasPendingMoves) sim.Apply(sim.DequeueMove());
+        sim.Apply("pickUp");
+        sim.Apply("collectFare");
+
+        Assert.AreEqual(33, sim.ReadReporter("changeOwed", new List<Value>()).AsInt());
+        var wrong = sim.Apply("giveChange", new[] { Value.Int(30) });
+        StringAssert.Contains("wrong change", wrong.Warning);
+
+        sim.Apply("driveToNextStop");
+        while (sim.HasPendingMoves) sim.Apply(sim.DequeueMove());
+        var blocked = sim.Apply("dropOff");
+        Assert.IsFalse(blocked.DroppedOff);
+
+        sim.Apply("giveChange", new[] { Value.Int(33) });
+        var drop = sim.Apply("dropOff");
+        Assert.IsTrue(drop.DroppedOff);
+        Assert.IsTrue(sim.EvaluateQuery("routeComplete"));
     }
 }

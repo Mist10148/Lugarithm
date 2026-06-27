@@ -20,6 +20,7 @@ public class AgentActionResult
     public bool DroppedOff;
     public int  DeliveredCount;
     public int  FareCollected;
+    public int  ChangeGiven;
 
     /// <summary>Value returned by a value-returning action (e.g. collectFare).</summary>
     public Value ReturnValue;
@@ -39,10 +40,13 @@ public class GridRide
     public Vector2Int origin;
     public Vector2Int dest;
     public int        fare;
+    public int        tender;
     public Color      color;
 
     public bool aboard;
     public bool delivered;
+    public bool fareCollected;
+    public bool changeSettled;
     public bool paid;
 }
 
@@ -88,6 +92,12 @@ public class AgentSim : IAgentApi
 
     /// <summary>Pesos collected via collectFare().</summary>
     public int FaresCollected { get; private set; }
+
+    /// <summary>Cash handed over for fares that still need change settled.</summary>
+    public int TenderCollected { get; private set; }
+
+    /// <summary>Pesos returned through giveChange().</summary>
+    public int ChangeGiven { get; private set; }
 
     public int RemainingWaiting => _rides != null ? CountRemainingRides() : _waiting.Count;
 
@@ -168,7 +178,7 @@ public class AgentSim : IAgentApi
                 {
                     id = ride.id, originNodeId = ride.originNodeId, destNodeId = ride.destNodeId,
                     origin = ride.origin, dest = ride.dest,
-                    fare = ride.fare, color = ride.color,
+                    fare = ride.fare, tender = ride.tender, color = ride.color,
                 });
             copy.LoadRides(ridesCopy);
         }
@@ -185,6 +195,8 @@ public class AgentSim : IAgentApi
         PassengersDelivered = 0;
         UnpaidFares         = 0;
         FaresCollected      = 0;
+        TenderCollected     = 0;
+        ChangeGiven         = 0;
 
         _pending.Clear();
 
@@ -206,6 +218,8 @@ public class AgentSim : IAgentApi
         {
             ride.aboard    = false;
             ride.delivered = false;
+            ride.fareCollected = false;
+            ride.changeSettled = false;
             ride.paid      = false;
         }
     }
@@ -222,7 +236,7 @@ public class AgentSim : IAgentApi
     // Actions
 
     /// <summary>Executes one agent action and reports what changed.</summary>
-    public AgentActionResult Apply(string action)
+    public AgentActionResult Apply(string action, IReadOnlyList<Value> args = null)
     {
         var r = new AgentActionResult
         {
@@ -303,6 +317,7 @@ public class AgentSim : IAgentApi
                 {
                     int amount      = UnpaidFares * FareMath.ComputeFare(1, _fares);
                     FaresCollected += amount;
+                    TenderCollected += amount;
                     r.FareCollected = amount;
                     r.ReturnValue   = Value.Int(amount);
                     UnpaidFares     = 0;
@@ -311,6 +326,10 @@ public class AgentSim : IAgentApi
                 {
                     r.Warning = "no fares to collect right now.";
                 }
+                break;
+
+            case "giveChange":
+                GiveChange(r, args);
                 break;
 
             case "wait":
@@ -350,6 +369,7 @@ public class AgentSim : IAgentApi
             if (!ride.aboard && !ride.delivered && ride.origin == Position)
             {
                 ride.aboard = true;
+                if (ride.tender <= 0) ride.tender = ride.fare;
                 PassengersAboard++;
                 UnpaidFares++;
                 boarded = true;
@@ -379,7 +399,7 @@ public class AgentSim : IAgentApi
             }
 
         if (delivered > 0) { r.DroppedOff = true; r.DeliveredCount = delivered; }
-        else if (unpaidHere > 0) r.Warning = "collect fare before letting this passenger off.";
+        else if (unpaidHere > 0) r.Warning = "collect fare and give exact change before letting this passenger off.";
         else if (PassengersAboard == 0) r.Warning = "no passengers aboard.";
         else r.Warning = "nobody wants to get off here.";
     }
@@ -387,20 +407,70 @@ public class AgentSim : IAgentApi
     void CollectRideFares(AgentActionResult r)
     {
         int amount = 0;
+        int tender = 0;
         foreach (GridRide ride in _rides)
-            if (ride.aboard && !ride.paid) { amount += ride.fare; ride.paid = true; }
+        {
+            if (!ride.aboard || ride.fareCollected) continue;
+
+            int paidCash = ride.tender > 0 ? ride.tender : ride.fare;
+            amount += ride.fare;
+            tender += paidCash;
+            ride.fareCollected = true;
+
+            if (FareMath.ChangeFor(paidCash, ride.fare) == 0)
+            {
+                ride.changeSettled = true;
+                ride.paid = true;
+            }
+        }
 
         if (amount > 0)
         {
             FaresCollected += amount;
+            TenderCollected += tender;
             r.FareCollected = amount;
             r.ReturnValue   = Value.Int(amount);
-            UnpaidFares     = 0;
+            UnpaidFares     = CountUnsettledAboard();
         }
         else
         {
             r.Warning = "no fares to collect right now.";
         }
+    }
+
+    void GiveChange(AgentActionResult r, IReadOnlyList<Value> args)
+    {
+        int owed = ChangeOwed();
+        int offered = owed;
+        if (args != null && args.Count > 0)
+            offered = (int)args[0].AsInt();
+
+        if (owed <= 0)
+        {
+            if (offered != 0)
+                r.Warning = "no change is owed right now.";
+            return;
+        }
+
+        if (offered != owed)
+        {
+            r.Warning = $"wrong change: give ₱{owed}.";
+            return;
+        }
+
+        if (_rides != null)
+        {
+            foreach (GridRide ride in _rides)
+                if (ride.aboard && ride.fareCollected && !ride.changeSettled)
+                {
+                    ride.changeSettled = true;
+                    ride.paid = true;
+                }
+        }
+
+        ChangeGiven += offered;
+        r.ChangeGiven = offered;
+        UnpaidFares = CountUnsettledAboard();
     }
 
     // -------------------------------------------------------------------------
@@ -472,6 +542,8 @@ public class AgentSim : IAgentApi
             case "position":            return Value.Tuple(new[] { Value.Int(Position.x), Value.Int(Position.y) });
             case "passengerType":       return Value.Str("regular");
             case "fareOwed":            return Value.Int(FareOwed());
+            case "cashTendered":        return Value.Int(CashTendered());
+            case "changeOwed":          return Value.Int(ChangeOwed());
             case "currentStop":         return Value.Str("");
             case "nextStop":            return Value.Str("");
             default:                    return Value.None;
@@ -507,10 +579,49 @@ public class AgentSim : IAgentApi
         {
             int amount = 0;
             foreach (GridRide ride in _rides)
-                if (ride.aboard && !ride.paid) amount += ride.fare;
+                if (ride.aboard && !ride.fareCollected) amount += ride.fare;
             return amount;
         }
         return UnpaidFares * FareMath.ComputeFare(1, _fares);
+    }
+
+    int CashTendered()
+    {
+        if (_rides != null)
+        {
+            int amount = 0;
+            foreach (GridRide ride in _rides)
+                if (ride.aboard && ride.fareCollected && !ride.changeSettled)
+                    amount += ride.tender > 0 ? ride.tender : ride.fare;
+            return amount;
+        }
+        return 0;
+    }
+
+    int ChangeOwed()
+    {
+        if (_rides != null)
+        {
+            int amount = 0;
+            foreach (GridRide ride in _rides)
+                if (ride.aboard && ride.fareCollected && !ride.changeSettled)
+                    amount += FareMath.ChangeFor(ride.tender > 0 ? ride.tender : ride.fare, ride.fare);
+            return amount;
+        }
+        return 0;
+    }
+
+    int CountUnsettledAboard()
+    {
+        if (_rides != null)
+        {
+            int count = 0;
+            foreach (GridRide ride in _rides)
+                if (ride.aboard && !ride.paid)
+                    count++;
+            return count;
+        }
+        return UnpaidFares;
     }
 
     bool RouteComplete()
@@ -521,7 +632,7 @@ public class AgentSim : IAgentApi
         {
             foreach (GridRide ride in _rides)
                 if (!ride.delivered) return false;
-            return PassengersAboard == 0 && UnpaidFares == 0;
+            return PassengersAboard == 0 && UnpaidFares == 0 && ChangeOwed() == 0;
         }
 
         return _waiting.Count == 0 && PassengersAboard == 0 && UnpaidFares == 0;

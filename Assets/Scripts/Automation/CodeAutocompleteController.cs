@@ -83,8 +83,8 @@ public class CodeAutocompleteController : MonoBehaviour
         {
             if (e.Name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
             {
-                string insert = e.Kind == ApiKind.Action || e.Kind == ApiKind.Reporter
-                    ? e.Name + "()"
+                string insert = e.Name == "giveChange"
+                    ? "giveChange(changeOwed())"
                     : e.Name + "()";
                 _suggestions.Add(new Suggestion { Text = e.Name, Kind = e.Kind.ToString(), Insert = insert });
             }

@@ -13,12 +13,14 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
     [SerializeField] public SpriteRenderer body;
 
     IGridSpace _space;
+    IStopView  _stopView;
 
     // -------------------------------------------------------------------------
 
     public void Init(IGridSpace space, Vector2Int cell, int facing)
     {
         _space = space;
+        _stopView = space as IStopView;
         SnapTo(cell, facing);
     }
 
@@ -48,6 +50,8 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
                 break;
 
             case "pickUp":
+                if (_stopView != null && result.PickedUp)
+                    _stopView.SetStopOccupied(result.From, false);
                 yield return Pop("Placeholders/peep", duration);
                 break;
 
@@ -56,6 +60,10 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
                 break;
 
             case "collectFare":
+                yield return Pop("Placeholders/coin", duration);
+                break;
+
+            case "giveChange":
                 yield return Pop("Placeholders/coin", duration);
                 break;
 
@@ -69,6 +77,17 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
     {
         if (moves == null || moves.Count == 0) yield break;
 
+        bool hasForwardMove = false;
+        foreach (AgentActionResult result in moves)
+            if (result.Action == "moveForward" && !result.Blocked)
+                hasForwardMove = true;
+
+        if (hasForwardMove)
+        {
+            yield return PlayContinuousPath(moves, secondsPerStep);
+            yield break;
+        }
+
         foreach (AgentActionResult result in moves)
         {
             float duration = result.Action == "moveForward"
@@ -79,6 +98,36 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
     }
 
     // -------------------------------------------------------------------------
+
+    IEnumerator PlayContinuousPath(IReadOnlyList<AgentActionResult> moves, float secondsPerStep)
+    {
+        foreach (AgentActionResult result in moves)
+        {
+            if (result.Action != "moveForward" || result.Blocked) continue;
+
+            Vector3 a = _space.CellToWorld(result.From);
+            Vector3 b = _space.CellToWorld(result.To);
+            Quaternion startRot = body != null ? body.transform.localRotation : Quaternion.identity;
+            Quaternion endRot = BodyRotation(result.FacingAfter);
+
+            float duration = Mathf.Max(0.04f, secondsPerStep);
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                transform.position = Vector3.Lerp(a, b, Mathf.SmoothStep(0f, 1f, t));
+                if (body != null)
+                    body.transform.localRotation = Quaternion.Slerp(startRot, endRot, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t * 1.8f)));
+                if (t > 0.5f) SetSortOrder(result.To);
+                yield return null;
+            }
+
+            transform.position = b;
+            if (body != null) body.transform.localRotation = endRot;
+            SetSortOrder(result.To);
+        }
+    }
 
     IEnumerator MoveTo(Vector2Int from, Vector2Int to, float duration)
     {

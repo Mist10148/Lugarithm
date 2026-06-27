@@ -11,6 +11,7 @@ public enum BlockType
     PickUp,
     DropOff,
     CollectFare,
+    GiveChange,
     If,
     IfElse,
     While,
@@ -61,6 +62,7 @@ public static class BlockProgram
             case BlockType.PickUp:      return "pickUp";
             case BlockType.DropOff:     return "dropOff";
             case BlockType.CollectFare: return "collectFare";
+            case BlockType.GiveChange:  return "giveChange";
             default:                    return null;
         }
     }
@@ -78,6 +80,7 @@ public static class BlockProgram
             case "pickUp":      return BlockType.PickUp;
             case "dropOff":     return BlockType.DropOff;
             case "collectFare": return BlockType.CollectFare;
+            case "giveChange":  return BlockType.GiveChange;
             case "if":          return BlockType.If;
             case "ifElse":      return BlockType.IfElse;
             case "while":       return BlockType.While;
@@ -89,7 +92,11 @@ public static class BlockProgram
     public static string Label(BlockNode node)
     {
         if (!node.IsContainer)
+        {
+            if (node.Type == BlockType.GiveChange)
+                return "giveChange(changeOwed())";
             return ActionName(node.Type) + "()";
+        }
 
         string keyword   = node.Type == BlockType.While ? "while" : "if";
         string condition = (node.Negate ? "not " : "") + node.Query + "()";
@@ -142,7 +149,9 @@ public static class BlockProgram
                 {
                     BlockType? type = FromPaletteName(call.Name);
                     bool isAction = type.HasValue && !new BlockNode(type.Value).IsContainer;
-                    if (!isAction || (call.Args != null && call.Args.Count > 0))
+                    bool canShowArgs = call.Name == "giveChange" && IsChangeOwedArg(call.Args);
+                    bool hasArgs = call.Args != null && call.Args.Count > 0;
+                    if (!isAction || (hasArgs && !canShowArgs))
                     {
                         ok = false;   // unknown command, or a counted call blocks can't show
                         break;
@@ -204,7 +213,10 @@ public static class BlockProgram
         {
             if (!node.IsContainer)
             {
-                target.Add(new CallStmt { Name = ActionName(node.Type), SourceRef = node });
+                var call = new CallStmt { Name = ActionName(node.Type), SourceRef = node };
+                if (node.Type == BlockType.GiveChange)
+                    call.Args.Add(new CallExpr { Name = "changeOwed" });
+                target.Add(call);
                 continue;
             }
 
@@ -245,5 +257,13 @@ public static class BlockProgram
                 target.Add(branch);
             }
         }
+    }
+
+    static bool IsChangeOwedArg(List<ExprNode> args)
+    {
+        if (args == null || args.Count != 1) return false;
+        return args[0] is CallExpr call &&
+               call.Name == "changeOwed" &&
+               (call.Args == null || call.Args.Count == 0);
     }
 }

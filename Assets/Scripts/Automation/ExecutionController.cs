@@ -245,7 +245,7 @@ public class ExecutionController : MonoBehaviour
                 yield break;
             }
 
-            AgentActionResult result = _sim.Apply(step.ActionName);
+            AgentActionResult result = _sim.Apply(step.ActionName, step.ActionArgs);
             if (!string.IsNullOrEmpty(step.BindResultTo))
                 _vm.DeliverActionResult(result.ReturnValue);
 

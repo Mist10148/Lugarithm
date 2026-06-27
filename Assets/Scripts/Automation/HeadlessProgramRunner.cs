@@ -103,7 +103,7 @@ public static class HeadlessProgramRunner
                 break;
             }
 
-            AgentActionResult result = sim.Apply(step.ActionName);
+            AgentActionResult result = sim.Apply(step.ActionName, step.ActionArgs);
             Record(report, result, sim);
             if (!string.IsNullOrEmpty(step.BindResultTo))
                 vm.DeliverActionResult(result.ReturnValue);

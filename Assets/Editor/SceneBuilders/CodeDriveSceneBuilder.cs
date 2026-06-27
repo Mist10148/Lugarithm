@@ -277,28 +277,41 @@ Settings), then press ▶ RUN. One action runs per tick.
 <b>ACTIONS</b>  (do something; one tick each)
   moveForward()   move one tile in the way you're facing (bumps on a wall)
   turnLeft()      rotate 90° left      turnRight()  rotate 90° right
+  driveToNextStop()  path to the next rider stop or terminal
+  driveToTerminal()  path to the current route terminal
   pickUp()        board the passenger on this stop
-  dropOff()       let passengers off at the destination
-  collectFare()   collect fare from everyone aboard
+  collectFare()   collect fare and record tender
+  giveChange(amount)  give exact sukli; use giveChange(changeOwed())
+  dropOff()       let settled passengers off at their requested stop
 
 <b>CONDITIONS</b>  (ask a yes/no question; used by if / while)
   frontIsClear()   leftIsClear()   rightIsClear()
-  atStop()         atDestination()
+  atStop()         passengerWaiting()   atRequestedStop()
+  routeComplete()  hasPassengerAboard()
+
+<b>REPORTERS</b>  (return values)
+  fareOwed()       cashTendered()       changeOwed()
+  seatsLeft()      passengerCount()
 
 <b>CONTROL FLOW</b>
   if CONDITION:           run the indented block once if true
   if CONDITION: else:     ... otherwise run the else block
   while CONDITION:        repeat the block while true
-  not CONDITION           flip a condition (e.g. while not atDestination():)
+  not CONDITION           flip a condition (e.g. while not routeComplete():)
 
 In the Code Editor end if/else/while with a colon ':' and indent the body 4
 spaces; '#' starts a comment. In Blocks, drop blocks inside the C-shaped
 if/while and click the condition chip to choose the question.
 
 <b>EXAMPLE</b> — follow the road to the destination:
-  while not atDestination():
-      if frontIsClear():
-          moveForward()
-      else:
-          turnLeft()";
+  while not routeComplete():
+      driveToNextStop()
+      if passengerWaiting():
+          pickUp()
+          collectFare()
+          giveChange(changeOwed())
+      if atRequestedStop():
+          dropOff()
+
+atDestination() remains for maze/minigame content; procedural routes use routeComplete().";
 }

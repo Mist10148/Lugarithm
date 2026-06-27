@@ -52,11 +52,14 @@ public static class JournalPageLibrary
                     "once when a condition is true, and <b>while</b> to keep doing it as long as " +
                     "the condition stays true.",
                 codeExample =
-                    "<mspace=0.6em>while not atDestination():\n" +
-                    "    if frontIsClear():\n" +
-                    "        moveForward()\n" +
-                    "    else:\n" +
-                    "        turnLeft()</mspace>"
+                    "<mspace=0.6em>while not routeComplete():\n" +
+                    "    driveToNextStop()\n" +
+                    "    if passengerWaiting():\n" +
+                    "        pickUp()\n" +
+                    "        collectFare()\n" +
+                    "        giveChange(changeOwed())\n" +
+                    "    if atRequestedStop():\n" +
+                    "        dropOff()</mspace>"
             },
 
             new JournalPageDefinition

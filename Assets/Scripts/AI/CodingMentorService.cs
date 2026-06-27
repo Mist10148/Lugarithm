@@ -47,6 +47,7 @@ public static class CodingMentorService
         prompt.AppendLine($"Measured structure: {analysis.StatementCount} statements, weight {analysis.WeightedComplexity}, {analysis.ComplexityClass}, max nesting {analysis.MaxNesting}.");
         prompt.AppendLine($"Unlocked actions/control blocks: {string.Join(", ", allowedBlocks ?? Array.Empty<string>())}");
         prompt.AppendLine($"Unlocked queries: {string.Join(", ", allowedQueries ?? Array.Empty<string>())}");
+        prompt.AppendLine("Current fare flow: collectFare() records payment, changeOwed() reports sukli, giveChange(changeOwed()) settles it before dropOff(). Procedural routes use routeComplete().");
         prompt.AppendLine("PLAYER SOLUTION:"); prompt.AppendLine(playerSolution);
         prompt.AppendLine("AUTHORED VALID REFERENCE:"); prompt.AppendLine(authoredOptimal);
         prompt.AppendLine("Return a concise encouraging review, a valid refactor using only unlocked vocabulary, and accurate line annotations. Do not change the puzzle goal.");

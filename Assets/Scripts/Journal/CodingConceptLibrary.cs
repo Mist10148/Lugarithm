@@ -32,8 +32,10 @@ public static class CodingConceptLibrary
                     "You write it as a name followed by a pair of parentheses <b>()</b> — the " +
                     "parentheses are how the computer knows you mean \"do this action now.\"\n\n" +
                     "Driving commands: <b>moveForward()</b> drives one tile ahead, <b>turnLeft()</b> " +
-                    "and <b>turnRight()</b> rotate the jeepney without moving. Passenger commands: " +
-                    "<b>pickUp()</b>, <b>dropOff()</b>, and <b>collectFare()</b>. To pause for a beat, " +
+                    "and <b>turnRight()</b> rotate the jeepney without moving. Route helpers " +
+                    "<b>driveToNextStop()</b> and <b>driveToTerminal()</b> plan smooth road paths for you. " +
+                    "Passenger commands: <b>pickUp()</b>, <b>dropOff()</b>, <b>collectFare()</b>, and " +
+                    "<b>giveChange(amount)</b>. To pause for a beat, " +
                     "use <b>wait()</b>.\n\n" +
                     "<b>Watch out:</b> the jeepney only turns — it never moves sideways. After a turn " +
                     "you still need a <b>moveForward()</b> to actually go that way. Forgetting it is " +
@@ -42,7 +44,8 @@ public static class CodingConceptLibrary
                     "<mspace=0.6em># Pull up to a waiting rider, then carry them one tile on:\n" +
                     "moveForward()\n" +
                     "pickUp()        # rider boards\n" +
-                    "collectFare()   # they pay\n" +
+                    "collectFare()   # they hand over cash\n" +
+                    "giveChange(changeOwed())\n" +
                     "moveForward()\n" +
                     "dropOff()       # rider gets off\n\n" +
                     "# Turning needs a move afterwards to go that way:\n" +
@@ -57,7 +60,9 @@ public static class CodingConceptLibrary
                     "A <b>query</b> lets the jeepney <i>look around</i> and report back either " +
                     "<b>True</b> or <b>False</b>. Think of them as yes/no questions about the world: " +
                     "<b>frontIsClear()</b> asks \"is the tile ahead open?\", <b>atStop()</b> asks " +
-                    "\"am I on a passenger stop?\", and <b>atDestination()</b> asks \"have I arrived?\"\n\n" +
+                    "\"am I on a passenger stop?\", and <b>routeComplete()</b> asks whether every required " +
+                    "rider is delivered and the jeepney is at the current terminal. <b>atDestination()</b> " +
+                    "still exists for maze-style puzzles.\n\n" +
                     "Other handy queries: <b>leftIsClear()</b>, <b>rightIsClear()</b>, " +
                     "<b>passengerWaiting()</b>, <b>isFull()</b>, and <b>hasPassengerAboard()</b>.\n\n" +
                     "<b>Watch out:</b> a query only <i>answers</i> a question — it doesn't <i>do</i> " +
@@ -87,10 +92,11 @@ public static class CodingConceptLibrary
                     "If the jeepney does things in a strange order, re-read your lines top to bottom " +
                     "and check the sequence first.",
                 codeExample =
-                    "<mspace=0.6em># Correct order: arrive, board, pay, then drive on.\n" +
+                    "<mspace=0.6em># Correct order: arrive, board, collect, give change, then drive on.\n" +
                     "moveForward()\n" +
                     "pickUp()\n" +
                     "collectFare()\n" +
+                    "giveChange(changeOwed())\n" +
                     "moveForward()\n" +
                     "dropOff()\n\n" +
                     "# Wrong order: dropping off before anyone boarded does nothing.\n" +
@@ -186,11 +192,14 @@ public static class CodingConceptLibrary
                     "jeepney keeps moving toward the goal each time around.",
                 codeExample =
                     "<mspace=0.6em># Repeat until you arrive — the classic driving loop:\n" +
-                    "while not atDestination():\n" +
-                    "    if frontIsClear():\n" +
-                    "        moveForward()\n" +
-                    "    else:\n" +
-                    "        turnLeft()\n\n" +
+                    "while not routeComplete():\n" +
+                    "    driveToNextStop()\n" +
+                    "    if passengerWaiting():\n" +
+                    "        pickUp()\n" +
+                    "        collectFare()\n" +
+                    "        giveChange(changeOwed())\n" +
+                    "    if atRequestedStop():\n" +
+                    "        dropOff()\n\n" +
                     "# Do something an exact number of times:\n" +
                     "for i in range(3):\n" +
                     "    moveForward()</mspace>"

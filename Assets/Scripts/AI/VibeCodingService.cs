@@ -82,6 +82,7 @@ public static class VibeCodingService
         sb.AppendLine("EDITOR: " + (blockMode ? "block mode" : "code mode"));
         sb.AppendLine("UNLOCKED ACTIONS/CONTROL: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
         sb.AppendLine("UNLOCKED QUERIES: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
+        sb.AppendLine("Fare helpers: collectFare() records tender; giveChange(changeOwed()) settles exact change; procedural routes finish with routeComplete().");
 
         if (!string.IsNullOrWhiteSpace(editorText))
         {
@@ -195,6 +196,7 @@ public static class VibeCodingService
         sb.AppendLine("GOAL: " + (string.IsNullOrWhiteSpace(goalText) ? "Reach the destination (D)." : goalText));
         sb.AppendLine("UNLOCKED ACTIONS/CONTROL: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
         sb.AppendLine("UNLOCKED QUERIES: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
+        sb.AppendLine("Fare helpers: use fareOwed(), cashTendered(), changeOwed(), and giveChange(changeOwed()) when unlocked.");
         sb.AppendLine("CODE SO FAR (the cursor is at the very end):");
         sb.Append(codeBeforeCursor);
 
@@ -227,6 +229,7 @@ public static class VibeCodingService
         StringBuilder prompt = new StringBuilder();
         prompt.AppendLine("Unlocked actions/control structures: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
         prompt.AppendLine("Unlocked queries: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
+        prompt.AppendLine("Current Automation route pattern uses routeComplete(), driveToNextStop(), collectFare(), and giveChange(changeOwed()).");
         prompt.AppendLine("If the player explicitly asks to create, automate, write, fix, or change a program, return kind=code and a complete program.");
         prompt.AppendLine("Otherwise return kind=explanation and an empty code field. Keep the message to two or three friendly sentences.");
         prompt.AppendLine("Player request:");

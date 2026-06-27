@@ -73,6 +73,7 @@ public static class AgentApi
         new ApiEntry("pickUp",             ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("dropOff",            ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("collectFare",        ApiKind.Action,  minArity: 0, maxArity: 0),
+        new ApiEntry("giveChange",         ApiKind.Action,  minArity: 1, maxArity: 1),
         new ApiEntry("announceStop",       ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("honk",               ApiKind.Action,  minArity: 0, maxArity: 0),
 
@@ -88,6 +89,8 @@ public static class AgentApi
         new ApiEntry("passengerCount",     ApiKind.Reporter,minArity: 0, maxArity: 0),
         new ApiEntry("passengerType",      ApiKind.Reporter,minArity: 0, maxArity: 0),
         new ApiEntry("fareOwed",           ApiKind.Reporter,minArity: 0, maxArity: 0),
+        new ApiEntry("cashTendered",       ApiKind.Reporter,minArity: 0, maxArity: 0),
+        new ApiEntry("changeOwed",         ApiKind.Reporter,minArity: 0, maxArity: 0),
         new ApiEntry("distanceTraveled",   ApiKind.Reporter,minArity: 0, maxArity: 0),
         new ApiEntry("distanceToDestination", ApiKind.Reporter,minArity: 0, maxArity: 0),
         new ApiEntry("currentStop",        ApiKind.Reporter,minArity: 0, maxArity: 0),

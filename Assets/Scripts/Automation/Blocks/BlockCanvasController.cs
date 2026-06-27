@@ -249,7 +249,7 @@ public class BlockCanvasController : MonoBehaviour
 
         string headerText  = node.IsContainer
             ? (node.Type == BlockType.While ? "while" : "if")
-            : BlockProgram.ActionName(node.Type) + "()";
+            : BlockProgram.Label(node);
         string conditionText = (node.Negate ? "not " : "") + node.Query + "()";
 
         row.Configure(this, node, headerText, indent,
@@ -498,6 +498,7 @@ public class BlockCanvasController : MonoBehaviour
             case BlockType.While:  return "while …:";
             case BlockType.If:     return "if …:";
             case BlockType.IfElse: return "if …: else:";
+            case BlockType.GiveChange: return "giveChange(changeOwed())";
             default:               return BlockProgram.ActionName(type) + "()";
         }
     }

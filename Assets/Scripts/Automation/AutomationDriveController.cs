@@ -602,21 +602,54 @@ public class AutomationDriveController : MonoBehaviour
 
     void OnAutopilot()
     {
-        if (_won || selfDrive == null || exec == null) return;
-        if (selfDrive.IsDriving) return;
+        if (_won || exec == null) return;
 
-        // Procedural towns carry committed rides; authored levels synthesize them
-        // from the grid's 'P' stops (each bound for D) so the autopilot drives, tends
-        // passengers, and collects fares everywhere — and just runs S→D if there are
-        // no stops at all.
-        List<GridRide> rides = _rides ?? SelfDrivePlanner.RidesFromGrid(_grid, _level.fares);
+        // Editor-first autopilot: place the reference program where the player can
+        // see it, then run through the same path as any hand-written solution.
+        if (!LoadAutopilotProgramForCurrentEditor())
+            return;
+        if (console != null) console.Info("autopilot loaded the route program into the editor.");
 
-        exec.ResetWorld();
+        OnRun();
+    }
+
+    public bool LoadAutopilotProgramForCurrentEditor()
+    {
+        string source = !string.IsNullOrWhiteSpace(_def != null ? _def.optimalSolutionText : null)
+            ? _def.optimalSolutionText
+            : SelfDrivePlanner.ReferenceSolution;
+
+        ProgramNode program = Parser.Compile(source, out List<LangError> errors);
+        if (errors.Count > 0)
+        {
+            if (console != null)
+                foreach (LangError error in errors)
+                    console.Error(error.ToString());
+            return false;
+        }
+
+        if (_codeTabActive)
+        {
+            if (codeEditor == null) return false;
+            codeEditor.SetSource(source);
+            _lastRunWasCode = true;
+            return true;
+        }
+
+        if (blockCanvas == null) return false;
+        if (!blockCanvas.LoadProgram(program))
+        {
+            if (console != null)
+                console.Warn("autopilot program uses code-only features; loading it in Code Mode instead.");
+            if (codeEditor != null) codeEditor.SetSource(source);
+            SetTab(true);
+            RefreshEditorModeLabel();
+            _lastRunWasCode = true;
+            return codeEditor != null;
+        }
+
         _lastRunWasCode = false;
-        if (console != null) console.Info("autopilot engaged — self-driving the route…");
-
-        StartCoroutine(selfDrive.Drive(_grid, exec.Sim, _activeAgent, rides, _startFacing,
-                                       0.3f, _def, HandleFinished));
+        return true;
     }
 
     /// <summary>Tint each waiting peep by its committed rider color (matches dulog beacons).</summary>
@@ -808,6 +841,8 @@ public class AutomationDriveController : MonoBehaviour
                 console.Warn(result.Warning);
             if (result.FareCollected > 0)
                 console.Info($"   fare collected: ₱{result.FareCollected}");
+            if (result.ChangeGiven > 0)
+                console.Info($"   change given: ₱{result.ChangeGiven}");
         }
 
         if (monitor != null && exec != null)
@@ -1031,7 +1066,10 @@ public class AutomationDriveController : MonoBehaviour
             {
                 ride.aboard    = old.aboard;
                 ride.delivered = old.delivered;
+                ride.fareCollected = old.fareCollected;
+                ride.changeSettled = old.changeSettled;
                 ride.paid      = old.paid;
+                ride.tender    = old.tender;
             }
     }
 

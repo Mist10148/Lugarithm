@@ -300,6 +300,16 @@ public class CodeEditorController : MonoBehaviour
         }
     }
 
+    public void SetSource(string source)
+    {
+        if (input == null) return;
+        input.SetTextWithoutNotify(source ?? "");
+        input.stringPosition = input.text.Length;
+        RefreshLineNumbers();
+        RefreshHighlight();
+        Lint();
+    }
+
     public ProgramNode BuildProgram(out List<LangError> errors)
     {
         return Parser.Compile(Source, out errors);

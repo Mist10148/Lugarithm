@@ -10,6 +10,9 @@ public class StepResult
     /// <summary>Action to execute (an <see cref="AgentApi"/> action name), or null.</summary>
     public string ActionName;
 
+    /// <summary>Already-evaluated action inputs, passed to the world simulation.</summary>
+    public List<Value> ActionArgs = new List<Value>();
+
     /// <summary>The statement that produced the action (for highlighting).</summary>
     public StmtNode Node;
 
@@ -498,19 +501,19 @@ public class Interpreter
                 return Trip(call, $"stopped after {MaxActions} actions — this looks like an infinite loop.");
 
             if (repeat <= 1)
-                return new StepResult { ActionName = baseAction, Node = call };
+                return new StepResult { ActionName = baseAction, Node = call, ActionArgs = argValues };
 
             _repeatAction = baseAction;
             _repeatRemaining = (int)(repeat - 1);
             _repeatNode = call;
-            return new StepResult { ActionName = baseAction, Node = call };
+            return new StepResult { ActionName = baseAction, Node = call, ActionArgs = argValues };
         }
 
         ActionsExecuted++;
         if (ActionsExecuted > MaxActions)
             return Trip(call, $"stopped after {MaxActions} actions — this looks like an infinite loop.");
 
-        return new StepResult { ActionName = call.Name, Node = call };
+        return new StepResult { ActionName = call.Name, Node = call, ActionArgs = argValues };
     }
 
     StepResult ExecuteAssignStmt(AssignStmt assign, IAgentApi agent)
@@ -530,6 +533,7 @@ public class Interpreter
             return new StepResult
             {
                 ActionName   = rhsCall.Name,
+                ActionArgs   = EvaluateArgList(rhsCall.Args, agent, CurrentEnv()),
                 Node         = assign,
                 BindResultTo = assign.Name,
             };

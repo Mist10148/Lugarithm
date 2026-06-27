@@ -179,7 +179,10 @@ public class SelfDriveAgentTests
             {
                 ride.aboard    = old.aboard;
                 ride.delivered = old.delivered;
+                ride.fareCollected = old.fareCollected;
+                ride.changeSettled = old.changeSettled;
                 ride.paid      = old.paid;
+                ride.tender    = old.tender;
             }
     }
 }

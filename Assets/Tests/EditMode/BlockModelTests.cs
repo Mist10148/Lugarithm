@@ -133,6 +133,7 @@ public class BlockModelTests
         Assert.AreEqual(BlockType.MoveForward, BlockProgram.FromPaletteName("moveForward"));
         Assert.AreEqual(BlockType.While,       BlockProgram.FromPaletteName("while"));
         Assert.AreEqual(BlockType.IfElse,      BlockProgram.FromPaletteName("ifElse"));
+        Assert.AreEqual(BlockType.GiveChange,  BlockProgram.FromPaletteName("giveChange"));
         Assert.IsNull(BlockProgram.FromPaletteName("garbage"));
     }
 
@@ -144,5 +145,20 @@ public class BlockModelTests
             BlockProgram.Label(Container(BlockType.While, "atDestination", true)));
         Assert.AreEqual("if rightIsClear():",
             BlockProgram.Label(Container(BlockType.If, "rightIsClear", false)));
+        Assert.AreEqual("giveChange(changeOwed())", BlockProgram.Label(Action(BlockType.GiveChange)));
+    }
+
+    [Test]
+    public void ReferenceSolution_RoundTripsThroughBlocks_WithGiveChange()
+    {
+        ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        List<BlockNode> roots = BlockProgram.FromAst(program, out bool fullyRepresentable);
+        Assert.IsTrue(fullyRepresentable);
+
+        ProgramNode fromBlocks = BlockProgram.ToAst(roots, out var blockErrors, out _);
+        CollectionAssert.IsEmpty(blockErrors);
+        StringAssert.Contains("giveChange(changeOwed())", AstPrinter.Print(fromBlocks));
     }
 }
