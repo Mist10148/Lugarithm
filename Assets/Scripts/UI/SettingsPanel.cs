@@ -3,12 +3,12 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Reusable settings panel (used on Main Menu and Level Select). Only two
-/// controls are live this phase — Gameplay Mode (Manual/Automation) and
-/// Difficulty (Block/Code); every other row is a visual placeholder. Values
-/// bind through <see cref="SettingsManager"/> when present, falling back to
-/// the loaded save so the panel still works when a scene is played directly
-/// in the editor without the Bootstrap managers.
+/// Reusable settings panel (used on Main Menu and Level Select), organized into
+/// sections: Gameplay, Controls, Audio, Language &amp; Text, and Appearance.
+/// Either/or settings use <see cref="SegmentedSelector"/> pills (both labels
+/// visible, active one highlighted) instead of ambiguous toggles. Values bind
+/// through <see cref="SettingsManager"/> when present, falling back to the loaded
+/// save so the panel still works when a scene is played directly in the editor.
 /// Place this component on an always-active object; <see cref="root"/> is the
 /// panel that gets shown/hidden.
 /// </summary>
@@ -18,19 +18,23 @@ public class SettingsPanel : MonoBehaviour
     [SerializeField] private GameObject root;
     [SerializeField] private Button     closeButton;
 
-    [Header("Gameplay Mode")]
-    [SerializeField] private Toggle   manualModeToggle;   // ON = Manual, OFF = Automation
-    [SerializeField] private TMP_Text gameplayModeLabel;
+    [Header("Gameplay")]
+    [SerializeField] private SegmentedSelector driveModeSelector;  // 0 = Manual, 1 = Automation
+    [SerializeField] private SegmentedSelector codingSelector;     // 0 = Blocks, 1 = Code
 
-    [Header("Difficulty")]
-    [SerializeField] private Toggle   blockModeToggle;    // ON = Block (easy), OFF = Code (hard)
-    [SerializeField] private TMP_Text difficultyLabel;
+    [Header("Controls")]
+    [SerializeField] private SegmentedSelector brakeSelector;      // 0 = Hold, 1 = Toggle
 
-    [Header("Brake Mode")]
-    [SerializeField] private Toggle   brakeModeToggle;    // ON = Toggle, OFF = Hold
-    [SerializeField] private TMP_Text brakeModeLabel;
+    [Header("Audio")]
+    [SerializeField] private Slider musicSlider;
+    [SerializeField] private Slider sfxSlider;
 
-    [Header("Code Theme")]
+    [Header("Language & Text")]
+    [SerializeField] private SegmentedSelector languageSelector;   // 0 = English, 1 = Filipino
+    [SerializeField] private SegmentedSelector subtitlesSelector;  // 0 = On, 1 = Off
+    [SerializeField] private SegmentedSelector dialogueSpeedSelector; // 0..3 Slow/Normal/Fast/Instant
+
+    [Header("Appearance")]
     [SerializeField] private Button   themeButton;
     [SerializeField] private TMP_Text themeLabel;
 
@@ -69,48 +73,62 @@ public class SettingsPanel : MonoBehaviour
         if (_bound) return;
         _bound = true;
 
-        if (closeButton != null)
-            closeButton.onClick.AddListener(Close);
+        if (closeButton != null) closeButton.onClick.AddListener(Close);
 
-        if (manualModeToggle != null)
-        {
-            manualModeToggle.onValueChanged.AddListener(isOn =>
+        if (driveModeSelector != null)
+            driveModeSelector.OnValueChanged += i =>
+                Set(s => s.manualMode = (i == 0), m => m.ManualMode = (i == 0));
+
+        if (codingSelector != null)
+            codingSelector.OnValueChanged += i => Set(s => s.blockMode = (i == 0), m => m.BlockMode = (i == 0));
+
+        if (brakeSelector != null)
+            brakeSelector.OnValueChanged += i =>
             {
-                if (SettingsManager.Instance != null)
-                    SettingsManager.Instance.ManualMode = isOn;
-                else { S.manualMode = isOn; SaveSystem.Save(); }
-                UpdateLabels();
-            });
-        }
+                BrakeMode mode = i == 0 ? BrakeMode.Hold : BrakeMode.Toggle;
+                Set(s => s.brakeMode = (int)mode, m => m.BrakeMode = mode);
+            };
 
-        if (blockModeToggle != null)
-        {
-            blockModeToggle.onValueChanged.AddListener(isOn =>
+        if (musicSlider != null)
+            musicSlider.onValueChanged.AddListener(v =>
+                Set(s => s.musicVolume = v, m => m.MusicVolume = v));
+
+        if (sfxSlider != null)
+            sfxSlider.onValueChanged.AddListener(v =>
+                Set(s => s.sfxVolume = v, m => m.SfxVolume = v));
+
+        if (languageSelector != null)
+            languageSelector.OnValueChanged += i =>
             {
-                if (SettingsManager.Instance != null)
-                    SettingsManager.Instance.BlockMode = isOn;
-                else { S.blockMode = isOn; SaveSystem.Save(); }
-                UpdateLabels();
-            });
-        }
+                GameLanguage lang = (GameLanguage)i;
+                Set(s => s.language = (int)lang, m => m.Language = lang);
+            };
 
-        if (brakeModeToggle != null)
-        {
-            brakeModeToggle.onValueChanged.AddListener(isOn =>
+        if (subtitlesSelector != null)
+            subtitlesSelector.OnValueChanged += i =>
+                Set(s => s.subtitles = (i == 0), m => m.Subtitles = (i == 0));
+
+        if (dialogueSpeedSelector != null)
+            dialogueSpeedSelector.OnValueChanged += i =>
             {
-                BrakeMode mode = isOn ? BrakeMode.Toggle : BrakeMode.Hold;
-                if (SettingsManager.Instance != null)
-                    SettingsManager.Instance.BrakeMode = mode;
-                else { S.brakeMode = (int)mode; SaveSystem.Save(); }
-                UpdateLabels();
-            });
-        }
+                DialogueSpeed speed = (DialogueSpeed)i;
+                Set(s => s.dialogueSpeed = (int)speed, m => m.DialogueSpeed = speed);
+            };
 
-        if (themeButton != null)
-        {
-            themeButton.onClick.AddListener(CycleTheme);
-        }
+        if (themeButton != null) themeButton.onClick.AddListener(CycleTheme);
     }
+
+    // A tiny indirection so every setter goes through SettingsManager when it
+    // exists (applies live + persists) and falls back to a direct save otherwise.
+    void Set(System.Action<GameSettings> toSave, System.Action<SettingsManager> toManager)
+    {
+        if (SettingsManager.Instance != null) toManager(SettingsManager.Instance);
+        else { toSave(S); SaveSystem.Save(); }
+        UpdateThemeLabel();
+    }
+
+    // -------------------------------------------------------------------------
+    // Code theme (kept as a cycle button — themes are unlockable purchases)
 
     void CycleTheme()
     {
@@ -127,16 +145,8 @@ public class SettingsPanel : MonoBehaviour
         }
 
         if (next != current)
-        {
-            if (SettingsManager.Instance != null)
-                SettingsManager.Instance.CodeThemeId = next;
-            else
-            {
-                S.codeThemeId = next;
-                SaveSystem.Save();
-            }
-        }
-        UpdateLabels();
+            Set(s => s.codeThemeId = next, m => m.CodeThemeId = next);
+        UpdateThemeLabel();
     }
 
     bool TryBuyTheme(int themeId)
@@ -153,41 +163,28 @@ public class SettingsPanel : MonoBehaviour
         return true;
     }
 
+    // -------------------------------------------------------------------------
+
     void Refresh()
     {
-        if (manualModeToggle != null) manualModeToggle.SetIsOnWithoutNotify(S.manualMode);
-        if (blockModeToggle  != null) blockModeToggle.SetIsOnWithoutNotify(S.blockMode);
-        if (brakeModeToggle  != null)
-            brakeModeToggle.SetIsOnWithoutNotify(S.brakeMode == (int)BrakeMode.Toggle);
-        UpdateLabels();
+        if (driveModeSelector     != null) driveModeSelector.SetValueWithoutNotify(S.manualMode ? 0 : 1);
+        if (codingSelector        != null) codingSelector.SetValueWithoutNotify(S.blockMode ? 0 : 1);
+        if (brakeSelector         != null) brakeSelector.SetValueWithoutNotify(S.brakeMode == (int)BrakeMode.Toggle ? 1 : 0);
+        if (musicSlider           != null) musicSlider.SetValueWithoutNotify(S.musicVolume);
+        if (sfxSlider             != null) sfxSlider.SetValueWithoutNotify(S.sfxVolume);
+        if (languageSelector      != null) languageSelector.SetValueWithoutNotify(Mathf.Clamp(S.language, 0, 1));
+        if (subtitlesSelector     != null) subtitlesSelector.SetValueWithoutNotify(S.subtitles ? 0 : 1);
+        if (dialogueSpeedSelector != null) dialogueSpeedSelector.SetValueWithoutNotify(Mathf.Clamp(S.dialogueSpeed, 0, 3));
+        UpdateThemeLabel();
     }
 
-    public void RefreshTheme() => UpdateLabels();
+    public void RefreshTheme() => UpdateThemeLabel();
 
-    void UpdateLabels()
+    void UpdateThemeLabel()
     {
-        if (gameplayModeLabel != null)
-            gameplayModeLabel.text = S.manualMode
-                ? "MANUAL  —  drive it yourself"
-                : "AUTOMATION  —  program the jeepney";
-
-        if (difficultyLabel != null)
-            difficultyLabel.text = S.blockMode
-                ? "EASY  —  Block Mode"
-                : "HARD  —  Code Mode";
-
-        if (brakeModeLabel != null)
-            brakeModeLabel.text = S.brakeMode == (int)BrakeMode.Toggle
-                ? "TOGGLE  —  tap Space to brake / release"
-                : "HOLD  —  brake while Space is held";
-
-        if (themeLabel != null)
-        {
-            CodeTheme theme = CodeThemeLibrary.Get(S.codeThemeId);
-            string locked = SaveSystem.Current.HasTheme(theme.id)
-                ? ""
-                : $"  —  ₱{theme.cost} (tap to buy)";
-            themeLabel.text = $"{theme.name.ToUpper()}{locked}";
-        }
+        if (themeLabel == null) return;
+        CodeTheme theme = CodeThemeLibrary.Get(S.codeThemeId);
+        string locked = SaveSystem.Current.HasTheme(theme.id) ? "" : $"  —  ₱{theme.cost} (tap to buy)";
+        themeLabel.text = $"{theme.name.ToUpper()}{locked}";
     }
 }

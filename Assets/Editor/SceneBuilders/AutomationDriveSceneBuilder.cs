@@ -89,9 +89,13 @@ public static class AutomationDriveSceneBuilder
 
         Button run    = MakeBarButton(controlBar, "RunButton",   "RUN",    78f);
         run.image.color = new Color(0.20f, 0.55f, 0.25f);
+        UIFactory.LocalizeButton(run, "auto.run");
         Button pause  = MakeBarButton(controlBar, "PauseButton", "Pause",  66f);
+        UIFactory.LocalizeButton(pause, "auto.pause");
         Button reset  = MakeBarButton(controlBar, "ResetButton", "Reset",  66f);
+        UIFactory.LocalizeButton(reset, "auto.reset");
         Button step   = MakeBarButton(controlBar, "StepButton",  "Step",    58f);
+        UIFactory.LocalizeButton(step, "auto.step");
 
         Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(128f, 34f));
         speedSlider.minValue = 0.2f;
@@ -110,9 +114,11 @@ public static class AutomationDriveSceneBuilder
 
         Button autopilot = MakeBarButton(controlBar, "Autopilot", "Auto", 72f);
         autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
+        UIFactory.LocalizeButton(autopilot, "auto.autopilot");
 
         // Exit (top-right corner)
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(110f, 42f));
+        UIFactory.LocalizeButton(exit, "hud.exit");
         UIFactory.Place(exit, new Vector2(1f, 1f), new Vector2(-10f, -8f), new Vector2(110f, 42f));
         var link = exit.gameObject.AddComponent<SceneLink>();
         SceneBuilderUtil.Wire(link, "button",    exit);
@@ -886,10 +892,12 @@ public static class AutomationDriveSceneBuilder
         tooltip.gameObject.SetActive(false);
 
         Button cont = UIFactory.CreateButton(window, "ContinueButton", "Continue", new Vector2(240f, 58f));
+        UIFactory.LocalizeButton(cont, "common.continue");
         UIFactory.Place(cont, new Vector2(0.5f, 0f), new Vector2(130f, 30f), new Vector2(240f, 58f));
         cont.image.color = new Color(0.85f, 0.55f, 0.12f);
 
         Button replay = UIFactory.CreateButton(window, "ReplayButton", "Replay Puzzle", new Vector2(240f, 58f));
+        UIFactory.LocalizeButton(replay, "results.replaypuzzle");
         UIFactory.Place(replay, new Vector2(0.5f, 0f), new Vector2(-130f, 30f), new Vector2(240f, 58f));
 
         var panel = overlay.gameObject.AddComponent<AutomationResultsPanel>();

@@ -91,6 +91,17 @@ public class SettingsManager : MonoBehaviour
         set { S.brakeMode = (int)value; Persist(); }
     }
 
+    public GameLanguage Language
+    {
+        get => (GameLanguage)S.language;
+        set
+        {
+            if (S.language == (int)value) return;
+            S.language = (int)value;
+            Persist();   // LocalizationManager listens on OnSettingsChanged and re-renders.
+        }
+    }
+
     public int CodeThemeId
     {
         get => S.codeThemeId;

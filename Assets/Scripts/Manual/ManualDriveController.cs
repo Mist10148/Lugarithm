@@ -607,6 +607,7 @@ public class ManualDriveController : MonoBehaviour
                 onContinue: () =>
                 {
                     MarkComplete(score);
+                    if (resultsPanel != null) resultsPanel.Hide();
                     if (BadgeUnlockManager.Instance != null)
                         BadgeUnlockManager.Instance.Show(_levelIndex, () => LoadScene("LevelSelect"));
                     else

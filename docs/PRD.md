@@ -1,9 +1,9 @@
 # Lugarithm — Product Requirements Document
 
 > **Status:** DRAFT
-> **Version:** 0.2
+> **Version:** 0.3
 > **Team:** Cyfer
-> **Last Updated:** June 11, 2026
+> **Last Updated:** June 27, 2026
 
 ---
 
@@ -428,16 +428,22 @@ Players spend currency to pull from a gacha pool.
 
 ## 9. Settings & Accessibility
 
-| Setting | Options | Default |
-|---------|---------|---------|
-| **Gameplay Mode** | Manual Mode / Automation Mode | Manual Mode |
-| **Automation Interface** | Block Interface / Text Editor | Block Interface |
-| **Dialogue Speed** | Slow / Normal / Fast / Instant | Normal |
-| **Subtitles** | On / Off | On |
-| **Music Volume** | 0–100 | 80 |
-| **SFX Volume** | 0–100 | 80 |
-| **Language** | English / Filipino *(TBD)* | English |
+The settings screen is organized into sections — **Gameplay, Controls, Audio, Language & Text, Appearance** — and uses segmented pill selectors (both options visible, active highlighted) for either/or settings instead of toggles. *(Implemented June 2026.)*
 
+| Section | Setting | Options | Default |
+|---------|---------|---------|---------|
+| Gameplay | **Drive Mode** | Manual / Automation | Manual |
+| Gameplay | **Coding Interface** | Blocks / Code | Blocks |
+| Controls | **Space Brake** | Hold / Toggle | Hold |
+| Audio | **Music Volume** | 0–100 | 80 |
+| Audio | **SFX Volume** | 0–100 | 80 |
+| Language & Text | **Language** | English / Filipino | English |
+| Language & Text | **Subtitles** | On / Off | On |
+| Language & Text | **Dialogue Speed** | Slow / Normal / Fast / Instant | Normal |
+| Appearance | **Code Theme** | cycle unlocked themes | default |
+
+> **Language** drives a runtime localization system (`LocalizationManager` + `LocalizedLabel`) that switches all UI strings live. Story/heritage content translation is a later content pass.
+>
 > Additional accessibility options (colorblind mode, font size) to be scoped in a later draft.
 
 ---

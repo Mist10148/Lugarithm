@@ -45,4 +45,11 @@ public class DriveResultsPanel : MonoBehaviour
         if (scoreLabel     != null) scoreLabel.text     = $"SCORE  <b>{score}</b>      EARNED  <b>₱{currency}</b>";
         if (root           != null) root.SetActive(true);
     }
+
+    /// <summary>Hides the overlay. Called on the Continue handoff so no stale
+    /// raycaster competes with the badge unlock panel layered above it.</summary>
+    public void Hide()
+    {
+        if (root != null) root.SetActive(false);
+    }
 }

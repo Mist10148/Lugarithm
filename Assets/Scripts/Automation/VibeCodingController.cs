@@ -211,7 +211,33 @@ public class VibeCodingController : MonoBehaviour
 
         UpdateBubble(reply, result != null && result.Success && !string.IsNullOrWhiteSpace(result.Text)
             ? result.Text.Trim()
-            : "(couldn't reach the AI — check your connection and try again)");
+            : ConnectionError(result));
+    }
+
+    // The agent's answer can fail two very different ways, and the player (and we)
+    // need to tell them apart. ConnectionError = the call never came back usable
+    // (network, missing key, quota, timeout). ParseError = the AI *did* reply but
+    // its program couldn't be turned into a valid action graph. Both log the real
+    // cause so "couldn't reach the AI" stops hiding key/quota/parse problems.
+
+    /// <summary>The AI call itself failed. Logs the classified cause for diagnosis.</summary>
+    static string ConnectionError(AiResult result)
+    {
+        Debug.LogWarning("[VibeCoding] AI call failed: " +
+                         $"kind={(result != null ? result.ErrorKind.ToString() : "null-result")} " +
+                         $"http={(result != null ? result.HttpStatus : 0)} " +
+                         $"error={(result != null ? result.Error : "(no result)")}");
+        return "(couldn't reach the AI — check your connection and try again)";
+    }
+
+    /// <summary>The AI replied, but its answer wasn't a usable program.</summary>
+    static string ParseError(AiResult result)
+    {
+        string raw = result != null && result.Text != null
+            ? (result.Text.Length > 200 ? result.Text.Substring(0, 200) + "…" : result.Text)
+            : "(empty)";
+        Debug.LogWarning("[VibeCoding] AI replied but its program couldn't be parsed. Raw: " + raw);
+        return "(the AI replied, but I couldn't turn it into a program — try rephrasing, or use Plan mode for the steps)";
     }
 
     /// <summary>Agent: generate an action graph, compile + validate it, dry-run it against the
@@ -230,10 +256,14 @@ public class VibeCodingController : MonoBehaviour
             AiResult result = null;
             yield return GeminiClient.Stream(request, null, completed => result = completed);
 
-            if (result == null || !result.Success ||
-                !ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            if (result == null || !result.Success)
             {
-                UpdateBubble(reply, "(couldn't reach the AI — check your connection and try again)");
+                UpdateBubble(reply, ConnectionError(result));
+                yield break;
+            }
+            if (!ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            {
+                UpdateBubble(reply, ParseError(result));
                 yield break;
             }
             lastMessage = graph.message;
@@ -363,10 +393,14 @@ public class VibeCodingController : MonoBehaviour
             AiResult result = null;
             yield return GeminiClient.Stream(request, null, completed => result = completed);
 
-            if (result == null || !result.Success ||
-                !ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            if (result == null || !result.Success)
             {
-                UpdateBubble(reply, "(couldn't reach the AI — check your connection and try again)");
+                UpdateBubble(reply, ConnectionError(result));
+                yield break;
+            }
+            if (!ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            {
+                UpdateBubble(reply, ParseError(result));
                 yield break;
             }
             lastMessage = graph.message;

@@ -35,6 +35,29 @@ public static class SelfDrivePlanner
         "        collectFare()\n" +
         "driveToDestination()\n";
 
+    /// <summary>Synthesizes rides for an authored grid that has only generic 'P'
+    /// stops (no committed per-passenger routes): every stop is a pickup bound for
+    /// the terminal D. Lets the ride-mode autopilot drive authored levels too —
+    /// picking up, collecting fares, and dropping at the destination. Returns an
+    /// empty list when the grid has no stops (a plain start→destination run).</summary>
+    public static List<GridRide> RidesFromGrid(GridModel grid, FareTable fares)
+    {
+        var rides = new List<GridRide>();
+        if (grid == null) return rides;
+        int fare = fares != null ? fares.baseFare : 13;
+        int id = 0;
+        foreach (Vector2Int stop in grid.StopCells)
+            rides.Add(new GridRide
+            {
+                id     = id++,
+                origin = stop,
+                dest   = grid.DestPos,
+                fare   = fare,
+                color  = new Color(0.95f, 0.65f, 0.15f),
+            });
+        return rides;
+    }
+
     /// <summary>Maps the layout's committed rides onto grid cells (needs a projected layout).</summary>
     public static List<GridRide> RidesFromLayout(TownLayout layout)
     {

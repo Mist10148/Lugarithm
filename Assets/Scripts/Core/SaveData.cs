@@ -107,6 +107,15 @@ public class GameSettings
     public bool  subtitles     = true;
     public int   brakeMode     = (int)BrakeMode.Hold;      // how Space brakes in Manual Mode
     public int   codeThemeId   = 0;                        // selected CodeTheme.id
+    public int   language      = (int)GameLanguage.English; // UI language (localization)
+}
+
+/// <summary>UI language. Filipino translates the interface; story/heritage content
+/// is translated in a later content pass.</summary>
+public enum GameLanguage
+{
+    English  = 0,
+    Filipino = 1
 }
 
 /// <summary>Dialogue reveal speed options (PRD §9).</summary>

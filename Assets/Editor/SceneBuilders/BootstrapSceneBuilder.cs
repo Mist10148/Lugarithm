@@ -19,6 +19,7 @@ public static class BootstrapSceneBuilder
 
         new GameObject("GameManager").AddComponent<GameManager>();
         new GameObject("SettingsManager").AddComponent<SettingsManager>();
+        new GameObject("LocalizationManager").AddComponent<LocalizationManager>();
 
         var transitionGo = new GameObject("SceneTransition");
         var transition = transitionGo.AddComponent<SceneTransitionManager>();

@@ -76,4 +76,54 @@ public class SelfDriveAgentTests
         Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
         CollectionAssert.IsEmpty(errors, "the displayed reference solution must compile");
     }
+
+    // Authored levels (no committed rides) must also be fully autopilot-able: the
+    // button is now shown everywhere, synthesizing rides from the grid's 'P' stops.
+    [Test]
+    public void AuthoredGridWithStops_AutopilotTendsEveryStop_AndReachesDestination()
+    {
+        string[] map =
+        {
+            "########",
+            "#S....D#",
+            "#.####.#",
+            "#P....P#",
+            "########",
+        };
+        GridModel grid = GridModel.Parse(map, out _);
+        var fares = new FareTable();
+
+        List<GridRide> rides = SelfDrivePlanner.RidesFromGrid(grid, fares);
+        Assert.AreEqual(2, rides.Count, "both 'P' stops become rides bound for D");
+
+        var def = new AutomationPuzzleDefinition { requireAllPassengersDelivered = true };
+        var sim = new AgentSim(grid, fares, 1);
+        sim.LoadRides(rides);
+
+        List<string> plan = SelfDrivePlanner.Plan(grid, rides, 1, grid.DestPos);
+        foreach (string action in plan) sim.Apply(action);
+
+        Assert.IsTrue(sim.IsWin(def), sim.DescribeGoalGap(def));
+        Assert.AreEqual(2, sim.PassengersDelivered, "both passengers delivered");
+        Assert.AreEqual(2 * fares.baseFare, sim.FaresCollected, "both fares collected");
+    }
+
+    [Test]
+    public void AuthoredGridWithNoStops_AutopilotJustReachesDestination()
+    {
+        string[] map = { "#####", "#S.D#", "#####" };
+        GridModel grid = GridModel.Parse(map, out _);
+
+        List<GridRide> rides = SelfDrivePlanner.RidesFromGrid(grid, new FareTable());
+        Assert.AreEqual(0, rides.Count, "no stops → no synthesized rides");
+
+        var def = new AutomationPuzzleDefinition { requireAllPassengersDelivered = true };
+        var sim = new AgentSim(grid, new FareTable(), 1);
+        sim.LoadRides(rides);
+
+        foreach (string action in SelfDrivePlanner.Plan(grid, rides, 1, grid.DestPos))
+            sim.Apply(action);
+
+        Assert.IsTrue(sim.IsWin(def), sim.DescribeGoalGap(def));
+    }
 }

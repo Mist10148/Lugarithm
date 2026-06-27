@@ -276,8 +276,11 @@ public class DialogueController : MonoBehaviour
         dialogBox.CharsPerSecond = cps;
         dialogBox.UseTypewriter = cps > 0f;
 
-        // Bar visibility is driven by ShowDialogueRoot, not by the Subtitles
-        // setting, so the Next/Skip buttons are always available.
+        // Subtitles gates the line text only — the bar, speaker, and Next/Skip stay
+        // up (driven by ShowDialogueRoot) so the player can always advance even with
+        // captions off. Defaults on when no SettingsManager is present.
+        bool subtitlesOn = SettingsManager.Instance == null || SettingsManager.Instance.Subtitles;
+        dialogBox.BodyVisible = subtitlesOn;
     }
 
     void RefreshView()

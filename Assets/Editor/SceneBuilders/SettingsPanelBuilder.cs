@@ -5,11 +5,19 @@ using UnityEngine.UI;
 /// <summary>
 /// Builds the shared Settings panel subtree (used by the MainMenu and
 /// LevelSelect builders) and wires the <see cref="SettingsPanel"/> component.
-/// Two functional rows (Gameplay Mode, Difficulty); the rest are visibly
-/// disabled placeholders per the current phase scope.
+/// Organized into sections — Gameplay, Controls, Audio, Language &amp; Text,
+/// Appearance — with <see cref="SegmentedSelector"/> pills for either/or settings
+/// (both labels visible, active highlighted) instead of ambiguous toggles. Every
+/// label/option is localized, so flipping the Language pill re-renders this panel
+/// (and the rest of the UI) live.
 /// </summary>
 public static class SettingsPanelBuilder
 {
+    // Row geometry
+    const float LabelX = 48f;
+    const float CtrlX  = 336f;
+    const float SegH   = 44f;
+
     public static SettingsPanel Build(Transform canvasRoot)
     {
         // Always-active host so SettingsPanel.Start runs while the overlay is hidden.
@@ -24,136 +32,132 @@ public static class SettingsPanelBuilder
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
-        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 730f));
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(860f, 920f));
 
-        var title = UIFactory.CreateText(window, "Title", "SETTINGS", 44f, UIFactory.Accent);
-        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(700f, 60f));
+        var title = UIFactory.CreateLocalizedText(window, "Title", "settings.title", 42f, UIFactory.Accent);
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(780f, 56f));
 
-        // --- Functional rows ---------------------------------------------------
+        // --- GAMEPLAY ----------------------------------------------------------
+        Section(window, -92f, "settings.section.gameplay");
+        SegmentedSelector driveMode = SelectorRow(window, -132f, "settings.drivemode",
+                                                  new[] { "opt.manual", "opt.automation" }, 152f);
+        SegmentedSelector coding    = SelectorRow(window, -190f, "settings.codinginterface",
+                                                  new[] { "opt.blocks", "opt.code" }, 152f);
 
-        Toggle manualToggle = BuildFunctionalRow(window, -110f, "Gameplay Mode",
-                                                 out TextMeshProUGUI gameplayValue);
-        Toggle blockToggle  = BuildFunctionalRow(window, -180f, "Difficulty",
-                                                 out TextMeshProUGUI difficultyValue);
-        Toggle brakeToggle  = BuildFunctionalRow(window, -250f, "Brake Mode",
-                                                 out TextMeshProUGUI brakeValue);
-        Button themeButton = BuildThemeRow(window, -320f, "Code Theme",
-                                           out TextMeshProUGUI themeValue);
+        // --- CONTROLS ----------------------------------------------------------
+        Section(window, -252f, "settings.section.controls");
+        SegmentedSelector brake = SelectorRow(window, -292f, "settings.spacebrake",
+                                              new[] { "opt.hold", "opt.toggle" }, 152f);
 
-        var divider = UIFactory.CreatePanel(window, "Divider",
-                                            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                                            new Color(1f, 1f, 1f, 0.12f));
-        UIFactory.Place(divider, new Vector2(0.5f, 1f), new Vector2(0f, -304f), new Vector2(690f, 2f));
+        // --- AUDIO -------------------------------------------------------------
+        Section(window, -354f, "settings.section.audio");
+        Slider music = SliderRow(window, -394f, "settings.musicvolume");
+        Slider sfx   = SliderRow(window, -442f, "settings.sfxvolume");
 
-        // --- Placeholder rows ---------------------------------------------------
+        // --- LANGUAGE & TEXT ---------------------------------------------------
+        Section(window, -504f, "settings.section.languagetext");
+        SegmentedSelector language  = SelectorRow(window, -544f, "settings.language",
+                                                  new[] { "opt.english", "opt.filipino" }, 152f);
+        SegmentedSelector subtitles = SelectorRow(window, -602f, "settings.subtitles",
+                                                  new[] { "opt.on", "opt.off" }, 110f);
+        SegmentedSelector dlgSpeed  = SelectorRow(window, -660f, "settings.dialoguespeed",
+                                                  new[] { "opt.speed.slow", "opt.speed.normal",
+                                                          "opt.speed.fast", "opt.speed.instant" }, 115f, 17f);
 
-        BuildPlaceholderSliderRow(window, -392f, "Music Volume");
-        BuildPlaceholderSliderRow(window, -452f, "SFX Volume");
-        BuildPlaceholderTextRow(window,  -512f, "Dialogue Speed", "Normal");
-        BuildPlaceholderToggleRow(window, -572f, "Subtitles");
+        // --- APPEARANCE --------------------------------------------------------
+        Section(window, -722f, "settings.section.appearance");
+        Button themeButton = BuildThemeRow(window, -762f, out TextMeshProUGUI themeValue);
 
-        // --- Close ---------------------------------------------------------------
-
+        // --- Close -------------------------------------------------------------
         Button close = UIFactory.CreateButton(window, "CloseButton", "Close", new Vector2(220f, 54f));
+        UIFactory.LocalizeButton(close, "common.close");
         UIFactory.Place(close, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(220f, 54f));
 
-        // --- Wire + hide ----------------------------------------------------------
-
-        SceneBuilderUtil.Wire(panel, "root",              overlay.gameObject);
-        SceneBuilderUtil.Wire(panel, "closeButton",       close);
-        SceneBuilderUtil.Wire(panel, "manualModeToggle",  manualToggle);
-        SceneBuilderUtil.Wire(panel, "gameplayModeLabel", gameplayValue);
-        SceneBuilderUtil.Wire(panel, "blockModeToggle",   blockToggle);
-        SceneBuilderUtil.Wire(panel, "difficultyLabel",   difficultyValue);
-        SceneBuilderUtil.Wire(panel, "brakeModeToggle",   brakeToggle);
-        SceneBuilderUtil.Wire(panel, "brakeModeLabel",    brakeValue);
-        SceneBuilderUtil.Wire(panel, "themeButton",       themeButton);
-        SceneBuilderUtil.Wire(panel, "themeLabel",        themeValue);
+        // --- Wire + hide -------------------------------------------------------
+        SceneBuilderUtil.Wire(panel, "root",                  overlay.gameObject);
+        SceneBuilderUtil.Wire(panel, "closeButton",           close);
+        SceneBuilderUtil.Wire(panel, "driveModeSelector",     driveMode);
+        SceneBuilderUtil.Wire(panel, "codingSelector",        coding);
+        SceneBuilderUtil.Wire(panel, "brakeSelector",         brake);
+        SceneBuilderUtil.Wire(panel, "musicSlider",           music);
+        SceneBuilderUtil.Wire(panel, "sfxSlider",             sfx);
+        SceneBuilderUtil.Wire(panel, "languageSelector",      language);
+        SceneBuilderUtil.Wire(panel, "subtitlesSelector",     subtitles);
+        SceneBuilderUtil.Wire(panel, "dialogueSpeedSelector", dlgSpeed);
+        SceneBuilderUtil.Wire(panel, "themeButton",           themeButton);
+        SceneBuilderUtil.Wire(panel, "themeLabel",            themeValue);
 
         overlay.gameObject.SetActive(false);
         return panel;
     }
 
-    static Button BuildThemeRow(RectTransform window, float y, string label,
-                                out TextMeshProUGUI valueLabel)
+    // -------------------------------------------------------------------------
+
+    static void Section(RectTransform window, float y, string key)
     {
-        var rowLabel = UIFactory.CreateText(window, label + "Label", label, 27f,
-                                            UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(rowLabel, new Vector2(0f, 1f), new Vector2(40f, y), new Vector2(260f, 50f));
+        var header = UIFactory.CreateLocalizedText(window, ShortName(key) + "Header", key, 22f,
+                                                   UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(header, new Vector2(0f, 1f), new Vector2(36f, y), new Vector2(700f, 32f));
 
-        Button button = UIFactory.CreateButton(window, label + "Button", "Cycle", new Vector2(120f, 44f), 22f);
-        UIFactory.Place(button, new Vector2(0f, 1f), new Vector2(310f, y - 3f), new Vector2(120f, 44f));
+        var rule = UIFactory.CreatePanel(window, ShortName(key) + "Rule",
+                                         new Vector2(0f, 1f), new Vector2(0f, 1f),
+                                         new Color(1f, 1f, 1f, 0.10f));
+        UIFactory.Place(rule, new Vector2(0f, 1f), new Vector2(36f, y - 30f), new Vector2(788f, 2f));
+    }
 
-        valueLabel = UIFactory.CreateText(window, label + "Value", "", 24f,
+    static SegmentedSelector SelectorRow(RectTransform window, float y, string labelKey,
+                                         string[] optionKeys, float segWidth, float fontSize = 19f)
+    {
+        RowLabel(window, y, labelKey);
+
+        string[] options = new string[optionKeys.Length];
+        for (int i = 0; i < optionKeys.Length; i++)
+            options[i] = LocalizationTable.Get(optionKeys[i], GameLanguage.English);
+
+        SegmentedSelector sel = UIFactory.CreateSegmentedSelector(
+            window, ShortName(labelKey) + "Selector", options, segWidth, SegH, 6f, fontSize, optionKeys);
+        ((RectTransform)sel.transform).anchoredPosition = new Vector2(CtrlX, y - 2f);
+        return sel;
+    }
+
+    static Slider SliderRow(RectTransform window, float y, string labelKey)
+    {
+        RowLabel(window, y, labelKey);
+        Slider slider = UIFactory.CreateSlider(window, ShortName(labelKey) + "Slider", new Vector2(320f, 30f));
+        UIFactory.Place(slider, new Vector2(0f, 1f), new Vector2(CtrlX, y - 9f), new Vector2(320f, 30f));
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.interactable = true;
+        return slider;
+    }
+
+    static Button BuildThemeRow(RectTransform window, float y, out TextMeshProUGUI valueLabel)
+    {
+        RowLabel(window, y, "settings.codetheme");
+
+        Button button = UIFactory.CreateButton(window, "ThemeButton", "Cycle", new Vector2(120f, 44f), 22f);
+        UIFactory.LocalizeButton(button, "settings.theme.cycle");
+        UIFactory.Place(button, new Vector2(0f, 1f), new Vector2(CtrlX, y - 2f), new Vector2(120f, 44f));
+
+        // Value is set at runtime from the theme name (not a fixed UI string), so it
+        // is not localized.
+        valueLabel = UIFactory.CreateText(window, "ThemeValue", "", 22f,
                                           UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(valueLabel, new Vector2(0f, 1f), new Vector2(450f, y), new Vector2(280f, 50f));
-
+        UIFactory.Place(valueLabel, new Vector2(0f, 1f), new Vector2(CtrlX + 140f, y), new Vector2(380f, 50f));
         return button;
     }
 
-    // -------------------------------------------------------------------------
-
-    static Toggle BuildFunctionalRow(RectTransform window, float y, string label,
-                                     out TextMeshProUGUI valueLabel)
+    static void RowLabel(RectTransform window, float y, string labelKey)
     {
-        var rowLabel = UIFactory.CreateText(window, label + "Label", label, 27f,
-                                            UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(rowLabel, new Vector2(0f, 1f), new Vector2(40f, y), new Vector2(260f, 50f));
-
-        Toggle toggle = UIFactory.CreateToggle(window, label + "Toggle", new Vector2(50f, 50f));
-        UIFactory.Place(toggle, new Vector2(0f, 1f), new Vector2(320f, y), new Vector2(50f, 50f));
-
-        valueLabel = UIFactory.CreateText(window, label + "Value", "", 24f,
-                                          UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(valueLabel, new Vector2(0f, 1f), new Vector2(390f, y), new Vector2(340f, 50f));
-
-        return toggle;
+        var rowLabel = UIFactory.CreateLocalizedText(window, ShortName(labelKey) + "Label", labelKey, 25f,
+                                                     UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(rowLabel, new Vector2(0f, 1f), new Vector2(LabelX, y), new Vector2(280f, 50f));
     }
 
-    static void BuildPlaceholderSliderRow(RectTransform window, float y, string label)
+    // Last dot-segment of a key, for readable GameObject names.
+    static string ShortName(string key)
     {
-        AddPlaceholderLabel(window, y, label);
-
-        Slider slider = UIFactory.CreateSlider(window, label + "Slider", new Vector2(280f, 36f));
-        UIFactory.Place(slider, new Vector2(0f, 1f), new Vector2(320f, y - 7f), new Vector2(280f, 36f));
-        slider.interactable = false;
-
-        AddComingSoon(window, y);
-    }
-
-    static void BuildPlaceholderTextRow(RectTransform window, float y, string label, string value)
-    {
-        AddPlaceholderLabel(window, y, label);
-
-        var valueText = UIFactory.CreateText(window, label + "Value", value, 24f,
-                                             UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(valueText, new Vector2(0f, 1f), new Vector2(330f, y), new Vector2(260f, 50f));
-
-        AddComingSoon(window, y);
-    }
-
-    static void BuildPlaceholderToggleRow(RectTransform window, float y, string label)
-    {
-        AddPlaceholderLabel(window, y, label);
-
-        Toggle toggle = UIFactory.CreateToggle(window, label + "Toggle", new Vector2(44f, 44f));
-        UIFactory.Place(toggle, new Vector2(0f, 1f), new Vector2(325f, y - 3f), new Vector2(44f, 44f));
-        toggle.interactable = false;
-
-        AddComingSoon(window, y);
-    }
-
-    static void AddPlaceholderLabel(RectTransform window, float y, string label)
-    {
-        var text = UIFactory.CreateText(window, label + "Label", label, 25f,
-                                        UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(text, new Vector2(0f, 1f), new Vector2(40f, y), new Vector2(260f, 50f));
-    }
-
-    static void AddComingSoon(RectTransform window, float y)
-    {
-        var note = UIFactory.CreateText(window, "ComingSoon" + y, "(coming soon)", 20f,
-                                        UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(note, new Vector2(0f, 1f), new Vector2(620f, y), new Vector2(140f, 50f));
+        int dot = key.LastIndexOf('.');
+        return dot >= 0 && dot < key.Length - 1 ? key.Substring(dot + 1) : key;
     }
 }

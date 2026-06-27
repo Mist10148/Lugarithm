@@ -25,6 +25,12 @@ public static class BadgeUnlockBuilder
         backdrop.GetComponent<Image>().raycastTarget = true;
         var backdropGroup = backdrop.gameObject.AddComponent<CanvasGroup>();
 
+        // Click-anywhere-on-the-dim escape hatch. Transition None so hovering the
+        // backdrop never tints the whole screen. The centered Window (added below)
+        // sits on top and absorbs its own clicks, so only the dim area dismisses.
+        var backdropButton = backdrop.gameObject.AddComponent<Button>();
+        backdropButton.transition = Selectable.Transition.None;
+
         // Window (centered, 680×480)
         var window = UIFactory.CreatePanel(backdrop, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -39,8 +45,8 @@ public static class BadgeUnlockBuilder
         border.SetSiblingIndex(window.GetSiblingIndex() - 1);
 
         // "BADGE EARNED" header
-        var header = UIFactory.CreateText(window, "Header", "BADGE EARNED",
-                                          22f, UIFactory.TextDim);
+        var header = UIFactory.CreateLocalizedText(window, "Header", "badge.earned",
+                                                   22f, UIFactory.TextDim);
         UIFactory.Place(header, new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(600f, 34f));
 
         // Placeholder badge art (amber square)
@@ -71,6 +77,7 @@ public static class BadgeUnlockBuilder
         // Continue button
         Button continueBtn = UIFactory.CreateButton(window, "ContinueButton",
                                                     "Continue", new Vector2(260f, 58f));
+        UIFactory.LocalizeButton(continueBtn, "common.continue");
         UIFactory.Place(continueBtn, new Vector2(0.5f, 0f), new Vector2(0f, 26f), new Vector2(260f, 58f));
         continueBtn.image.color = UIFactory.Accent;
 
@@ -82,6 +89,7 @@ public static class BadgeUnlockBuilder
         SceneBuilderUtil.Wire(panel, "descriptionLabel", description);
         SceneBuilderUtil.Wire(panel, "badgePlaceholder", badgeImage);
         SceneBuilderUtil.Wire(panel, "continueButton",   continueBtn);
+        SceneBuilderUtil.Wire(panel, "backdropButton",   backdropButton);
         SceneBuilderUtil.Wire(panel, "canvasGroup",      backdropGroup);
 
         // Wire BadgeUnlockManager

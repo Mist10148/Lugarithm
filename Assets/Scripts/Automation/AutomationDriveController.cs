@@ -245,6 +245,28 @@ public class AutomationDriveController : MonoBehaviour
         // Workspace
         if (goalLabel != null) goalLabel.text = _def.goalText;
 
+        // Bind the copilot's vocabulary + live world FIRST, in its own guard. If the
+        // editor population below throws, the AI agent must still receive its world
+        // context — without it every request builds a degenerate prompt and the
+        // reply reads as "couldn't reach the AI". (The chat self-wires either way.)
+        try
+        {
+            if (vibeCtrl != null)
+            {
+                vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor, blockCanvas);
+                vibeCtrl.SetWorldContext(grid, sim, _def);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[AutomationDrive] copilot init failed: {e}");
+        }
+
+        // Confirm the shared AI config is loaded for this scene (same static cache
+        // the minigame copilot uses). 0 usable keys here is the real cause of a
+        // persistent "couldn't reach the AI" — not a per-scene wiring fault.
+        Debug.Log($"[AutomationDrive] AI copilot ready — usable keys: {GeminiClient.ConfiguredKeyCount}");
+
         // Populating the editors must never abort Start() — if it throws, the
         // control bar + editor toggle below would never wire (dead buttons, both
         // editors visible). Keep the UI usable regardless.
@@ -253,15 +275,6 @@ public class AutomationDriveController : MonoBehaviour
             if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, console);
             if (palette     != null) palette.Init(_def.allowedBlocks, blockCanvas);
             if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold);
-
-            // Bind the level's vocabulary so AI-generated code stays in-grammar.
-            // The chat still swaps/answers on its own wiring if this is skipped.
-            if (vibeCtrl != null && codeEditor != null)
-            {
-                vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor, blockCanvas);
-                // Give the agent live access to the maze + jeepney so it can read state.
-                vibeCtrl.SetWorldContext(grid, sim, _def);
-            }
             if (ghost != null) ghost.Bind(_def);
         }
         catch (System.Exception e)
@@ -321,10 +334,12 @@ public class AutomationDriveController : MonoBehaviour
         if (editorModeToggle != null)
             editorModeToggle.onClick.AddListener(ToggleEditorMode);
 
-        // Autopilot only makes sense when there are rides to tend.
+        // One-click autopilot is available on every automation level: procedural
+        // towns drive their committed rides, authored levels synthesize rides from
+        // the grid's stops (see OnAutopilot).
         if (autopilotButton != null)
         {
-            autopilotButton.gameObject.SetActive(_rides != null);
+            autopilotButton.gameObject.SetActive(true);
             autopilotButton.onClick.AddListener(OnAutopilot);
         }
 
@@ -581,14 +596,20 @@ public class AutomationDriveController : MonoBehaviour
 
     void OnAutopilot()
     {
-        if (_won || selfDrive == null || exec == null || _rides == null) return;
+        if (_won || selfDrive == null || exec == null) return;
         if (selfDrive.IsDriving) return;
+
+        // Procedural towns carry committed rides; authored levels synthesize them
+        // from the grid's 'P' stops (each bound for D) so the autopilot drives, tends
+        // passengers, and collects fares everywhere — and just runs S→D if there are
+        // no stops at all.
+        List<GridRide> rides = _rides ?? SelfDrivePlanner.RidesFromGrid(_grid, _level.fares);
 
         exec.ResetWorld();
         _lastRunWasCode = false;
         if (console != null) console.Info("autopilot engaged — self-driving the route…");
 
-        StartCoroutine(selfDrive.Drive(_grid, exec.Sim, _activeAgent, _rides, _startFacing,
+        StartCoroutine(selfDrive.Drive(_grid, exec.Sim, _activeAgent, rides, _startFacing,
                                        0.3f, _def, HandleFinished));
     }
 
@@ -1025,6 +1046,7 @@ public class AutomationDriveController : MonoBehaviour
                 {
                     if (GameManager.Instance != null)
                         GameManager.Instance.CompleteLevel(_levelIndex, score);
+                    if (results != null) results.Hide();
                     if (BadgeUnlockManager.Instance != null)
                         BadgeUnlockManager.Instance.Show(_levelIndex, () => LoadScene("LevelSelect"));
                     else

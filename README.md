@@ -42,15 +42,21 @@ The entire coastal route acts as an **interactive living museum** — heritage i
 
 ## Core Gameplay
 
+### Walk the Town, Board the Jeepney
+
+Each leg begins on foot in a top-down **town hub**. Walk around, talk to townsfolk (press **E**) for ambient heritage flavor, then step onto the jeepney stop to begin the drive. Town chatter is deliberately lighter than the main passenger's story — the heritage *payoffs* are reserved for the in-jeepney conversation and the journal.
+
 ### Two Ways to Drive
 
-The game has two distinct gameplay modes, toggled any time in Settings. Both modes cover the same route and heritage — the setting changes how you interact with it.
+The game has two distinct gameplay modes, toggled any time in Settings. Both modes cover the same route and heritage — the setting changes how you interact with it. Mid-drive, a mandatory **progression gate** (a short town puzzle) pops up at a random point and must be solved before you can continue.
 
 #### Manual Mode
 Drive the jeepney in real-time. WASD controls on a continuous 2.5D isometric road with drift physics and velocity momentum. While steering, you also manage passenger boarding (tracking seats and drop-off flags) and collect fares using an interactive Coin Drawer on the dashboard — selecting denominations before a satisfaction timer empties. When the engine overheats or a belt snaps, a rapid non-code minigame interrupts the drive.
 
 #### Automation Mode
-Step out of the driver's seat and into a programming workspace. The route maps to a discrete, node-based isometric tilemap grid on the left (~40% of the screen). The right side (~60%) is your code canvas — choose between drag-and-drop blocks (no syntax, Scratch-style) or a lightweight text editor (Python/pseudocode). Write logic to automate movement, fare calculation, and passenger routing; execution plays out step-by-step on the grid. An execution control bar lets you run, pause, reset, or speed up playback (1×, 2×, 5×).
+Step out of the driver's seat and into a programming workspace. The route maps to a discrete, node-based grid on the left (authored puzzle levels use an isometric grid; procedural towns render the same top-down road as Manual Mode). The right side is your code canvas — choose between drag-and-drop blocks (no syntax, Scratch-style) or a lightweight text editor (Python/pseudocode). Write logic to automate movement, fare calculation, and passenger routing; execution plays out step-by-step on the grid. An execution control bar lets you run, pause, step, reset, or scrub playback speed.
+
+A one-click **Autopilot** button is available on every automation level: it self-drives the whole route — pathfinding stop to stop, boarding passengers, collecting fares, and finishing at the terminal — so you can watch the intended solution play out.
 
 > **Command reference:** see [`docs/AutomationCommands.md`](docs/AutomationCommands.md) for the full list of actions, conditions, and control-flow syntax used in both the Block Interface and the Code Editor.
 
@@ -128,7 +134,15 @@ The **Almanac** is where recovered journal pages live. Its built-in AI chatbot (
 - 2nd request: an explanation of the concept you should use
 - 3rd request: pseudocode to guide you to the finish line
 
-**Vibe Coding / Autopilot** flips the game from writing code to managing systems. Type a plain-language intent — *"Stop at every flag and collect the fare"* — and the AI compiles it into executable block code. Designed for players who want story immersion without line-by-line syntax.
+**Vibe Coding** flips the game from writing code to managing systems. An in-editor Copilot chat (swap the code panel for the AI panel with the title-bar **AI** / **Code** buttons) runs in several modes:
+
+- **Auto** — classifies your message and routes it to the right mode automatically
+- **Ask** — read-only tutor: answers questions about the maze and your code, never edits
+- **Plan** — returns a short numbered approach in plain language, no code
+- **Agent** — generates a program, compiles + validates it against the level's unlocked vocabulary, dry-runs it, and only drops it into your editor/blocks when it actually reaches the goal
+- **Refactor** — rewrites your already-working program shorter using loops, verified to still win (say *"undo"* to revert)
+
+Type a plain-language intent — *"stop at every flag and collect the fare"* — and Agent mode compiles it into runnable blocks or code. Designed for players who want story immersion without line-by-line syntax.
 
 ---
 
@@ -150,9 +164,29 @@ The **Almanac** is where recovered journal pages live. Its built-in AI chatbot (
 
 ---
 
+## Settings & Accessibility
+
+The Settings menu (reachable from the Main Menu and Level Select) is organized into sections — **Gameplay**, **Controls**, **Audio**, **Language & Text**, and **Appearance**. Either/or options use segmented pill selectors (both choices visible, the active one highlighted) rather than ambiguous on/off toggles:
+
+| Section | Setting | Options |
+|---------|---------|---------|
+| Gameplay | Drive Mode | Manual · Automation |
+| Gameplay | Coding Interface | Blocks · Code |
+| Controls | Space Brake | Hold · Toggle |
+| Audio | Music / SFX Volume | sliders |
+| Language & Text | Language | English · Filipino |
+| Language & Text | Subtitles | On · Off |
+| Language & Text | Dialogue Speed | Slow · Normal · Fast · Instant |
+| Appearance | Code Theme | cycles unlocked syntax themes |
+
+### Language & Localization
+The UI ships in **English and Filipino**. A `LocalizationManager` + per-label `LocalizedLabel` components switch every menu, button, HUD label, and settings string live the moment you change the Language pill — no restart. Story and heritage content (NPC dialogue, journal pages, passenger reveals) remain English in this pass and are slated for a later content-translation effort.
+
+---
+
 ## Technical Stack
 
-- **Engine:** Unity (2D, isometric)
+- **Engine:** Unity (2D; isometric authored puzzles + top-down procedural towns)
 - **UI System:** Unity UI Screen Space – Overlay for the Automation Mode code workspace
 - **AI Integration:** Runtime LLM calls for dialogue, hints, and analytics; RAG pipeline for the Almanac chatbot; procedural generator for artifact spawning
 - **Target Platforms:** PC — Windows & macOS

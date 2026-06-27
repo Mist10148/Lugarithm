@@ -39,11 +39,27 @@ public static class VibeCodingService
 
         if (grid != null)
         {
-            sb.AppendLine($"GRID {grid.Width}x{grid.Height} (#=wall .=road S=start D=dest P=stop, @=jeepney):");
-            for (int y = 0; y < grid.Height; y++)
+            // Bound the ASCII map. A large procedural town would otherwise balloon
+            // the prompt into thousands of tokens — slow to first-packet, which the
+            // transport reports as a timeout and the chat shows as "couldn't reach
+            // the AI". Window around the jeepney when the grid is bigger than the
+            // cap; small authored mazes (the minigame) are under it and unchanged.
+            const int MaxSpan = 31;
+            int cx = sim != null ? sim.Position.x : grid.Width / 2;
+            int cy = sim != null ? sim.Position.y : grid.Height / 2;
+            int x0 = 0, x1 = grid.Width, y0 = 0, y1 = grid.Height;
+            bool windowed = false;
+            if (grid.Width > MaxSpan)
+            { x0 = Mathf.Clamp(cx - MaxSpan / 2, 0, grid.Width  - MaxSpan); x1 = x0 + MaxSpan; windowed = true; }
+            if (grid.Height > MaxSpan)
+            { y0 = Mathf.Clamp(cy - MaxSpan / 2, 0, grid.Height - MaxSpan); y1 = y0 + MaxSpan; windowed = true; }
+
+            sb.AppendLine($"GRID {grid.Width}x{grid.Height} (#=wall .=road S=start D=dest P=stop, @=jeepney)" +
+                          (windowed ? $" — window rows {y0}-{y1 - 1}, cols {x0}-{x1 - 1} around the jeepney:" : ":"));
+            for (int y = y0; y < y1; y++)
             {
                 var row = new StringBuilder();
-                for (int x = 0; x < grid.Width; x++)
+                for (int x = x0; x < x1; x++)
                 {
                     if (sim != null && sim.Position.x == x && sim.Position.y == y) { row.Append('@'); continue; }
                     switch (grid.Get(x, y))
