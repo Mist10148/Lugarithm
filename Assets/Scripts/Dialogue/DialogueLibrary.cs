@@ -236,7 +236,7 @@ public static class DialogueLibrary
         convo.nodes["TA2"] = Node("TA2", DialogueNodeKind.Branch,
             Lines(
                 Line(gemma, "Driving words first. moveForward() rolls her one step ahead — moveForward(3) goes three. turnLeft() and turnRight() spin her in place. That's the whole alphabet of movement."),
-                Line(gemma, "When you don't want to count every step, the big ones do the thinking: driveToNextStop() drives her to the next stop, driveToDestination() takes her all the way home.")
+                Line(gemma, "When you don't want to count every step, the big ones do the thinking: driveToNextStop() drives her to the next stop, driveToTerminal() takes her to the current terminal.")
             ),
             choices: new[]
             {

@@ -12,28 +12,24 @@ public static class SelfDrivePlanner
     public static readonly string[] NavBlocks =
     {
         "moveForward", "turnLeft", "turnRight", "pickUp", "dropOff", "collectFare",
-        "driveToNextStop", "driveToDestination", "while", "if", "ifElse",
+        "driveToNextStop", "driveToTerminal", "while", "if", "ifElse",
     };
 
     public static readonly string[] NavQueries =
     {
-        "frontIsClear", "leftIsClear", "rightIsClear", "atStop", "atDestination",
-        "hasPassengerAboard", "atRequestedStop",
+        "frontIsClear", "leftIsClear", "rightIsClear", "atStop", "routeComplete",
+        "hasPassengerAboard", "atRequestedStop", "passengerWaiting",
     };
 
     public const string ReferenceSolution =
-        "# Self-driving jeepney: visit each stop, tend riders, finish at the terminal.\n" +
-        "driveToNextStop()\n" +
-        "pickUp()\n" +
-        "collectFare()\n" +
-        "while hasPassengerAboard():\n" +
+        "# Self-driving jeepney: keep serving stops until the route is complete.\n" +
+        "while not routeComplete():\n" +
         "    driveToNextStop()\n" +
-        "    if atRequestedStop():\n" +
-        "        dropOff()\n" +
-        "    if atStop():\n" +
+        "    if passengerWaiting():\n" +
         "        pickUp()\n" +
         "        collectFare()\n" +
-        "driveToDestination()\n";
+        "    if atRequestedStop():\n" +
+        "        dropOff()\n";
 
     /// <summary>Synthesizes rides for an authored grid that has only generic 'P'
     /// stops (no committed per-passenger routes): every stop is a pickup bound for
@@ -66,6 +62,8 @@ public static class SelfDrivePlanner
             rides.Add(new GridRide
             {
                 id     = req.id,
+                originNodeId = req.originNodeId,
+                destNodeId = req.destNodeId,
                 origin = layout.Node(req.originNodeId).gridCell,
                 dest   = layout.Node(req.destNodeId).gridCell,
                 fare   = req.fare,
@@ -98,12 +96,12 @@ public static class SelfDrivePlanner
             parSteps        = plan.Count,
             softTimerSeconds = 600f,
             goalText = "Self-driving run: program the jeepney to pick up every rider, " +
-                       "collect fares, drop each at their stop, then finish at the terminal (D). " +
-                       "Use driveToNextStop() / driveToDestination() to navigate.",
+                       "collect fares, drop each at their stop, then finish the current route. " +
+                       "Use driveToNextStop() / driveToTerminal() to navigate.",
             codeScaffold = "# Navigation blocks plan a path for you:\n" +
-                           "#   driveToNextStop(), driveToDestination()\n" +
+                           "#   driveToNextStop(), driveToTerminal()\n" +
                            "# Tend riders: pickUp(), collectFare(), dropOff()\n" +
-                           "# Ask: hasPassengerAboard(), atRequestedStop()\n",
+                           "# Ask: passengerWaiting(), atRequestedStop(), routeComplete()\n",
             optimalSolutionText = ReferenceSolution,
         };
     }

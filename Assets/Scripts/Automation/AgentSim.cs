@@ -34,6 +34,8 @@ public class AgentActionResult
 public class GridRide
 {
     public int        id;
+    public int        originNodeId = -1;
+    public int        destNodeId = -1;
     public Vector2Int origin;
     public Vector2Int dest;
     public int        fare;
@@ -69,7 +71,7 @@ public class AgentSim : IAgentApi
 
     public static readonly string[] FacingNames = { "N", "E", "S", "W" };
 
-    readonly GridModel _grid;
+    GridModel _grid;
     readonly FareTable _fares;
     readonly int       _startFacing;
     readonly HashSet<Vector2Int> _waiting = new HashSet<Vector2Int>();
@@ -104,6 +106,8 @@ public class AgentSim : IAgentApi
     public bool HasPendingMoves => _pending.Count > 0;
     public string DequeueMove() => _pending.Dequeue();
 
+    public GridModel Grid => _grid;
+
     /// <summary>Seat capacity; reporters read this as the world state.</summary>
     public int SeatCapacity = 8;
 
@@ -117,6 +121,25 @@ public class AgentSim : IAgentApi
         _rides = rides;
         _waiting.Clear();
         ResetRides();
+    }
+
+    /// <summary>
+    /// Rebinds the sim to a reprojected grid while preserving route progress.
+    /// Used by procedural Automation when the town streams in another chunk and
+    /// cell coordinates may shift.
+    /// </summary>
+    public void RebindGrid(GridModel grid, Vector2Int position, int facing, List<GridRide> rides)
+    {
+        _grid = grid;
+        Position = position;
+        Facing = ((facing % 4) + 4) % 4;
+        _pending.Clear();
+
+        if (rides != null)
+        {
+            _rides = rides;
+            _waiting.Clear();
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -143,7 +166,8 @@ public class AgentSim : IAgentApi
             foreach (GridRide ride in _rides)
                 ridesCopy.Add(new GridRide
                 {
-                    id = ride.id, origin = ride.origin, dest = ride.dest,
+                    id = ride.id, originNodeId = ride.originNodeId, destNodeId = ride.destNodeId,
+                    origin = ride.origin, dest = ride.dest,
                     fare = ride.fare, color = ride.color,
                 });
             copy.LoadRides(ridesCopy);
@@ -296,12 +320,15 @@ public class AgentSim : IAgentApi
             case "driveToNextStop":
             {
                 Vector2Int? stop = NearestRelevantStop();
-                if (stop == null) r.Warning = "no stop left to drive to.";
-                else EnqueuePathTo(stop.Value, r);
+                EnqueuePathTo(stop ?? _grid.DestPos, r);
                 break;
             }
 
             case "driveToDestination":
+                EnqueuePathTo(_grid.DestPos, r);
+                break;
+
+            case "driveToTerminal":
                 EnqueuePathTo(_grid.DestPos, r);
                 break;
 
@@ -335,9 +362,15 @@ public class AgentSim : IAgentApi
     void DropOffRides(AgentActionResult r)
     {
         int delivered = 0;
+        int unpaidHere = 0;
         foreach (GridRide ride in _rides)
             if (ride.aboard && ride.dest == Position)
             {
+                if (!ride.paid)
+                {
+                    unpaidHere++;
+                    continue;
+                }
                 ride.aboard    = false;
                 ride.delivered = true;
                 PassengersAboard--;
@@ -346,6 +379,7 @@ public class AgentSim : IAgentApi
             }
 
         if (delivered > 0) { r.DroppedOff = true; r.DeliveredCount = delivered; }
+        else if (unpaidHere > 0) r.Warning = "collect fare before letting this passenger off.";
         else if (PassengersAboard == 0) r.Warning = "no passengers aboard.";
         else r.Warning = "nobody wants to get off here.";
     }
@@ -410,11 +444,12 @@ public class AgentSim : IAgentApi
             case "rightIsClear":  return _grid.IsWalkable(Position + FacingDeltas[(Facing + 1) % 4]);
             case "atStop":        return _grid.Get(Position) == GridModel.Cell.Stop;
             case "atDestination": return Position == _grid.DestPos;
+            case "routeComplete": return RouteComplete();
             case "hasPassengerAboard": return PassengersAboard > 0;
             case "atRequestedStop":    return AtRequestedStop();
             case "atGoal":             return Position == _grid.DestPos;
             case "isMarked":           return false;
-            case "passengerWaiting":   return _grid.Get(Position) == GridModel.Cell.Stop && RemainingWaiting > 0;
+            case "passengerWaiting":   return PassengerWaitingHere();
             case "isFull":             return PassengersAboard >= SeatCapacity;
             default:              return false;
         }
@@ -436,7 +471,7 @@ public class AgentSim : IAgentApi
             }
             case "position":            return Value.Tuple(new[] { Value.Int(Position.x), Value.Int(Position.y) });
             case "passengerType":       return Value.Str("regular");
-            case "fareOwed":            return Value.Int(UnpaidFares * FareMath.ComputeFare(1, _fares));
+            case "fareOwed":            return Value.Int(FareOwed());
             case "currentStop":         return Value.Str("");
             case "nextStop":            return Value.Str("");
             default:                    return Value.None;
@@ -454,6 +489,44 @@ public class AgentSim : IAgentApi
         return Position == _grid.DestPos && PassengersAboard > 0;
     }
 
+    bool PassengerWaitingHere()
+    {
+        if (_rides != null)
+        {
+            foreach (GridRide ride in _rides)
+                if (!ride.aboard && !ride.delivered && ride.origin == Position)
+                    return true;
+            return false;
+        }
+        return _waiting.Contains(Position);
+    }
+
+    int FareOwed()
+    {
+        if (_rides != null)
+        {
+            int amount = 0;
+            foreach (GridRide ride in _rides)
+                if (ride.aboard && !ride.paid) amount += ride.fare;
+            return amount;
+        }
+        return UnpaidFares * FareMath.ComputeFare(1, _fares);
+    }
+
+    bool RouteComplete()
+    {
+        if (Position != _grid.DestPos) return false;
+
+        if (_rides != null)
+        {
+            foreach (GridRide ride in _rides)
+                if (!ride.delivered) return false;
+            return PassengersAboard == 0 && UnpaidFares == 0;
+        }
+
+        return _waiting.Count == 0 && PassengersAboard == 0 && UnpaidFares == 0;
+    }
+
     // -------------------------------------------------------------------------
     // Goal
 
@@ -464,12 +537,7 @@ public class AgentSim : IAgentApi
 
         if (def != null && def.requireAllPassengersDelivered)
         {
-            if (_rides != null)
-            {
-                foreach (GridRide ride in _rides) if (!ride.delivered) return false;
-                return true;
-            }
-            return _waiting.Count == 0 && PassengersAboard == 0;
+            return RouteComplete();
         }
         return true;
     }

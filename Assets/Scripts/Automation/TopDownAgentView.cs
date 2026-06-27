@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -6,7 +7,7 @@ using UnityEngine;
 /// sprite, moves it along the top-down road, and rotates the body to face the
 /// current grid direction.
 /// </summary>
-public class TopDownAgentView : MonoBehaviour, IAgentView
+public class TopDownAgentView : MonoBehaviour, IPathAgentView
 {
     [Header("References")]
     [SerializeField] public SpriteRenderer body;
@@ -61,6 +62,19 @@ public class TopDownAgentView : MonoBehaviour, IAgentView
             default:
                 yield return new WaitForSeconds(duration);
                 break;
+        }
+    }
+
+    public IEnumerator PlayPath(IReadOnlyList<AgentActionResult> moves, float secondsPerStep)
+    {
+        if (moves == null || moves.Count == 0) yield break;
+
+        foreach (AgentActionResult result in moves)
+        {
+            float duration = result.Action == "moveForward"
+                ? secondsPerStep
+                : Mathf.Max(0.04f, secondsPerStep * 0.35f);
+            yield return PlayAction(result, duration);
         }
     }
 

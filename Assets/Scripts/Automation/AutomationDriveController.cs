@@ -97,6 +97,10 @@ public class AutomationDriveController : MonoBehaviour
     GridModel       _grid;
     List<GridRide>  _rides;
     IAgentView      _activeAgent;
+    TopDownGridSpace _topDownSpace;
+    StreamingTown   _streamingTown;
+    bool _proceduralTopDown;
+    bool _optionalFreeRoam;
     int  _startFacing;
     int  _levelIndex;
     bool _codeTabActive;
@@ -134,11 +138,13 @@ public class AutomationDriveController : MonoBehaviour
         // authored maze stays the fallback (and its keystone test still uses it).
         _rides = null;
         bool useProceduralTopDown = _level.procedural != null && _level.procedural.enabled;
+        _proceduralTopDown = useProceduralTopDown;
         TownLayout proceduralLayout = null;
         if (useProceduralTopDown)
         {
             int seed = System.Guid.NewGuid().GetHashCode() & 0x7fffffff;
-            proceduralLayout = TownLayoutGenerator.Generate(_level.procedural, _level.fares, seed);
+            _streamingTown = StreamingTownGenerator.Begin(_level.procedural, _level.fares, seed);
+            proceduralLayout = _streamingTown.Layout;
             _def = SelfDrivePlanner.BuildPuzzle(proceduralLayout, _level.procedural.gen.gridCellSize,
                                                 out _rides, out _);
         }
@@ -183,10 +189,10 @@ public class AutomationDriveController : MonoBehaviour
             }
 
             float roadHalfWidth = _level.manual != null ? _level.manual.roadHalfWidth : 3f;
-            var tdSpace = new TopDownGridSpace(proceduralLayout, _level.procedural.gen.gridCellSize,
-                                               roadHalfWidth, topDownWorldRoot);
-            activeSpace = tdSpace;
-            activeStopView = tdSpace;
+            _topDownSpace = new TopDownGridSpace(proceduralLayout, _level.procedural.gen.gridCellSize,
+                                                 roadHalfWidth, topDownWorldRoot);
+            activeSpace = _topDownSpace;
+            activeStopView = _topDownSpace;
 
             // Grass ground under the road so the procedural world reads like Manual
             // (green grass + road), not a dark void.
@@ -526,7 +532,7 @@ public class AutomationDriveController : MonoBehaviour
 
     void OnRun()
     {
-        if (_won || exec == null) return;
+        if ((_won && !_optionalFreeRoam) || exec == null) return;
 
         // RUN while paused = resume.
         if (exec.State == ExecutionController.ExecState.Paused)
@@ -567,7 +573,7 @@ public class AutomationDriveController : MonoBehaviour
             console.Info($"run #{_runCount} started…");
         }
 
-        exec.Run(program);
+        exec.Run(program, resetWorld: !_optionalFreeRoam);
     }
 
     void OnPause()
@@ -846,6 +852,15 @@ public class AutomationDriveController : MonoBehaviour
 
         if (win)
         {
+            if (_proceduralTopDown && _storyLegShown)
+            {
+                AppendProceduralRoute();
+                _won = false;
+                if (console != null)
+                    console.Info("route complete - another stretch is ready.");
+                return;
+            }
+
             _won = true;
             // The leg completes only when the puzzle is solved AND the story passenger's
             // chat is finished. If the chat is still going, hold and nudge once.
@@ -911,7 +926,7 @@ public class AutomationDriveController : MonoBehaviour
                 legCompletion.ShowComplete(
                     title,
                     "Great work — your program reached the goal and the story's told.\nFinish the leg to bank your run and unlock what's next.",
-                    allowExplore: false);   // fixed automation layout: no free-roam
+                    allowExplore: _proceduralTopDown);
             else
                 BeginResults();
         });
@@ -938,7 +953,105 @@ public class AutomationDriveController : MonoBehaviour
     /// <summary>Automation levels use a fixed layout, so there is no free-roam — the
     /// completion card hides "Keep exploring". This stays as a harmless hook in case
     /// a future level enables it; the controller already leaves the Finish button up.</summary>
-    void OnKeepExploring() { }
+    void OnKeepExploring()
+    {
+        if (!_proceduralTopDown)
+            return;
+
+        _optionalFreeRoam = true;
+        AppendProceduralRoute();
+        _won = false;
+        if (console != null)
+            console.Info("new route added - keep coding, or press Finish leg when you're done.");
+    }
+
+    void AppendProceduralRoute()
+    {
+        if (_streamingTown == null || exec == null || exec.Sim == null)
+            return;
+
+        Vector3 currentWorld = _topDownSpace != null
+            ? _topDownSpace.CellToWorld(exec.Sim.Position)
+            : topDownAgentView != null ? topDownAgentView.transform.position : Vector3.zero;
+        int currentFacing = exec.Sim.Facing;
+        IReadOnlyList<GridRide> oldRides = exec.Sim.Rides;
+
+        StreamingTownGenerator.AppendChunk(_streamingTown);
+
+        _def = SelfDrivePlanner.BuildPuzzle(_streamingTown.Layout, _streamingTown.CellSize,
+                                            out List<GridRide> remappedRides, out int newStartFacing);
+        TransferRideState(oldRides, remappedRides);
+        _rides = remappedRides;
+        _startFacing = newStartFacing;
+
+        _grid = GridModel.Parse(_def.gridMap, out List<string> mapErrors);
+        foreach (string problem in mapErrors)
+            if (console != null) console.Error("map: " + problem);
+
+        RebuildProceduralTopDownWorld();
+
+        Vector2Int currentCell = _topDownSpace != null
+            ? _topDownSpace.WorldToCell(currentWorld)
+            : _grid.DestPos;
+        currentCell = NearestWalkable(_grid, currentCell);
+
+        exec.Sim.RebindGrid(_grid, currentCell, currentFacing, _rides);
+        exec.RebindWorld(_grid, _topDownSpace, _topDownSpace, _def, _startFacing);
+
+        if (goalLabel != null) goalLabel.text = _def.goalText;
+        if (vibeCtrl != null) vibeCtrl.SetWorldContext(_grid, exec.Sim, _def);
+        if (ghost != null) ghost.Bind(_def);
+        if (monitor != null) monitor.Refresh(exec.Sim, _lastExecutedLine);
+    }
+
+    void RebuildProceduralTopDownWorld()
+    {
+        if (topDownWorldRoot == null || _streamingTown == null || _streamingTown.Layout == null)
+            return;
+
+        for (int i = topDownWorldRoot.childCount - 1; i >= 0; i--)
+            Destroy(topDownWorldRoot.GetChild(i).gameObject);
+
+        AddProceduralGround(topDownWorldRoot, _streamingTown.Layout);
+        float roadHalfWidth = _level.manual != null ? _level.manual.roadHalfWidth : 3f;
+        _topDownSpace = new TopDownGridSpace(_streamingTown.Layout, _streamingTown.CellSize,
+                                             roadHalfWidth, topDownWorldRoot);
+    }
+
+    static void TransferRideState(IReadOnlyList<GridRide> oldRides, List<GridRide> newRides)
+    {
+        if (oldRides == null || newRides == null) return;
+
+        var oldById = new Dictionary<int, GridRide>();
+        foreach (GridRide ride in oldRides)
+            oldById[ride.id] = ride;
+
+        foreach (GridRide ride in newRides)
+            if (oldById.TryGetValue(ride.id, out GridRide old))
+            {
+                ride.aboard    = old.aboard;
+                ride.delivered = old.delivered;
+                ride.paid      = old.paid;
+            }
+    }
+
+    static Vector2Int NearestWalkable(GridModel grid, Vector2Int preferred)
+    {
+        if (grid == null) return preferred;
+        if (grid.IsWalkable(preferred)) return preferred;
+
+        int maxRadius = Mathf.Max(grid.Width, grid.Height);
+        for (int radius = 1; radius <= maxRadius; radius++)
+        {
+            for (int y = preferred.y - radius; y <= preferred.y + radius; y++)
+            for (int x = preferred.x - radius; x <= preferred.x + radius; x++)
+            {
+                var p = new Vector2Int(x, y);
+                if (grid.IsWalkable(p)) return p;
+            }
+        }
+        return grid.StartPos;
+    }
 
     // -------------------------------------------------------------------------
     // Results

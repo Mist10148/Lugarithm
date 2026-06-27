@@ -77,6 +77,47 @@ public class SelfDriveAgentTests
         CollectionAssert.IsEmpty(errors, "the displayed reference solution must compile");
     }
 
+    [Test]
+    public void ProceduralPalette_UsesRouteComplete_NotAtDestination()
+    {
+        Run r = Build(5);
+
+        CollectionAssert.Contains(r.def.allowedQueries, "routeComplete");
+        CollectionAssert.DoesNotContain(r.def.allowedQueries, "atDestination");
+        CollectionAssert.Contains(r.def.allowedBlocks, "driveToTerminal");
+    }
+
+    [Test]
+    public void StreamedContinuation_RemapsRides_AndCanCompleteNextRoute()
+    {
+        ProceduralLayoutDefinition pdef = LevelLibrary.Get(2).procedural;
+        var stream = StreamingTownGenerator.Begin(pdef, new FareTable(), 909);
+        int oldTerminalId = stream.Layout.destNodeId;
+
+        AutomationPuzzleDefinition def = SelfDrivePlanner.BuildPuzzle(
+            stream.Layout, pdef.gen.gridCellSize, out List<GridRide> rides, out int facing);
+        GridModel grid = GridModel.Parse(def.gridMap, out _);
+        var sim = new AgentSim(grid, new FareTable(), facing);
+        sim.LoadRides(rides);
+
+        ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
+        CollectionAssert.IsEmpty(errors);
+        Assert.IsTrue(HeadlessProgramRunner.Verify(program, sim, def, out string firstGap), firstGap);
+
+        StreamingTownGenerator.AppendChunk(stream);
+        AutomationPuzzleDefinition nextDef = SelfDrivePlanner.BuildPuzzle(
+            stream.Layout, pdef.gen.gridCellSize, out List<GridRide> nextRides, out int nextFacing);
+        TransferState(rides, nextRides);
+        GridModel nextGrid = GridModel.Parse(nextDef.gridMap, out _);
+
+        Vector2Int oldTerminalCell = stream.Layout.Node(oldTerminalId).gridCell;
+        sim.RebindGrid(nextGrid, oldTerminalCell, sim.Facing, nextRides);
+
+        Assert.IsFalse(sim.EvaluateQuery("routeComplete"),
+            "the appended chunk should add a new terminal and optional riders");
+        Assert.IsTrue(HeadlessProgramRunner.Verify(program, sim, nextDef, out string nextGap), nextGap);
+    }
+
     // Authored levels (no committed rides) must also be fully autopilot-able: the
     // button is now shown everywhere, synthesizing rides from the grid's 'P' stops.
     [Test]
@@ -125,5 +166,20 @@ public class SelfDriveAgentTests
             sim.Apply(action);
 
         Assert.IsTrue(sim.IsWin(def), sim.DescribeGoalGap(def));
+    }
+
+    static void TransferState(List<GridRide> oldRides, List<GridRide> newRides)
+    {
+        var oldById = new Dictionary<int, GridRide>();
+        foreach (GridRide ride in oldRides)
+            oldById[ride.id] = ride;
+
+        foreach (GridRide ride in newRides)
+            if (oldById.TryGetValue(ride.id, out GridRide old))
+            {
+                ride.aboard    = old.aboard;
+                ride.delivered = old.delivered;
+                ride.paid      = old.paid;
+            }
     }
 }

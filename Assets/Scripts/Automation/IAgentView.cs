@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -16,4 +17,10 @@ public interface IAgentView
 
     /// <summary>Plays one action (move, turn, pickUp, dropOff, collectFare).</summary>
     IEnumerator PlayAction(AgentActionResult result, float duration);
+}
+
+/// <summary>Optional richer view for continuous navigation-macro playback.</summary>
+public interface IPathAgentView : IAgentView
+{
+    IEnumerator PlayPath(IReadOnlyList<AgentActionResult> moves, float secondsPerStep);
 }

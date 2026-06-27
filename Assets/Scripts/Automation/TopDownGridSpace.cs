@@ -44,6 +44,11 @@ public class TopDownGridSpace : IGridSpace, IStopView
         return _transform.CellToWorld(cell);
     }
 
+    public Vector2Int WorldToCell(Vector2 world)
+    {
+        return _transform.WorldToCell(world);
+    }
+
     public int SortOrder(Vector2Int cell)
     {
         // Higher y is "north" / further back in top-down; sort by y so the

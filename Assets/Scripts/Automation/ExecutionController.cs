@@ -74,14 +74,35 @@ public class ExecutionController : MonoBehaviour
             _view.Init(_space, _sim.Position, _sim.Facing);
     }
 
+    public void RebindWorld(GridModel grid, IGridSpace space, IStopView stopView,
+                            AutomationPuzzleDefinition def, int startFacing)
+    {
+        Stop();
+
+        _grid        = grid;
+        _space       = space;
+        _stopView    = stopView;
+        _def         = def;
+        _startFacing = startFacing;
+        State        = ExecState.Idle;
+        _singleStep  = false;
+        _frameLineHits.Clear();
+
+        if (_view != null && _sim != null)
+            _view.Init(_space, _sim.Position, _sim.Facing);
+
+        OnWorldReset?.Invoke();
+    }
+
     // -------------------------------------------------------------------------
     // Controls
 
     /// <summary>Starts (or restarts) execution of a compiled program.</summary>
-    public void Run(ProgramNode program)
+    public void Run(ProgramNode program, bool resetWorld = true)
     {
         Stop();
-        ResetWorld();
+        if (resetWorld)
+            ResetWorld();
 
         _vm.Load(program);
         _frameLineHits.Clear();
@@ -156,16 +177,49 @@ public class ExecutionController : MonoBehaviour
             // the self-driving jeepney animates like real driving.
             if (_sim != null && _sim.HasPendingMoves)
             {
-                AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
-                OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
+                if (_singleStep)
+                {
+                    AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
+                    OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
 
-                float moveDuration = baseStepSeconds / Speed;
-                if (_view != null)
-                    yield return _view.PlayAction(moveResult, moveDuration);
+                    float moveDuration = baseStepSeconds / Speed;
+                    if (_view != null)
+                        yield return _view.PlayAction(moveResult, moveDuration);
+                    else
+                        yield return new WaitForSeconds(moveDuration);
+
+                    _singleStep = false;
+                    State = ExecState.Paused;
+
+                    if (_sim.IsWin(_def))
+                    {
+                        State = ExecState.Finished;
+                        OnFinished?.Invoke(true);
+                        yield break;
+                    }
+                    continue;
+                }
+
+                var moves = new List<AgentActionResult>();
+                bool wonDuringPath = false;
+                while (_sim.HasPendingMoves)
+                {
+                    AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
+                    moves.Add(moveResult);
+                    OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
+                    if (_sim.IsWin(_def)) { wonDuringPath = true; break; }
+                }
+
+                float pathMoveDuration = baseStepSeconds / Speed;
+                if (_view is IPathAgentView pathView)
+                    yield return pathView.PlayPath(moves, pathMoveDuration);
+                else if (_view != null)
+                    foreach (AgentActionResult move in moves)
+                        yield return _view.PlayAction(move, pathMoveDuration);
                 else
-                    yield return new WaitForSeconds(moveDuration);
+                    yield return new WaitForSeconds(pathMoveDuration * moves.Count);
 
-                if (_sim.IsWin(_def))
+                if (wonDuringPath)
                 {
                     State = ExecState.Finished;
                     OnFinished?.Invoke(true);

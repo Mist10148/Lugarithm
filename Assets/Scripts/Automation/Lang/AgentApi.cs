@@ -53,6 +53,7 @@ public static class AgentApi
         new ApiEntry("leftIsClear",        ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("rightIsClear",       ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("atDestination",      ApiKind.Query,   minArity: 0, maxArity: 0),
+        new ApiEntry("routeComplete",      ApiKind.Query,   minArity: 0, maxArity: 0),
 
         // Maze / puzzle add-on
         new ApiEntry("atGoal",             ApiKind.Query,   minArity: 0, maxArity: 0),
@@ -64,6 +65,7 @@ public static class AgentApi
         // Automation-exclusive actions
         new ApiEntry("driveToNextStop",    ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("driveToDestination", ApiKind.Action,  minArity: 0, maxArity: 0),
+        new ApiEntry("driveToTerminal",    ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("openDoor",           ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("closeDoor",          ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("board",              ApiKind.Action,  minArity: 0, maxArity: 0),
