@@ -330,7 +330,11 @@ story/heritage localization beyond the English pass.
 
 **Team Cyfer** • Region VI – Western Visayas • AI Game On! IV / AI Fest 2026.
 
-> Member names and roles to be finalized for the submission package.
+| Member | Roles |
+|---|---|
+| Carlos John Aristoki | Lead Developer · Game Design · Narrative · Documentation |
+| Sol Vincent Sartaguda | Developer · Narrative · Documentation |
+| Zneb John Delariman | 2D Artist · Asset Maker · Design |
 
 ---
 

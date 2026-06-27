@@ -208,4 +208,6 @@ features (lambdas, classes, exceptions, imports beyond seeded `random`).
 - **Q2** Gacha pity threshold / drop rates. `[ ]`
 - **Q3** Mid-program streaming approach for Automation (MODE-R7) vs. the pre-grow compromise. `[!]`
 - **Q4** Whether the Vibe-Coding generator should emit user-defined functions (AI-R7). `[ ]`
-- **Q5** Team member names/roles for the submission package. `[ ]`
+- **Q5** Team member names/roles for the submission package. `[x]` Resolved — Carlos John
+  Aristoki (Lead Developer, Game Design, Narrative, Documentation); Sol Vincent Sartaguda
+  (Developer, Narrative, Documentation); Zneb John Delariman (2D Artist, Asset Maker, Design).
