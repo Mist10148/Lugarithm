@@ -79,6 +79,73 @@ public static class MinigameOverlayBuilder
         return panel;
     }
 
+    // -------------------------------------------------------------------------
+    // Overworld minigame-station access card (placeholder). Pops when the player
+    // interacts with a puzzle/code station; describes the (not-yet-wired) game and
+    // lets them "start" it (counts it as solved for the three-objectives loop).
+
+    public static MinigamePlaceholderPanel BuildMinigamePlaceholder(Transform parent)
+    {
+        var overlay = UIFactory.CreatePanel(parent, "MinigamePlaceholderOverlay",
+                                            Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.78f));
+        LiftToFront(overlay);
+
+        var window = UIFactory.CreatePanel(overlay, "Window",
+                                           new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                           UIFactory.PanelDark);
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620f, 470f));
+
+        // Accent strip across the top, tinted to the station marker colour at runtime.
+        var accentRt = UIFactory.CreateRect(window, "AccentBar", new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                            new Vector2(0f, -8f), new Vector2(0f, 0f));
+        accentRt.sizeDelta = new Vector2(0f, 8f);
+        var accentBar = accentRt.gameObject.AddComponent<Image>();
+        accentBar.sprite = SceneBuilderUtil.LoadPlaceholder("white_box");
+        accentBar.color  = UIFactory.Accent;
+
+        var category = UIFactory.CreateText(window, "Category", "PUZZLE", 18f,
+                                            UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(category, new Vector2(0.5f, 1f), new Vector2(0f, -28f), new Vector2(560f, 22f));
+
+        var title = UIFactory.CreateText(window, "Title", "", 32f, UIFactory.Accent, TextAlignmentOptions.Center);
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -54f), new Vector2(560f, 44f));
+
+        var description = UIFactory.CreateText(window, "Description", "", 22f,
+                                               UIFactory.TextBright, TextAlignmentOptions.Top);
+        UIFactory.Place(description, new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(540f, 150f));
+        description.enableWordWrapping = true;
+
+        var concept = UIFactory.CreateText(window, "Concept", "", 20f,
+                                           UIFactory.Accent, TextAlignmentOptions.Center);
+        UIFactory.Place(concept, new Vector2(0.5f, 0f), new Vector2(0f, 196f), new Vector2(540f, 28f));
+
+        var note = UIFactory.CreateText(window, "PlaceholderNote", "", 16f,
+                                        UIFactory.TextDim, TextAlignmentOptions.Top);
+        UIFactory.Place(note, new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(540f, 80f));
+        note.enableWordWrapping = true;
+
+        Button leave = UIFactory.CreateButton(window, "LeaveButton", "Leave", new Vector2(220f, 56f));
+        UIFactory.Place(leave, new Vector2(0.5f, 0f), new Vector2(-130f, 28f), new Vector2(220f, 56f));
+
+        Button start = UIFactory.CreateButton(window, "StartButton", "Start Puzzle", new Vector2(240f, 56f));
+        UIFactory.Place(start, new Vector2(0.5f, 0f), new Vector2(130f, 28f), new Vector2(240f, 56f));
+        start.image.color = new Color(0.20f, 0.55f, 0.25f);
+
+        var panel = overlay.gameObject.AddComponent<MinigamePlaceholderPanel>();
+        SceneBuilderUtil.Wire(panel, "root",             overlay.gameObject);
+        SceneBuilderUtil.Wire(panel, "accentBar",        accentBar);
+        SceneBuilderUtil.Wire(panel, "categoryLabel",    category);
+        SceneBuilderUtil.Wire(panel, "titleLabel",       title);
+        SceneBuilderUtil.Wire(panel, "descriptionLabel", description);
+        SceneBuilderUtil.Wire(panel, "conceptLabel",     concept);
+        SceneBuilderUtil.Wire(panel, "placeholderNote",  note);
+        SceneBuilderUtil.Wire(panel, "startButton",      start);
+        SceneBuilderUtil.Wire(panel, "leaveButton",      leave);
+        SceneBuilderUtil.Wire(panel, "startButtonLabel", start.GetComponentInChildren<TMP_Text>(true));
+
+        return panel;
+    }
+
     public static FlowConnectMinigame BuildFlowConnect(Transform parent)
     {
         var overlay = UIFactory.CreatePanel(parent, "FlowConnectOverlay",

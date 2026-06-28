@@ -126,6 +126,10 @@ public static class PlaceholderArtGenerator
         Make("td_jeep_stop", 16, 16, 64, TDJeepStopPainter);
         Make("td_interaction", 16, 16, 64, (x, y, w, h) => TDInteractionPainter(x, y, w, h));
 
+        // Minigame station markers (white → tinted at runtime to the station colour).
+        Make("td_puzzle", 16, 16, 64, TDPuzzlePainter);
+        Make("td_code",   16, 16, 64, TDCodePainter);
+
         // Top-down characters
         Make("td_player", 16, 24, 64, TDPlayerPainter, pivot: new Vector2(0.5f, 0.25f));
         Make("td_npc",    16, 24, 64, TDNpcPainter,    pivot: new Vector2(0.5f, 0.25f));
@@ -390,6 +394,27 @@ public static class PlaceholderArtGenerator
         // Exclamation dot
         if (x >= 6 && x <= 9 && y >= 11 && y <= 12) return TDInteract;
         return Color.clear;
+    }
+
+    static Color TDPuzzlePainter(int x, int y, int w, int h)
+    {
+        // Four quadrant blocks with a cross-shaped gap — reads as a puzzle/grid.
+        // Drawn white so the runtime tints it to the station's marker colour.
+        bool border = x < 1 || y < 1 || x > w - 2 || y > h - 2;
+        if (border) return Color.clear;
+        bool gap = Mathf.Abs(x - w / 2) < 1 || Mathf.Abs(y - h / 2) < 1;
+        return gap ? Color.clear : Color.white;
+    }
+
+    static Color TDCodePainter(int x, int y, int w, int h)
+    {
+        // A little screen with two "code" lines — reads as the coding station.
+        // White; the runtime tints it green.
+        if (x < 2 || y < 3 || x > w - 3 || y > h - 4) return Color.clear;
+        bool frame = x == 2 || x == w - 3 || y == 3 || y == h - 4;
+        bool line1 = y == h / 2 - 2 && x >= 4 && x <= 9;
+        bool line2 = y == h / 2 + 1 && x >= 4 && x <= 11;
+        return (frame || line1 || line2) ? Color.white : Color.clear;
     }
 
     static Color TDPlayerPainter(int x, int y, int w, int h)

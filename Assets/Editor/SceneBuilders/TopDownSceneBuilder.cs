@@ -126,10 +126,19 @@ public static class TopDownSceneBuilder
                                                22f, UIFactory.TextBright);
         UIFactory.Place(promptText, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(380f, 40f));
 
+        // Objectives counter (top-left, under the level name)
+        var objectives = UIFactory.CreateText(canvas.transform, "Objectives", "",
+                                              20f, UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(objectives, new Vector2(0f, 1f), new Vector2(18f, -58f), new Vector2(300f, 30f));
+
         // Controls hint (bottom-left)
         var hint = UIFactory.CreateText(canvas.transform, "Hint", "WASD / Arrows: Move  |  E: Interact",
                                         16f, UIFactory.TextDim);
         UIFactory.Place(hint, new Vector2(0f, 0f), new Vector2(18f, 18f), new Vector2(460f, 30f));
+
+        // Minigame-station access card (placeholder), shared overlay builder.
+        MinigamePlaceholderPanel minigamePanel =
+            MinigameOverlayBuilder.BuildMinigamePlaceholder(canvas.transform);
 
         // Exit button (top-right)
         Button exitButton = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit",
@@ -156,8 +165,10 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(controller, "promptRoot",    promptBg.gameObject);
         SceneBuilderUtil.Wire(controller, "levelNameLabel", levelName);
         SceneBuilderUtil.Wire(controller, "promptLabel",   promptText);
+        SceneBuilderUtil.Wire(controller, "objectivesLabel", objectives);
         SceneBuilderUtil.Wire(controller, "exitButton",    exitButton);
         SceneBuilderUtil.Wire(controller, "dialogue",      dialogue);
+        SceneBuilderUtil.Wire(controller, "minigamePanel", minigamePanel);
         SceneBuilderUtil.Wire(controller, "grassTile",     tGrass);
         SceneBuilderUtil.Wire(controller, "pathTile",      tPath);
         SceneBuilderUtil.Wire(controller, "wallTile",      tWall);
@@ -167,6 +178,10 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(controller, "npcSprite",          SceneBuilderUtil.LoadPlaceholder("td_npc"));
         SceneBuilderUtil.Wire(controller, "interactionIndicatorSprite",
                                SceneBuilderUtil.LoadPlaceholder("td_interaction"));
+        SceneBuilderUtil.Wire(controller, "puzzleStationSprite",
+                               SceneBuilderUtil.LoadPlaceholder("td_puzzle"));
+        SceneBuilderUtil.Wire(controller, "codeStationSprite",
+                               SceneBuilderUtil.LoadPlaceholder("td_code"));
 
         // Wire the body sprite on the player controller
         SceneBuilderUtil.Wire(player, "bodySprite", bodySr);

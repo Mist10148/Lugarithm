@@ -26,6 +26,8 @@ public enum EntityType
     Npc,        // N — NPC character
     JeepStop,   // J — jeep boarding zone (launches jeep minigame)
     Exit,       // E — level exit / completion trigger
+    PuzzleStation, // Q — non-coding puzzle minigame station (maze, flow, block-fill…)
+    CodeChallenge, // C — the town's main coding challenge (gates moving on)
 }
 
 /// <summary>
@@ -44,6 +46,11 @@ public class MapEntity
     /// <see cref="TownNpcDialogueLibrary"/>. Assigned by the map author in
     /// row-major spawn order (see <see cref="OverworldMapLibrary"/>).</summary>
     public string npcId;
+
+    /// <summary>For minigame stations (puzzle / code challenge): the definition id
+    /// resolved against <see cref="TownMinigameLibrary"/>. Assigned in row-major
+    /// spawn order by station kind (see <see cref="OverworldMapLibrary"/>).</summary>
+    public string minigameId;
 
     /// <summary>World-space position derived from grid coords.</summary>
     public Vector2 WorldPosition(float cellSize)
@@ -81,7 +88,8 @@ public class OverworldMapData
     /// <summary>
     /// Parses a string-array map into structured tile + entity data.
     /// Tile chars: G (grass), P (path), W (wall), ~ (water).
-    /// Entity chars: S (player start), N (NPC), J (jeep stop), E (exit), . (nothing).
+    /// Entity chars: S (player start), N (NPC), J (jeep stop), E (exit),
+    /// Q (puzzle station), C (code challenge), . (nothing).
     /// </summary>
     public static OverworldMapData Parse(string[] rows)
     {
@@ -160,6 +168,8 @@ public class OverworldMapData
             case 'N': return EntityType.Npc;
             case 'J': return EntityType.JeepStop;
             case 'E': return EntityType.Exit;
+            case 'Q': return EntityType.PuzzleStation;
+            case 'C': return EntityType.CodeChallenge;
             default:  return EntityType.None;
         }
     }
@@ -180,8 +190,11 @@ public static class OverworldMapLibrary
     /// Legend:
     ///   G = grass,  P = path,  W = wall,  ~ = water
     ///   S = player start, N = NPC, J = jeep stop, E = exit
+    ///   Q = puzzle station (non-coding minigame), C = code challenge
     /// NPC tiles are tagged with their conversation id + name in row-major spawn
-    /// order (top-to-bottom, left-to-right) via <see cref="Build"/>.
+    /// order (top-to-bottom, left-to-right) via <see cref="Build"/>. Minigame
+    /// stations (Q/C) are bound to <see cref="TownMinigameLibrary"/> defs by the
+    /// level controller in the same row-major order, per station kind.
     /// </summary>
     public static OverworldMapData ForLevel(int levelIndex)
     {
@@ -205,12 +218,12 @@ public static class OverworldMapLibrary
             "GGGGGGGGGGGGGGGG",
             "GWWGGGGGGGGGWWGG",
             "GGNGPPPPPPPGNGGG",
-            "GGGGGGGPGGGGGGGG",
+            "GGGQGGGPGGGGQGGG",
             "GPPPPPPPPPPPPPPG",
             "GGGGGGGEGGGGGGGG",
             "GGGGGGGPGGGGGGGG",
             "GGGGGGGNGGGGGGGG",
-            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGPGGGCGGGG",
             "GGGGGGGPGGGGGGGG",
             "GGGGGGGJGGGGGGGG",
             "GGGGGGGSGGGGGGGG",
@@ -227,9 +240,9 @@ public static class OverworldMapLibrary
             "GGGGGGGGGGGGGGGG",
             "GWWWGGGGGGGWWWGG",
             "GGNGGGGEGGGGNGGG",
-            "GGGGGGGPGGGGGGGG",
+            "GGGQGGGPGGGGQGGG",
             "GPPPPPPPPPPPPPPG",
-            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGPGGGCGGGG",
             "GGGGGGGNGGGGGGGG",
             "GGGGGGGPGGGGGGGG",
             "GGGGGGGPGGGGGGGG",
@@ -249,10 +262,10 @@ public static class OverworldMapLibrary
             "GGGGGGGGGGGGGGGG",
             "G~~~~~~~~~~~~~~GG",
             "GGNGGGGGGGGNGGGG",
-            "GGGGGGGGGGGGGGGG",
+            "GGGQGGGGGGGGQGGG",
             "GGGGGGGEGGGGGGGG",
             "GPPPPPPPPPPPPPGG",
-            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGPGGGCGGGG",
             "GGGGGGGJGGGGGGGG",
             "GGGGGGGGGGGGGGGG",
             "GGGGGGGSGGGGGGGG",
@@ -268,9 +281,9 @@ public static class OverworldMapLibrary
             "GGGGGGGGGGGGGGGG",
             "GWWWGGGGGGGGGGGG",
             "GGNGGGGEGGGGGGGG",
-            "GGGGGGGPGGGGGGGG",
+            "GGGQGGGPGGGGQGGG",
             "GPPPPPPPPPPPPGGG",
-            "GGGGGGGGGNGGGGGG",
+            "GGGCGGGGGNGGGGGG",
             "GGGGGGGGGPGGGGGG",
             "GGGGGGGGGJGGGGGG",
             "GGGGGGGGGGGGGGGG",
@@ -287,9 +300,9 @@ public static class OverworldMapLibrary
             "GGGGGGGGGGGGGGGG",
             "GGGGGWWWWWGGGGGG",
             "GGNGGGGEGGGGNGGG",
-            "GGGGGGGPGGGGGGGG",
+            "GGGQGGGPGGGGQGGG",
             "GPPPPPPPPPPPPPGG",
-            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGPGGGCGGGG",
             "GGGGGGGJGGGGGGGG",
             "GGGGGGGGGGGGGGGG",
             "GGGGGGGSGGGGGGGG",
@@ -304,9 +317,9 @@ public static class OverworldMapLibrary
         {
             "GGGGGGGGGGGGGGGG",
             "GGNGGGGEGGGGNGGG",
-            "GGGGGGGPGGGGGGGG",
+            "GGGQGGGPGGGGQGGG",
             "GPPPPPPPPPPPPPGG",
-            "GGGGGGGPGGGGGGGG",
+            "GGGGGGGPGGGCGGGG",
             "GGGGGGGJGGGGGGGG",
             "GGGGGGGSGGGGGGGG",
             "G~~~~~~~~~~~~~~GG",
