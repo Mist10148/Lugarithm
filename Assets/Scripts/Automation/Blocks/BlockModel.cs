@@ -15,6 +15,8 @@ public enum BlockType
     If,
     IfElse,
     While,
+    FunctionDef,    // def name(): … — a no-argument helper definition (container)
+    FunctionCall,   // name()         — calls a defined helper
 }
 
 /// <summary>
@@ -28,13 +30,17 @@ public class BlockNode
     public string    Query  = "frontIsClear";
     public bool      Negate;
 
+    /// <summary>Helper name for FunctionDef / FunctionCall blocks.</summary>
+    public string    FuncName = "drive";
+
     public readonly List<BlockNode> Body     = new List<BlockNode>();
     public readonly List<BlockNode> ElseBody = new List<BlockNode>();
 
     public BlockNode(BlockType type) { Type = type; }
 
     public bool IsContainer =>
-        Type == BlockType.If || Type == BlockType.IfElse || Type == BlockType.While;
+        Type == BlockType.If || Type == BlockType.IfElse || Type == BlockType.While ||
+        Type == BlockType.FunctionDef;
 
     public bool HasElse => Type == BlockType.IfElse;
 }
@@ -84,6 +90,8 @@ public static class BlockProgram
             case "if":          return BlockType.If;
             case "ifElse":      return BlockType.IfElse;
             case "while":       return BlockType.While;
+            case "functionDef": return BlockType.FunctionDef;
+            case "callFunction":return BlockType.FunctionCall;
             default:            return null;
         }
     }
@@ -91,8 +99,13 @@ public static class BlockProgram
     /// <summary>Display label for a block row (header line for containers).</summary>
     public static string Label(BlockNode node)
     {
+        if (node.Type == BlockType.FunctionDef)
+            return $"def {node.FuncName}():";
+
         if (!node.IsContainer)
         {
+            if (node.Type == BlockType.FunctionCall)
+                return $"{node.FuncName}()";
             if (node.Type == BlockType.GiveChange)
                 return "giveChange(changeOwed())";
             return ActionName(node.Type) + "()";
@@ -151,12 +164,29 @@ public static class BlockProgram
                     bool isAction = type.HasValue && !new BlockNode(type.Value).IsContainer;
                     bool canShowArgs = call.Name == "giveChange" && IsChangeOwedArg(call.Args);
                     bool hasArgs = call.Args != null && call.Args.Count > 0;
-                    if (!isAction || (hasArgs && !canShowArgs))
+                    if (isAction)
                     {
-                        ok = false;   // unknown command, or a counted call blocks can't show
+                        if (hasArgs && !canShowArgs) { ok = false; break; }   // a counted call blocks can't show
+                        target.Add(new BlockNode(type.Value));
                         break;
                     }
-                    target.Add(new BlockNode(type.Value));
+                    // Not a known action — a no-arg call to a user-defined helper round-trips
+                    // as a FunctionCall block (built-in queries/reporters never appear here).
+                    if (!type.HasValue && !hasArgs && IsIdentifier(call.Name))
+                    {
+                        target.Add(new BlockNode(BlockType.FunctionCall) { FuncName = call.Name });
+                        break;
+                    }
+                    ok = false;
+                    break;
+                }
+
+                case FuncDefStmt def:
+                {
+                    if (def.Params != null && def.Params.Count > 0) ok = false; // blocks: no-arg helpers only
+                    var node = new BlockNode(BlockType.FunctionDef) { FuncName = def.Name };
+                    DecompileList(def.Body, node.Body, ref ok);
+                    target.Add(node);
                     break;
                 }
 
@@ -211,6 +241,26 @@ public static class BlockProgram
     {
         foreach (BlockNode node in source)
         {
+            if (node.Type == BlockType.FunctionCall)
+            {
+                target.Add(new CallStmt { Name = node.FuncName, SourceRef = node });
+                continue;
+            }
+
+            if (node.Type == BlockType.FunctionDef)
+            {
+                if (node.Body.Count == 0)
+                {
+                    errors.Add(new LangError(0,
+                        $"the '{Label(node)}' block needs at least one block inside it."));
+                    offenders.Add(node);
+                }
+                var def = new FuncDefStmt { Name = node.FuncName, SourceRef = node };
+                CompileList(node.Body, def.Body, errors, offenders);
+                target.Add(def);
+                continue;
+            }
+
             if (!node.IsContainer)
             {
                 var call = new CallStmt { Name = ActionName(node.Type), SourceRef = node };
@@ -257,6 +307,16 @@ public static class BlockProgram
                 target.Add(branch);
             }
         }
+    }
+
+    /// <summary>True for a plain helper name (letters/digits/underscore, not a digit first).</summary>
+    static bool IsIdentifier(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return false;
+        if (!char.IsLetter(name[0]) && name[0] != '_') return false;
+        foreach (char c in name)
+            if (!char.IsLetterOrDigit(c) && c != '_') return false;
+        return true;
     }
 
     static bool IsChangeOwedArg(List<ExprNode> args)

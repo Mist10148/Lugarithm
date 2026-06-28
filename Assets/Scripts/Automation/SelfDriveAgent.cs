@@ -13,6 +13,7 @@ public static class SelfDrivePlanner
     {
         "moveForward", "turnLeft", "turnRight", "pickUp", "dropOff", "collectFare", "giveChange",
         "driveToNextStop", "driveToTerminal", "while", "if", "ifElse",
+        "functionDef", "callFunction",
     };
 
     public static readonly string[] NavQueries =
@@ -28,15 +29,28 @@ public static class SelfDrivePlanner
     };
 
     public const string ReferenceSolution =
-        "# Self-driving jeepney: keep serving stops until the route is complete.\n" +
-        "while not routeComplete():\n" +
-        "    driveToNextStop()\n" +
+        "# Self-driving jeepney: define a helper for each job, then start the ride.\n" +
+        "def drive():\n" +
+        "    while not routeComplete():\n" +
+        "        driveToNextStop()\n" +
+        "        handleDropoffs()\n" +
+        "        handlePassengers()\n" +
+        "        handleFares()\n" +
+        "\n" +
+        "def handlePassengers():\n" +
         "    if passengerWaiting():\n" +
         "        pickUp()\n" +
+        "\n" +
+        "def handleFares():\n" +
+        "    if hasPassengerAboard():\n" +
         "        collectFare()\n" +
         "        giveChange(changeOwed())\n" +
+        "\n" +
+        "def handleDropoffs():\n" +
         "    if atRequestedStop():\n" +
-        "        dropOff()\n";
+        "        dropOff()\n" +
+        "\n" +
+        "drive()\n";
 
     /// <summary>Synthesizes rides for an authored grid that has only generic 'P'
     /// stops (no committed per-passenger routes): every stop is a pickup bound for
@@ -108,10 +122,11 @@ public static class SelfDrivePlanner
             goalText = "Self-driving run: program the jeepney to pick up every rider, " +
                        "collect fares, give exact change, drop each at their stop, then finish the current route. " +
                        "Use driveToNextStop() / driveToTerminal() to navigate.",
-            codeScaffold = "# Navigation blocks plan a path for you:\n" +
-                           "#   driveToNextStop(), driveToTerminal()\n" +
+            codeScaffold = "# Split the ride into helper functions, then call drive():\n" +
+                           "#   drive(), handlePassengers(), handleFares(), handleDropoffs()\n" +
+                           "# Navigation: driveToNextStop(), driveToTerminal()\n" +
                            "# Tend riders: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
-                           "# Ask: passengerWaiting(), atRequestedStop(), routeComplete()\n",
+                           "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n",
             optimalSolutionText = ReferenceSolution,
         };
     }

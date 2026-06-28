@@ -101,6 +101,9 @@ public class AutomationDriveController : MonoBehaviour
     StreamingTown   _streamingTown;
     bool _proceduralTopDown;
     bool _optionalFreeRoam;
+    int  _maxChunks;
+    int  _chunksAppended;
+    bool _destinationFinalized;
     int  _startFacing;
     int  _levelIndex;
     bool _codeTabActive;
@@ -120,6 +123,10 @@ public class AutomationDriveController : MonoBehaviour
     bool  _storyLegShown;    // the reveal + LEVEL COMPLETE card have been shown (guard)
     bool  _solvedNudged;     // showed the "finish your chat" nudge once after an early solve
     string _storyPassengerName = "Your passenger";
+
+    // Lookahead distance (world units) at which the procedural town streams the next
+    // chunk ahead of the driving program — matches Manual's StreamLookAhead.
+    const float StreamLookAhead = 45f;
 
     void Start()
     {
@@ -144,6 +151,7 @@ public class AutomationDriveController : MonoBehaviour
         {
             int seed = System.Guid.NewGuid().GetHashCode() & 0x7fffffff;
             _streamingTown = StreamingTownGenerator.Begin(_level.procedural, _level.fares, seed);
+            _maxChunks = int.MaxValue;   // stream endlessly until the story leg finalizes the destination
             proceduralLayout = _streamingTown.Layout;
             _def = SelfDrivePlanner.BuildPuzzle(proceduralLayout, _level.procedural.gen.gridCellSize,
                                                 out _rides, out _);
@@ -367,14 +375,41 @@ public class AutomationDriveController : MonoBehaviour
         PlayBoardingDialogue();
     }
 
+    void Update()
+    {
+        TickProceduralStreaming();
+    }
+
+    /// <summary>
+    /// Streams the next chunk ahead of the driving program, mirroring Manual's lookahead,
+    /// so the procedural town is continuously generated from the start (not only after a
+    /// win). Only appends at a static-world boundary — program running, nothing animating,
+    /// no queued moves — so re-rasterizing the grid can never teleport an in-flight path.
+    /// </summary>
+    void TickProceduralStreaming()
+    {
+        if (!_proceduralTopDown || _streamingTown == null || _storyLegShown) return;
+        if (_won && !_optionalFreeRoam) return;
+        if (exec == null || exec.Sim == null || topDownAgentView == null) return;
+        if (_chunksAppended >= _maxChunks) return;
+        if (exec.State != ExecutionController.ExecState.Running) return;
+        if (exec.Busy || exec.Sim.HasPendingMoves) return;   // wait for a static-world boundary
+
+        float distToEnd = Vector2.Distance(
+            (Vector2)topDownAgentView.transform.position, _streamingTown.TrunkEndPos);
+        if (distToEnd >= StreamLookAhead) return;
+
+        AppendProceduralRoute(keepProgramRunning: true);
+    }
+
     void PlayBoardingDialogue()
     {
         // No conversation → nothing to finish talking about; let the puzzle win alone
         // complete the leg (don't deadlock the conversation gate).
-        if (dialogue == null) { _conversationDone = true; return; }
+        if (dialogue == null) { _conversationDone = true; FinalizeStoryDestination(); return; }
 
         DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
-        if (convo == null) { _conversationDone = true; return; }
+        if (convo == null) { _conversationDone = true; FinalizeStoryDestination(); return; }
 
         PassengerDefinition pax = PassengerLibrary.Get(convo.passengerId);
         if (pax != null && !string.IsNullOrEmpty(pax.displayName)) _storyPassengerName = pax.displayName;
@@ -388,10 +423,29 @@ public class AutomationDriveController : MonoBehaviour
             // Conversation finished — one of two completion gates. The tutorial has no
             // puzzle, so its chat alone completes; story levels also need the win.
             _conversationDone = true;
+            FinalizeStoryDestination();
             TryShowStoryComplete(_tutorialComplete
                 ? $"TUTORIAL COMPLETE — {_level.displayName}"
-                : $"PUZZLE SOLVED — {_level.displayName}");
+                : $"LEVEL COMPLETE — {_level.displayName}");
         });
+    }
+
+    /// <summary>
+    /// Caps procedural streaming one chunk past the current frontier once the story
+    /// conversation ends — so the frontier terminal becomes the real drop-off and the
+    /// last ride can complete, instead of the destination forever receding. Mirrors
+    /// <c>ManualDriveController.FinalizeStoryDestination</c>.
+    /// </summary>
+    void FinalizeStoryDestination()
+    {
+        if (_destinationFinalized) return;
+        _destinationFinalized = true;
+
+        if (_proceduralTopDown)
+            _maxChunks = _chunksAppended + 1;
+
+        if (console != null && _proceduralTopDown)
+            console.Info($"\"Para!\" Drop {_storyPassengerName} at the terminal ahead.");
     }
 
     void HandleDialogueEvent(DialogueEventKind kind, string payload)
@@ -724,11 +778,15 @@ public class AutomationDriveController : MonoBehaviour
         }
 
         const float margin = 80f;
-        var go = new GameObject("ProceduralGround");
+        // Idempotent: reuse the existing ground (we call this on every streamed chunk)
+        // and just resize/recenter it to the grown layout bounds.
+        Transform existing = worldRoot.Find("ProceduralGround");
+        GameObject go = existing != null ? existing.gameObject : new GameObject("ProceduralGround");
         go.transform.SetParent(worldRoot, false);
         go.transform.localPosition = new Vector3((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, 0f);
 
-        var sr = go.AddComponent<SpriteRenderer>();
+        var sr = go.GetComponent<SpriteRenderer>();
+        if (sr == null) sr = go.AddComponent<SpriteRenderer>();
         sr.sprite       = Resources.Load<Sprite>("Placeholders/grass_tile");
         sr.drawMode     = SpriteDrawMode.Tiled;
         sr.size         = new Vector2((maxX - minX) + margin * 2f, (maxY - minY) + margin * 2f);
@@ -889,7 +947,7 @@ public class AutomationDriveController : MonoBehaviour
         {
             if (_proceduralTopDown && _storyLegShown)
             {
-                AppendProceduralRoute();
+                AppendProceduralRoute(keepProgramRunning: false);
                 _won = false;
                 if (console != null)
                     console.Info("route complete - another stretch is ready.");
@@ -905,7 +963,7 @@ public class AutomationDriveController : MonoBehaviour
                 if (console != null)
                     console.Info($"Solved! Finish your chat with {_storyPassengerName} to wrap up the leg.");
             }
-            TryShowStoryComplete($"PUZZLE SOLVED — {_level.displayName}");
+            TryShowStoryComplete($"LEVEL COMPLETE — {_level.displayName}");
             return;
         }
 
@@ -960,7 +1018,7 @@ public class AutomationDriveController : MonoBehaviour
             if (legCompletion != null)
                 legCompletion.ShowComplete(
                     title,
-                    "Great work — your program reached the goal and the story's told.\nFinish the leg to bank your run and unlock what's next.",
+                    "Nice driving! You delivered the story.\nKeep exploring the town and pick up more passengers, or finish the leg to bank your run.",
                     allowExplore: _proceduralTopDown);
             else
                 BeginResults();
@@ -994,24 +1052,38 @@ public class AutomationDriveController : MonoBehaviour
             return;
 
         _optionalFreeRoam = true;
-        AppendProceduralRoute();
+        AppendProceduralRoute(keepProgramRunning: false);
         _won = false;
         if (console != null)
             console.Info("new route added - keep coding, or press Finish leg when you're done.");
     }
 
-    void AppendProceduralRoute()
+    /// <summary>
+    /// Appends the next streamed chunk and rebinds the world. When
+    /// <paramref name="keepProgramRunning"/> is true (continuous lookahead streaming) the
+    /// running program is preserved so the autopilot drives straight into the new stretch;
+    /// when false (post-win continue / keep-exploring) the world is reset for a fresh run.
+    /// The agent is always re-pinned by its WORLD position, so the grid-origin shift from a
+    /// grown layout never teleports it.
+    /// </summary>
+    void AppendProceduralRoute(bool keepProgramRunning)
     {
         if (_streamingTown == null || exec == null || exec.Sim == null)
             return;
+        if (_chunksAppended >= _maxChunks)
+            return;
 
-        Vector3 currentWorld = _topDownSpace != null
-            ? _topDownSpace.CellToWorld(exec.Sim.Position)
-            : topDownAgentView != null ? topDownAgentView.transform.position : Vector3.zero;
+        // Capture the agent's true world position (stable across the grid re-rasterize).
+        Vector3 currentWorld = topDownAgentView != null
+            ? topDownAgentView.transform.position
+            : _topDownSpace != null ? _topDownSpace.CellToWorld(exec.Sim.Position) : Vector3.zero;
         int currentFacing = exec.Sim.Facing;
         IReadOnlyList<GridRide> oldRides = exec.Sim.Rides;
 
-        StreamingTownGenerator.AppendChunk(_streamingTown);
+        TownChunk chunk = StreamingTownGenerator.AppendChunk(_streamingTown);
+        if (chunk == null || chunk.nodes.Count == 0)
+            return;
+        _chunksAppended++;
 
         _def = SelfDrivePlanner.BuildPuzzle(_streamingTown.Layout, _streamingTown.CellSize,
                                             out List<GridRide> remappedRides, out int newStartFacing);
@@ -1023,7 +1095,7 @@ public class AutomationDriveController : MonoBehaviour
         foreach (string problem in mapErrors)
             if (console != null) console.Error("map: " + problem);
 
-        RebuildProceduralTopDownWorld();
+        AppendProceduralTopDownWorld(chunk);
 
         Vector2Int currentCell = _topDownSpace != null
             ? _topDownSpace.WorldToCell(currentWorld)
@@ -1031,7 +1103,10 @@ public class AutomationDriveController : MonoBehaviour
         currentCell = NearestWalkable(_grid, currentCell);
 
         exec.Sim.RebindGrid(_grid, currentCell, currentFacing, _rides);
-        exec.RebindWorld(_grid, _topDownSpace, _topDownSpace, _def, _startFacing);
+        if (keepProgramRunning)
+            exec.RebindStreamingWorld(_grid, _topDownSpace, _topDownSpace, _def, _startFacing);
+        else
+            exec.RebindWorld(_grid, _topDownSpace, _topDownSpace, _def, _startFacing);
 
         if (goalLabel != null) goalLabel.text = _def.goalText;
         if (vibeCtrl != null) vibeCtrl.SetWorldContext(_grid, exec.Sim, _def);
@@ -1039,18 +1114,31 @@ public class AutomationDriveController : MonoBehaviour
         if (monitor != null) monitor.Refresh(exec.Sim, _lastExecutedLine);
     }
 
-    void RebuildProceduralTopDownWorld()
+    /// <summary>
+    /// Incrementally dresses only the freshly streamed chunk's road/buildings (keeping all
+    /// existing world objects in place — no destroy-all rebuild, so streaming never lags),
+    /// then refreshes the grid space's stop/peep mapping from the grown layout. Falls back
+    /// to a full build only if there is no space yet.
+    /// </summary>
+    void AppendProceduralTopDownWorld(TownChunk chunk)
     {
         if (topDownWorldRoot == null || _streamingTown == null || _streamingTown.Layout == null)
             return;
 
-        for (int i = topDownWorldRoot.childCount - 1; i >= 0; i--)
-            Destroy(topDownWorldRoot.GetChild(i).gameObject);
-
         AddProceduralGround(topDownWorldRoot, _streamingTown.Layout);
+
         float roadHalfWidth = _level.manual != null ? _level.manual.roadHalfWidth : 3f;
-        _topDownSpace = new TopDownGridSpace(_streamingTown.Layout, _streamingTown.CellSize,
-                                             roadHalfWidth, topDownWorldRoot);
+        if (_topDownSpace == null || _topDownSpace.RouteContext == null)
+        {
+            _topDownSpace = new TopDownGridSpace(_streamingTown.Layout, _streamingTown.CellSize,
+                                                 roadHalfWidth, topDownWorldRoot);
+            return;
+        }
+
+        ManualLayoutResult delta = ManualLayoutProjector.ProjectChunk(_streamingTown.Layout, chunk);
+        RouteVisualBuilder.AppendProcedural(topDownWorldRoot, _topDownSpace.RouteContext,
+                                            delta, roadHalfWidth);
+        _topDownSpace.RefreshFromLayout(_streamingTown.Layout, _rides);
     }
 
     static void TransferRideState(IReadOnlyList<GridRide> oldRides, List<GridRide> newRides)
@@ -1204,7 +1292,7 @@ public class AutomationDriveController : MonoBehaviour
                 playerSolution, _def.optimalSolutionText, sim.StepsUsed, _def.parSteps,
                 retries, elapsed, _def.softTimerSeconds, exec.LineHits);
             results.Show(
-                $"PUZZLE SOLVED  —  {_level.displayName}",
+                $"LEG COMPLETE  —  {_level.displayName}",
                 playerSolution, _def.optimalSolutionText, stats,
                 onContinue: () =>
                 {

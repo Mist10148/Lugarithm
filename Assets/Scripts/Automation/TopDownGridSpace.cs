@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public class TopDownGridSpace : IGridSpace, IStopView
 {
-    readonly GridTransform _transform;
+    GridTransform _transform;
     readonly RouteContext  _routeContext;
     readonly Transform     _worldRoot;
     readonly float         _roadHalfWidth;
@@ -33,27 +33,65 @@ public class TopDownGridSpace : IGridSpace, IStopView
         _routeContext = RouteVisualBuilder.BuildProcedural(
             worldRoot, ManualLayoutProjector.Project(layout), roadHalfWidth);
 
+        RefreshFromLayout(layout);
+    }
+
+    /// <summary>
+    /// Re-derives the grid mapping, stop cells, occupancy and waiting-peep colors from
+    /// a (possibly grown) layout WITHOUT rebuilding road visuals — the streamed chunk's
+    /// tiles/buildings are appended separately via <see cref="RouteVisualBuilder.AppendProcedural"/>.
+    /// Cell indices may shift when the layout grows; callers re-pin the agent by its world
+    /// position afterwards. When <paramref name="rides"/> is supplied, only un-boarded,
+    /// un-delivered rides leave a waiting peep (so already-served stops don't re-populate).
+    /// </summary>
+    public void RefreshFromLayout(TownLayout layout, IReadOnlyList<GridRide> rides = null)
+    {
+        if (layout == null) return;
+
+        GridLayoutProjector.ToGridMap(layout, _transform.cellSize, out _transform, out _, out _);
+
+        _occupied.Clear();
+        _zonesByCell.Clear();
+        _peepColorsByCell.Clear();
+
         foreach (TownNode n in layout.nodes)
             if (n.IsStop)
             {
-                _occupied[n.gridCell] = true;
+                _occupied[n.gridCell] = false;
                 if (_routeContext.ZoneByNode != null &&
                     _routeContext.ZoneByNode.TryGetValue(n.id, out StopZone zone))
                     _zonesByCell[n.gridCell] = zone;
             }
 
-        foreach (PassengerRequest req in layout.requests)
+        if (rides != null)
         {
-            TownNode origin = layout.Node(req.originNodeId);
-            if (!_peepColorsByCell.TryGetValue(origin.gridCell, out List<Color> colors))
+            foreach (GridRide ride in rides)
             {
-                colors = new List<Color>();
-                _peepColorsByCell[origin.gridCell] = colors;
+                if (ride == null || ride.aboard || ride.delivered) continue;
+                AddWaitingPeepColor(ride.origin, ride.color);
             }
-            colors.Add(req.color);
+        }
+        else
+        {
+            foreach (PassengerRequest req in layout.requests)
+                AddWaitingPeepColor(layout.Node(req.originNodeId).gridCell, req.color);
         }
 
+        // A stop is "occupied" exactly where a waiting peep stands.
+        foreach (Vector2Int cell in _peepColorsByCell.Keys)
+            _occupied[cell] = true;
+
         SpawnWaitingPeeps();
+    }
+
+    void AddWaitingPeepColor(Vector2Int cell, Color color)
+    {
+        if (!_peepColorsByCell.TryGetValue(cell, out List<Color> colors))
+        {
+            colors = new List<Color>();
+            _peepColorsByCell[cell] = colors;
+        }
+        colors.Add(color);
     }
 
     // -------------------------------------------------------------------------
@@ -94,7 +132,7 @@ public class TopDownGridSpace : IGridSpace, IStopView
     {
         var cells = new List<Vector2Int>(_occupied.Keys);
         foreach (Vector2Int cell in cells)
-            _occupied[cell] = true;
+            _occupied[cell] = _peepColorsByCell.ContainsKey(cell);
         SpawnWaitingPeeps();
     }
 

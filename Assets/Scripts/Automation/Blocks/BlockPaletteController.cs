@@ -80,6 +80,8 @@ public class BlockPaletteController : MonoBehaviour
             case BlockType.While:  return "while …:";
             case BlockType.If:     return "if …:";
             case BlockType.IfElse: return "if …: else:";
+            case BlockType.FunctionDef:  return "def …():";
+            case BlockType.FunctionCall: return "call …()";
             case BlockType.GiveChange: return "giveChange(changeOwed())";
             default:               return BlockProgram.ActionName(type) + "()";
         }

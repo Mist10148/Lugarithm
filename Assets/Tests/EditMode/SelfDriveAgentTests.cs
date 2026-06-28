@@ -77,6 +77,30 @@ public class SelfDriveAgentTests
         CollectionAssert.IsEmpty(errors, "the displayed reference solution must compile");
     }
 
+    // The function-structured autopilot (def drive()/handlePassengers()/handleFares()/
+    // handleDropoffs()) must actually run to a win — calling helpers as statements lets
+    // their actions yield across ticks, so the riding logic executes for real.
+    [Test]
+    public void ReferenceSolution_FunctionStructured_DrivesEverySeedToAWin()
+    {
+        ProceduralLayoutDefinition pdef = LevelLibrary.Get(2).procedural;
+        ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        for (int seed = 0; seed < 20; seed++)
+        {
+            TownLayout layout = TownLayoutGenerator.Generate(pdef, new FareTable(), seed);
+            AutomationPuzzleDefinition def = SelfDrivePlanner.BuildPuzzle(
+                layout, pdef.gen.gridCellSize, out List<GridRide> rides, out int facing);
+            GridModel grid = GridModel.Parse(def.gridMap, out _);
+            var sim = new AgentSim(grid, new FareTable(), facing);
+            sim.LoadRides(rides);
+
+            Assert.IsTrue(HeadlessProgramRunner.Verify(program, sim, def, out string gap),
+                $"seed {seed}: {gap}");
+        }
+    }
+
     [Test]
     public void ProceduralPalette_UsesRouteComplete_NotAtDestination()
     {

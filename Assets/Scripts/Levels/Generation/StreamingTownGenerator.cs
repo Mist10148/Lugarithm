@@ -17,6 +17,14 @@ public class StreamingTown
     public FareTable  Fares;
     public float      RoadHalfWidth;
 
+    /// <summary>Overall forward heading (cardinal). The trunk never nets backward
+    /// along this axis, so the streamed road only ever marches forward.</summary>
+    public Vector2 ForwardAxis = Vector2.up;
+
+    /// <summary>Sign of the last 90° turn (+1 left, -1 right, 0 straight) — kept
+    /// across chunk boundaries so the road can't fold with two same-side turns.</summary>
+    public int LastTurnSign;
+
     /// <summary>Nodes added by the most recent chunk (for delta projection).</summary>
     public List<TownNode> LastChunkNodes = new List<TownNode>();
 
@@ -43,6 +51,13 @@ public static class StreamingTownGenerator
 
         TownNode dest = s.Layout.Node(s.Layout.destNodeId);
         s.TrunkEndPos = dest.pos;
+
+        // Forward axis = the authored trunk's overall heading, snapped to a cardinal.
+        // Everything we stream afterwards keeps marching along this axis (never nets
+        // backward), so the road reads as "always going forward".
+        TownNode start = s.Layout.Node(s.Layout.startNodeId);
+        s.ForwardAxis = SnapToCardinal(dest.pos - start.pos);
+        s.LastTurnSign = 0;
         return s;
     }
 
@@ -124,9 +139,10 @@ public static class StreamingTownGenerator
         float segLen = 24f + (float)rng.NextDouble() * 12f;
 
         TownNode last = oldDest;
+        int lastTurn = s.LastTurnSign;
         for (int i = 0; i < bendCount; i++)
         {
-            dir = TurnCardinal(dir, rng);
+            dir = ChooseForwardCardinal(dir, s.ForwardAxis, ref lastTurn, rng);
             Vector2 nextPos = SnapToGrid(last.pos + dir * segLen, s.CellSize);
 
             var node = new TownNode
@@ -244,6 +260,9 @@ public static class StreamingTownGenerator
             return null;
         }
 
+        // Commit the turn history only on a successful (validated) chunk so retries
+        // and rollbacks always restart from the same baseline.
+        s.LastTurnSign = lastTurn;
         return chunk;
     }
 
@@ -257,10 +276,9 @@ public static class StreamingTownGenerator
         oldDest.kind = NodeKind.Stop;
         chunk.nodes.Add(oldDest);
 
-        int oldDestTrunkIdx = layout.trunkNodeIds.IndexOf(oldDest.id);
-        if (oldDestTrunkIdx < 1) oldDestTrunkIdx = layout.trunkNodeIds.Count - 1;
-        Vector2 prevPos = layout.Node(layout.trunkNodeIds[oldDestTrunkIdx - 1]).pos;
-        Vector2 dir = SnapToCardinal(oldDest.pos - prevPos);
+        // Extend straight along the forward axis (never the current heading, which
+        // may be a lateral turn) so the fallback always makes forward progress.
+        Vector2 dir = s.ForwardAxis.sqrMagnitude > 0.01f ? s.ForwardAxis : Vector2.up;
 
         var node = new TownNode
         {
@@ -316,16 +334,54 @@ public static class StreamingTownGenerator
     }
 
     /// <summary>
-    /// Returns the next cardinal heading: mostly straight, occasionally a single
-    /// 90° left or right turn. Never reverses (no 180° U-turn onto the road).
+    /// Picks the next cardinal heading under the "always forward" rule. Candidates
+    /// are straight / left / right (never a 180° reverse); a candidate is rejected if
+    /// it would net backward along <paramref name="forward"/> (dot &lt; 0) or repeat
+    /// the previous turn's side (which would fold the road into a U). When the current
+    /// heading is already lateral (no forward component) we drop "straight" so the
+    /// road weaves back toward the forward axis instead of drifting sideways forever.
+    /// <paramref name="lastTurn"/> tracks the previous turn sign (+1 left, -1 right,
+    /// 0 straight) and is updated in place.
     /// </summary>
-    static Vector2 TurnCardinal(Vector2 dir, System.Random rng)
+    static Vector2 ChooseForwardCardinal(Vector2 dir, Vector2 forward, ref int lastTurn,
+                                         System.Random rng)
     {
-        double r = rng.NextDouble();
-        if (r < 0.6) return dir;                          // straight ahead
-        return r < 0.8
-            ? new Vector2(-dir.y, dir.x)                  // turn left (+90°)
-            : new Vector2(dir.y, -dir.x);                 // turn right (−90°)
+        Vector2 left  = new Vector2(-dir.y, dir.x);   // +90°
+        Vector2 right = new Vector2(dir.y, -dir.x);   // −90°
+        bool laterally = Vector2.Dot(dir, forward) <= 0.001f;
+
+        // (direction, turnSign, weight) — weights bias toward going straight.
+        var options = new List<(Vector2 d, int sign, double w)>(3);
+        if (!laterally) options.Add((dir, 0, 0.6));               // straight only makes sense while still moving forward
+        if (Vector2.Dot(left,  forward) >= -0.001f && lastTurn != 1)
+            options.Add((left,  1, laterally ? 0.5 : 0.2));
+        if (Vector2.Dot(right, forward) >= -0.001f && lastTurn != -1)
+            options.Add((right, -1, laterally ? 0.5 : 0.2));
+
+        if (options.Count == 0)
+        {
+            // Nothing legal (e.g. boxed in by the no-repeat rule): march straight up
+            // the forward axis, which is always non-backward.
+            lastTurn = 0;
+            return forward.sqrMagnitude > 0.01f ? forward : dir;
+        }
+
+        double total = 0;
+        foreach (var o in options) total += o.w;
+        double pick = rng.NextDouble() * total;
+        foreach (var o in options)
+        {
+            pick -= o.w;
+            if (pick <= 0)
+            {
+                lastTurn = o.sign;
+                return o.d;
+            }
+        }
+
+        var fallback = options[options.Count - 1];
+        lastTurn = fallback.sign;
+        return fallback.d;
     }
 
     static void TownLayoutGeneratorShuffle<T>(IList<T> list, System.Random rng)

@@ -247,21 +247,54 @@ public class BlockCanvasController : MonoBehaviour
         _spawned.Add(row.gameObject);
         _rowMap[node] = row;
 
-        string headerText  = node.IsContainer
-            ? (node.Type == BlockType.While ? "while" : "if")
-            : BlockProgram.Label(node);
-        string conditionText = (node.Negate ? "not " : "") + node.Query + "()";
+        // FunctionDef / FunctionCall carry a name chip (no negate). if/while carry a
+        // query chip + not toggle. Leaf actions are just a label.
+        bool isFunc      = node.Type == BlockType.FunctionDef || node.Type == BlockType.FunctionCall;
+        bool isCondCont  = node.IsContainer && node.Type != BlockType.FunctionDef;
+
+        string headerText;
+        bool   showCondition, showNot;
+        string conditionText;
+        Action onCycle;
+
+        if (isFunc)
+        {
+            headerText    = node.Type == BlockType.FunctionDef ? "def" : "call";
+            showCondition = true;
+            showNot       = false;
+            conditionText = node.FuncName + "()";
+            onCycle       = node.Type == BlockType.FunctionDef
+                ? (Action)(() => { CycleFuncDefName(node); Rebuild(); })
+                : (Action)(() => { CycleFuncCallName(node); Rebuild(); });
+        }
+        else if (isCondCont)
+        {
+            headerText    = node.Type == BlockType.While ? "while" : "if";
+            showCondition = true;
+            showNot       = true;
+            conditionText = (node.Negate ? "not " : "") + node.Query + "()";
+            onCycle       = () => { CycleQuery(node); Rebuild(); };
+        }
+        else
+        {
+            headerText    = BlockProgram.Label(node);
+            showCondition = false;
+            showNot       = false;
+            conditionText = "";
+            onCycle       = null;
+        }
 
         row.Configure(this, node, headerText, indent,
                       CategoryColor(node.Type),
-                      isContainer: node.IsContainer,
+                      showCondition: showCondition,
+                      showNot: showNot,
                       negateOn: node.Negate,
                       conditionText: conditionText,
                       draggable: true);
 
         row.Bind(
-            onCycleCondition: () => { CycleQuery(node); Rebuild(); },
-            onToggleNot:      () => { node.Negate = !node.Negate; Rebuild(); },
+            onCycleCondition: onCycle,
+            onToggleNot:      showNot ? () => { node.Negate = !node.Negate; Rebuild(); } : (Action)null,
             onDelete:         () => { RemoveNode(node); Rebuild(); });
     }
 
@@ -272,7 +305,7 @@ public class BlockCanvasController : MonoBehaviour
         _spawned.Add(row.gameObject);
 
         row.Configure(this, null, "else:", indent, ElseColor,
-                      isContainer: false, negateOn: false, conditionText: "",
+                      showCondition: false, showNot: false, negateOn: false, conditionText: "",
                       draggable: false);
         row.Bind(null, null, null);
     }
@@ -464,6 +497,38 @@ public class BlockCanvasController : MonoBehaviour
         node.Query = _allowedQueries[(current + 1 + _allowedQueries.Length) % _allowedQueries.Length];
     }
 
+    // The helper vocabulary a player can name a def after (no free text on the canvas).
+    static readonly string[] FuncNames =
+        { "drive", "handlePassengers", "handleFares", "handleDropoffs", "ride" };
+
+    void CycleFuncDefName(BlockNode node)
+    {
+        int current = Array.IndexOf(FuncNames, node.FuncName);
+        node.FuncName = FuncNames[(current + 1 + FuncNames.Length) % FuncNames.Length];
+    }
+
+    /// <summary>A call cycles through the names of the defs the canvas actually has
+    /// (so a call always points at a real helper); falls back to the vocabulary.</summary>
+    void CycleFuncCallName(BlockNode node)
+    {
+        var defined = new List<string>();
+        CollectDefNames(_roots, defined);
+        string[] choices = defined.Count > 0 ? defined.ToArray() : FuncNames;
+        int current = Array.IndexOf(choices, node.FuncName);
+        node.FuncName = choices[(current + 1 + choices.Length) % choices.Length];
+    }
+
+    static void CollectDefNames(List<BlockNode> list, List<string> into)
+    {
+        foreach (BlockNode n in list)
+        {
+            if (n.Type == BlockType.FunctionDef && !into.Contains(n.FuncName))
+                into.Add(n.FuncName);
+            CollectDefNames(n.Body, into);
+            CollectDefNames(n.ElseBody, into);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Tree queries
 
@@ -498,6 +563,8 @@ public class BlockCanvasController : MonoBehaviour
             case BlockType.While:  return "while …:";
             case BlockType.If:     return "if …:";
             case BlockType.IfElse: return "if …: else:";
+            case BlockType.FunctionDef:  return "def …():";
+            case BlockType.FunctionCall: return "call …()";
             case BlockType.GiveChange: return "giveChange(changeOwed())";
             default:               return BlockProgram.ActionName(type) + "()";
         }

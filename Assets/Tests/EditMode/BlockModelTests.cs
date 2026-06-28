@@ -149,6 +149,48 @@ public class BlockModelTests
     }
 
     [Test]
+    public void FunctionDefAndCall_RoundTripThroughBlocks()
+    {
+        string source =
+            "def ride():\n" +
+            "    pickUp()\n" +
+            "ride()\n";
+        ProgramNode fromText = Parser.Compile(source, out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        List<BlockNode> roots = BlockProgram.FromAst(fromText, out bool ok);
+        Assert.IsTrue(ok, "a no-arg def + call must be block-expressible");
+        Assert.AreEqual(2, roots.Count);
+        Assert.AreEqual(BlockType.FunctionDef,  roots[0].Type);
+        Assert.AreEqual("ride", roots[0].FuncName);
+        Assert.AreEqual(BlockType.FunctionCall, roots[1].Type);
+        Assert.AreEqual("ride", roots[1].FuncName);
+
+        ProgramNode back = BlockProgram.ToAst(roots, out var blockErrors, out _);
+        CollectionAssert.IsEmpty(blockErrors);
+        string printed = AstPrinter.Print(back);
+        StringAssert.Contains("def ride():", printed);
+        StringAssert.Contains("pickUp()", printed);
+        StringAssert.Contains("ride()", printed);
+    }
+
+    [Test]
+    public void FunctionLabels_ReadLikeTheLanguage()
+    {
+        Assert.AreEqual("def drive():",
+            BlockProgram.Label(new BlockNode(BlockType.FunctionDef) { FuncName = "drive" }));
+        Assert.AreEqual("drive()",
+            BlockProgram.Label(new BlockNode(BlockType.FunctionCall) { FuncName = "drive" }));
+    }
+
+    [Test]
+    public void FunctionPaletteNames_Map()
+    {
+        Assert.AreEqual(BlockType.FunctionDef,  BlockProgram.FromPaletteName("functionDef"));
+        Assert.AreEqual(BlockType.FunctionCall, BlockProgram.FromPaletteName("callFunction"));
+    }
+
+    [Test]
     public void ReferenceSolution_RoundTripsThroughBlocks_WithGiveChange()
     {
         ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);

@@ -78,6 +78,31 @@ public class StreamingTownGeneratorTests
     }
 
     [Test]
+    public void StreamedTrunk_NeverNetsBackward_AlongForwardAxis()
+    {
+        // "Roads only go forward": every streamed trunk segment must make non-negative
+        // progress along the town's forward axis (lateral turns are allowed; a U-turn
+        // that folds the road backward is not).
+        foreach (int seed in new[] { 7, 88, 909, 1234, 55 })
+        {
+            StreamingTown s = Begin(2, seed);
+            int k0 = s.Layout.trunkNodeIds.Count;   // authored trunk is exempt
+            for (int i = 0; i < 6; i++) StreamingTownGenerator.AppendChunk(s);
+
+            Vector2 fwd = s.ForwardAxis;
+            List<int> trunk = s.Layout.trunkNodeIds;
+            for (int i = Mathf.Max(1, k0 - 1); i < trunk.Count; i++)
+            {
+                Vector2 a = s.Layout.Node(trunk[i - 1]).pos;
+                Vector2 b = s.Layout.Node(trunk[i]).pos;
+                float proj = Vector2.Dot(b - a, fwd);
+                Assert.GreaterOrEqual(proj, -0.01f,
+                    $"seed {seed}: streamed trunk segment {i} nets backward (proj {proj}) along {fwd}");
+            }
+        }
+    }
+
+    [Test]
     public void AppendedRoads_AreAxisAligned()
     {
         // Manhattan streets: every road segment must be purely horizontal or

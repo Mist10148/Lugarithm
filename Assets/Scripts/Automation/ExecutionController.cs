@@ -15,7 +15,7 @@ public class ExecutionController : MonoBehaviour
     public enum ExecState { Idle, Running, Paused, Finished }
 
     [Header("Timing")]
-    [SerializeField] private float baseStepSeconds = 0.45f;
+    [SerializeField] private float baseStepSeconds = 0.6f;   // heavier, slower cruise (Manual-like weight)
 
     [Header("Heatmap")]
     [Tooltip("A line that executes this many times in a single frame is considered 'hot'.")]
@@ -56,6 +56,11 @@ public class ExecutionController : MonoBehaviour
     public AgentSim Sim => _sim;
     public IReadOnlyDictionary<int, int> LineHits => _vm.LineHits;
 
+    /// <summary>True while the agent is mid-animation (a path or action is playing).
+    /// Procedural streaming only re-rasterizes the grid when this is false, so an
+    /// in-flight animation can never have the world shift under it.</summary>
+    public bool Busy { get; private set; }
+
     // -------------------------------------------------------------------------
 
     public void Init(GridModel grid, AgentSim sim, IAgentView view,
@@ -92,6 +97,27 @@ public class ExecutionController : MonoBehaviour
             _view.Init(_space, _sim.Position, _sim.Facing);
 
         OnWorldReset?.Invoke();
+    }
+
+    /// <summary>
+    /// Swaps the world references for a streamed chunk WITHOUT stopping the program,
+    /// resetting state, or restarting the execution coroutine — so a mid-run autopilot
+    /// keeps driving straight into the freshly appended stretch. Only safe to call when
+    /// <see cref="Busy"/> is false and the move queue is empty (a static-world boundary);
+    /// the caller (AutomationDriveController) enforces that. The agent view is re-pinned
+    /// to its current cell under the new grid mapping (a no-op visually while idle).
+    /// </summary>
+    public void RebindStreamingWorld(GridModel grid, IGridSpace space, IStopView stopView,
+                                     AutomationPuzzleDefinition def, int startFacing)
+    {
+        _grid        = grid;
+        _space       = space;
+        _stopView    = stopView;
+        _def         = def;
+        _startFacing = startFacing;
+
+        if (_view != null && _sim != null)
+            _view.Init(_space, _sim.Position, _sim.Facing);
     }
 
     // -------------------------------------------------------------------------
@@ -161,6 +187,7 @@ public class ExecutionController : MonoBehaviour
             StopCoroutine(_loop);
             _loop = null;
         }
+        Busy = false;
     }
 
     // -------------------------------------------------------------------------
@@ -183,10 +210,12 @@ public class ExecutionController : MonoBehaviour
                     OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
 
                     float moveDuration = baseStepSeconds / Speed;
+                    Busy = true;
                     if (_view != null)
                         yield return _view.PlayAction(moveResult, moveDuration);
                     else
                         yield return new WaitForSeconds(moveDuration);
+                    Busy = false;
 
                     _singleStep = false;
                     State = ExecState.Paused;
@@ -211,6 +240,7 @@ public class ExecutionController : MonoBehaviour
                 }
 
                 float pathMoveDuration = baseStepSeconds / Speed;
+                Busy = true;
                 if (_view is IPathAgentView pathView)
                     yield return pathView.PlayPath(moves, pathMoveDuration);
                 else if (_view != null)
@@ -218,6 +248,7 @@ public class ExecutionController : MonoBehaviour
                         yield return _view.PlayAction(move, pathMoveDuration);
                 else
                     yield return new WaitForSeconds(pathMoveDuration * moves.Count);
+                Busy = false;
 
                 if (wonDuringPath)
                 {
@@ -262,10 +293,12 @@ public class ExecutionController : MonoBehaviour
             }
 
             float duration = baseStepSeconds / Speed;
+            Busy = true;
             if (_view != null)
                 yield return _view.PlayAction(result, duration);
             else
                 yield return new WaitForSeconds(duration);
+            Busy = false;
 
             _frameLineHits.Clear();
 

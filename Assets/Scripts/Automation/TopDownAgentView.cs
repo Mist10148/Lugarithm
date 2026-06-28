@@ -101,32 +101,64 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
 
     IEnumerator PlayContinuousPath(IReadOnlyList<AgentActionResult> moves, float secondsPerStep)
     {
+        // Stitch the forward moves into one world-space polyline so the jeepney drives the
+        // whole stretch as a single heavy motion — accelerate, cruise, settle — instead of
+        // easing to a near-stop at every cell. Rotation lags the travel direction so corners
+        // feel weighty, like a real loaded jeepney leaning into the turn.
+        var pts     = new List<Vector3>();
+        var toCells = new List<Vector2Int>();
         foreach (AgentActionResult result in moves)
         {
             if (result.Action != "moveForward" || result.Blocked) continue;
+            if (pts.Count == 0) pts.Add(_space.CellToWorld(result.From));
+            pts.Add(_space.CellToWorld(result.To));
+            toCells.Add(result.To);
+        }
+        if (pts.Count < 2) yield break;
 
-            Vector3 a = _space.CellToWorld(result.From);
-            Vector3 b = _space.CellToWorld(result.To);
-            Quaternion startRot = body != null ? body.transform.localRotation : Quaternion.identity;
-            Quaternion endRot = BodyRotation(result.FacingAfter);
+        int segCount = pts.Count - 1;
+        var segLen   = new float[segCount];
+        float total  = 0f;
+        for (int i = 0; i < segCount; i++) { segLen[i] = Vector3.Distance(pts[i], pts[i + 1]); total += segLen[i]; }
+        if (total < 1e-4f) yield break;
 
-            float duration = Mathf.Max(0.04f, secondsPerStep);
-            float elapsed = 0f;
-            while (elapsed < duration)
+        float duration = Mathf.Max(0.04f, secondsPerStep * segCount);
+        Quaternion rot = body != null ? body.transform.localRotation : Quaternion.identity;
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            // One SmoothStep across the entire path = a single ease-in/cruise/ease-out.
+            float dist = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration)) * total;
+
+            int s = 0;
+            while (s < segCount - 1 && dist > segLen[s]) { dist -= segLen[s]; s++; }
+            float u = segLen[s] > 1e-4f ? Mathf.Clamp01(dist / segLen[s]) : 1f;
+            transform.position = Vector3.Lerp(pts[s], pts[s + 1], u);
+
+            Vector3 dir = pts[s + 1] - pts[s];
+            if (dir.sqrMagnitude > 1e-5f && body != null)
             {
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                transform.position = Vector3.Lerp(a, b, Mathf.SmoothStep(0f, 1f, t));
-                if (body != null)
-                    body.transform.localRotation = Quaternion.Slerp(startRot, endRot, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t * 1.8f)));
-                if (t > 0.5f) SetSortOrder(result.To);
-                yield return null;
+                Quaternion target = BodyRotationFromDir(dir);
+                // Frame-rate-independent lag: heavier (smaller k) reads as a heavier body.
+                rot = Quaternion.Slerp(rot, target, 1f - Mathf.Exp(-9f * Time.deltaTime));
+                body.transform.localRotation = rot;
             }
 
-            transform.position = b;
-            if (body != null) body.transform.localRotation = endRot;
-            SetSortOrder(result.To);
+            SetSortOrder(toCells[Mathf.Min(s, toCells.Count - 1)]);
+            yield return null;
         }
+
+        transform.position = pts[pts.Count - 1];
+        if (body != null) body.transform.localRotation = BodyRotationFromDir(pts[pts.Count - 1] - pts[pts.Count - 2]);
+        SetSortOrder(toCells[toCells.Count - 1]);
+    }
+
+    Quaternion BodyRotationFromDir(Vector3 dir)
+    {
+        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
+        return Quaternion.Euler(0f, 0f, angle);
     }
 
     IEnumerator MoveTo(Vector2Int from, Vector2Int to, float duration)
