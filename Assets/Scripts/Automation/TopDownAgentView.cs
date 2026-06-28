@@ -51,7 +51,7 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
 
             case "pickUp":
                 if (_stopView != null && result.PickedUp)
-                    _stopView.SetStopOccupied(result.From, false);
+                    _stopView.RemoveWaitingPeeps(result.From, Mathf.Max(1, result.PickedUpCount));
                 yield return Pop("Placeholders/peep", duration);
                 break;
 

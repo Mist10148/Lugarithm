@@ -89,8 +89,21 @@ public class GridWorldView : MonoBehaviour, IGridSpace, IStopView
     /// <summary>Shows/hides the waiting peep on a stop (picked up / reset).</summary>
     public void SetStopOccupied(Vector2Int cell, bool occupied)
     {
+        if (!occupied)
+        {
+            RemoveWaitingPeeps(cell, 1);
+            return;
+        }
+
         if (_stopMarkers.TryGetValue(cell, out SpriteRenderer marker) && marker != null)
-            marker.enabled = occupied;
+            marker.enabled = true;
+    }
+
+    public void RemoveWaitingPeeps(Vector2Int cell, int count)
+    {
+        if (count <= 0) return;
+        if (_stopMarkers.TryGetValue(cell, out SpriteRenderer marker) && marker != null)
+            marker.enabled = false;
     }
 
     public void ResetStops()

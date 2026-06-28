@@ -6,6 +6,32 @@ using UnityEngine;
 public class RouteVisualBuilderTests
 {
     [Test]
+    public void TopDownGridSpace_RemoveWaitingPeeps_RemovesMultipleAtOneStop()
+    {
+        var root = new GameObject("TopDownPeepRemovalTest");
+
+        try
+        {
+            TownLayout layout = BuildTinyPassengerTown(twoAtOrigin: true);
+            var space = new TopDownGridSpace(layout, cellSize: 6f, roadHalfWidth: 3f, root.transform);
+            Vector2Int originCell = layout.Node(1).gridCell;
+            StopZone zone = space.RouteContext.ZoneByNode[1];
+
+            Assert.AreEqual(2, zone.WaitingCount);
+            Assert.IsTrue(space.IsOccupied(originCell));
+
+            space.RemoveWaitingPeeps(originCell, 2);
+
+            Assert.AreEqual(0, zone.WaitingCount);
+            Assert.IsFalse(space.IsOccupied(originCell));
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    [Test]
     public void AppendProcedural_DemotedTerminalKeepsSignAndPassengersOffNewRoad()
     {
         const float roadHalfWidth = 3f;
@@ -54,6 +80,104 @@ public class RouteVisualBuilderTests
                 "the demoted terminal's sign must remain outside both incident roads");
             Assert.Greater(RouteMath.NearestDistanceToGraph(ctx.Segments, passenger.position), roadHalfWidth,
                 "passengers spawned after the turn must remain beside the road");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    static TownLayout BuildTinyPassengerTown(bool twoAtOrigin)
+    {
+        var layout = new TownLayout
+        {
+            seed = 17,
+            startNodeId = 0,
+            destNodeId = 2,
+        };
+
+        layout.nodes.Add(new TownNode
+        {
+            id = 0, pos = Vector2.zero, kind = NodeKind.TerminalStart, name = "Start", alongTrunk = 0f,
+        });
+        layout.nodes.Add(new TownNode
+        {
+            id = 1, pos = new Vector2(20f, 0f), kind = NodeKind.Stop, name = "Stop", alongTrunk = 20f,
+        });
+        layout.nodes.Add(new TownNode
+        {
+            id = 2, pos = new Vector2(40f, 0f), kind = NodeKind.TerminalEnd, name = "Dest", alongTrunk = 40f,
+        });
+        layout.trunkNodeIds.AddRange(new[] { 0, 1, 2 });
+        layout.edges.Add(new TownEdge(0, 1, true));
+        layout.edges.Add(new TownEdge(1, 2, true));
+
+        int count = twoAtOrigin ? 2 : 1;
+        for (int i = 0; i < count; i++)
+        {
+            layout.requests.Add(new PassengerRequest
+            {
+                id = i,
+                originNodeId = 1,
+                destNodeId = 2,
+                color = StopZone.PeepColor(20 + i),
+                fare = 13,
+                tender = 13,
+                stopsTraveled = 1,
+            });
+        }
+
+        return layout;
+    }
+
+    [Test]
+    public void AppendProcedural_ParentsNewVisualsUnderChunkRoot()
+    {
+        const float roadHalfWidth = 3f;
+        var root = new GameObject("RVB_ChunkRootTest");
+
+        try
+        {
+            var oldTerminal = new TownNode
+            {
+                id = 1, pos = new Vector2(10f, 0f), kind = NodeKind.TerminalEnd, name = "Old Terminal",
+            };
+            var initial = new ManualLayoutResult
+            {
+                trunk = new[] { Vector2.zero, oldTerminal.pos },
+                dest = oldTerminal,
+                segments = new List<RoadSegment> { new RoadSegment(Vector2.zero, oldTerminal.pos, true) },
+                stops = new List<TownNode> { oldTerminal },
+            };
+
+            RouteContext ctx = RouteVisualBuilder.BuildProcedural(root.transform, initial, roadHalfWidth);
+            StopZone oldZone = ctx.Zones[0];
+
+            var newTerminal = new TownNode
+            {
+                id = 2, pos = new Vector2(20f, 0f), kind = NodeKind.TerminalEnd, name = "New Terminal",
+                alongTrunk = 20f,
+            };
+            oldTerminal.kind = NodeKind.Stop;
+            var delta = new ManualLayoutResult
+            {
+                trunk = new[] { Vector2.zero, oldTerminal.pos, newTerminal.pos },
+                dest = newTerminal,
+                segments = new List<RoadSegment> { new RoadSegment(oldTerminal.pos, newTerminal.pos, true) },
+                stops = new List<TownNode> { oldTerminal, newTerminal },
+            };
+
+            var chunkRoot = new GameObject("ChunkRoot").transform;
+            chunkRoot.SetParent(root.transform, false);
+            RouteVisualBuilder.AppendProcedural(root.transform, ctx, delta, roadHalfWidth, chunkRoot);
+
+            Assert.IsNotNull(chunkRoot.Find("Road"), "new road tiles should be grouped under the chunk");
+            Assert.AreEqual(chunkRoot, ctx.ZoneByNode[newTerminal.id].transform.parent);
+
+            chunkRoot.gameObject.SetActive(false);
+            Assert.IsTrue(oldZone.gameObject.activeInHierarchy,
+                "deactivating the appended chunk must not hide existing route visuals");
+            Assert.IsFalse(ctx.ZoneByNode[newTerminal.id].gameObject.activeInHierarchy);
         }
         finally
         {

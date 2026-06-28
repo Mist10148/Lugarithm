@@ -1,10 +1,44 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using UnityEngine;
 
 /// <summary>EditMode tests for the pure dialogue state machine.</summary>
 public class DialogueRuntimeTests
 {
+    [Test]
+    public void DialogueController_StopAndHide_DoesNotInvokeFinishedCallback()
+    {
+        var go = new GameObject("DialogueController_StopAndHide_Test");
+        try
+        {
+            var controller = go.AddComponent<DialogueController>();
+            bool finished = false;
+            var convo = new DialogueConversation
+            {
+                levelIndex = 0,
+                startNode = "start",
+                hubNode = "start",
+            };
+            convo.nodes["start"] = new DialogueNode
+            {
+                id = "start",
+                kind = DialogueNodeKind.Line,
+                lines = new[] { new DialogueLine { speaker = "Guide", text = "Keep driving." } },
+            };
+
+            controller.Play(convo, () => finished = true);
+            controller.StopAndHide();
+            controller.SkipConversation();
+
+            Assert.IsFalse(finished, "free-roam cleanup must not replay or finish story dialogue again");
+        }
+        finally
+        {
+            Object.DestroyImmediate(go);
+        }
+    }
+
     [Test]
     public void BoardingToHubToTopic_ReturnsToHub()
     {

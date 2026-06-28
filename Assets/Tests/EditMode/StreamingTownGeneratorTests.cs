@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -41,10 +42,28 @@ public class StreamingTownGeneratorTests
     }
 
     [Test]
+    public void AppendChunk_MultipleChunks_AreDeterministic()
+    {
+        StreamingTown a = Begin(2, 4567);
+        StreamingTown b = Begin(2, 4567);
+
+        for (int chunkIndex = 0; chunkIndex < 5; chunkIndex++)
+        {
+            TownChunk ca = StreamingTownGenerator.AppendChunk(a);
+            TownChunk cb = StreamingTownGenerator.AppendChunk(b);
+
+            Assert.AreEqual(ca.nodes.Count, cb.nodes.Count, $"chunk {chunkIndex}: node count");
+            Assert.AreEqual(ca.edges.Count, cb.edges.Count, $"chunk {chunkIndex}: edge count");
+            Assert.AreEqual(ca.requests.Count, cb.requests.Count, $"chunk {chunkIndex}: ride count");
+            Assert.AreEqual(a.TrunkEndPos, b.TrunkEndPos, $"chunk {chunkIndex}: frontier");
+        }
+    }
+
+    [Test]
     public void AppendChunk_AdvancesFrontier()
     {
         StreamingTown s = Begin(2, 789);
-        Vector2 before = s.TrunkEndPos;
+        Vector2 before = s.Layout.Node(s.Layout.destNodeId).pos;
 
         TownChunk chunk = StreamingTownGenerator.AppendChunk(s);
         Assert.IsNotNull(chunk);
@@ -52,6 +71,22 @@ public class StreamingTownGeneratorTests
 
         Assert.Greater(Vector2.Distance(before, s.TrunkEndPos), 1f,
             "frontier should move forward after append");
+    }
+
+    [Test]
+    public void FallbackChunk_AdvancesFrontier()
+    {
+        StreamingTown s = Begin(2, 790);
+        Vector2 before = s.TrunkEndPos;
+
+        MethodInfo fallback = typeof(StreamingTownGenerator).GetMethod(
+            "FallbackChunk", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(fallback);
+
+        var chunk = fallback.Invoke(null, new object[] { s }) as TownChunk;
+        Assert.IsNotNull(chunk);
+        Assert.Greater(Vector2.Distance(before, s.Layout.Node(s.Layout.destNodeId).pos), 1f,
+            "the guaranteed fallback must still extend the road");
     }
 
     [Test]

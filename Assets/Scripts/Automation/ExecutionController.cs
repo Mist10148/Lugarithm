@@ -53,6 +53,8 @@ public class ExecutionController : MonoBehaviour
     // Heatmap state: hits per line within the current frame, reset each yield.
     Dictionary<int, int> _frameLineHits = new Dictionary<int, int>();
 
+    const int EndlessPathBatchSize = 4;
+
     public AgentSim Sim => _sim;
     public IReadOnlyDictionary<int, int> LineHits => _vm.LineHits;
 
@@ -60,6 +62,8 @@ public class ExecutionController : MonoBehaviour
     /// Procedural streaming only re-rasterizes the grid when this is false, so an
     /// in-flight animation can never have the world shift under it.</summary>
     public bool Busy { get; private set; }
+
+    bool EndlessRouteActive => _def != null && _def.endlessRoute;
 
     // -------------------------------------------------------------------------
 
@@ -236,7 +240,10 @@ public class ExecutionController : MonoBehaviour
 
                 var moves = new List<AgentActionResult>();
                 bool wonDuringPath = false;
-                while (_sim.HasPendingMoves)
+                int batchLimit = EndlessRouteActive
+                    ? EndlessPathBatchSize
+                    : int.MaxValue;
+                while (_sim.HasPendingMoves && moves.Count < batchLimit)
                 {
                     AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
                     moves.Add(moveResult);
@@ -255,12 +262,13 @@ public class ExecutionController : MonoBehaviour
                     yield return new WaitForSeconds(pathMoveDuration * moves.Count);
                 Busy = false;
 
-                if (wonDuringPath)
+                if (wonDuringPath && !EndlessRouteActive)
                 {
                     State = ExecState.Finished;
                     OnFinished?.Invoke(true);
                     yield break;
                 }
+                yield return null;
                 continue;
             }
 
@@ -313,12 +321,16 @@ public class ExecutionController : MonoBehaviour
                 State = ExecState.Paused;
             }
 
-            // Goal reached mid-program still counts — stop right away.
+            // Goal reached mid-program still counts. Endless procedural story legs keep
+            // the VM alive after the one-time completion signal so free-roam remains smooth.
             if (_sim.IsWin(_def))
             {
-                State = ExecState.Finished;
-                OnFinished?.Invoke(true);
-                yield break;
+                if (!EndlessRouteActive)
+                {
+                    State = ExecState.Finished;
+                    OnFinished?.Invoke(true);
+                    yield break;
+                }
             }
         }
     }

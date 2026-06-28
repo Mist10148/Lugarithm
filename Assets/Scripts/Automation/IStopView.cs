@@ -12,4 +12,7 @@ public interface IStopView
 
     /// <summary>Shows/hides the waiting passenger marker on a stop cell.</summary>
     void SetStopOccupied(Vector2Int cell, bool occupied);
+
+    /// <summary>Removes one or more waiting passenger markers from a stop cell.</summary>
+    void RemoveWaitingPeeps(Vector2Int cell, int count);
 }

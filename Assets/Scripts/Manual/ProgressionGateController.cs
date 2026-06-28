@@ -20,13 +20,12 @@ public class ProgressionGateController : MonoBehaviour
     CrateStackMinigame  _crate;
     ToastNotification   _toast;
     DriveScoreTracker   _tracker;
-    TownPuzzleKind      _kind;
-
-    float _triggerDistance = -1f;
-    bool  _armed;
+    DriveInterruptionScheduler _scheduler;
+    float _routeLength = 1f;
     bool  _inProgress;
 
     public bool InProgress => _inProgress;
+    public bool AllDone => _scheduler == null || _scheduler.AllProgressionGatesDone;
 
     // -------------------------------------------------------------------------
 
@@ -35,40 +34,39 @@ public class ProgressionGateController : MonoBehaviour
                      JeepneyController jeepney, ToastNotification toast,
                      DriveScoreTracker tracker, float routeLength)
     {
-        _kind    = kind;
         _flow    = flow;
         _crate   = crate;
         _jeepney = jeepney;
         _toast   = toast;
         _tracker = tracker;
-
-        bool hasPanel = (kind == TownPuzzleKind.FlowConnect && flow != null)
-                     || (kind == TownPuzzleKind.CrateStack && crate != null);
-        _armed = kind != TownPuzzleKind.None && hasPanel;
-
-        // Fire in the first third-to-half of the trunk so it lands during the
-        // story drive and tends to sit apart from the mid-route breakdown.
-        _triggerDistance = routeLength * UnityEngine.Random.Range(0.2f, 0.45f);
+        _routeLength = Mathf.Max(1f, routeLength);
+        _scheduler = new DriveInterruptionScheduler(
+            2000 + Mathf.RoundToInt(routeLength * 10f) + (int)kind);
     }
 
     /// <summary>Called each frame by the drive controller with route progress.</summary>
     public void Tick(float distanceAlongRoute)
     {
-        if (!_armed || _inProgress) return;
-        if (distanceAlongRoute < _triggerDistance) return;
+        if (_scheduler == null || _inProgress) return;
 
-        _armed = false;
-        StartCoroutine(GateSequence());
+        float progress = distanceAlongRoute / _routeLength;
+        if (_scheduler.TryStartProgression(progress, out TownPuzzleKind kind))
+            StartCoroutine(GateSequence(kind));
+    }
+
+    public void RunRemaining(System.Action onDone)
+    {
+        StartCoroutine(RunRemainingSequence(onDone));
     }
 
     // -------------------------------------------------------------------------
 
-    IEnumerator GateSequence()
+    IEnumerator GateSequence(TownPuzzleKind kind)
     {
         _inProgress = true;
 
         if (_toast != null)
-            _toast.Show(_kind == TownPuzzleKind.CrateStack
+            _toast.Show(kind == TownPuzzleKind.CrateStack
                 ? "Cargo's shifted — sort the load before you go on!"
                 : "Roadblock ahead — sort the route before you go on!");
 
@@ -86,9 +84,9 @@ public class ProgressionGateController : MonoBehaviour
         };
 
         // Mandatory: the matching minigame only calls back once it's solved.
-        if (_kind == TownPuzzleKind.FlowConnect && _flow != null)
+        if (kind == TownPuzzleKind.FlowConnect && _flow != null)
             _flow.Show(seed, onDone);
-        else if (_kind == TownPuzzleKind.CrateStack && _crate != null)
+        else if (kind == TownPuzzleKind.CrateStack && _crate != null)
             _crate.Show(seed, onDone);
         else
             finished = true;
@@ -97,5 +95,15 @@ public class ProgressionGateController : MonoBehaviour
 
         if (_jeepney != null) _jeepney.InputLocked = false;
         _inProgress = false;
+    }
+
+    IEnumerator RunRemainingSequence(System.Action onDone)
+    {
+        while (_inProgress) yield return null;
+
+        while (_scheduler != null && _scheduler.TryForceNextProgression(out TownPuzzleKind kind))
+            yield return GateSequence(kind);
+
+        onDone?.Invoke();
     }
 }

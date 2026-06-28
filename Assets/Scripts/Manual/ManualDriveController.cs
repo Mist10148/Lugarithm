@@ -65,6 +65,8 @@ public class ManualDriveController : MonoBehaviour
     StreamingTown     _streaming;
     int               _maxChunks;        // int.MaxValue = endless streaming for free-roam
     int               _chunksAppended;
+    int               _chunkGenerationId;
+    readonly List<StreamedChunkView> _streamedChunkViews = new List<StreamedChunkView>();
     float _startTime;
     float _legElapsed;
     bool  _finished;
@@ -75,6 +77,7 @@ public class ManualDriveController : MonoBehaviour
     bool  _destinationFinalized; // chat ended → capped streaming so a real drop-off terminal exists
     bool  _arrivedNudged;    // showed the "finish your chat" nudge once on early arrival
     bool  _boardingPlayed;   // boarding/story dialogue has played this leg (never replays)
+    bool  _freeRoamStoryConsumed; // story/reveal finished; free-roam must never restart dialogue
     bool    _storyDropoffArmed;   // a drop-off marker has been placed (dialogue ended)
     Vector2 _storyDropoffWorld;   // fixed world position of the story drop-off
     GameObject _storyMarker;      // distinct on-road marker at the drop-off
@@ -85,6 +88,8 @@ public class ManualDriveController : MonoBehaviour
     const float StoryDropoffBufferSeconds = 2.5f;  // beat of driving after the chat before it shows
 
     const float StreamLookAhead = 45f;
+    const int ActiveChunksBehind = 2;
+    const int ActiveChunksAhead = 6;
 
     void Start()
     {
@@ -288,7 +293,7 @@ public class ManualDriveController : MonoBehaviour
     {
         // Play the story conversation exactly once per leg — free-roam and streaming must
         // never replay it.
-        if (_boardingPlayed)
+        if (_boardingPlayed || _freeRoamStoryConsumed)
         {
             Debug.LogWarning("[Manual] PlayBoardingDialogue re-entry blocked (dialogue already played).");
             return;
@@ -384,6 +389,7 @@ public class ManualDriveController : MonoBehaviour
 
         System.Action<MinigameResult> onDone = _ =>
         {
+            if (!repair && jeepney != null) jeepney.Refuel();
             if (jeepney != null) jeepney.InputLocked = false;
             if (dialogue != null) dialogue.ResumeAfterEvent();
         };
@@ -478,6 +484,9 @@ public class ManualDriveController : MonoBehaviour
             if (distToEnd < StreamLookAhead)
                 AppendChunk();
         }
+
+        if (_proceduralActive)
+            RefreshChunkWindow();
     }
 
     void AppendChunk()
@@ -488,10 +497,17 @@ public class ManualDriveController : MonoBehaviour
 
         TownChunk chunk = StreamingTownGenerator.AppendChunk(_streaming);
         if (chunk == null || chunk.nodes.Count == 0) return;
+        StreamedChunkView chunkView = CreateChunkView(chunk);
 
         Transform root = worldRoot != null ? worldRoot : transform;
         ManualLayoutResult delta = ManualLayoutProjector.ProjectChunk(_streaming.Layout, chunk);
-        RouteVisualBuilder.AppendProcedural(root, _ctx, delta, _def.manual.roadHalfWidth);
+        RouteVisualBuilder.AppendProcedural(root, _ctx, delta, _def.manual.roadHalfWidth,
+                                            chunkView != null ? chunkView.root : null);
+        if (chunkView != null)
+        {
+            chunkView.SetActive(true);
+            _streamedChunkViews.Add(chunkView);
+        }
         _segments = _ctx.Segments;
         if (jeepney != null)
             jeepney.SetDriveLine(_ctx.Waypoints, preserveLane: true);
@@ -504,6 +520,81 @@ public class ManualDriveController : MonoBehaviour
 
         if (toast != null && _ctx.DestinationZone != null)
             toast.Show($"Keep driving to {_ctx.DestinationZone.StopName}");
+        RefreshChunkWindow();
+    }
+
+    StreamedChunkView CreateChunkView(TownChunk chunk)
+    {
+        if (chunk == null) return null;
+        Transform rootParent = worldRoot != null ? worldRoot : transform;
+        var root = new GameObject($"StreamedChunk_{chunk.chunkIndex:000}");
+        root.transform.SetParent(rootParent, false);
+
+        var view = new StreamedChunkView
+        {
+            chunkIndex = chunk.chunkIndex,
+            generationId = ++_chunkGenerationId,
+            root = root.transform,
+            minAlong = float.PositiveInfinity,
+            maxAlong = float.NegativeInfinity,
+        };
+
+        foreach (TownNode node in chunk.nodes)
+        {
+            if (node == null) continue;
+            view.nodeIds.Add(node.id);
+            view.minAlong = Mathf.Min(view.minAlong, node.alongTrunk);
+            view.maxAlong = Mathf.Max(view.maxAlong, node.alongTrunk);
+        }
+
+        if (float.IsInfinity(view.minAlong))
+        {
+            view.minAlong = 0f;
+            view.maxAlong = 0f;
+        }
+        return view;
+    }
+
+    void RefreshChunkWindow()
+    {
+        if (_streamedChunkViews.Count == 0 || jeepney == null || _ctx == null || _ctx.Waypoints == null)
+            return;
+
+        float currentAlong = RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out _);
+        int currentChunkIndex = _streamedChunkViews[0].chunkIndex;
+        foreach (StreamedChunkView view in _streamedChunkViews)
+        {
+            if (currentAlong >= view.minAlong)
+                currentChunkIndex = view.chunkIndex;
+            if (currentAlong <= view.maxAlong)
+                break;
+        }
+
+        int minChunk = currentChunkIndex - ActiveChunksBehind;
+        int maxChunk = currentChunkIndex + ActiveChunksAhead;
+        foreach (StreamedChunkView view in _streamedChunkViews)
+        {
+            bool inWindow = view.chunkIndex >= minChunk && view.chunkIndex <= maxChunk;
+            if (!inWindow && HasPendingRideInChunk(view))
+                inWindow = true;
+            if (view.active != inWindow)
+                view.SetActive(inWindow);
+        }
+    }
+
+    bool HasPendingRideInChunk(StreamedChunkView view)
+    {
+        if (view == null || _pendingBoarding == null || _ctx == null || _ctx.ZoneByNode == null)
+            return false;
+        foreach (KeyValuePair<int, StopZone> pair in _ctx.ZoneByNode)
+        {
+            if (!view.nodeIds.Contains(pair.Key)) continue;
+            StopZone zone = pair.Value;
+            if (zone != null && _pendingBoarding.TryGetValue(zone.StopIndex, out List<PassengerManager.PendingBoard> pending) &&
+                pending != null && pending.Count > 0)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>
@@ -568,9 +659,16 @@ public class ManualDriveController : MonoBehaviour
     /// </summary>
     void OnStoryComplete()
     {
+        if (_progression != null && !_progression.AllDone)
+        {
+            _progression.RunRemaining(OnStoryComplete);
+            return;
+        }
+
         System.Action onDone = () =>
         {
             _revealPlayed = true;
+            _freeRoamStoryConsumed = true;
             // Congratulate, then let the player choose: keep free-roaming the
             // endless procedural town, or finish the leg. Input stays locked under
             // the card (PassengerManager locks it at the destination) and is only
@@ -603,6 +701,8 @@ public class ManualDriveController : MonoBehaviour
     void OnKeepExploring()
     {
         if (jeepney != null) jeepney.InputLocked = false;
+        _freeRoamStoryConsumed = true;
+        if (dialogue != null) dialogue.StopAndHide();
 
         // Resume endless streaming for free-roam (the story drop-off capped it). Junction
         // frontiers from here on, so no fresh "Destination" terminals appear past the drop-off.
@@ -621,8 +721,12 @@ public class ManualDriveController : MonoBehaviour
         if (legCompletion != null) legCompletion.Hide();
         _legElapsed = Time.time - _startTime;   // freeze drive time
 
-        // The progression gate now pops mid-drive (ProgressionGateController), so
-        // arrival leads straight to the reveal + results.
+        if (_progression != null && !_progression.AllDone)
+        {
+            _progression.RunRemaining(PlayRevealThenResults);
+            return;
+        }
+
         PlayRevealThenResults();
     }
 

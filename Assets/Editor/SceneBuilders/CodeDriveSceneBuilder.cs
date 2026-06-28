@@ -136,6 +136,10 @@ public static class CodeDriveSceneBuilder
         frontSeatLabel.rectTransform.offsetMax = new Vector2(-12f, 0f);
         frontSeat.gameObject.SetActive(false);
 
+        RectTransform runStatus = AutomationDriveSceneBuilder.BuildRunStatusHud(
+            canvas.transform, out TMP_Text walletLabel, out Image autoFuelFill);
+        UIFactory.Place(runStatus, new Vector2(0.5f, 1f), new Vector2(0f, -80f), new Vector2(360f, 46f));
+
         Button commands = UIFactory.CreateButton(canvas.transform, "CommandsButton",
                                                  "Commands ?", new Vector2(160f, 42f), 20f);
         UIFactory.Place(commands, new Vector2(1f, 1f), new Vector2(-190f, -58f), new Vector2(160f, 42f));
@@ -223,6 +227,8 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "stepButton",   step);
         SceneBuilderUtil.Wire(controller, "editorModeToggle", editorModeToggle);
         SceneBuilderUtil.Wire(controller, "results",      results);
+        SceneBuilderUtil.Wire(controller, "walletLabel",  walletLabel);
+        SceneBuilderUtil.Wire(controller, "automationFuelFill", autoFuelFill);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);

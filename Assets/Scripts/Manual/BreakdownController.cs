@@ -20,8 +20,8 @@ public class BreakdownController : MonoBehaviour
     ToastNotification    _toast;
     DriveScoreTracker    _tracker;
 
-    float _triggerDistance = -1f;
-    bool  _armed;
+    DriveInterruptionScheduler _scheduler;
+    float _routeLength = 1f;
     bool  _inProgress;
 
     public bool InProgress => _inProgress;
@@ -47,13 +47,9 @@ public class BreakdownController : MonoBehaviour
         _toast        = toast;
         _tracker      = tracker;
 
-        bool anyRepairPanel = engineRepair != null || maze != null;
-        // A repair breakdown now happens on every level (the tutorial included).
-        // When the level doesn't script a fraction, roll a random mid-route point.
-        _armed = anyRepairPanel;
-        float frac = triggerFraction > 0f ? triggerFraction
-                                          : UnityEngine.Random.Range(0.35f, 0.7f);
-        _triggerDistance = routeLength * frac;
+        _routeLength = Mathf.Max(1f, routeLength);
+        _scheduler = new DriveInterruptionScheduler(
+            3000 + Mathf.RoundToInt(routeLength * 10f) + Mathf.RoundToInt(triggerFraction * 100f));
     }
 
     /// <summary>Called each frame by the drive controller with route progress.</summary>
@@ -68,12 +64,10 @@ public class BreakdownController : MonoBehaviour
             return;
         }
 
-        if (!_armed) return;
-        if (distanceAlongRoute >= _triggerDistance)
-        {
-            _armed = false;
+        bool anyRepairPanel = _engineRepair != null || _maze != null;
+        if (anyRepairPanel && _scheduler != null &&
+            _scheduler.TryStartRepair(distanceAlongRoute / _routeLength, UnityEngine.Random.value))
             StartCoroutine(BreakdownSequence(forceFuel: false));
-        }
     }
 
     // -------------------------------------------------------------------------
@@ -95,7 +89,7 @@ public class BreakdownController : MonoBehaviour
 
         yield return new WaitForSeconds(warningSeconds);
 
-        _jeepney.InputLocked = true;
+        if (_jeepney != null) _jeepney.InputLocked = true;
 
         bool finished = false;
         Action<MinigameResult> onDone = result =>
@@ -140,7 +134,7 @@ public class BreakdownController : MonoBehaviour
 
         yield return new WaitUntil(() => finished);
 
-        _jeepney.InputLocked = false;
+        if (_jeepney != null) _jeepney.InputLocked = false;
         _inProgress = false;
     }
 }

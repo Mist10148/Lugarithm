@@ -142,6 +142,9 @@ public static class AutomationDriveSceneBuilder
         frontSeatLabel.rectTransform.offsetMax = new Vector2(-12f, 0f);
         frontSeat.gameObject.SetActive(false);
 
+        RectTransform runStatus = BuildRunStatusHud(canvas.transform, out TMP_Text walletLabel, out Image autoFuelFill);
+        UIFactory.Place(runStatus, new Vector2(0.5f, 1f), new Vector2(0f, -80f), new Vector2(360f, 46f));
+
         // --- Floating editor windows (Block / Code) ---------------------------------
 
         var editorArea = UIFactory.CreateRect(canvas.transform, "EditorArea",
@@ -219,6 +222,8 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "autopilotButton", autopilot);
         SceneBuilderUtil.Wire(controller, "selfDrive",      selfDrive);
         SceneBuilderUtil.Wire(controller, "results",        results);
+        SceneBuilderUtil.Wire(controller, "walletLabel",    walletLabel);
+        SceneBuilderUtil.Wire(controller, "automationFuelFill", autoFuelFill);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",     flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",    cratePuzzle);
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);
@@ -932,6 +937,35 @@ public static class AutomationDriveSceneBuilder
         Button button = UIFactory.CreateButton(bar, name, label, new Vector2(width, 44f), 22f);
         UIFactory.SetLayoutSize(button, width, 44f);
         return button;
+    }
+
+    internal static RectTransform BuildRunStatusHud(Transform parent, out TMP_Text walletLabel, out Image fuelFill)
+    {
+        var card = UIFactory.CreatePanel(parent, "RunStatusCard",
+                                         new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                         new Color(0.06f, 0.07f, 0.10f, 0.88f));
+
+        walletLabel = UIFactory.CreateText(card, "WalletLabel", "PHP 0   run +0   fuel 100%   spent -0",
+                                           17f, UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        walletLabel.rectTransform.offsetMin = new Vector2(12f, 13f);
+        walletLabel.rectTransform.offsetMax = new Vector2(-12f, 0f);
+        walletLabel.textWrappingMode = TextWrappingModes.NoWrap;
+        walletLabel.overflowMode = TextOverflowModes.Ellipsis;
+
+        var track = UIFactory.CreatePanel(card, "FuelTrack",
+                                          new Vector2(0f, 0f), new Vector2(1f, 0f),
+                                          new Color(0.18f, 0.18f, 0.18f, 0.95f));
+        track.offsetMin = new Vector2(12f, 7f);
+        track.offsetMax = new Vector2(-12f, 14f);
+
+        var fillRt = UIFactory.CreateRect(track, "FuelFill", Vector2.zero, Vector2.one);
+        fuelFill = UIFactory.AddImage(fillRt, new Color(0.95f, 0.65f, 0.15f), UIFactory.BuiltinSprite("UISprite.psd"));
+        fuelFill.type = Image.Type.Filled;
+        fuelFill.fillMethod = Image.FillMethod.Horizontal;
+        fuelFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+        fuelFill.fillAmount = 1f;
+
+        return card;
     }
 
     static Button MakeRowButton(RectTransform row, string name, string label, float width)

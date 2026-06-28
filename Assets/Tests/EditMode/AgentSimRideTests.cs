@@ -58,6 +58,32 @@ public class AgentSimRideTests
     }
 
     [Test]
+    public void RideMode_PickUpBoardsEveryPassengerWaitingAtTheCell()
+    {
+        GridModel grid = StraightGrid();
+        var sim = new AgentSim(grid, new FareTable(), startFacing: 1);
+        var origin = new Vector2Int(3, 1);
+        var dest = new Vector2Int(5, 1);
+        sim.LoadRides(new List<GridRide>
+        {
+            new GridRide { id = 0, origin = origin, dest = dest, fare = 13 },
+            new GridRide { id = 1, origin = origin, dest = dest, fare = 15 },
+        });
+
+        sim.Apply("moveForward");
+        sim.Apply("moveForward");
+        Assert.IsTrue(sim.EvaluateQuery("passengerWaiting"));
+
+        AgentActionResult pickup = sim.Apply("pickUp");
+
+        Assert.IsTrue(pickup.PickedUp);
+        Assert.AreEqual(2, pickup.PickedUpCount);
+        Assert.AreEqual(2, sim.PassengersAboard);
+        Assert.AreEqual(0, sim.RemainingWaiting);
+        Assert.IsFalse(sim.EvaluateQuery("passengerWaiting"));
+    }
+
+    [Test]
     public void DriveToDestination_PlansAPath_DrainedToReachD()
     {
         GridModel grid = StraightGrid();

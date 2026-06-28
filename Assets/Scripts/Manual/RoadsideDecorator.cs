@@ -46,12 +46,14 @@ public static class RoadsideDecorator
     /// </summary>
     public static void DecorateSegments(Transform parent,
         IReadOnlyList<RoadSegment> newSegments, IReadOnlyList<RoadSegment> allSegments,
-        IReadOnlyList<Vector2> stopPositions, float roadHalfWidth, int seed)
+        IReadOnlyList<Vector2> stopPositions, float roadHalfWidth, int seed,
+        Transform chunkRoot = null)
     {
         if (parent == null || newSegments == null) return;
 
-        Transform scenery    = FindOrCreate(parent, "Scenery");
-        Transform streetLife = FindOrCreate(parent, "StreetLife");
+        Transform visualParent = chunkRoot != null ? chunkRoot : parent;
+        Transform scenery    = FindOrCreate(visualParent, "Scenery");
+        Transform streetLife = FindOrCreate(visualParent, "StreetLife");
 
         foreach (RoadSegment seg in newSegments)
         {

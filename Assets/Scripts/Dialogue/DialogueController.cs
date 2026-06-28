@@ -247,6 +247,25 @@ public class DialogueController : MonoBehaviour
         if (dialogBox != null) dialogBox.Advance();
     }
 
+    /// <summary>
+    /// Clears any active story/reveal UI without invoking completion callbacks.
+    /// Used when a completed leg enters free-roam; story dialogue must not restart
+    /// or finish a second time while the road keeps streaming.
+    /// </summary>
+    public void StopAndHide()
+    {
+        _dialogueCancellation?.Cancel();
+        _awaitingRephrase = false;
+        _runtime = null;
+        _conversation = null;
+        _onFinished = null;
+        _onRevealDone = null;
+        _waitingForRevealAdvance = false;
+        _revealingJournalCard = false;
+        HideAll();
+        if (revealRoot != null) revealRoot.SetActive(false);
+    }
+
     // -------------------------------------------------------------------------
 
     void ShowDialogueRoot(bool show)

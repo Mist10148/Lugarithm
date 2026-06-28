@@ -172,4 +172,43 @@ public class AgentSimTests
         def.requireAllPassengersDelivered = false;
         Assert.IsTrue(sim.IsWin(def));
     }
+
+    [Test]
+    public void EndlessKeepDriving_QueuesOnlyAShortHop()
+    {
+        GridModel grid = GridModel.Parse(new[]
+        {
+            "################",
+            "#S............D#",
+            "################",
+        }, out List<string> errors);
+        CollectionAssert.IsEmpty(errors);
+
+        var sim = new AgentSim(grid, new FareTable(), startFacing: 1) { EndlessRoute = true };
+        sim.Apply("keepDriving");
+
+        Assert.Greater(sim.PendingMoveCount, 0);
+        Assert.LessOrEqual(sim.PendingMoveCount, 4,
+            "endless cruise macros must yield often enough for stream-ahead generation");
+    }
+
+    [Test]
+    public void EndlessDriveToDropoff_QueuesOnlyAShortHop()
+    {
+        GridModel grid = GridModel.Parse(new[]
+        {
+            "################",
+            "#S............D#",
+            "################",
+        }, out List<string> errors);
+        CollectionAssert.IsEmpty(errors);
+
+        var sim = new AgentSim(grid, new FareTable(), startFacing: 1) { EndlessRoute = true };
+        sim.ArmStoryDropoff(new Vector2Int(12, 1));
+        sim.Apply("driveToDropoff");
+
+        Assert.Greater(sim.PendingMoveCount, 0);
+        Assert.LessOrEqual(sim.PendingMoveCount, 4,
+            "story drop-off navigation must not monopolize the execution loop");
+    }
 }

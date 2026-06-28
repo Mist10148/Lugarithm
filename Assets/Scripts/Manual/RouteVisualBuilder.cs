@@ -102,17 +102,19 @@ public static class RouteVisualBuilder
     /// destination becomes the terminal-end of the appended trunk.
     /// </summary>
     public static void AppendProcedural(Transform parent, RouteContext ctx,
-                                        ManualLayoutResult delta, float roadHalfWidth)
+                                        ManualLayoutResult delta, float roadHalfWidth,
+                                        Transform chunkRoot = null)
     {
         if (ctx == null || delta == null) return;
         if (ctx.Segments == null) ctx.Segments = new List<RoadSegment>();
 
+        Transform visualParent = chunkRoot != null ? chunkRoot : parent;
         Sprite roadSprite = Resources.Load<Sprite>("Placeholders/road_tile");
-        Transform roadRoot = parent.Find("Road");
+        Transform roadRoot = visualParent.Find("Road");
         if (roadRoot == null)
         {
             var rr = new GameObject("Road");
-            rr.transform.SetParent(parent, false);
+            rr.transform.SetParent(visualParent, false);
             roadRoot = rr.transform;
         }
 
@@ -138,7 +140,7 @@ public static class RouteVisualBuilder
             }
 
             bool isDest = node.id == delta.dest.id;
-            StopZone zone = BuildProceduralStop(parent, node, zones.Count, isDest, roadHalfWidth, ctx.Segments);
+            StopZone zone = BuildProceduralStop(visualParent, node, zones.Count, isDest, roadHalfWidth, ctx.Segments);
             zones.Add(zone);
             if (ctx.ZoneByNode != null) ctx.ZoneByNode[node.id] = zone;
             if (isDest) ctx.DestinationZone = zone;
@@ -164,7 +166,8 @@ public static class RouteVisualBuilder
             foreach (StopZone z in ctx.ZoneByNode.Values)
                 if (z != null) stopPositions.Add((Vector2)z.transform.position);
         RoadsideDecorator.DecorateSegments(parent, delta.segments, ctx.Segments,
-                                           stopPositions, roadHalfWidth, seed: 0);
+                                           stopPositions, roadHalfWidth, seed: 0,
+                                           chunkRoot: visualParent);
     }
 
     /// <summary>

@@ -18,6 +18,8 @@ public class AgentActionResult
 
     public bool PickedUp;
     public bool DroppedOff;
+    public int  PickedUpCount;
+    public int  DroppedOffCount;
     public int  DeliveredCount;
     public int  FareCollected;
     public int  ChangeGiven;
@@ -114,6 +116,7 @@ public class AgentSim : IAgentApi
 
     /// <summary>Pending primitive moves from a nav macro, drained one per visual step.</summary>
     public bool HasPendingMoves => _pending.Count > 0;
+    public int PendingMoveCount => _pending.Count;
     public string DequeueMove() => _pending.Dequeue();
 
     public GridModel Grid => _grid;
@@ -132,6 +135,8 @@ public class AgentSim : IAgentApi
     /// stays endless until then. Headless tests leave this false and use "all rides
     /// delivered" as the solvability condition.</summary>
     public bool StoryLegMode;
+
+    const int EndlessMacroMaxSteps = 4;
 
     /// <summary>The story passenger's drop-off cell, armed by the controller a short buffer
     /// after the dialogue ends. The story passenger alights there (like any NPC) when
@@ -327,6 +332,7 @@ public class AgentSim : IAgentApi
                     PassengersAboard++;
                     UnpaidFares++;
                     r.PickedUp = true;
+                    r.PickedUpCount = 1;
                 }
                 else
                 {
@@ -340,11 +346,13 @@ public class AgentSim : IAgentApi
                 {
                     StoryDelivered = true;
                     r.DroppedOff   = true;
+                    r.DroppedOffCount = 1;
                 }
                 if (_rides != null) { DropOffRides(r); break; }
                 if (Position == _grid.DestPos && PassengersAboard > 0)
                 {
                     r.DeliveredCount     = PassengersAboard;
+                    r.DroppedOffCount    = PassengersAboard;
                     PassengersDelivered += PassengersAboard;
                     PassengersAboard     = 0;
                     r.DroppedOff         = true;
@@ -385,16 +393,16 @@ public class AgentSim : IAgentApi
             case "driveToNextStop":
             {
                 Vector2Int? stop = NearestRelevantStop();
-                EnqueuePathTo(stop ?? _grid.DestPos, r);
+                EnqueuePathTo(stop ?? _grid.DestPos, r, EndlessRoute ? EndlessMacroMaxSteps : int.MaxValue);
                 break;
             }
 
             case "driveToDestination":
-                EnqueuePathTo(_grid.DestPos, r);
+                EnqueuePathTo(_grid.DestPos, r, EndlessRoute ? EndlessMacroMaxSteps : int.MaxValue);
                 break;
 
             case "driveToTerminal":
-                EnqueuePathTo(_grid.DestPos, r);
+                EnqueuePathTo(_grid.DestPos, r, EndlessRoute ? EndlessMacroMaxSteps : int.MaxValue);
                 break;
 
             case "driveToDropoff":
@@ -404,12 +412,12 @@ public class AgentSim : IAgentApi
                 // endless road like keepDriving() (serve a nearby rider, else a short hop).
                 if (StoryDropoffArmed && !StoryDelivered)
                 {
-                    EnqueuePathTo(StoryDropoffCell, r);
+                    EnqueuePathTo(StoryDropoffCell, r, EndlessRoute ? EndlessMacroMaxSteps : int.MaxValue);
                 }
                 else
                 {
                     Vector2Int? stop = NearestRelevantStop();
-                    if (stop.HasValue) EnqueuePathTo(stop.Value, r);
+                    if (stop.HasValue) EnqueuePathTo(stop.Value, r, EndlessRoute ? EndlessMacroMaxSteps : int.MaxValue);
                     else               EnqueuePathTo(_grid.DestPos, r, maxSteps: 4);
                 }
                 break;
@@ -421,7 +429,7 @@ public class AgentSim : IAgentApi
                 // take a short hop toward the receding frontier so the controller can
                 // stream the next stretch ahead of us (the road never ends or stalls).
                 Vector2Int? stop = NearestRelevantStop();
-                if (stop.HasValue) EnqueuePathTo(stop.Value, r);
+                if (stop.HasValue) EnqueuePathTo(stop.Value, r, EndlessRoute ? EndlessMacroMaxSteps : int.MaxValue);
                 else               EnqueuePathTo(_grid.DestPos, r, maxSteps: 4);
                 break;
             }
@@ -439,7 +447,7 @@ public class AgentSim : IAgentApi
 
     void PickUpRides(AgentActionResult r)
     {
-        bool boarded = false;
+        int boarded = 0;
         foreach (GridRide ride in _rides)
             if (!ride.aboard && !ride.delivered && ride.origin == Position)
             {
@@ -447,10 +455,14 @@ public class AgentSim : IAgentApi
                 if (ride.tender <= 0) ride.tender = ride.fare;
                 PassengersAboard++;
                 UnpaidFares++;
-                boarded = true;
+                boarded++;
             }
 
-        if (boarded) r.PickedUp = true;
+        if (boarded > 0)
+        {
+            r.PickedUp = true;
+            r.PickedUpCount = boarded;
+        }
         else         r.Warning = "no passenger is waiting here.";
     }
 
@@ -473,7 +485,12 @@ public class AgentSim : IAgentApi
                 delivered++;
             }
 
-        if (delivered > 0) { r.DroppedOff = true; r.DeliveredCount += delivered; }
+        if (delivered > 0)
+        {
+            r.DroppedOff = true;
+            r.DeliveredCount += delivered;
+            r.DroppedOffCount += delivered;
+        }
         else if (r.DroppedOff) { /* the story passenger alighted here — no warning */ }
         else if (unpaidHere > 0) r.Warning = "collect fare and give exact change before letting this passenger off.";
         else if (PassengersAboard == 0) r.Warning = "no passengers aboard.";

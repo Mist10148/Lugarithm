@@ -16,6 +16,7 @@ public class TopDownGridSpace : IGridSpace, IStopView
     readonly Dictionary<Vector2Int, bool> _occupied = new Dictionary<Vector2Int, bool>();
     readonly Dictionary<Vector2Int, StopZone> _zonesByCell = new Dictionary<Vector2Int, StopZone>();
     readonly Dictionary<Vector2Int, List<Color>> _peepColorsByCell = new Dictionary<Vector2Int, List<Color>>();
+    readonly Dictionary<Vector2Int, int> _waitingCountsByCell = new Dictionary<Vector2Int, int>();
 
     public RouteContext RouteContext => _routeContext;
     public Transform    WorldRoot    => _worldRoot;
@@ -53,6 +54,7 @@ public class TopDownGridSpace : IGridSpace, IStopView
         _occupied.Clear();
         _zonesByCell.Clear();
         _peepColorsByCell.Clear();
+        _waitingCountsByCell.Clear();
 
         foreach (TownNode n in layout.nodes)
             if (n.IsStop)
@@ -78,8 +80,11 @@ public class TopDownGridSpace : IGridSpace, IStopView
         }
 
         // A stop is "occupied" exactly where a waiting peep stands.
-        foreach (Vector2Int cell in _peepColorsByCell.Keys)
-            _occupied[cell] = true;
+        foreach (KeyValuePair<Vector2Int, List<Color>> pair in _peepColorsByCell)
+        {
+            _waitingCountsByCell[pair.Key] = pair.Value.Count;
+            _occupied[pair.Key] = true;
+        }
 
         SpawnWaitingPeeps();
     }
@@ -132,18 +137,46 @@ public class TopDownGridSpace : IGridSpace, IStopView
     {
         var cells = new List<Vector2Int>(_occupied.Keys);
         foreach (Vector2Int cell in cells)
-            _occupied[cell] = _peepColorsByCell.ContainsKey(cell);
+        {
+            int count = _peepColorsByCell.TryGetValue(cell, out List<Color> colors) ? colors.Count : 0;
+            _waitingCountsByCell[cell] = count;
+            _occupied[cell] = count > 0;
+        }
         SpawnWaitingPeeps();
     }
 
     public void SetStopOccupied(Vector2Int cell, bool occupied)
     {
-        _occupied[cell] = occupied;
-        if (!occupied && _zonesByCell.TryGetValue(cell, out StopZone zone) && zone != null)
+        if (!occupied)
         {
-            GameObject peep = zone.TakeWaitingPeep();
-            if (peep != null) Object.Destroy(peep);
+            RemoveWaitingPeeps(cell, 1);
+            return;
         }
+
+        int count = _peepColorsByCell.TryGetValue(cell, out List<Color> colors) ? Mathf.Max(1, colors.Count) : 1;
+        _waitingCountsByCell[cell] = count;
+        _occupied[cell] = true;
+    }
+
+    public void RemoveWaitingPeeps(Vector2Int cell, int count)
+    {
+        if (count <= 0) return;
+
+        int current = _waitingCountsByCell.TryGetValue(cell, out int waiting) ? waiting : 0;
+        int remove = Mathf.Min(count, Mathf.Max(0, current));
+
+        if (_zonesByCell.TryGetValue(cell, out StopZone zone) && zone != null)
+        {
+            for (int i = 0; i < remove; i++)
+            {
+                GameObject peep = zone.TakeWaitingPeep();
+                if (peep != null) Object.Destroy(peep);
+            }
+        }
+
+        int remaining = Mathf.Max(0, current - remove);
+        _waitingCountsByCell[cell] = remaining;
+        _occupied[cell] = remaining > 0;
     }
 
     /// <summary>True if the stop at this cell still has a waiting passenger.</summary>
@@ -160,8 +193,19 @@ public class TopDownGridSpace : IGridSpace, IStopView
             if (zone == null) continue;
 
             zone.ClearWaitingPeeps();
-            if (_peepColorsByCell.TryGetValue(pair.Key, out List<Color> colors) && colors.Count > 0)
+            if (!_peepColorsByCell.TryGetValue(pair.Key, out List<Color> colors) || colors.Count <= 0)
+                continue;
+
+            int count = _waitingCountsByCell.TryGetValue(pair.Key, out int waiting)
+                ? Mathf.Clamp(waiting, 0, colors.Count)
+                : colors.Count;
+            if (count <= 0) continue;
+
+            if (count == colors.Count)
                 zone.SpawnWaitingPeeps(colors, new Vector2(_roadHalfWidth + 2.1f, -0.8f), Vector2.right);
+            else
+                zone.SpawnWaitingPeeps(colors.GetRange(0, count),
+                    new Vector2(_roadHalfWidth + 2.1f, -0.8f), Vector2.right);
         }
     }
 }

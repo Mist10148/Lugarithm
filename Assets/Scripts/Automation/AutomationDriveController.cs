@@ -58,6 +58,8 @@ public class AutomationDriveController : MonoBehaviour
     [Header("Readouts")]
     [SerializeField] private ConsoleController      console;
     [SerializeField] private StateMonitorController monitor;
+    [SerializeField] private TMP_Text               walletLabel;
+    [SerializeField] private Image                  automationFuelFill;
     [SerializeField] private AutomationResultsPanel results;
 
     [Header("Town gate (non-code, required to advance)")]
@@ -103,6 +105,8 @@ public class AutomationDriveController : MonoBehaviour
     bool _optionalFreeRoam;
     int  _maxChunks;
     int  _chunksAppended;
+    int  _chunkGenerationId;
+    readonly List<StreamedChunkView> _streamedChunkViews = new List<StreamedChunkView>();
     bool _destinationFinalized;
     int  _startFacing;
     int  _levelIndex;
@@ -124,11 +128,13 @@ public class AutomationDriveController : MonoBehaviour
     bool  _solvedNudged;     // showed the "finish your chat" nudge once after an early solve
     bool  _endlessWinFired;  // endless leg already detected its story-drop-off win mid-run (guard)
     bool  _boardingPlayed;   // boarding/story dialogue has played this leg (never replays)
+    bool  _freeRoamStoryConsumed; // story/reveal finished; free-roam must never restart dialogue
     bool  _storyDropHandled; // front-seat card already torn down on the story drop-off (guard)
     Vector3 _storyDropoffWorld;  // fixed world position of the story drop-off (stable across streaming)
     bool  _storyDropoffArmed;
     GameObject _storyMarker;     // the distinct on-road marker at the drop-off
     string _storyPassengerName = "Your passenger";
+    DriveInterruptionScheduler _interruptionScheduler;
 
     // How far ahead (in grid cells) the story drop-off marker is placed, and how long after the
     // dialogue ends before it appears (a beat of normal driving, then the destination shows).
@@ -138,6 +144,11 @@ public class AutomationDriveController : MonoBehaviour
     // Lookahead distance (world units) at which the procedural town streams the next
     // chunk ahead of the driving program — matches Manual's StreamLookAhead.
     const float StreamLookAhead = 45f;
+    const int ActiveChunksBehind = 2;
+    const int ActiveChunksAhead = 6;
+
+    public float AutomationFuel01 => _autoFuel;
+    public int AutomationRefuelSpent => _autoRefuelSpent;
 
     void Start()
     {
@@ -150,6 +161,7 @@ public class AutomationDriveController : MonoBehaviour
             _level = LevelLibrary.Get(0);
         }
         _def = _level.auto;
+        _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
 
         // Procedural town: build the automation grid + rides from a generated
         // layout so the self-driving agent has real passengers to tend. The
@@ -400,6 +412,7 @@ public class AutomationDriveController : MonoBehaviour
             console.Info("write a program, then press RUN");
         }
         if (monitor != null) monitor.ShowIdle();
+        RefreshAutomationHud();
 
         _startTime = Time.time;
 
@@ -408,8 +421,13 @@ public class AutomationDriveController : MonoBehaviour
 
     void Update()
     {
+        if (_proceduralTopDown)
+            UpdateProceduralGroundPosition();
         TickProceduralStreaming();
         TickEndlessWinCheck();
+        if (_proceduralTopDown)
+            RefreshChunkWindow();
+        RefreshAutomationHud();
     }
 
     /// <summary>
@@ -464,7 +482,7 @@ public class AutomationDriveController : MonoBehaviour
         if (exec == null || exec.Sim == null || topDownAgentView == null) return;
         if (_chunksAppended >= _maxChunks) return;
         if (exec.State != ExecutionController.ExecState.Running) return;
-        if (exec.Busy || exec.Sim.HasPendingMoves) return;   // wait for a static-world boundary
+        if (exec.Busy) return;   // wait for a static-world boundary between visual batches
 
         float distToEnd = Vector2.Distance(
             (Vector2)topDownAgentView.transform.position, _streamingTown.TrunkEndPos);
@@ -477,7 +495,7 @@ public class AutomationDriveController : MonoBehaviour
     {
         // Play the story conversation exactly once per leg — free-roam, streaming, and
         // program re-runs must never replay it.
-        if (_boardingPlayed)
+        if (_boardingPlayed || _freeRoamStoryConsumed)
         {
             Debug.LogWarning("[Automation] PlayBoardingDialogue re-entry blocked (dialogue already played).");
             return;
@@ -617,6 +635,11 @@ public class AutomationDriveController : MonoBehaviour
 
         System.Action<MinigameResult> onDone = _ =>
         {
+            if (!repair)
+            {
+                _autoFuel = 1f;
+                RefreshAutomationHud();
+            }
             if (exec != null) exec.SetPaused(false);
             if (dialogue != null) dialogue.ResumeAfterEvent();
         };
@@ -884,55 +907,72 @@ public class AutomationDriveController : MonoBehaviour
     // -------------------------------------------------------------------------
     // Execution events
 
-    // Big tiled grass under the procedural road so Automation's world matches
-    // Manual's (which lays the same ground at sortingOrder -100). Sized to the
-    // generated layout's bounds plus a margin so it always covers the view.
+    // Grass under the procedural road so Automation's world matches Manual. Keep
+    // it as one simple camera-sized sprite; a tiled sprite grown to the whole
+    // endless layout eventually exceeds Unity's generated mesh limits.
     void AddProceduralGround(Transform worldRoot, TownLayout layout)
     {
-        if (worldRoot == null || layout == null || layout.nodes == null || layout.nodes.Count == 0)
+        if (worldRoot == null)
             return;
 
-        float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
-        foreach (TownNode n in layout.nodes)
-        {
-            minX = Mathf.Min(minX, n.pos.x); maxX = Mathf.Max(maxX, n.pos.x);
-            minY = Mathf.Min(minY, n.pos.y); maxY = Mathf.Max(maxY, n.pos.y);
-        }
-
-        const float margin = 80f;
-        // Idempotent: reuse the existing ground (we call this on every streamed chunk)
-        // and just resize/recenter it to the grown layout bounds.
         Transform existing = worldRoot.Find("ProceduralGround");
         GameObject go = existing != null ? existing.gameObject : new GameObject("ProceduralGround");
         go.transform.SetParent(worldRoot, false);
-        go.transform.localPosition = new Vector3((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, 0f);
 
         var sr = go.GetComponent<SpriteRenderer>();
         if (sr == null) sr = go.AddComponent<SpriteRenderer>();
         sr.sprite       = Resources.Load<Sprite>("Placeholders/grass_tile");
-        sr.drawMode     = SpriteDrawMode.Tiled;
-        sr.size         = new Vector2((maxX - minX) + margin * 2f, (maxY - minY) + margin * 2f);
+        sr.drawMode     = SpriteDrawMode.Simple;
         sr.sortingOrder = -100;
+
+        UpdateProceduralGroundPosition();
+    }
+
+    void UpdateProceduralGroundPosition()
+    {
+        if (topDownWorldRoot == null) return;
+        Transform ground = topDownWorldRoot.Find("ProceduralGround");
+        if (ground == null) return;
+
+        Vector3 center = topDownAgentView != null
+            ? topDownAgentView.transform.position
+            : worldCamera != null ? worldCamera.transform.position : Vector3.zero;
+        ground.position = new Vector3(center.x, center.y, 0f);
+
+        SpriteRenderer sr = ground.GetComponent<SpriteRenderer>();
+        if (sr == null || sr.sprite == null) return;
+
+        float height = worldCamera != null ? worldCamera.orthographicSize * 2f : 48f;
+        float width = worldCamera != null ? height * Mathf.Max(1f, worldCamera.aspect) : 80f;
+        float size = Mathf.Max(width, height) + 120f;
+        Vector2 spriteSize = sr.sprite.bounds.size;
+        float sx = spriteSize.x > 0.01f ? size / spriteSize.x : size;
+        float sy = spriteSize.y > 0.01f ? size / spriteSize.y : size;
+        ground.localScale = new Vector3(sx, sy, 1f);
     }
 
     // Automation drains fuel and can break down mid-run, like Manual — the
     // self-driving jeepney pauses for the refuel/repair mini-game, then resumes.
     float _autoFuel = 1f;
+    int   _autoRefuelSpent;
     bool  _autoBreakdownActive;
 
     // Progression gate (town puzzle) now pops mid-run, not after the win.
     bool  _progressionGateActive;
-    bool  _progressionGateDone;
 
     void AutoFuelTick()
     {
-        if (_autoBreakdownActive) return;
+        if (_autoBreakdownActive || _progressionGateActive) return;
         if (refuelMinigame == null && mazeRepairMinigame == null) return;
+        if (_interruptionScheduler == null)
+            _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
 
-        _autoFuel -= 0.03f;
-        if (_autoFuel <= 0f)
+        _autoFuel = Mathf.Max(0f, _autoFuel - 0.03f);
+        RefreshAutomationHud();
+
+        if (_interruptionScheduler.ShouldRefuel(_autoFuel))
             StartCoroutine(AutoBreakdown(fuel: true));
-        else if (UnityEngine.Random.value < 0.012f)
+        else if (_interruptionScheduler.TryStartRepair(AutomationProgress01(), UnityEngine.Random.value))
             StartCoroutine(AutoBreakdown(fuel: false));
     }
 
@@ -952,8 +992,10 @@ public class AutomationDriveController : MonoBehaviour
                 int spent = GameManager.Instance != null
                     ? GameManager.Instance.SpendCurrency(cost)
                     : cost;
+                _autoRefuelSpent += spent;
                 if (console != null)
                     console.Info($"refuel cost: PHP {spent}");
+                RefreshAutomationHud();
             }
             done = true;
         };
@@ -968,6 +1010,7 @@ public class AutomationDriveController : MonoBehaviour
 
         if (exec != null) exec.SetPaused(false);
         _autoBreakdownActive = false;
+        RefreshAutomationHud();
     }
 
     // Mid-run progression gate: at a random step during execution, the level's
@@ -976,22 +1019,22 @@ public class AutomationDriveController : MonoBehaviour
     // if a short run never triggered it.
     void MaybeTriggerProgressionGate()
     {
-        if (_progressionGateDone || _progressionGateActive || _autoBreakdownActive) return;
-        if (_level == null || _level.townPuzzle == TownPuzzleKind.None) return;
-        if (UnityEngine.Random.value < 0.02f)
-            StartCoroutine(ProgressionGateRoutine());
+        if (_progressionGateActive || _autoBreakdownActive) return;
+        if (_interruptionScheduler == null)
+            _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
+        if (_interruptionScheduler.TryStartProgression(AutomationProgress01(), out TownPuzzleKind kind))
+            StartCoroutine(ProgressionGateRoutine(kind));
     }
 
-    IEnumerator ProgressionGateRoutine()
+    IEnumerator ProgressionGateRoutine(TownPuzzleKind kind)
     {
         _progressionGateActive = true;
         if (exec != null) exec.SetPaused(true);
 
         bool done = false;
-        bool shown = ShowSingleTownGate(3000 + _levelIndex, result =>
+        bool shown = ShowSingleTownGate(kind, 3000 + _levelIndex + _interruptionScheduler.CompletedProgressionGates, result =>
         {
             _townPuzzleBonus += result != null ? result.Score : 0;
-            _progressionGateDone = true;
             done = true;
         });
 
@@ -1009,6 +1052,32 @@ public class AutomationDriveController : MonoBehaviour
         _progressionGateActive = false;
     }
 
+    float AutomationProgress01()
+    {
+        int steps = exec != null && exec.Sim != null ? exec.Sim.StepsUsed : 0;
+        int par = _def != null ? Mathf.Max(1, _def.parSteps) : 60;
+        return steps / (float)par;
+    }
+
+    void RefreshAutomationHud()
+    {
+        if (automationFuelFill != null)
+        {
+            automationFuelFill.fillAmount = Mathf.Clamp01(_autoFuel);
+            automationFuelFill.color = _autoFuel > 0.25f
+                ? new Color(0.95f, 0.65f, 0.15f)
+                : new Color(0.9f, 0.2f, 0.15f);
+        }
+
+        if (walletLabel == null) return;
+
+        int saved = SaveSystem.Current != null ? SaveSystem.Current.currency : 0;
+        int pending = GameManager.Instance != null ? GameManager.Instance.PendingCurrency : 0;
+        int fares = exec != null && exec.Sim != null ? exec.Sim.FaresCollected : 0;
+        int wallet = saved + pending;
+        walletLabel.text = $"PHP {wallet}   run +{fares}   fuel {Mathf.RoundToInt(_autoFuel * 100f)}%   spent -{_autoRefuelSpent}";
+    }
+
     void HandleStepDone(AgentActionResult result, StepResult step)
     {
         _lastExecutedLine = step.Node != null ? step.Node.Line : 0;
@@ -1024,6 +1093,9 @@ public class AutomationDriveController : MonoBehaviour
             if (result.ChangeGiven > 0)
                 console.Info($"   change given: ₱{result.ChangeGiven}");
         }
+
+        if (result.FareCollected > 0 || result.ChangeGiven > 0)
+            RefreshAutomationHud();
 
         if (monitor != null && exec != null)
             monitor.Refresh(exec.Sim, _lastExecutedLine);
@@ -1059,6 +1131,7 @@ public class AutomationDriveController : MonoBehaviour
         if (codeEditor != null) codeEditor.ClearHeat();
         _autoFuel = 1f;
         _autoBreakdownActive = false;
+        RefreshAutomationHud();
     }
 
     void HandleFinished(bool win)
@@ -1141,6 +1214,7 @@ public class AutomationDriveController : MonoBehaviour
         _storyLegShown = true;
         PlayRevealOnReach(() =>
         {
+            _freeRoamStoryConsumed = true;
             if (legCompletion != null)
                 legCompletion.ShowComplete(
                     title,
@@ -1179,9 +1253,10 @@ public class AutomationDriveController : MonoBehaviour
 
         _optionalFreeRoam = true;
         _maxChunks = int.MaxValue;                          // resume endless streaming
+        _freeRoamStoryConsumed = true;
+        if (dialogue != null) dialogue.StopAndHide();
         if (exec != null && exec.Sim != null)
             exec.Sim.StoryDropoffArmed = false;             // leg already done; don't re-complete
-        AppendProceduralRoute(keepProgramRunning: false);
         _won = false;
         if (console != null)
             console.Info("keep cruising the endless road - or press Finish leg when you're done.");
@@ -1213,6 +1288,7 @@ public class AutomationDriveController : MonoBehaviour
         if (chunk == null || chunk.nodes.Count == 0)
             return;
         _chunksAppended++;
+        StreamedChunkView chunkView = CreateChunkView(chunk);
 
         _def = SelfDrivePlanner.BuildPuzzle(_streamingTown.Layout, _streamingTown.CellSize,
                                             out List<GridRide> remappedRides, out int newStartFacing);
@@ -1224,7 +1300,12 @@ public class AutomationDriveController : MonoBehaviour
         foreach (string problem in mapErrors)
             if (console != null) console.Error("map: " + problem);
 
-        AppendProceduralTopDownWorld(chunk);
+        AppendProceduralTopDownWorld(chunk, chunkView != null ? chunkView.root : null);
+        if (chunkView != null)
+        {
+            chunkView.SetActive(true);
+            _streamedChunkViews.Add(chunkView);
+        }
 
         Vector2Int currentCell = _topDownSpace != null
             ? _topDownSpace.WorldToCell(currentWorld)
@@ -1246,6 +1327,7 @@ public class AutomationDriveController : MonoBehaviour
         if (vibeCtrl != null) vibeCtrl.SetWorldContext(_grid, exec.Sim, _def);
         if (ghost != null) ghost.Bind(_def);
         if (monitor != null) monitor.Refresh(exec.Sim, _lastExecutedLine);
+        RefreshChunkWindow();
     }
 
     /// <summary>
@@ -1254,7 +1336,7 @@ public class AutomationDriveController : MonoBehaviour
     /// then refreshes the grid space's stop/peep mapping from the grown layout. Falls back
     /// to a full build only if there is no space yet.
     /// </summary>
-    void AppendProceduralTopDownWorld(TownChunk chunk)
+    void AppendProceduralTopDownWorld(TownChunk chunk, Transform chunkRoot)
     {
         if (topDownWorldRoot == null || _streamingTown == null || _streamingTown.Layout == null)
             return;
@@ -1271,8 +1353,83 @@ public class AutomationDriveController : MonoBehaviour
 
         ManualLayoutResult delta = ManualLayoutProjector.ProjectChunk(_streamingTown.Layout, chunk);
         RouteVisualBuilder.AppendProcedural(topDownWorldRoot, _topDownSpace.RouteContext,
-                                            delta, roadHalfWidth);
+                                            delta, roadHalfWidth, chunkRoot);
         _topDownSpace.RefreshFromLayout(_streamingTown.Layout, _rides);
+    }
+
+    StreamedChunkView CreateChunkView(TownChunk chunk)
+    {
+        if (chunk == null || topDownWorldRoot == null) return null;
+
+        var root = new GameObject($"StreamedChunk_{chunk.chunkIndex:000}");
+        root.transform.SetParent(topDownWorldRoot, false);
+
+        var view = new StreamedChunkView
+        {
+            chunkIndex = chunk.chunkIndex,
+            generationId = ++_chunkGenerationId,
+            root = root.transform,
+            minAlong = float.PositiveInfinity,
+            maxAlong = float.NegativeInfinity,
+        };
+
+        foreach (TownNode node in chunk.nodes)
+        {
+            if (node == null) continue;
+            view.nodeIds.Add(node.id);
+            view.minAlong = Mathf.Min(view.minAlong, node.alongTrunk);
+            view.maxAlong = Mathf.Max(view.maxAlong, node.alongTrunk);
+        }
+
+        if (float.IsInfinity(view.minAlong))
+        {
+            view.minAlong = 0f;
+            view.maxAlong = 0f;
+        }
+        return view;
+    }
+
+    void RefreshChunkWindow()
+    {
+        if (_streamedChunkViews.Count == 0 || topDownAgentView == null ||
+            _topDownSpace == null || _topDownSpace.RouteContext == null ||
+            _topDownSpace.RouteContext.Waypoints == null)
+            return;
+
+        float currentAlong = RouteMath.NearestDistanceAlong(
+            _topDownSpace.RouteContext.Waypoints, topDownAgentView.transform.position, out _);
+
+        int currentChunkIndex = _streamedChunkViews[0].chunkIndex;
+        foreach (StreamedChunkView view in _streamedChunkViews)
+        {
+            if (currentAlong >= view.minAlong)
+                currentChunkIndex = view.chunkIndex;
+            if (currentAlong <= view.maxAlong)
+                break;
+        }
+
+        int minChunk = currentChunkIndex - ActiveChunksBehind;
+        int maxChunk = currentChunkIndex + ActiveChunksAhead;
+        foreach (StreamedChunkView view in _streamedChunkViews)
+        {
+            bool inWindow = view.chunkIndex >= minChunk && view.chunkIndex <= maxChunk;
+            if (!inWindow && HasUnresolvedRideInChunk(view))
+                inWindow = true;
+            if (view.active != inWindow)
+                view.SetActive(inWindow);
+        }
+    }
+
+    bool HasUnresolvedRideInChunk(StreamedChunkView view)
+    {
+        if (view == null || _rides == null) return false;
+        foreach (GridRide ride in _rides)
+        {
+            if (ride == null || ride.delivered) continue;
+            if (view.nodeIds.Contains(ride.originNodeId) || view.nodeIds.Contains(ride.destNodeId))
+                return true;
+        }
+        return false;
     }
 
     static void TransferRideState(IReadOnlyList<GridRide> oldRides, List<GridRide> newRides)
@@ -1320,13 +1477,15 @@ public class AutomationDriveController : MonoBehaviour
     /// that never triggered it, keeping the gate mandatory before results.</summary>
     void BeginResults()
     {
-        if (!_progressionGateDone && _level.townPuzzle != TownPuzzleKind.None)
+        if (_interruptionScheduler == null)
+            _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
+
+        if (_interruptionScheduler.TryForceNextProgression(out TownPuzzleKind kind))
         {
-            bool shown = ShowSingleTownGate(2000 + _levelIndex, result =>
+            bool shown = ShowSingleTownGate(kind, 2000 + _levelIndex + _interruptionScheduler.CompletedProgressionGates, result =>
             {
                 _townPuzzleBonus += result != null ? result.Score : 0;
-                _progressionGateDone = true;
-                PlayRevealThenResults();
+                BeginResults();
             });
 
             if (shown)
@@ -1377,16 +1536,15 @@ public class AutomationDriveController : MonoBehaviour
         dialogue.PlayReveal(convo, page, ShowResults);
     }
 
-    /// <summary>Shows the level's single town puzzle (matching its TownPuzzleKind).
-    /// False when the level has none or its panel isn't wired.</summary>
-    bool ShowSingleTownGate(int seed, System.Action<MinigameResult> onDone)
+    /// <summary>Shows a scheduled town puzzle. False when its panel is not wired.</summary>
+    bool ShowSingleTownGate(TownPuzzleKind kind, int seed, System.Action<MinigameResult> onDone)
     {
-        if (_level.townPuzzle == TownPuzzleKind.FlowConnect && flowPuzzle != null)
+        if (kind == TownPuzzleKind.FlowConnect && flowPuzzle != null)
         {
             flowPuzzle.Show(seed, onDone);
             return true;
         }
-        if (_level.townPuzzle == TownPuzzleKind.CrateStack && cratePuzzle != null)
+        if (kind == TownPuzzleKind.CrateStack && cratePuzzle != null)
         {
             cratePuzzle.Show(seed, onDone);
             return true;
@@ -1407,6 +1565,7 @@ public class AutomationDriveController : MonoBehaviour
         int earned = sim.FaresCollected + ScoreCalculator.CurrencyFor(score);
         if (GameManager.Instance != null)
             GameManager.Instance.PendingCurrency += earned;
+        RefreshAutomationHud();
 
         string playerSolution = _lastRunWasCode
             ? codeEditor.Source
