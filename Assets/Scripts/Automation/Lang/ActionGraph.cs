@@ -51,9 +51,57 @@ public static class ActionGraphCompiler
     {
         response = null;
         if (string.IsNullOrWhiteSpace(json)) return false;
-        try { response = UnityEngine.JsonUtility.FromJson<ActionGraphResponse>(json); }
+
+        // Models often wrap the object in a ```json fence or add a sentence before/after.
+        // Raw JsonUtility.FromJson throws on any of that, which is what dead-ends Agent mode
+        // into "use Plan mode." Pull out the first balanced { … } object first.
+        string cleaned = ExtractJsonObject(json);
+        if (cleaned == null) return false;
+
+        try { response = UnityEngine.JsonUtility.FromJson<ActionGraphResponse>(cleaned); }
         catch { return false; }
         return response != null && response.nodes != null;
+    }
+
+    /// <summary>Strips markdown code fences and surrounding prose, returning the first
+    /// brace-balanced JSON object (ignoring braces inside strings), or null if none.</summary>
+    static string ExtractJsonObject(string raw)
+    {
+        string s = raw.Trim();
+
+        // Drop a leading ``` / ```json fence and the matching closing fence.
+        if (s.StartsWith("```"))
+        {
+            int firstNewline = s.IndexOf('\n');
+            if (firstNewline >= 0) s = s.Substring(firstNewline + 1);
+            int closeFence = s.LastIndexOf("```", System.StringComparison.Ordinal);
+            if (closeFence >= 0) s = s.Substring(0, closeFence);
+            s = s.Trim();
+        }
+
+        int start = s.IndexOf('{');
+        if (start < 0) return null;
+
+        int depth = 0;
+        bool inString = false, escape = false;
+        for (int i = start; i < s.Length; i++)
+        {
+            char c = s[i];
+            if (inString)
+            {
+                if (escape)        escape = false;
+                else if (c == '\\') escape = true;
+                else if (c == '"')  inString = false;
+            }
+            else if (c == '"') inString = true;
+            else if (c == '{') depth++;
+            else if (c == '}')
+            {
+                depth--;
+                if (depth == 0) return s.Substring(start, i - start + 1);
+            }
+        }
+        return null;
     }
 
     /// <summary>Compiles the graph to source. Returns false (with a reason) when the

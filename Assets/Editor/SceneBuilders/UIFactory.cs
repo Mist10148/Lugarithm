@@ -515,7 +515,8 @@ public static class UIFactory
     /// <see cref="CreateScrollView"/> result, and insets the viewport so content
     /// never sits under the bar. Auto-hides when the content fits.
     /// </summary>
-    public static Scrollbar AddVerticalScrollbar(ScrollRect scroll, float width = 12f)
+    public static Scrollbar AddVerticalScrollbar(ScrollRect scroll, float width = 12f,
+                                                 bool permanent = false)
     {
         var sbRt = CreateRect(scroll.transform, "Scrollbar Vertical",
                               new Vector2(1f, 0f), new Vector2(1f, 1f),
@@ -538,7 +539,11 @@ public static class UIFactory
         scrollbar.targetGraphic = handleImage;
 
         scroll.verticalScrollbar = scrollbar;
-        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+        // Permanent keeps the bar always visible (so the user can see there's more to read
+        // even before they hover); AutoHide tucks it away when everything already fits.
+        scroll.verticalScrollbarVisibility = permanent
+            ? ScrollRect.ScrollbarVisibility.Permanent
+            : ScrollRect.ScrollbarVisibility.AutoHide;
 
         // Keep content clear of the bar.
         if (scroll.viewport != null)

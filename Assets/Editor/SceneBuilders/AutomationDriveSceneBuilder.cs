@@ -397,6 +397,7 @@ public static class AutomationDriveSceneBuilder
         scrollRt.offsetMin = new Vector2(6f, 50f);
         scrollRt.offsetMax = new Vector2(-6f, -40f);
         scroll.vertical = true;
+        UIFactory.AddVerticalScrollbar(scroll, permanent: true);
 
         TMP_Text historyLabel = UIFactory.CreateText(chatContent, "History",
             "Ask me about your code, ask me to plan an approach, or switch to Agent and tell me what the jeepney should do.",
@@ -843,23 +844,28 @@ public static class AutomationDriveSceneBuilder
                                                  new Color(0.55f, 0.78f, 1f), TextAlignmentOptions.Center);
         UIFactory.Place(optimalHeader, new Vector2(0.5f, 1f), new Vector2(285f, -94f), new Vector2(520f, 30f));
 
-        var playerPanel = UIFactory.CreatePanel(window, "PlayerPanel",
-                                                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                                                UIFactory.PanelDarker);
-        UIFactory.Place(playerPanel, new Vector2(0.5f, 1f), new Vector2(-295f, -116f), new Vector2(560f, 440f));
-        var playerText = UIFactory.CreateText(playerPanel, "Text", "", 19f,
+        // Player + AI code panels scroll, so long solutions/AI versions never clip.
+        ScrollRect playerScroll = UIFactory.CreateScrollView(window, "PlayerScroll",
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform playerContent);
+        UIFactory.Place((RectTransform)playerScroll.transform, new Vector2(0.5f, 1f),
+                        new Vector2(-295f, -116f), new Vector2(560f, 440f));
+        UIFactory.AddVerticalScrollbar(playerScroll, permanent: true);
+        var playerText = UIFactory.CreateText(playerContent, "Text", "", 19f,
                                               UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        playerText.rectTransform.offsetMin = new Vector2(12f, 8f);
-        playerText.rectTransform.offsetMax = new Vector2(-12f, -8f);
+        playerText.enableWordWrapping = true;
+        var playerFit = playerText.gameObject.AddComponent<ContentSizeFitter>();
+        playerFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        var optimalPanel = UIFactory.CreatePanel(window, "OptimalPanel",
-                                                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                                                 UIFactory.PanelDarker);
-        UIFactory.Place(optimalPanel, new Vector2(0.5f, 1f), new Vector2(295f, -116f), new Vector2(560f, 440f));
-        var optimalText = UIFactory.CreateText(optimalPanel, "Text", "", 19f,
+        ScrollRect optimalScroll = UIFactory.CreateScrollView(window, "OptimalScroll",
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform optimalContent);
+        UIFactory.Place((RectTransform)optimalScroll.transform, new Vector2(0.5f, 1f),
+                        new Vector2(295f, -116f), new Vector2(560f, 440f));
+        UIFactory.AddVerticalScrollbar(optimalScroll, permanent: true);
+        var optimalText = UIFactory.CreateText(optimalContent, "Text", "", 19f,
                                                UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        optimalText.rectTransform.offsetMin = new Vector2(12f, 8f);
-        optimalText.rectTransform.offsetMax = new Vector2(-12f, -8f);
+        optimalText.enableWordWrapping = true;
+        var optimalFit = optimalText.gameObject.AddComponent<ContentSizeFitter>();
+        optimalFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
         var stats = UIFactory.CreateText(window, "Stats", "", 24f, UIFactory.Accent);
         UIFactory.Place(stats, new Vector2(0.5f, 0f), new Vector2(0f, 174f), new Vector2(1160f, 34f));

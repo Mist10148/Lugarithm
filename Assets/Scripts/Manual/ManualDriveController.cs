@@ -74,7 +74,15 @@ public class ManualDriveController : MonoBehaviour
     bool  _conversationDone; // story passenger's chat finished — a completion gate (with arrival)
     bool  _destinationFinalized; // chat ended → capped streaming so a real drop-off terminal exists
     bool  _arrivedNudged;    // showed the "finish your chat" nudge once on early arrival
+    bool  _boardingPlayed;   // boarding/story dialogue has played this leg (never replays)
+    bool    _storyDropoffArmed;   // a drop-off marker has been placed (dialogue ended)
+    Vector2 _storyDropoffWorld;   // fixed world position of the story drop-off
+    GameObject _storyMarker;      // distinct on-road marker at the drop-off
     string _storyPassengerName = "Your passenger";
+
+    const float StoryDropoffBufferUnits   = 14f;   // how far ahead the drop-off is placed
+    const float StoryDropoffRadius        = 3.5f;  // how close counts as "arrived" at it
+    const float StoryDropoffBufferSeconds = 2.5f;  // beat of driving after the chat before it shows
 
     const float StreamLookAhead = 45f;
 
@@ -104,8 +112,13 @@ public class ManualDriveController : MonoBehaviour
                 ? proceduralSeed
                 : (System.Guid.NewGuid().GetHashCode() & 0x7fffffff);
             _streaming = StreamingTownGenerator.Begin(_def.procedural, _def.fares, seed);
-            _maxChunks = int.MaxValue;   // endless streaming: finite STORY spine + optional free-roam tail
+            _streaming.EndlessNoTerminal = true;   // no "Destination" end sign — the road never ends
+            _maxChunks = int.MaxValue;   // endless streaming; the leg ends at the story drop-off, not a terminal
             TownLayout layout = _streaming.Layout;
+            // Demote the authored terminal so no end-sign shows; the story passenger is dropped
+            // at a marked stop along the way instead (armed when the dialogue ends).
+            TownNode initialDest = layout.Node(layout.destNodeId);
+            if (initialDest != null) initialDest.kind = NodeKind.Junction;
             ManualLayoutResult projected = ManualLayoutProjector.Project(layout);
 
             _ctx       = RouteVisualBuilder.BuildProcedural(root, projected, _def.manual.roadHalfWidth);
@@ -273,6 +286,15 @@ public class ManualDriveController : MonoBehaviour
 
     void PlayBoardingDialogue()
     {
+        // Play the story conversation exactly once per leg — free-roam and streaming must
+        // never replay it.
+        if (_boardingPlayed)
+        {
+            Debug.LogWarning("[Manual] PlayBoardingDialogue re-entry blocked (dialogue already played).");
+            return;
+        }
+        _boardingPlayed = true;
+
         // No conversation for this leg → nothing to finish talking about; let arrival
         // alone complete the leg (don't deadlock the conversation gate).
         if (dialogue == null) { _conversationDone = true; return; }
@@ -299,9 +321,11 @@ public class ManualDriveController : MonoBehaviour
             // endless procedural stream stops receding and the leg can actually end.
             FinalizeStoryDestination();
 
-            // The tutorial is a guided story with no destination to drive to, so
-            // finishing the dialogue IS finishing the leg.
-            if (_tutorialComplete && !_storyComplete)
+            // On the endless procedural road (every level + tutorial) the leg ends only
+            // after driving the story passenger to their drop-off (handled by the
+            // arrival gate in Update) — finishing the chat alone must not end it. Only a
+            // non-procedural tutorial (legacy/safety) completes on its chat alone.
+            if (_tutorialComplete && !_proceduralActive && !_storyComplete)
             {
                 _storyComplete = true;
                 OnStoryComplete();
@@ -415,28 +439,28 @@ public class ManualDriveController : MonoBehaviour
         if (_progression != null && (_breakdown == null || !_breakdown.InProgress))
             _progression.Tick(along);
 
-        // Leg ends when the player presses "Finish leg" after the destination
-        // has been serviced and every fare is settled.
+        // The story passenger alights at their marked drop-off (placed when the chat ended),
+        // like a normal NPC: once the jeepney reaches the marker AND the chat is finished, the
+        // front-seat card disappears and the leg completes. The road keeps streaming endlessly.
         bool drawerBusy = coinDrawer != null && coinDrawer.Busy;
         bool servicing  = _passengers != null && _passengers.IsServicing;
-        bool arrived    = _passengers != null && _passengers.ArrivedAtDestination;
-
-        // The leg ends only when BOTH gates are met: the story passenger is delivered
-        // (arrived + settled) AND their conversation has finished. Either order is fine
-        // — whichever happens last triggers it. Latched so streaming's
-        // AppendChunk()->ResetDestinationArrival() can't re-hide the button afterwards.
-        bool deliverable = arrived && !drawerBusy && !servicing;
-        if (deliverable && _conversationDone && !_storyComplete)
+        if (_storyDropoffArmed && !_storyComplete && !drawerBusy && !servicing)
         {
-            _storyComplete = true;
-            OnStoryComplete();
-        }
-        else if (deliverable && !_conversationDone && !_storyComplete && !_arrivedNudged)
-        {
-            // Arrived but still mid-conversation — nudge once; completion waits for the chat.
-            _arrivedNudged = true;
-            if (toast != null)
-                toast.Show($"{_storyPassengerName} still has more to say — finish your chat.");
+            bool atDrop = Vector2.Distance((Vector2)jeepney.transform.position, _storyDropoffWorld)
+                          <= StoryDropoffRadius;
+            if (atDrop && _conversationDone)
+            {
+                _storyComplete = true;
+                ShowFrontSeatCard(null);                                  // passenger has alighted
+                if (_storyMarker != null) _storyMarker.SetActive(false);
+                OnStoryComplete();
+            }
+            else if (atDrop && !_conversationDone && !_arrivedNudged)
+            {
+                _arrivedNudged = true;
+                if (toast != null)
+                    toast.Show($"{_storyPassengerName} still has more to say — finish your chat.");
+            }
         }
 
         // Once the story is complete the Finish button stays up permanently,
@@ -444,8 +468,11 @@ public class ManualDriveController : MonoBehaviour
         if (_storyComplete && _revealPlayed && legCompletion != null && !legCompletion.IsVisible)
             legCompletion.Show();
 
-        // Stream more road ahead when the jeepney approaches the current frontier.
-        if (_proceduralActive && _streaming != null && !_finished)
+        // Stream more road ahead when the jeepney approaches the current frontier — but not
+        // while a minigame is up (the whole drive freezes behind the modal, jeepney included).
+        bool minigameActive = (_breakdown != null && _breakdown.InProgress) ||
+                              (_progression != null && _progression.InProgress);
+        if (_proceduralActive && _streaming != null && !_finished && !minigameActive)
         {
             float distToEnd = Vector2.Distance(jeepney.transform.position, _streaming.TrunkEndPos);
             if (distToEnd < StreamLookAhead)
@@ -480,29 +507,58 @@ public class ManualDriveController : MonoBehaviour
     }
 
     /// <summary>
-    /// Called once the front-seat character's chat ends. In a procedural town the
-    /// trunk streams forever (so free-roam never hits an edge), which meant the
-    /// destination kept receding and the leg could never complete. Capping the
-    /// chunk count makes the current frontier terminal the real, final drop-off —
-    /// after a short buffer chunk so it isn't dropped right on top of the jeepney.
-    /// Authored routes already have a fixed terminal, so this only matters for
-    /// procedural levels.
+    /// Called once the front-seat character's chat ends. Marks the story passenger's drop-off
+    /// a short distance ahead on the road and pins it to a fixed world position — the road keeps
+    /// streaming forever (no cap, no end terminal). The passenger alights there like any NPC
+    /// (Update's proximity check), which hides the front-seat card and completes the leg.
     /// </summary>
     void FinalizeStoryDestination()
     {
         if (_destinationFinalized) return;
         _destinationFinalized = true;
 
-        if (_proceduralActive)
+        if (_proceduralActive && _ctx != null && _ctx.Waypoints != null && jeepney != null)
         {
-            // Allow at most one more chunk (the buffer); after that AppendChunk
-            // early-returns and stops calling ResetDestinationArrival(), so the
-            // frontier terminal's IsDestination lets ArrivedAtDestination latch.
-            _maxChunks = _chunksAppended + 1;
+            // Buffer: keep driving a beat after the chat, THEN show the drop-off ahead.
+            if (toast != null)
+                toast.Show($"“Para!”  {_storyPassengerName}'s stop is coming up…");
+            StartCoroutine(ArmStoryDropoffAfterBuffer());
         }
+    }
 
-        if (toast != null && _ctx != null && _ctx.DestinationZone != null)
-            toast.Show($"“Para!”  Drop {_storyPassengerName} at {_ctx.DestinationZone.StopName}");
+    /// <summary>Waits a short buffer after the dialogue, then places the story drop-off marker
+    /// ahead of the jeepney's CURRENT position (so it's always ahead) and shows it.</summary>
+    System.Collections.IEnumerator ArmStoryDropoffAfterBuffer()
+    {
+        yield return new WaitForSeconds(StoryDropoffBufferSeconds);
+        if (_storyComplete || _ctx == null || _ctx.Waypoints == null || jeepney == null) yield break;
+
+        float along = RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out _);
+        _storyDropoffWorld = RouteMath.PointAt(_ctx.Waypoints, along + StoryDropoffBufferUnits);
+        _storyDropoffArmed = true;
+        SpawnStoryMarker(_storyDropoffWorld);
+        if (toast != null)
+            toast.Show($"Drop {_storyPassengerName} at the marked stop ahead.");
+    }
+
+    /// <summary>Spawns (or repositions) the distinct on-road marker at the story drop-off.</summary>
+    void SpawnStoryMarker(Vector2 world)
+    {
+        Transform root = worldRoot != null ? worldRoot : transform;
+        if (_storyMarker == null)
+        {
+            _storyMarker = new GameObject("StoryDropoffMarker");
+            _storyMarker.transform.SetParent(root, false);
+            var sr = _storyMarker.AddComponent<SpriteRenderer>();
+            var tex = Texture2D.whiteTexture;
+            sr.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
+                                      new Vector2(0.5f, 0.5f), tex.width);
+            sr.color = new Color(0.30f, 0.85f, 0.95f, 1f);   // bright cyan beacon
+            sr.sortingOrder = 8;
+            _storyMarker.transform.localScale = new Vector3(2f, 2f, 1f);
+        }
+        _storyMarker.transform.position = new Vector3(world.x, world.y, 0f);
+        _storyMarker.SetActive(true);
     }
 
     /// <summary>
@@ -547,6 +603,12 @@ public class ManualDriveController : MonoBehaviour
     void OnKeepExploring()
     {
         if (jeepney != null) jeepney.InputLocked = false;
+
+        // Resume endless streaming for free-roam (the story drop-off capped it). Junction
+        // frontiers from here on, so no fresh "Destination" terminals appear past the drop-off.
+        _maxChunks = int.MaxValue;
+        if (_streaming != null) _streaming.EndlessNoTerminal = true;
+
         if (toast != null)
             toast.Show("Keep exploring — press Finish leg whenever you're ready.");
     }

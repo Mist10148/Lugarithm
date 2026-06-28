@@ -12,6 +12,18 @@ using UnityEngine.UI;
 /// </summary>
 public static class MinigameOverlayBuilder
 {
+    /// <summary>Lifts a minigame overlay above all gameplay/HUD/journal canvases so it always
+    /// renders in front while it's up (its own sorting canvas, above Almanac 200 / badge 300,
+    /// below the screen-fade transition 1000).</summary>
+    static void LiftToFront(RectTransform overlay)
+    {
+        if (overlay == null) return;
+        var canvas = overlay.gameObject.AddComponent<Canvas>();
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 500;
+        overlay.gameObject.AddComponent<GraphicRaycaster>();
+    }
+
     /// <summary>
     /// Compact post-minigame results card, parented alongside a minigame overlay.
     /// Non-code drills show outcome + score; code drills also reveal a CODE ANALYSIS
@@ -21,6 +33,7 @@ public static class MinigameOverlayBuilder
     {
         var overlay = UIFactory.CreatePanel(parent, "MinigameResultsOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.8f));
+        LiftToFront(overlay);
 
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), UIFactory.PanelDark);
@@ -70,6 +83,7 @@ public static class MinigameOverlayBuilder
     {
         var overlay = UIFactory.CreatePanel(parent, "FlowConnectOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.80f));
+        LiftToFront(overlay);
 
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -156,6 +170,7 @@ public static class MinigameOverlayBuilder
     {
         var overlay = UIFactory.CreatePanel(parent, "CrateStackOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.80f));
+        LiftToFront(overlay);
 
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -232,6 +247,7 @@ public static class MinigameOverlayBuilder
     {
         var overlay = UIFactory.CreatePanel(parent, "BreakdownOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.7f));
+        LiftToFront(overlay);
 
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -297,6 +313,7 @@ public static class MinigameOverlayBuilder
     {
         var overlay = UIFactory.CreatePanel(parent, "RefuelOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.7f));
+        LiftToFront(overlay);
 
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -367,6 +384,7 @@ public static class MinigameOverlayBuilder
     {
         var overlay = UIFactory.CreatePanel(parent, "CodeFixOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.7f));
+        LiftToFront(overlay);
 
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -446,6 +464,7 @@ public static class MinigameOverlayBuilder
     {
         var overlay = UIFactory.CreatePanel(parent, "MazeRepairOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.82f));
+        LiftToFront(overlay);
 
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -488,12 +507,17 @@ public static class MinigameOverlayBuilder
                                          TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(timer, new Vector2(0f, 0f), new Vector2(8f, 78f), new Vector2(180f, 32f));
 
-        Button run = UIFactory.CreateButton(left, "RunButton", "▶ RUN", new Vector2(180f, 56f));
-        UIFactory.Place(run, new Vector2(0.5f, 0f), new Vector2(-100f, 16f), new Vector2(180f, 56f));
+        Button run = UIFactory.CreateButton(left, "RunButton", "▶ RUN", new Vector2(160f, 56f));
+        UIFactory.Place(run, new Vector2(0.5f, 0f), new Vector2(-170f, 16f), new Vector2(160f, 56f));
         run.image.color = new Color(0.20f, 0.55f, 0.25f);
 
-        Button reset = UIFactory.CreateButton(left, "ResetButton", "↺ Reset", new Vector2(180f, 56f));
-        UIFactory.Place(reset, new Vector2(0.5f, 0f), new Vector2(100f, 16f), new Vector2(180f, 56f));
+        Button reset = UIFactory.CreateButton(left, "ResetButton", "↺ Reset", new Vector2(160f, 56f));
+        UIFactory.Place(reset, new Vector2(0.5f, 0f), new Vector2(0f, 16f), new Vector2(160f, 56f));
+
+        // Autopilot (testing): loads a known-good solver into the active surface and runs it.
+        Button autopilot = UIFactory.CreateButton(left, "AutopilotButton", "🤖 Autopilot", new Vector2(160f, 56f), 18f);
+        UIFactory.Place(autopilot, new Vector2(0.5f, 0f), new Vector2(170f, 16f), new Vector2(160f, 56f));
+        autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         // Co-Pilot hint (shared flow, minigame voice) — hidden until the player struggles.
         Button hintBtn = UIFactory.CreateButton(left, "HintButton", "💡 Hint", new Vector2(150f, 44f), 18f);
@@ -541,6 +565,7 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(game, "exec",          exec);
         SceneBuilderUtil.Wire(game, "runButton",     run);
         SceneBuilderUtil.Wire(game, "resetButton",   reset);
+        SceneBuilderUtil.Wire(game, "autopilotButton", autopilot);
         SceneBuilderUtil.Wire(game, "hintButton",    hintBtn);
         SceneBuilderUtil.Wire(game, "hintLabel",     hintLbl);
 

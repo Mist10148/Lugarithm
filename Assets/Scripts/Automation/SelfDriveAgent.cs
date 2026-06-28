@@ -12,13 +12,14 @@ public static class SelfDrivePlanner
     public static readonly string[] NavBlocks =
     {
         "moveForward", "turnLeft", "turnRight", "pickUp", "dropOff", "collectFare", "giveChange",
-        "driveToNextStop", "driveToTerminal", "while", "if", "ifElse",
+        "driveToNextStop", "driveToTerminal", "driveToDropoff", "keepDriving",
+        "while", "if", "ifElse",
         "functionDef", "callFunction",
     };
 
     public static readonly string[] NavQueries =
     {
-        "frontIsClear", "leftIsClear", "rightIsClear", "atStop", "routeComplete",
+        "frontIsClear", "leftIsClear", "rightIsClear", "atStop", "routeComplete", "moreRoad",
         "hasPassengerAboard", "atRequestedStop", "passengerWaiting",
     };
 
@@ -29,10 +30,13 @@ public static class SelfDrivePlanner
     };
 
     public const string ReferenceSolution =
-        "# Self-driving jeepney: define a helper for each job, then start the ride.\n" +
+        "# Self-driving jeepney for the endless road: cruise forever, tend every rider, and\n" +
+        "# drop your front-seat story passenger at their marked stop along the way.\n" +
+        "# moreRoad() is always true (the road never ends); driveToDropoff() cruises until the\n" +
+        "# story drop-off is ready, then heads straight for it.\n" +
         "def drive():\n" +
-        "    while not routeComplete():\n" +
-        "        driveToNextStop()\n" +
+        "    while moreRoad():\n" +
+        "        driveToDropoff()\n" +
         "        handleDropoffs()\n" +
         "        handlePassengers()\n" +
         "        handleFares()\n" +
@@ -114,19 +118,21 @@ public static class SelfDrivePlanner
             startFacing     = startFacing,
             useAuthoredGrid = true,
             requireAllPassengersDelivered = true,
+            endlessRoute    = true,   // procedural street keeps streaming; win = required riders delivered
             allowedBlocks   = NavBlocks,
             allowedQueries  = NavQueries,
             allowedReporters = NavReporters,
             parSteps        = plan.Count,
             softTimerSeconds = 600f,
-            goalText = "Self-driving run: program the jeepney to pick up every rider, " +
-                       "collect fares, give exact change, drop each at their stop, then finish the current route. " +
-                       "Use driveToNextStop() / driveToTerminal() to navigate.",
+            goalText = "Endless run: the road never ends. Pick up riders, collect fares, give exact " +
+                       "change, and drop your story passenger at their stop (driveToDropoff()). The leg " +
+                       "completes when they're delivered — keepDriving() to cruise on and serve more.",
             codeScaffold = "# Split the ride into helper functions, then call drive():\n" +
                            "#   drive(), handlePassengers(), handleFares(), handleDropoffs()\n" +
-                           "# Navigation: driveToNextStop(), driveToTerminal()\n" +
+                           "# Navigation: driveToNextStop(), driveToDropoff(), keepDriving()\n" +
                            "# Tend riders: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
-                           "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n",
+                           "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n" +
+                           "# Cruise forever:  while True:  keepDriving()\n",
             optimalSolutionText = ReferenceSolution,
         };
     }

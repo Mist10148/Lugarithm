@@ -24,7 +24,8 @@ public static class RoadsideDecorator
     };
 
     const float FrontGap     = 2.4f;   // sidewalk between road edge and building front
-    const float BuildingGap  = 0.6f;   // gap between adjacent buildings (continuous frontage)
+    const float BuildingGap  = 7.0f;   // grass gap between buildings (sparse frontage — perf)
+    const float BuildingChance = 0.5f; // fraction of clear slots that actually get a building
     const float EndPad       = 2.0f;   // keep clear of segment ends / corners
     const float StopPad      = 3.5f;   // extra clearance around stop signs / waiting peeps
     const float FolkOffset   = 1.8f;   // sidewalk distance for ambient people
@@ -101,9 +102,14 @@ public static class RoadsideDecorator
 
                     if (clear && !nearStop)
                     {
-                        SpawnBuilding(scenery, sprite, kind, center, angle);
-                        MaybeSpawnFolk(streetLife, rng, alongPt, sideNormal, dir, halfW,
-                                       roadHalfWidth, nearby, stopPositions);
+                        // Only dress some clear slots so the street stays sparse (far fewer
+                        // GameObjects per chunk → no streaming hitch), the rest stay grass.
+                        if (rng.NextDouble() < BuildingChance)
+                        {
+                            SpawnBuilding(scenery, sprite, kind, center, angle);
+                            MaybeSpawnFolk(streetLife, rng, alongPt, sideNormal, dir, halfW,
+                                           roadHalfWidth, nearby, stopPositions);
+                        }
                         d += size.x + BuildingGap;
                     }
                     else
@@ -133,11 +139,11 @@ public static class RoadsideDecorator
                                Vector2 sideNormal, Vector2 dir, float halfW, float roadHalfWidth,
                                List<RoadSegment> nearby, IReadOnlyList<Vector2> stops)
     {
-        if (rng.NextDouble() > 0.4) return;               // ~40% of frontages have folk
+        if (rng.NextDouble() > 0.15) return;              // ~15% of frontages have folk (perf)
         Sprite folkSprite = Load("townsfolk");
         if (folkSprite == null) return;
 
-        int n = 1 + rng.Next(2);                          // 1–2 people
+        int n = 1;                                        // a single ambient person
         for (int i = 0; i < n; i++)
         {
             float jitter = (float)(rng.NextDouble() * 2.0 - 1.0) * halfW * 0.6f;

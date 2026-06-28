@@ -8,6 +8,8 @@ public enum BlockType
     TurnRight,
     DriveToNextStop,
     DriveToTerminal,
+    KeepDriving,
+    DriveToDropoff,
     PickUp,
     DropOff,
     CollectFare,
@@ -65,6 +67,8 @@ public static class BlockProgram
             case BlockType.TurnRight:   return "turnRight";
             case BlockType.DriveToNextStop: return "driveToNextStop";
             case BlockType.DriveToTerminal: return "driveToTerminal";
+            case BlockType.KeepDriving:     return "keepDriving";
+            case BlockType.DriveToDropoff:  return "driveToDropoff";
             case BlockType.PickUp:      return "pickUp";
             case BlockType.DropOff:     return "dropOff";
             case BlockType.CollectFare: return "collectFare";
@@ -83,6 +87,8 @@ public static class BlockProgram
             case "turnRight":   return BlockType.TurnRight;
             case "driveToNextStop": return BlockType.DriveToNextStop;
             case "driveToTerminal": return BlockType.DriveToTerminal;
+            case "keepDriving":     return BlockType.KeepDriving;
+            case "driveToDropoff":  return BlockType.DriveToDropoff;
             case "pickUp":      return BlockType.PickUp;
             case "dropOff":     return BlockType.DropOff;
             case "collectFare": return BlockType.CollectFare;

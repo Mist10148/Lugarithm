@@ -122,7 +122,18 @@ public class AutomationDriveController : MonoBehaviour
     bool  _conversationDone; // story passenger's chat finished — a completion gate (with the win)
     bool  _storyLegShown;    // the reveal + LEVEL COMPLETE card have been shown (guard)
     bool  _solvedNudged;     // showed the "finish your chat" nudge once after an early solve
+    bool  _endlessWinFired;  // endless leg already detected its story-drop-off win mid-run (guard)
+    bool  _boardingPlayed;   // boarding/story dialogue has played this leg (never replays)
+    bool  _storyDropHandled; // front-seat card already torn down on the story drop-off (guard)
+    Vector3 _storyDropoffWorld;  // fixed world position of the story drop-off (stable across streaming)
+    bool  _storyDropoffArmed;
+    GameObject _storyMarker;     // the distinct on-road marker at the drop-off
     string _storyPassengerName = "Your passenger";
+
+    // How far ahead (in grid cells) the story drop-off marker is placed, and how long after the
+    // dialogue ends before it appears (a beat of normal driving, then the destination shows).
+    const int   StoryDropoffBufferCells   = 8;
+    const float StoryDropoffBufferSeconds = 2.5f;
 
     // Lookahead distance (world units) at which the procedural town streams the next
     // chunk ahead of the driving program — matches Manual's StreamLookAhead.
@@ -151,7 +162,16 @@ public class AutomationDriveController : MonoBehaviour
         {
             int seed = System.Guid.NewGuid().GetHashCode() & 0x7fffffff;
             _streamingTown = StreamingTownGenerator.Begin(_level.procedural, _level.fares, seed);
-            _maxChunks = int.MaxValue;   // stream endlessly until the story leg finalizes the destination
+            _streamingTown.EndlessNoTerminal = true;   // no "Destination" end sign — the road never stops
+            _maxChunks = int.MaxValue;   // stream endlessly; the leg completes on the story drop-off, not a terminal
+
+            // The authored trunk is already long enough to fill the screen, so instead of
+            // pre-streaming chunks (which spiked startup with hundreds of GameObjects), just
+            // demote the authored terminal so no "Destination" end-sign shows. The road then
+            // extends continuously as the program drives (TickProceduralStreaming).
+            TownNode initialDest = _streamingTown.Layout.Node(_streamingTown.Layout.destNodeId);
+            if (initialDest != null) initialDest.kind = NodeKind.Junction;
+
             proceduralLayout = _streamingTown.Layout;
             _def = SelfDrivePlanner.BuildPuzzle(proceduralLayout, _level.procedural.gen.gridCellSize,
                                                 out _rides, out _);
@@ -181,6 +201,12 @@ public class AutomationDriveController : MonoBehaviour
         _grid = grid;
         _startFacing = startFacing;
         if (_rides != null) sim.LoadRides(_rides);
+
+        // Endless procedural road: completion is the story drop-off (armed when the dialogue
+        // ends), not "all riders delivered". StoryLegMode keeps the leg from finishing early
+        // off filler riders while the road streams.
+        sim.EndlessRoute = useProceduralTopDown;
+        sim.StoryLegMode = useProceduralTopDown;
 
         IAgentView activeAgent = null;
         IGridSpace activeSpace = null;
@@ -219,8 +245,8 @@ public class AutomationDriveController : MonoBehaviour
 
             if (cameraFollow == null && worldCamera != null)
                 cameraFollow = worldCamera.gameObject.AddComponent<CameraFollow2D>();
-            if (cameraFollow != null)
-                cameraFollow.SnapTo(topDownAgentView.transform);
+            // NOTE: the camera is snapped to the jeepney AFTER exec.Init positions the agent
+            // at the start cell (below) — snapping here would point it at world origin first.
 
             if (worldCamera != null)
             {
@@ -255,6 +281,11 @@ public class AutomationDriveController : MonoBehaviour
             exec.OnWorldReset   += HandleWorldReset;
             exec.OnHotLine      += HandleHotLine;
         }
+
+        // Now that exec.Init has placed the agent at its start cell, lock the camera onto
+        // the real jeepney position (snapping earlier would frame the empty world origin).
+        if (_proceduralTopDown && cameraFollow != null && topDownAgentView != null)
+            cameraFollow.SnapTo(topDownAgentView.transform);
 
         // Workspace
         if (goalLabel != null) goalLabel.text = _def.goalText;
@@ -378,6 +409,45 @@ public class AutomationDriveController : MonoBehaviour
     void Update()
     {
         TickProceduralStreaming();
+        TickEndlessWinCheck();
+    }
+
+    /// <summary>
+    /// On the endless road a program can run forever (<c>while True: keepDriving()</c>),
+    /// so the leg can't wait for the program to finish to detect the win. The moment the
+    /// required story rider is delivered we complete the leg — but leave the program and
+    /// the road running (free-roam) so the player keeps cruising/testing.
+    /// </summary>
+    void TickEndlessWinCheck()
+    {
+        if (!_proceduralTopDown || _won || _endlessWinFired || _storyLegShown) return;
+        if (exec == null || exec.Sim == null || _def == null || !_def.endlessRoute) return;
+        if (exec.State != ExecutionController.ExecState.Running) return;
+        if (!exec.Sim.IsWin(_def)) return;
+
+        _endlessWinFired = true;
+        _won = true;
+        _optionalFreeRoam = true;   // keep streaming the road after the win
+        OnStoryDropped();
+        if (!_conversationDone && !_tutorialComplete && !_solvedNudged)
+        {
+            _solvedNudged = true;
+            if (console != null)
+                console.Info($"Delivered! Finish your chat with {_storyPassengerName} to wrap up — keep driving as long as you like.");
+        }
+        TryShowStoryComplete($"LEVEL COMPLETE — {_level.displayName}");
+    }
+
+    /// <summary>The front-seat story passenger just alighted at their marked drop-off — tear
+    /// down the "[name] is in the front seat" card (they're no longer aboard). Fires once.</summary>
+    void OnStoryDropped()
+    {
+        if (_storyDropHandled) return;
+        _storyDropHandled = true;
+        _storyDropoffArmed = false;             // stop re-pinning; the drop already happened
+        if (_storyMarker != null) _storyMarker.SetActive(false);   // marker served its purpose
+        ShowFrontSeatCard(null);                // hide the front-seat card
+        if (console != null) console.Info($"{_storyPassengerName} hopped off — salamat!");
     }
 
     /// <summary>
@@ -388,7 +458,8 @@ public class AutomationDriveController : MonoBehaviour
     /// </summary>
     void TickProceduralStreaming()
     {
-        if (!_proceduralTopDown || _streamingTown == null || _storyLegShown) return;
+        if (!_proceduralTopDown || _streamingTown == null) return;
+        if (_storyLegShown && !_optionalFreeRoam) return;   // resume streaming for free-roam
         if (_won && !_optionalFreeRoam) return;
         if (exec == null || exec.Sim == null || topDownAgentView == null) return;
         if (_chunksAppended >= _maxChunks) return;
@@ -404,6 +475,15 @@ public class AutomationDriveController : MonoBehaviour
 
     void PlayBoardingDialogue()
     {
+        // Play the story conversation exactly once per leg — free-roam, streaming, and
+        // program re-runs must never replay it.
+        if (_boardingPlayed)
+        {
+            Debug.LogWarning("[Automation] PlayBoardingDialogue re-entry blocked (dialogue already played).");
+            return;
+        }
+        _boardingPlayed = true;
+
         // No conversation → nothing to finish talking about; let the puzzle win alone
         // complete the leg (don't deadlock the conversation gate).
         if (dialogue == null) { _conversationDone = true; FinalizeStoryDestination(); return; }
@@ -431,21 +511,59 @@ public class AutomationDriveController : MonoBehaviour
     }
 
     /// <summary>
-    /// Caps procedural streaming one chunk past the current frontier once the story
-    /// conversation ends — so the frontier terminal becomes the real drop-off and the
-    /// last ride can complete, instead of the destination forever receding. Mirrors
-    /// <c>ManualDriveController.FinalizeStoryDestination</c>.
+    /// Called when the story conversation ends. Arms the story passenger's drop-off a short
+    /// buffer ahead on the existing road and freezes streaming so that cell stays valid while
+    /// the jeepney drives there — reaching it ends the leg. Streaming resumes (endless) only if
+    /// the player chooses to keep exploring. Mirrors <c>ManualDriveController</c>'s buffer-cap.
     /// </summary>
     void FinalizeStoryDestination()
     {
         if (_destinationFinalized) return;
         _destinationFinalized = true;
 
-        if (_proceduralTopDown)
-            _maxChunks = _chunksAppended + 1;
+        if (_proceduralTopDown && exec != null && exec.Sim != null && _topDownSpace != null)
+        {
+            // Buffer: drive on a beat after the chat, THEN show the drop-off ahead.
+            if (console != null)
+                console.Info($"\"Para!\" {_storyPassengerName}'s stop is coming up…");
+            StartCoroutine(ArmStoryDropoffAfterBuffer());
+        }
+    }
 
-        if (console != null && _proceduralTopDown)
-            console.Info($"\"Para!\" Drop {_storyPassengerName} at the terminal ahead.");
+    /// <summary>Waits a short buffer after the dialogue, then marks the story drop-off ahead of
+    /// the jeepney's CURRENT position and shows the marker — pinned to a fixed world spot so the
+    /// road can keep streaming forever without it drifting.</summary>
+    System.Collections.IEnumerator ArmStoryDropoffAfterBuffer()
+    {
+        yield return new WaitForSeconds(StoryDropoffBufferSeconds);
+        if (exec == null || exec.Sim == null || _topDownSpace == null || _storyDropHandled) yield break;
+
+        Vector2Int cell = exec.Sim.CellAhead(StoryDropoffBufferCells);
+        _storyDropoffWorld = _topDownSpace.CellToWorld(cell);
+        _storyDropoffArmed = true;
+        exec.Sim.ArmStoryDropoff(cell);
+        SpawnStoryMarker(_storyDropoffWorld);
+        if (console != null)
+            console.Info($"Drop {_storyPassengerName} at the marked stop ahead.");
+    }
+
+    /// <summary>Spawns (or repositions) the distinct on-road marker at the story drop-off.</summary>
+    void SpawnStoryMarker(Vector3 world)
+    {
+        if (_storyMarker == null)
+        {
+            _storyMarker = new GameObject("StoryDropoffMarker");
+            if (topDownWorldRoot != null) _storyMarker.transform.SetParent(topDownWorldRoot, false);
+            var sr = _storyMarker.AddComponent<SpriteRenderer>();
+            var tex = Texture2D.whiteTexture;
+            sr.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
+                                      new Vector2(0.5f, 0.5f), tex.width);
+            sr.color = new Color(0.30f, 0.85f, 0.95f, 1f);   // bright cyan beacon
+            sr.sortingOrder = 8;                              // above road, below the jeepney (10)
+            _storyMarker.transform.localScale = new Vector3(2f, 2f, 1f);
+        }
+        _storyMarker.transform.position = new Vector3(world.x, world.y, 0f);
+        _storyMarker.SetActive(true);
     }
 
     void HandleDialogueEvent(DialogueEventKind kind, string payload)
@@ -493,8 +611,13 @@ public class AutomationDriveController : MonoBehaviour
     {
         int seed = UnityEngine.Random.Range(0, 99999);
 
+        // Freeze the main program/agent (and thus streaming, gated on exec.State==Running)
+        // while the drill is on screen, so nothing keeps driving behind the minigame.
+        if (exec != null) exec.SetPaused(true);
+
         System.Action<MinigameResult> onDone = _ =>
         {
+            if (exec != null) exec.SetPaused(false);
             if (dialogue != null) dialogue.ResumeAfterEvent();
         };
 
@@ -659,12 +782,11 @@ public class AutomationDriveController : MonoBehaviour
         if (_won || exec == null) return;
 
         // Editor-first autopilot: place the reference program where the player can
-        // see it, then run through the same path as any hand-written solution.
+        // see and review it. The player presses RUN themselves (auto-running here
+        // caused redo/complete conflicts), so we only load it.
         if (!LoadAutopilotProgramForCurrentEditor())
             return;
-        if (console != null) console.Info("autopilot loaded the route program into the editor.");
-
-        OnRun();
+        if (console != null) console.Info("autopilot loaded the route program — press RUN to drive.");
     }
 
     public bool LoadAutopilotProgramForCurrentEditor()
@@ -955,6 +1077,7 @@ public class AutomationDriveController : MonoBehaviour
             }
 
             _won = true;
+            if (_proceduralTopDown) OnStoryDropped();   // a program that ends on routeComplete
             // The leg completes only when the puzzle is solved AND the story passenger's
             // chat is finished. If the chat is still going, hold and nudge once.
             if (!_conversationDone && !_tutorialComplete && !_solvedNudged)
@@ -1002,14 +1125,17 @@ public class AutomationDriveController : MonoBehaviour
 
     /// <summary>
     /// Shows the heritage reveal + LEVEL COMPLETE card once the leg's completion gates
-    /// are met: the tutorial needs only its chat to finish; story levels need BOTH the
-    /// puzzle solved (<see cref="_won"/>) and the conversation finished. Called from the
-    /// win path and from the dialogue-finished callback, so whichever happens last fires it.
+    /// are met. On the endless procedural road (every level + tutorial) completion needs
+    /// BOTH the conversation finished AND the jeepney driven to the story drop-off
+    /// (<see cref="_won"/>) — so the leg never ends the instant the chat does. Only a
+    /// non-procedural tutorial (legacy/safety) completes on its chat alone.
     /// </summary>
     void TryShowStoryComplete(string title)
     {
         if (_storyLegShown) return;
-        bool ready = _tutorialComplete ? _conversationDone : (_won && _conversationDone);
+        bool ready = (_tutorialComplete && !_proceduralTopDown)
+            ? _conversationDone
+            : (_won && _conversationDone);
         if (!ready) return;
 
         _storyLegShown = true;
@@ -1043,19 +1169,22 @@ public class AutomationDriveController : MonoBehaviour
         BeginResults();
     }
 
-    /// <summary>Automation levels use a fixed layout, so there is no free-roam — the
-    /// completion card hides "Keep exploring". This stays as a harmless hook in case
-    /// a future level enables it; the controller already leaves the Finish button up.</summary>
+    /// <summary>Keep exploring after the story drop-off: un-freeze the road (it streams
+    /// endlessly again), disarm the story drop-off so the leg can't instantly "re-win", and
+    /// let the player keep driving/coding. The story dialogue never replays.</summary>
     void OnKeepExploring()
     {
         if (!_proceduralTopDown)
             return;
 
         _optionalFreeRoam = true;
+        _maxChunks = int.MaxValue;                          // resume endless streaming
+        if (exec != null && exec.Sim != null)
+            exec.Sim.StoryDropoffArmed = false;             // leg already done; don't re-complete
         AppendProceduralRoute(keepProgramRunning: false);
         _won = false;
         if (console != null)
-            console.Info("new route added - keep coding, or press Finish leg when you're done.");
+            console.Info("keep cruising the endless road - or press Finish leg when you're done.");
     }
 
     /// <summary>
@@ -1107,6 +1236,11 @@ public class AutomationDriveController : MonoBehaviour
             exec.RebindStreamingWorld(_grid, _topDownSpace, _topDownSpace, _def, _startFacing);
         else
             exec.RebindWorld(_grid, _topDownSpace, _topDownSpace, _def, _startFacing);
+
+        // Re-pin the story drop-off cell to its fixed world position (the grid origin shifted),
+        // so the marker stays put even though the road kept streaming (no cap needed).
+        if (_storyDropoffArmed && !exec.Sim.StoryDelivered && _topDownSpace != null)
+            exec.Sim.StoryDropoffCell = NearestWalkable(_grid, _topDownSpace.WorldToCell(_storyDropoffWorld));
 
         if (goalLabel != null) goalLabel.text = _def.goalText;
         if (vibeCtrl != null) vibeCtrl.SetWorldContext(_grid, exec.Sim, _def);

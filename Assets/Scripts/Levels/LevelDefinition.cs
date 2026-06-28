@@ -111,6 +111,14 @@ public class AutomationPuzzleDefinition
     public bool requireAllPassengersDelivered = true;
 
     /// <summary>
+    /// When true, the road is an endless procedural street: the win is "all the
+    /// <i>required</i> riders delivered" (not "reach the receding frontier D"), and
+    /// generation keeps streaming forever afterwards. Set for procedural Automation
+    /// legs; authored mazes leave it false so they still finish at D.
+    /// </summary>
+    public bool endlessRoute = false;
+
+    /// <summary>
     /// When true, the routed CodeDrive scene uses this <see cref="gridMap"/> as-is
     /// instead of deriving a grid from the manual route — used for levels whose
     /// code puzzle is a standalone maze (e.g. Oton) rather than a route mirror.
@@ -180,8 +188,11 @@ public enum AnchorKind
 public class TownGenParams
 {
     [Header("Branch side-streets")]
-    public int   branchCountMin = 1;
-    public int   branchCountMax = 3;
+    // 0/0 = no intersecting side-streets. Every stop then sits on the single
+    // forward road, so a passenger's destination is always reachable and no
+    // stop-sign/passenger can spawn on a road the player can't drive to.
+    public int   branchCountMin = 0;
+    public int   branchCountMax = 0;
     public float branchSpacing  = 18f;  // min arc-length between branch roots (world units)
     public float branchLenMin   = 8f;
     public float branchLenMax   = 14f;

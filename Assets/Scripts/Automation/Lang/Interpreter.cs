@@ -59,6 +59,17 @@ public class Interpreter
     public const int MaxActions     = 1000;
     public const int MaxEvaluations = 20000;
 
+    /// <summary>Action ceiling for this run (the "infinite loop" guard). Defaults to
+    /// <see cref="MaxActions"/>; the host raises it for endless procedural legs where a
+    /// <c>while True: keepDriving()</c> cruise is intended and the run is visually paced
+    /// (one action per step), so a high ceiling can't freeze the editor.</summary>
+    public int ActionBudget = MaxActions;
+
+    /// <summary>Condition-evaluation ceiling for this run. Raised alongside
+    /// <see cref="ActionBudget"/> for endless legs so a long cruise isn't cut off by the
+    /// "stuck checking conditions" guard.</summary>
+    public int EvalBudget = MaxEvaluations;
+
     class Frame
     {
         public List<StmtNode> Body;
@@ -150,10 +161,10 @@ public class Interpreter
         {
             _repeatRemaining--;
             ActionsExecuted++;
-            if (ActionsExecuted > MaxActions)
+            if (ActionsExecuted > ActionBudget)
             {
                 return Trip(_repeatNode,
-                    $"stopped after {MaxActions} actions — this looks like an infinite loop.");
+                    $"stopped after {ActionBudget} actions — this looks like an infinite loop.");
             }
             return new StepResult { ActionName = _repeatAction, Node = _repeatNode };
         }
@@ -186,7 +197,7 @@ public class Interpreter
                 if (!stay)
                     _frames.Pop();
 
-                if (Evaluations > MaxEvaluations)
+                if (Evaluations > EvalBudget)
                     return Trip(frame.WhileLoop ?? (StmtNode)frame.ForLoop,
                         "this program seems stuck checking conditions forever.");
 
@@ -231,7 +242,7 @@ public class Interpreter
             if (result != null)
                 return result;
 
-            if (Evaluations > MaxEvaluations)
+            if (Evaluations > EvalBudget)
                 return Trip(stmt, "this program seems stuck checking conditions forever.");
         }
     }
@@ -497,8 +508,8 @@ public class Interpreter
 
             string baseAction = call.Name == "moveForward" ? "moveForward" : "wait";
             ActionsExecuted++;
-            if (ActionsExecuted > MaxActions)
-                return Trip(call, $"stopped after {MaxActions} actions — this looks like an infinite loop.");
+            if (ActionsExecuted > ActionBudget)
+                return Trip(call, $"stopped after {ActionBudget} actions — this looks like an infinite loop.");
 
             if (repeat <= 1)
                 return new StepResult { ActionName = baseAction, Node = call, ActionArgs = argValues };
@@ -510,8 +521,8 @@ public class Interpreter
         }
 
         ActionsExecuted++;
-        if (ActionsExecuted > MaxActions)
-            return Trip(call, $"stopped after {MaxActions} actions — this looks like an infinite loop.");
+        if (ActionsExecuted > ActionBudget)
+            return Trip(call, $"stopped after {ActionBudget} actions — this looks like an infinite loop.");
 
         return new StepResult { ActionName = call.Name, Node = call, ActionArgs = argValues };
     }
@@ -526,8 +537,8 @@ public class Interpreter
                 throw RuntimeLangError(assign.Line, arityError.Message);
 
             ActionsExecuted++;
-            if (ActionsExecuted > MaxActions)
-                return Trip(assign, $"stopped after {MaxActions} actions — this looks like an infinite loop.");
+            if (ActionsExecuted > ActionBudget)
+                return Trip(assign, $"stopped after {ActionBudget} actions — this looks like an infinite loop.");
 
             _pendingBindTarget = assign.Name;
             return new StepResult

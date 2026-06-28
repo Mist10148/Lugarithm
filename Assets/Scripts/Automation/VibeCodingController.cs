@@ -261,21 +261,37 @@ public class VibeCodingController : MonoBehaviour
                 UpdateBubble(reply, ConnectionError(result));
                 yield break;
             }
-            if (!ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+
+            // Turn the reply into source. Preferred path: the structured action graph.
+            // Fallback: the model sometimes emits raw Para code (often fenced) instead —
+            // accept that directly if it compiles, rather than dead-ending into Plan mode.
+            string compiled = null;
+            string compileError = null;
+            if (ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            {
+                lastMessage = graph.message ?? lastMessage;
+                if (!ActionGraphCompiler.TryCompile(graph, out compiled, out compileError))
+                    compiled = null;
+            }
+            else if (TryExtractParaProgram(result.Text, out string fallbackCode))
+            {
+                compiled = fallbackCode;
+                lastMessage = lastMessage ?? "Here's a program for you.";
+            }
+            else
             {
                 UpdateBubble(reply, ParseError(result));
                 yield break;
             }
-            lastMessage = graph.message;
 
-            // Syntax + vocabulary: compile the flat graph and check it against the level's
-            // unlocked names. A failure here is repaired with the compile/validation error.
-            if (!ActionGraphCompiler.TryCompile(graph, out string compiled, out string compileError) ||
+            // Syntax + vocabulary: check the source against the level's unlocked names.
+            // A failure here is repaired with the compile/validation error.
+            if (compiled == null ||
                 VibeCodingService.Validate(compiled, _allowedBlocks, _allowedQueries, out _) != null)
             {
                 if (attempt == maxRepairs) break;
                 string err = compileError ?? "the program used something that isn't unlocked here";
-                UpdateBubble(reply, (graph.message ?? "Let me fix that…").Trim() + "  (checking one correction…)");
+                UpdateBubble(reply, (lastMessage ?? "Let me fix that…").Trim() + "  (checking one correction…)");
                 request = VibeCodingService.BuildAgentRepairRequest(message, world, err);
                 continue;
             }
@@ -289,7 +305,7 @@ public class VibeCodingController : MonoBehaviour
             }
 
             if (attempt == maxRepairs) break;
-            UpdateBubble(reply, (graph.message ?? "Let me check my route…").Trim() + "  (testing and refining…)");
+            UpdateBubble(reply, (lastMessage ?? "Let me check my route…").Trim() + "  (testing and refining…)");
             request = VibeCodingService.BuildAgentRepairRequest(message, world,
                 "the program ran but didn't solve it — " + goalGap);
         }
@@ -309,6 +325,42 @@ public class VibeCodingController : MonoBehaviour
             UpdateBubble(reply, "I couldn't make a program that fits this level's rules, so I left your code " +
                 "unchanged. Try asking in Plan mode for the approach.");
         }
+    }
+
+    /// <summary>Fallback when the Agent reply isn't the structured action graph: the model
+    /// sometimes returns plain Para code (usually inside a ``` fence). Pull that out and accept
+    /// it only if it actually compiles to a non-empty program, so we still hand the player
+    /// something runnable instead of giving up and pointing them at Plan mode.</summary>
+    static bool TryExtractParaProgram(string text, out string code)
+    {
+        code = null;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+
+        string candidate = ExtractFencedCode(text);
+        ProgramNode program = Parser.Compile(candidate, out List<LangError> errors);
+        if (program == null || (errors != null && errors.Count > 0)) return false;
+        if (program.Statements == null || program.Statements.Count == 0) return false;
+
+        code = candidate;
+        return true;
+    }
+
+    /// <summary>Returns the contents of the first ``` fenced block, or the whole trimmed text
+    /// when there is no fence.</summary>
+    static string ExtractFencedCode(string text)
+    {
+        string s = text.Trim();
+        int fence = s.IndexOf("```", System.StringComparison.Ordinal);
+        if (fence >= 0)
+        {
+            int afterOpen = s.IndexOf('\n', fence);
+            if (afterOpen >= 0)
+            {
+                int close = s.IndexOf("```", afterOpen, System.StringComparison.Ordinal);
+                if (close >= 0) return s.Substring(afterOpen + 1, close - afterOpen - 1).Trim();
+            }
+        }
+        return s;
     }
 
     /// <summary>Drops a verified program onto the player's active surface: the block canvas in

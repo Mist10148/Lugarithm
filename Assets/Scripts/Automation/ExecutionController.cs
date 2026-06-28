@@ -15,7 +15,7 @@ public class ExecutionController : MonoBehaviour
     public enum ExecState { Idle, Running, Paused, Finished }
 
     [Header("Timing")]
-    [SerializeField] private float baseStepSeconds = 0.6f;   // heavier, slower cruise (Manual-like weight)
+    [SerializeField] private float baseStepSeconds = 1.0f;   // heavier, slower cruise (Manual-like weight)
 
     [Header("Heatmap")]
     [Tooltip("A line that executes this many times in a single frame is considered 'hot'.")]
@@ -131,6 +131,11 @@ public class ExecutionController : MonoBehaviour
             ResetWorld();
 
         _vm.Load(program);
+        // Endless procedural legs allow an intended forever-cruise (while True: keepDriving());
+        // execution is paced one action per step, so lift the runaway-loop guards for them.
+        bool endless = _def != null && _def.endlessRoute;
+        _vm.ActionBudget = endless ? int.MaxValue : Interpreter.MaxActions;
+        _vm.EvalBudget   = endless ? int.MaxValue : Interpreter.MaxEvaluations;
         _frameLineHits.Clear();
         State = ExecState.Running;
         _loop = StartCoroutine(ExecutionLoop());

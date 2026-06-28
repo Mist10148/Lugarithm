@@ -121,6 +121,48 @@ public class AgentSim : IAgentApi
     /// <summary>Seat capacity; reporters read this as the world state.</summary>
     public int SeatCapacity = 8;
 
+    /// <summary>Endless procedural road: the route never finishes at a fixed terminal,
+    /// so completion keys on the story drop-off being reached, not on standing at D.
+    /// Set by the controller for procedural Automation legs.</summary>
+    public bool EndlessRoute;
+
+    /// <summary>Live story leg (driven by the controller, not a headless test). When set,
+    /// the endless route only completes once the controller arms a story drop-off and the
+    /// jeepney reaches it — so the leg can't finish early off filler riders, and the road
+    /// stays endless until then. Headless tests leave this false and use "all rides
+    /// delivered" as the solvability condition.</summary>
+    public bool StoryLegMode;
+
+    /// <summary>The story passenger's drop-off cell, armed by the controller a short buffer
+    /// after the dialogue ends. The story passenger alights there (like any NPC) when
+    /// dropOff() is called on the cell, which sets <see cref="StoryDelivered"/>.</summary>
+    public bool       StoryDropoffArmed;
+    public Vector2Int StoryDropoffCell;
+
+    /// <summary>True once the story passenger has been dropped at the armed cell. Completes the
+    /// leg; the controller hides the front-seat card on this transition. The road keeps going.</summary>
+    public bool StoryDelivered;
+
+    /// <summary>Arms the story drop-off at <paramref name="cell"/> (called when the dialogue
+    /// ends, after a buffer). Until armed, a story leg can't complete. The controller keeps the
+    /// cell pinned to a fixed world position across streaming (so no road cap is needed).</summary>
+    public void ArmStoryDropoff(Vector2Int cell)
+    {
+        StoryDropoffCell  = cell;
+        StoryDropoffArmed = true;
+    }
+
+    /// <summary>A walkable cell <paramref name="steps"/> along the road ahead of the jeepney
+    /// (toward the current frontier), clamped to the path. Used to place the story drop-off a
+    /// short buffer ahead so the player/code drives to it before the leg ends.</summary>
+    public Vector2Int CellAhead(int steps)
+    {
+        List<Vector2Int> path = GridPathfinder.Path(_grid, Position, _grid.DestPos);
+        if (path == null || path.Count == 0) return Position;
+        int idx = Mathf.Clamp(steps, 0, path.Count - 1);
+        return path[idx];
+    }
+
     /// <summary>
     /// Switches to ride mode: each passenger boards at <see cref="GridRide.origin"/>
     /// and alights at their own <see cref="GridRide.dest"/>. Replaces the generic
@@ -293,21 +335,25 @@ public class AgentSim : IAgentApi
                 break;
 
             case "dropOff":
-                if (_rides != null) { DropOffRides(r); break; }
-                if (PassengersAboard == 0)
+                // The front-seat story passenger alights at their marked drop-off, like an NPC.
+                if (StoryDropoffArmed && !StoryDelivered && Position == StoryDropoffCell)
                 {
-                    r.Warning = "no passengers aboard.";
+                    StoryDelivered = true;
+                    r.DroppedOff   = true;
                 }
-                else if (Position == _grid.DestPos)
+                if (_rides != null) { DropOffRides(r); break; }
+                if (Position == _grid.DestPos && PassengersAboard > 0)
                 {
                     r.DeliveredCount     = PassengersAboard;
                     PassengersDelivered += PassengersAboard;
                     PassengersAboard     = 0;
                     r.DroppedOff         = true;
                 }
-                else
+                else if (!r.DroppedOff)
                 {
-                    r.Warning = "nobody wants to get off here — take them to the destination (D).";
+                    r.Warning = PassengersAboard == 0
+                        ? "no passengers aboard."
+                        : "nobody wants to get off here — take them to the destination (D).";
                 }
                 break;
 
@@ -350,6 +396,35 @@ public class AgentSim : IAgentApi
             case "driveToTerminal":
                 EnqueuePathTo(_grid.DestPos, r);
                 break;
+
+            case "driveToDropoff":
+            {
+                // While the story drop-off is armed and the passenger is still aboard, head
+                // straight for it — dropping them there is the leg's end. Otherwise cruise the
+                // endless road like keepDriving() (serve a nearby rider, else a short hop).
+                if (StoryDropoffArmed && !StoryDelivered)
+                {
+                    EnqueuePathTo(StoryDropoffCell, r);
+                }
+                else
+                {
+                    Vector2Int? stop = NearestRelevantStop();
+                    if (stop.HasValue) EnqueuePathTo(stop.Value, r);
+                    else               EnqueuePathTo(_grid.DestPos, r, maxSteps: 4);
+                }
+                break;
+            }
+
+            case "keepDriving":
+            {
+                // Endless cruise primitive: serve a nearby rider if there is one, else
+                // take a short hop toward the receding frontier so the controller can
+                // stream the next stretch ahead of us (the road never ends or stalls).
+                Vector2Int? stop = NearestRelevantStop();
+                if (stop.HasValue) EnqueuePathTo(stop.Value, r);
+                else               EnqueuePathTo(_grid.DestPos, r, maxSteps: 4);
+                break;
+            }
 
             default:
                 r.Warning = $"unknown action '{action}'.";
@@ -398,7 +473,8 @@ public class AgentSim : IAgentApi
                 delivered++;
             }
 
-        if (delivered > 0) { r.DroppedOff = true; r.DeliveredCount = delivered; }
+        if (delivered > 0) { r.DroppedOff = true; r.DeliveredCount += delivered; }
+        else if (r.DroppedOff) { /* the story passenger alighted here — no warning */ }
         else if (unpaidHere > 0) r.Warning = "collect fare and give exact change before letting this passenger off.";
         else if (PassengersAboard == 0) r.Warning = "no passengers aboard.";
         else r.Warning = "nobody wants to get off here.";
@@ -494,12 +570,17 @@ public class AgentSim : IAgentApi
         return best;
     }
 
-    void EnqueuePathTo(Vector2Int target, AgentActionResult r)
+    void EnqueuePathTo(Vector2Int target, AgentActionResult r, int maxSteps = int.MaxValue)
     {
         List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target);
         if (path == null) { r.Warning = "can't find a road to there."; return; }
+        int enqueued = 0;
         foreach (string move in GridPathfinder.ToActions(path, Facing))
+        {
+            if (enqueued >= maxSteps) break;   // short hop: keep the streamer ahead of us
             _pending.Enqueue(move);
+            enqueued++;
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -515,6 +596,7 @@ public class AgentSim : IAgentApi
             case "atStop":        return _grid.Get(Position) == GridModel.Cell.Stop;
             case "atDestination": return Position == _grid.DestPos;
             case "routeComplete": return RouteComplete();
+            case "moreRoad":      return true;   // the procedural road never ends — loop forever
             case "hasPassengerAboard": return PassengersAboard > 0;
             case "atRequestedStop":    return AtRequestedStop();
             case "atGoal":             return Position == _grid.DestPos;
@@ -552,6 +634,10 @@ public class AgentSim : IAgentApi
 
     bool AtRequestedStop()
     {
+        // The story passenger's marked drop-off counts as a requested stop, so the same
+        // `if atRequestedStop(): dropOff()` that serves NPC riders drops them too.
+        if (StoryDropoffArmed && !StoryDelivered && Position == StoryDropoffCell) return true;
+
         if (_rides != null)
         {
             foreach (GridRide ride in _rides)
@@ -626,15 +712,33 @@ public class AgentSim : IAgentApi
 
     bool RouteComplete()
     {
-        if (Position != _grid.DestPos) return false;
+        // Endless road: the leg ends at the story drop-off, not at a receding terminal.
+        if (EndlessRoute)
+        {
+            // Live story leg: complete only once the story passenger has been dropped at their
+            // marked stop (dialogue over + buffer + dropOff). Filler riders never finish the
+            // leg, so the road stays endless until the story is delivered.
+            if (StoryLegMode)
+                return StoryDelivered;
 
+            // Headless / solvability path (no controller): "all riders delivered".
+            if (_rides != null)
+            {
+                foreach (GridRide ride in _rides)
+                    if (!ride.delivered) return false;
+                return PassengersAboard == 0 && UnpaidFares == 0 && ChangeOwed() == 0;
+            }
+            return _waiting.Count == 0 && PassengersAboard == 0 && UnpaidFares == 0;
+        }
+
+        // Authored ride levels still finish at the fixed destination D.
+        if (Position != _grid.DestPos) return false;
         if (_rides != null)
         {
             foreach (GridRide ride in _rides)
                 if (!ride.delivered) return false;
             return PassengersAboard == 0 && UnpaidFares == 0 && ChangeOwed() == 0;
         }
-
         return _waiting.Count == 0 && PassengersAboard == 0 && UnpaidFares == 0;
     }
 
@@ -644,6 +748,12 @@ public class AgentSim : IAgentApi
     /// <summary>True when the puzzle's win condition is met right now.</summary>
     public bool IsWin(AutomationPuzzleDefinition def)
     {
+        // Endless road: completion is the story drop-off (live legs) or all riders delivered
+        // (headless), not "standing on the receding frontier D" — so the leg can finish while
+        // the road keeps generating.
+        if ((def != null && def.endlessRoute) || EndlessRoute)
+            return RouteComplete();
+
         if (Position != _grid.DestPos) return false;
 
         if (def != null && def.requireAllPassengersDelivered)
@@ -658,6 +768,27 @@ public class AgentSim : IAgentApi
     /// co-pilot can diagnose the actual gap rather than restate a generic miss.</summary>
     public string DescribeGoalGap(AutomationPuzzleDefinition def)
     {
+        bool endless = (def != null && def.endlessRoute) || EndlessRoute;
+
+        // On the endless road there is no fixed D to reach, so never complain about that.
+        if (endless && StoryLegMode)
+        {
+            if (StoryDelivered) return null;
+            if (!StoryDropoffArmed)
+                return "the story isn't over yet — keep driving (keepDriving / driveToDropoff) " +
+                       "and the drop-off appears once the chat wraps up.";
+            return "drive to the story passenger's marked drop-off (driveToDropoff) and dropOff() " +
+                   "to finish the leg.";
+        }
+        if (endless && _rides != null)
+        {
+            int left = 0;
+            foreach (GridRide ride in _rides) if (!ride.delivered) left++;
+            if (left > 0)
+                return $"{left} rider(s) still need their drop-off.";
+            return null;
+        }
+
         if (Position != _grid.DestPos)
             return $"The jeepney stopped at ({Position.x},{Position.y}) but the destination (D) " +
                    $"is at ({_grid.DestPos.x},{_grid.DestPos.y}) — it never reached D.";
