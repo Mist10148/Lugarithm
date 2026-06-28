@@ -146,6 +146,159 @@ public static class MinigameOverlayBuilder
         return panel;
     }
 
+    // -------------------------------------------------------------------------
+    // Overworld grid puzzle (Maze / BlockFill / PatternMatch) — a 6×6 board of
+    // clickable cells reused across the three non-code station kinds.
+
+    public static GridPuzzleMinigame BuildGridPuzzle(Transform parent)
+    {
+        var overlay = UIFactory.CreatePanel(parent, "GridPuzzleOverlay",
+                                            Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.82f));
+        LiftToFront(overlay);
+
+        var window = UIFactory.CreatePanel(overlay, "Window",
+                                           new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                           UIFactory.PanelDark);
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700f, 760f));
+
+        var title = UIFactory.CreateText(window, "Title", "", 28f, UIFactory.Accent, TextAlignmentOptions.Center);
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(640f, 40f));
+
+        var instruction = UIFactory.CreateText(window, "Instruction", "", 19f,
+                                               UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(instruction, new Vector2(0.5f, 1f), new Vector2(0f, -58f), new Vector2(640f, 48f));
+        instruction.enableWordWrapping = true;
+
+        int n = GridPuzzleMinigame.Grid;
+        var grid = UIFactory.CreateRect(window, "Grid", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+        UIFactory.Place(grid, new Vector2(0.5f, 0.5f), new Vector2(0f, 30f), new Vector2(540f, 540f));
+        var gl = grid.gameObject.AddComponent<GridLayoutGroup>();
+        gl.cellSize        = new Vector2(84f, 84f);
+        gl.spacing         = new Vector2(6f, 6f);
+        gl.startCorner     = GridLayoutGroup.Corner.UpperLeft;
+        gl.startAxis       = GridLayoutGroup.Axis.Horizontal;
+        gl.childAlignment  = TextAnchor.MiddleCenter;
+        gl.constraint      = GridLayoutGroup.Constraint.FixedColumnCount;
+        gl.constraintCount = n;
+
+        var images  = new Image[n * n];
+        var buttons = new Button[n * n];
+        for (int i = 0; i < n * n; i++)
+        {
+            var cellRt = UIFactory.CreateRect(grid, $"Cell_{i}",
+                                              new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            cellRt.sizeDelta = new Vector2(84f, 84f);
+            var img = cellRt.gameObject.AddComponent<Image>();
+            img.sprite = UIFactory.BuiltinSprite("UISprite.psd");
+            img.type   = Image.Type.Sliced;
+            img.color  = new Color(0.24f, 0.26f, 0.32f);
+            var btn = cellRt.gameObject.AddComponent<Button>();
+            btn.targetGraphic = img;
+            // The game controls cell colour directly, so don't let the button's
+            // tint transition fight it.
+            btn.transition = Selectable.Transition.None;
+            images[i]  = img;
+            buttons[i] = btn;
+        }
+
+        var feedback = UIFactory.CreateText(window, "Feedback", "", 22f, UIFactory.TextBright, TextAlignmentOptions.Center);
+        UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 96f), new Vector2(640f, 32f));
+
+        Button reset = UIFactory.CreateButton(window, "ResetButton", "Reset", new Vector2(200f, 56f));
+        UIFactory.Place(reset, new Vector2(0.5f, 0f), new Vector2(-120f, 28f), new Vector2(200f, 56f));
+
+        Button quit = UIFactory.CreateButton(window, "QuitButton", "Leave", new Vector2(200f, 56f));
+        UIFactory.Place(quit, new Vector2(0.5f, 0f), new Vector2(120f, 28f), new Vector2(200f, 56f));
+
+        var game = overlay.gameObject.AddComponent<GridPuzzleMinigame>();
+        SceneBuilderUtil.Wire(game, "root",             overlay.gameObject);
+        SceneBuilderUtil.Wire(game, "titleLabel",       title);
+        SceneBuilderUtil.Wire(game, "instructionLabel", instruction);
+        SceneBuilderUtil.Wire(game, "feedbackLabel",    feedback);
+        SceneBuilderUtil.WireArray(game, "cellImages",  images);
+        SceneBuilderUtil.WireArray(game, "cellButtons", buttons);
+        SceneBuilderUtil.Wire(game, "resetButton",      reset);
+        SceneBuilderUtil.Wire(game, "quitButton",       quit);
+        return game;
+    }
+
+    // -------------------------------------------------------------------------
+    // Overworld coding challenge — reorder shuffled program lines (concept-tied).
+
+    public static CodeOrderMinigame BuildCodeOrder(Transform parent)
+    {
+        var overlay = UIFactory.CreatePanel(parent, "CodeOrderOverlay",
+                                            Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.82f));
+        LiftToFront(overlay);
+
+        var window = UIFactory.CreatePanel(overlay, "Window",
+                                           new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                           UIFactory.PanelDark);
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(720f, 700f));
+
+        var title = UIFactory.CreateText(window, "Title", "", 26f, UIFactory.Accent, TextAlignmentOptions.Center);
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(680f, 40f));
+
+        var goal = UIFactory.CreateText(window, "Goal", "", 19f, UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(goal, new Vector2(0.5f, 1f), new Vector2(0f, -54f), new Vector2(660f, 44f));
+        goal.enableWordWrapping = true;
+
+        var list = UIFactory.CreateRect(window, "Cards", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
+        UIFactory.Place(list, new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(620f, 396f));
+        UIFactory.AddVerticalLayout(list, 8f, align: TextAnchor.UpperCenter);
+
+        int max = CodeOrderMinigame.MaxLines;
+        var labels = new TMP_Text[max];
+        var bgs    = new Image[max];
+        var ups    = new Button[max];
+        var downs  = new Button[max];
+        for (int i = 0; i < max; i++)
+        {
+            var row = UIFactory.CreateRect(list, $"Card_{i}",
+                                           new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            row.sizeDelta = new Vector2(600f, 56f);
+            UIFactory.SetLayoutSize(row, 600f, 56f);
+            var bg = row.gameObject.AddComponent<Image>();
+            bg.sprite = UIFactory.BuiltinSprite("UISprite.psd");
+            bg.type   = Image.Type.Sliced;
+            bg.color  = new Color(0.22f, 0.30f, 0.42f);
+
+            var label = UIFactory.CreateText(row, "Label", "", 22f, UIFactory.TextBright,
+                                             TextAlignmentOptions.MidlineLeft);
+            UIFactory.Place(label, new Vector2(0f, 0.5f), new Vector2(232f, 0f), new Vector2(420f, 48f));
+
+            Button up   = UIFactory.CreateButton(row, "Up",   "▲", new Vector2(62f, 46f), 22f);
+            UIFactory.Place(up,   new Vector2(1f, 0.5f), new Vector2(-84f, 0f), new Vector2(62f, 46f));
+            Button down = UIFactory.CreateButton(row, "Down", "▼", new Vector2(62f, 46f), 22f);
+            UIFactory.Place(down, new Vector2(1f, 0.5f), new Vector2(-16f, 0f), new Vector2(62f, 46f));
+
+            labels[i] = label; bgs[i] = bg; ups[i] = up; downs[i] = down;
+        }
+
+        var feedback = UIFactory.CreateText(window, "Feedback", "", 22f, UIFactory.TextBright, TextAlignmentOptions.Center);
+        UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 100f), new Vector2(660f, 32f));
+
+        Button run = UIFactory.CreateButton(window, "RunButton", "▶ RUN", new Vector2(200f, 56f));
+        UIFactory.Place(run, new Vector2(0.5f, 0f), new Vector2(-120f, 28f), new Vector2(200f, 56f));
+        run.image.color = new Color(0.20f, 0.55f, 0.25f);
+
+        Button quit = UIFactory.CreateButton(window, "QuitButton", "Leave", new Vector2(200f, 56f));
+        UIFactory.Place(quit, new Vector2(0.5f, 0f), new Vector2(120f, 28f), new Vector2(200f, 56f));
+
+        var game = overlay.gameObject.AddComponent<CodeOrderMinigame>();
+        SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
+        SceneBuilderUtil.Wire(game, "titleLabel",    title);
+        SceneBuilderUtil.Wire(game, "goalLabel",     goal);
+        SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
+        SceneBuilderUtil.WireArray(game, "cardLabels",      labels);
+        SceneBuilderUtil.WireArray(game, "cardBackgrounds", bgs);
+        SceneBuilderUtil.WireArray(game, "upButtons",       ups);
+        SceneBuilderUtil.WireArray(game, "downButtons",     downs);
+        SceneBuilderUtil.Wire(game, "runButton",  run);
+        SceneBuilderUtil.Wire(game, "quitButton", quit);
+        return game;
+    }
+
     public static FlowConnectMinigame BuildFlowConnect(Transform parent)
     {
         var overlay = UIFactory.CreatePanel(parent, "FlowConnectOverlay",

@@ -136,9 +136,14 @@ public static class TopDownSceneBuilder
                                         16f, UIFactory.TextDim);
         UIFactory.Place(hint, new Vector2(0f, 0f), new Vector2(18f, 18f), new Vector2(460f, 30f));
 
-        // Minigame-station access card (placeholder), shared overlay builder.
+        // Minigame-station access card (placeholder, for kinds with no game yet).
         MinigamePlaceholderPanel minigamePanel =
             MinigameOverlayBuilder.BuildMinigamePlaceholder(canvas.transform);
+
+        // Playable lightweight station games: a shared grid puzzle (maze / block-fill
+        // / pattern) and the concept-tied coding line-ordering challenge.
+        GridPuzzleMinigame gridPuzzle = MinigameOverlayBuilder.BuildGridPuzzle(canvas.transform);
+        CodeOrderMinigame  codeOrder  = MinigameOverlayBuilder.BuildCodeOrder(canvas.transform);
 
         // Exit button (top-right)
         Button exitButton = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit",
@@ -169,6 +174,8 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(controller, "exitButton",    exitButton);
         SceneBuilderUtil.Wire(controller, "dialogue",      dialogue);
         SceneBuilderUtil.Wire(controller, "minigamePanel", minigamePanel);
+        SceneBuilderUtil.Wire(controller, "gridPuzzle",    gridPuzzle);
+        SceneBuilderUtil.Wire(controller, "codeOrder",     codeOrder);
         SceneBuilderUtil.Wire(controller, "grassTile",     tGrass);
         SceneBuilderUtil.Wire(controller, "pathTile",      tPath);
         SceneBuilderUtil.Wire(controller, "wallTile",      tWall);

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -39,6 +40,8 @@ public class TopDownLevelController : MonoBehaviour
 
     [Header("Minigames")]
     [SerializeField] private MinigamePlaceholderPanel minigamePanel;
+    [SerializeField] private GridPuzzleMinigame gridPuzzle;   // maze / block-fill / pattern
+    [SerializeField] private CodeOrderMinigame  codeOrder;    // coding challenge
     [SerializeField] private Sprite puzzleStationSprite;
     [SerializeField] private Sprite codeStationSprite;
 
@@ -469,10 +472,47 @@ public class TopDownLevelController : MonoBehaviour
         if (!_stationDefs.TryGetValue(trigger, out MinigameStationDef def) || def == null)
             return;
 
-        // No panel wired (e.g. launched directly in editor) — mark solved so the
-        // objective loop still progresses, with a brief courtesy pause.
-        if (minigamePanel == null)
+        // Shared outcome handlers: solving marks the objective, quitting just
+        // releases input. Both clear the active flag and unlock the player.
+        Action onSolved = () =>
         {
+            _panelActive = false;
+            MarkStationSolved(trigger, def);
+            if (playerController != null) playerController.InputLocked = false;
+        };
+        Action onQuit = () =>
+        {
+            _panelActive = false;
+            if (playerController != null) playerController.InputLocked = false;
+        };
+
+        // Pick the game for this station kind; fall back to the placeholder card
+        // for kinds we haven't built a game for yet (e.g. ColorConnect).
+        bool launched = false;
+        if (def.IsCoding && codeOrder != null)
+        {
+            codeOrder.Begin(def, onSolved, onQuit);
+            launched = true;
+        }
+        else if (gridPuzzle != null &&
+                 (def.kind == MinigamePuzzleKind.Maze ||
+                  def.kind == MinigamePuzzleKind.BlockFill ||
+                  def.kind == MinigamePuzzleKind.PatternMatch))
+        {
+            gridPuzzle.Begin(def, onSolved, onQuit);
+            launched = true;
+        }
+        else if (minigamePanel != null)
+        {
+            bool alreadySolved = _solvedStations.Contains(def.id);
+            minigamePanel.Show(def, alreadySolved, onSolved, onQuit);
+            launched = true;
+        }
+
+        if (!launched)
+        {
+            // Nothing wired (e.g. launched directly in editor) — mark solved so
+            // the objective loop still progresses, with a brief courtesy pause.
             MarkStationSolved(trigger, def);
             if (playerController != null)
             {
@@ -485,20 +525,6 @@ public class TopDownLevelController : MonoBehaviour
         _panelActive = true;
         if (playerController != null) playerController.InputLocked = true;
         UpdatePrompt("");
-
-        bool alreadySolved = _solvedStations.Contains(def.id);
-        minigamePanel.Show(def, alreadySolved,
-            onComplete: () =>
-            {
-                _panelActive = false;
-                MarkStationSolved(trigger, def);
-                if (playerController != null) playerController.InputLocked = false;
-            },
-            onCancel: () =>
-            {
-                _panelActive = false;
-                if (playerController != null) playerController.InputLocked = false;
-            });
     }
 
     /// <summary>Records a station as solved, dims its marker, and refreshes the HUD.</summary>
