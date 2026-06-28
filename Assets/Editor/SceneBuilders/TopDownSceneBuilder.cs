@@ -98,9 +98,13 @@ public static class TopDownSceneBuilder
 
         var player = playerGo.AddComponent<TopDownPlayerController>();
 
-        // Wire camera follow
-        SceneBuilderUtil.Wire(follow, "target",   playerGo.transform);
-        SceneBuilderUtil.Wire(follow, "leadBody", rb);
+        // Wire camera follow. The overworld wants a Pokémon-style POV: stay
+        // centered on the player with only a touch of softness and NO velocity
+        // lead (the lead is for the drive scenes, where seeing road ahead helps).
+        SceneBuilderUtil.Wire(follow, "target",       playerGo.transform);
+        SceneBuilderUtil.Wire(follow, "smoothTime",   0.08f);
+        SceneBuilderUtil.Wire(follow, "velocityLead", 0f);
+        // leadBody intentionally left unwired so there is no directional lead.
 
         // --- HUD --------------------------------------------------------------------
 
