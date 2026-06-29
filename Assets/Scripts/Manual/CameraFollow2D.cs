@@ -61,4 +61,14 @@ public class CameraFollow2D : MonoBehaviour
     {
         transform.position = new Vector3(worldPos.x, worldPos.y, transform.position.z);
     }
+
+    /// <summary>Zeroes the internally tracked chase velocity. Call this right when the
+    /// followed target's motion comes to a hard discrete stop (e.g. Automation's per-step
+    /// agent tween finishing) so SmoothDamp doesn't carry momentum built up while chasing
+    /// a goal that just decelerated sharply — avoids a brief overshoot/snap-back at every
+    /// step boundary. Manual Mode's continuous-physics jeepney never needs this.</summary>
+    public void ResetVelocity()
+    {
+        _velocity = Vector3.zero;
+    }
 }

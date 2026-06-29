@@ -26,6 +26,15 @@ public class AgentActionResult
 
     /// <summary>Value returned by a value-returning action (e.g. collectFare).</summary>
     public Value ReturnValue;
+
+    /// <summary>Ride ids boarded this action (ride mode only) — pairs 1:1 with
+    /// BoardedDestLabels so the view layer can claim one ribbon chip per id.</summary>
+    public List<int>    BoardedRideIds;
+    public List<string> BoardedDestLabels;
+
+    /// <summary>Ride ids delivered this action (ride mode only) — the view layer
+    /// hides the matching chip for each id.</summary>
+    public List<int> DeliveredRideIds;
 }
 
 /// <summary>
@@ -44,6 +53,7 @@ public class GridRide
     public int        fare;
     public int        tender;
     public Color      color;
+    public string     destLabel = "Stop";   // display name for the ribbon chip
 
     public bool aboard;
     public bool delivered;
@@ -226,6 +236,7 @@ public class AgentSim : IAgentApi
                     id = ride.id, originNodeId = ride.originNodeId, destNodeId = ride.destNodeId,
                     origin = ride.origin, dest = ride.dest,
                     fare = ride.fare, tender = ride.tender, color = ride.color,
+                    destLabel = ride.destLabel,
                 });
             copy.LoadRides(ridesCopy);
         }
@@ -456,6 +467,11 @@ public class AgentSim : IAgentApi
                 PassengersAboard++;
                 UnpaidFares++;
                 boarded++;
+
+                r.BoardedRideIds ??= new List<int>();
+                r.BoardedDestLabels ??= new List<string>();
+                r.BoardedRideIds.Add(ride.id);
+                r.BoardedDestLabels.Add(ride.destLabel);
             }
 
         if (boarded > 0)
@@ -483,6 +499,9 @@ public class AgentSim : IAgentApi
                 PassengersAboard--;
                 PassengersDelivered++;
                 delivered++;
+
+                r.DeliveredRideIds ??= new List<int>();
+                r.DeliveredRideIds.Add(ride.id);
             }
 
         if (delivered > 0)

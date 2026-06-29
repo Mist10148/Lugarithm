@@ -214,7 +214,7 @@ public static class ManualDriveSceneBuilder
         return hud;
     }
 
-    static PassengerChip BuildChip(RectTransform parent, int index)
+    internal static PassengerChip BuildChip(RectTransform parent, int index)
     {
         var chip = UIFactory.CreateRect(parent, $"Chip_{index}",
                                         new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));

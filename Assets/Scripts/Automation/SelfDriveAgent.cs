@@ -76,6 +76,7 @@ public static class SelfDrivePlanner
                 fare   = fare,
                 tender = fare,
                 color  = new Color(0.95f, 0.65f, 0.15f),
+                destLabel = "Stop",   // no per-stop name data on an authored grid
             });
         return rides;
     }
@@ -85,17 +86,21 @@ public static class SelfDrivePlanner
     {
         var rides = new List<GridRide>();
         foreach (PassengerRequest req in layout.requests)
+        {
+            TownNode destNode = layout.Node(req.destNodeId);
             rides.Add(new GridRide
             {
                 id     = req.id,
                 originNodeId = req.originNodeId,
                 destNodeId = req.destNodeId,
                 origin = layout.Node(req.originNodeId).gridCell,
-                dest   = layout.Node(req.destNodeId).gridCell,
+                dest   = destNode.gridCell,
                 fare   = req.fare,
                 tender = req.tender,
                 color  = req.color,
+                destLabel = !string.IsNullOrEmpty(destNode.name) ? destNode.name : "Stop",
             });
+        }
         return rides;
     }
 

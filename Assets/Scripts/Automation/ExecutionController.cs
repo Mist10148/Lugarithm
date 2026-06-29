@@ -16,6 +16,9 @@ public class ExecutionController : MonoBehaviour
 
     [Header("Timing")]
     [SerializeField] private float baseStepSeconds = 1.0f;   // heavier, slower cruise (Manual-like weight)
+    [SerializeField] private float logicStepSeconds = 0.12f; // fast resolve for non-movement "logic" steps
+                                                               // (turns, pickUp, dropOff, collectFare,
+                                                               // giveChange) — movement keeps baseStepSeconds
 
     [Header("Heatmap")]
     [Tooltip("A line that executes this many times in a single frame is considered 'hot'.")]
@@ -189,6 +192,15 @@ public class ExecutionController : MonoBehaviour
         Speed = Mathf.Clamp(speed, 0.2f, 8f);
     }
 
+    /// <summary>True for the locomotion primitive — the only action type that keeps the
+    /// slow, Manual-matching cadence. Every other action (turns, pickUp, dropOff,
+    /// collectFare, giveChange, wait, and any future non-movement action) resolves at
+    /// logicStepSeconds instead, so logic steps don't carry a perceptible wait.</summary>
+    static bool IsMovementAction(string action) => action == "moveForward";
+
+    float DurationFor(string action) =>
+        IsMovementAction(action) ? baseStepSeconds / Speed : logicStepSeconds / Speed;
+
     void Stop()
     {
         if (_loop != null)
@@ -218,7 +230,7 @@ public class ExecutionController : MonoBehaviour
                     AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
                     OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
 
-                    float moveDuration = baseStepSeconds / Speed;
+                    float moveDuration = DurationFor(moveResult.Action);
                     Busy = true;
                     if (_view != null)
                         yield return _view.PlayAction(moveResult, moveDuration);
@@ -251,13 +263,20 @@ public class ExecutionController : MonoBehaviour
                     if (_sim.IsWin(_def)) { wonDuringPath = true; break; }
                 }
 
-                float pathMoveDuration = baseStepSeconds / Speed;
+                // A single duration applies to the whole batch passed to PlayPath; pick
+                // movement pacing if any move in the batch is a moveForward (movement
+                // dominates the visual feel), else the fast logic pace for an all-turns batch.
+                bool batchHasMovement = false;
+                foreach (AgentActionResult m in moves)
+                    if (IsMovementAction(m.Action)) { batchHasMovement = true; break; }
+                float pathMoveDuration = batchHasMovement ? baseStepSeconds / Speed : logicStepSeconds / Speed;
+
                 Busy = true;
                 if (_view is IPathAgentView pathView)
                     yield return pathView.PlayPath(moves, pathMoveDuration);
                 else if (_view != null)
                     foreach (AgentActionResult move in moves)
-                        yield return _view.PlayAction(move, pathMoveDuration);
+                        yield return _view.PlayAction(move, DurationFor(move.Action));
                 else
                     yield return new WaitForSeconds(pathMoveDuration * moves.Count);
                 Busy = false;
@@ -305,7 +324,7 @@ public class ExecutionController : MonoBehaviour
                     OnHotLine?.Invoke(line);
             }
 
-            float duration = baseStepSeconds / Speed;
+            float duration = DurationFor(result.Action);
             Busy = true;
             if (_view != null)
                 yield return _view.PlayAction(result, duration);

@@ -55,11 +55,23 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private Button stepButton;
     [SerializeField] private Button editorModeToggle;
 
+    [Header("Control Bar — Code window's own copy (duplicated toolbar)")]
+    [SerializeField] private Button codeRunButton;
+    [SerializeField] private Button codePauseButton;
+    [SerializeField] private Button codeResetButton;
+    [SerializeField] private Button codeStepButton;
+    [SerializeField] private Slider codeSpeedSlider;
+    [SerializeField] private TMP_Text codeSpeedLabel;
+    [SerializeField] private Button codeAutopilotButton;
+
     [Header("Readouts")]
     [SerializeField] private ConsoleController      console;
     [SerializeField] private StateMonitorController monitor;
     [SerializeField] private TMP_Text               walletLabel;
     [SerializeField] private Image                  automationFuelFill;
+    [SerializeField] private Image                  gaugeFuelFill;
+    [SerializeField] private TMP_Text               gaugeSpeedLabel;
+    [SerializeField] private PassengerRibbonController passengerRibbon;
     [SerializeField] private AutomationResultsPanel results;
 
     [Header("Town gate (non-code, required to advance)")]
@@ -368,7 +380,8 @@ public class AutomationDriveController : MonoBehaviour
         if (readmeCloseButton != null && readmePanel != null)
             readmeCloseButton.onClick.AddListener(() => readmePanel.SetActive(false));
 
-        // Control bar
+        // Control bar (Block window's copy — the Code window has its own identical
+        // copy wired below, kept in sync since both windows can be open at once).
         if (runButton    != null) runButton.onClick.AddListener(OnRun);
         if (pauseButton  != null) pauseButton.onClick.AddListener(OnPause);
         if (resetButton  != null) resetButton.onClick.AddListener(OnReset);
@@ -382,8 +395,14 @@ public class AutomationDriveController : MonoBehaviour
             {
                 SetSpeed(v);
                 if (speedLabel != null) speedLabel.text = $"×{v:0.0}";
+                if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = $"×{v:0.0}";
+                if (codeSpeedLabel != null) codeSpeedLabel.text = $"×{v:0.0}";
+                if (codeSpeedSlider != null && !Mathf.Approximately(codeSpeedSlider.value, v))
+                    codeSpeedSlider.SetValueWithoutNotify(v);
             });
         }
+
+        if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = "×1.0";
 
         if (stepButton != null)
             stepButton.onClick.AddListener(() => exec?.StepOnce());
@@ -400,6 +419,34 @@ public class AutomationDriveController : MonoBehaviour
             autopilotButton.onClick.AddListener(OnAutopilot);
         }
 
+        // Code window's own toolbar copy — identical wiring, kept in sync via the
+        // speed-slider listeners above/below so switching tabs mid-run stays consistent.
+        if (codeRunButton    != null) codeRunButton.onClick.AddListener(OnRun);
+        if (codePauseButton  != null) codePauseButton.onClick.AddListener(OnPause);
+        if (codeResetButton  != null) codeResetButton.onClick.AddListener(OnReset);
+        if (codeStepButton   != null) codeStepButton.onClick.AddListener(() => exec?.StepOnce());
+        if (codeAutopilotButton != null)
+        {
+            codeAutopilotButton.gameObject.SetActive(true);
+            codeAutopilotButton.onClick.AddListener(OnAutopilot);
+        }
+
+        if (codeSpeedSlider != null)
+        {
+            codeSpeedSlider.minValue = 0.2f;
+            codeSpeedSlider.maxValue = 8f;
+            codeSpeedSlider.value = 1f;
+            codeSpeedSlider.onValueChanged.AddListener(v =>
+            {
+                SetSpeed(v);
+                if (codeSpeedLabel != null) codeSpeedLabel.text = $"×{v:0.0}";
+                if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = $"×{v:0.0}";
+                if (speedLabel != null) speedLabel.text = $"×{v:0.0}";
+                if (speedSlider != null && !Mathf.Approximately(speedSlider.value, v))
+                    speedSlider.SetValueWithoutNotify(v);
+            });
+        }
+
         if (legCompletion != null)
         {
             legCompletion.OnFinishPressed += OnFinishLeg;
@@ -412,12 +459,15 @@ public class AutomationDriveController : MonoBehaviour
             console.Info("write a program, then press RUN");
         }
         if (monitor != null) monitor.ShowIdle();
+        if (passengerRibbon != null) passengerRibbon.Init();
         RefreshAutomationHud();
 
         _startTime = Time.time;
 
         PlayBoardingDialogue();
     }
+
+    bool _wasExecBusy;
 
     void Update()
     {
@@ -428,6 +478,17 @@ public class AutomationDriveController : MonoBehaviour
         if (_proceduralTopDown)
             RefreshChunkWindow();
         RefreshAutomationHud();
+
+        // The instant a discrete step's motion finishes (Busy true -> false), reset the
+        // camera's chase velocity so SmoothDamp doesn't carry overshoot-causing momentum
+        // into the next step's static hold. See CameraFollow2D.ResetVelocity().
+        if (exec != null && cameraFollow != null)
+        {
+            bool busyNow = exec.Busy;
+            if (_wasExecBusy && !busyNow)
+                cameraFollow.ResetVelocity();
+            _wasExecBusy = busyNow;
+        }
     }
 
     /// <summary>
@@ -1072,6 +1133,14 @@ public class AutomationDriveController : MonoBehaviour
                 : new Color(0.9f, 0.2f, 0.15f);
         }
 
+        if (gaugeFuelFill != null)
+        {
+            gaugeFuelFill.fillAmount = Mathf.Clamp01(_autoFuel);
+            gaugeFuelFill.color = _autoFuel > 0.25f
+                ? new Color(0.95f, 0.65f, 0.15f)
+                : new Color(0.9f, 0.2f, 0.15f);
+        }
+
         if (walletLabel == null) return;
 
         int saved = SaveSystem.Current != null ? SaveSystem.Current.currency : 0;
@@ -1097,6 +1166,25 @@ public class AutomationDriveController : MonoBehaviour
                 console.Info($"   fare collected: ₱{result.FareCollected}");
             if (result.ChangeGiven > 0)
                 console.Info($"   change given: ₱{result.ChangeGiven}");
+        }
+
+        if (passengerRibbon != null)
+        {
+            if (result.BoardedRideIds != null && exec != null && exec.Sim != null && exec.Sim.Rides != null)
+            {
+                for (int i = 0; i < result.BoardedRideIds.Count; i++)
+                {
+                    int rideId = result.BoardedRideIds[i];
+                    string label = result.BoardedDestLabels[i];
+                    Color tint = Color.white;
+                    foreach (GridRide ride in exec.Sim.Rides)
+                        if (ride.id == rideId) { tint = ride.color; break; }
+                    passengerRibbon.Claim(rideId, label, tint);
+                }
+            }
+            if (result.DeliveredRideIds != null)
+                foreach (int rideId in result.DeliveredRideIds)
+                    passengerRibbon.Release(rideId);
         }
 
         if (result.FareCollected > 0 && GameManager.Instance != null)
@@ -1137,6 +1225,7 @@ public class AutomationDriveController : MonoBehaviour
         if (monitor != null) monitor.ShowIdle();
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
         if (codeEditor != null) codeEditor.ClearHeat();
+        if (passengerRibbon != null) passengerRibbon.ReleaseAll();
         _autoFuel = 1f;
         _autoBreakdownActive = false;
         RefreshAutomationHud();

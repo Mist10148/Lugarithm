@@ -755,11 +755,15 @@ public static class MinigameOverlayBuilder
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
                                               new Vector2(580f, 20f), new Vector2(-20f, -56f));
 
+        // This overlay has its own left-column Run/Pause/Reset/Step/Speed/Autopilot
+        // controls (above), so the windows' embedded toolbar is skipped here.
         RectTransform blockPanel = AutomationDriveSceneBuilder.BuildBlockWindow(
             editorArea, (RectTransform)overlay.transform,
-            out BlockPaletteController palette, out BlockCanvasController blockCanvas);
+            out BlockPaletteController palette, out BlockCanvasController blockCanvas,
+            out _, out _, out _, out _, out _, out _, out _, embedToolbar: false);
         RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
-            editorArea, out CodeEditorController codeEditor, out VibeCodingController mazeVibe);
+            editorArea, out CodeEditorController codeEditor, out VibeCodingController mazeVibe,
+            out _, out _, out _, out _, out _, out _, out _, embedToolbar: false);
 
         // Execution engine (drives the shared AgentSim through the maze grid).
         var exec = overlay.gameObject.AddComponent<ExecutionController>();

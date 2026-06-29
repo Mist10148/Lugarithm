@@ -79,43 +79,6 @@ public static class AutomationDriveSceneBuilder
         goalText.rectTransform.offsetMax = new Vector2(-12f, -6f);
         goalText.enableWordWrapping = true;
 
-        // Control bar in its own band below the goal banner with a clear gutter,
-        // not flush against it. Stays in the left UI rail; never crosses the road.
-        var controlBar = UIFactory.CreatePanel(canvas.transform, "ControlBar",
-                                               new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                                               UIFactory.PanelDark);
-        UIFactory.Place(controlBar, new Vector2(0f, 1f), new Vector2(16f, -108f), new Vector2(640f, 48f));
-        UIFactory.AddHorizontalLayout(controlBar, 5f, new RectOffset(7, 7, 5, 5), TextAnchor.MiddleCenter);
-
-        Button run    = MakeBarButton(controlBar, "RunButton",   "RUN",    78f);
-        run.image.color = new Color(0.20f, 0.55f, 0.25f);
-        UIFactory.LocalizeButton(run, "auto.run");
-        Button pause  = MakeBarButton(controlBar, "PauseButton", "Pause",  66f);
-        UIFactory.LocalizeButton(pause, "auto.pause");
-        Button reset  = MakeBarButton(controlBar, "ResetButton", "Reset",  66f);
-        UIFactory.LocalizeButton(reset, "auto.reset");
-        Button step   = MakeBarButton(controlBar, "StepButton",  "Step",    58f);
-        UIFactory.LocalizeButton(step, "auto.step");
-
-        Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(128f, 34f));
-        speedSlider.minValue = 0.2f;
-        speedSlider.maxValue = 8f;
-        speedSlider.value = 1f;
-        var sliderLe = speedSlider.gameObject.GetComponent<LayoutElement>();
-        if (sliderLe == null) sliderLe = speedSlider.gameObject.AddComponent<LayoutElement>();
-        sliderLe.preferredWidth = 128f;
-        sliderLe.preferredHeight = 34f;
-
-        TMP_Text speedLabel = UIFactory.CreateText(controlBar, "SpeedLabel", "×1.0", 20f, UIFactory.TextBright);
-        var labelLe = speedLabel.gameObject.GetComponent<LayoutElement>();
-        if (labelLe == null) labelLe = speedLabel.gameObject.AddComponent<LayoutElement>();
-        labelLe.preferredWidth = 56f;
-        labelLe.preferredHeight = 36f;
-
-        Button autopilot = MakeBarButton(controlBar, "Autopilot", "Auto", 72f);
-        autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
-        UIFactory.LocalizeButton(autopilot, "auto.autopilot");
-
         // Exit (top-right corner)
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(110f, 42f));
         UIFactory.LocalizeButton(exit, "hud.exit");
@@ -131,6 +94,14 @@ public static class AutomationDriveSceneBuilder
         UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-10f, -58f), new Vector2(190f, 40f));
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
+        // Reopens/focuses the active editor window after it's been closed or
+        // minimized — wires to AutomationDriveController.FocusActiveEditor (already
+        // written, was previously dead code with no button assigned to it).
+        Button workspaceToggle = UIFactory.CreateButton(canvas.transform, "WorkspaceToggle",
+                                                        "Reopen Editor", new Vector2(190f, 40f), 18f);
+        UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-10f, -108f), new Vector2(190f, 40f));
+        workspaceToggle.image.color = new Color(0.35f, 0.35f, 0.40f);
+
         // Front-seat story-passenger card (top-center): who you're coding for + talking to.
         var frontSeat = UIFactory.CreatePanel(canvas.transform, "FrontSeatCard",
                                               new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -143,7 +114,30 @@ public static class AutomationDriveSceneBuilder
         frontSeat.gameObject.SetActive(false);
 
         RectTransform runStatus = BuildRunStatusHud(canvas.transform, out TMP_Text walletLabel, out Image autoFuelFill);
-        UIFactory.Place(runStatus, new Vector2(0.5f, 1f), new Vector2(0f, -80f), new Vector2(360f, 46f));
+        UIFactory.Place(runStatus, new Vector2(0f, 1f), new Vector2(18f, -340f), new Vector2(360f, 46f));
+        // Stacked below the passenger ribbon (300px reserved height, starting at -18) —
+        // re-check this offset in-engine if the ribbon's built height ever changes.
+
+        // Bottom-left gauge panel: fuel + execution-speed readout, mirroring Manual's
+        // dashboard corner (Automation has no throttle, so speed mirrors the toolbar slider).
+        RectTransform gaugePanel = BuildAutomationGaugePanel(canvas.transform, out Image gaugeFuelFill,
+                                                              out TMP_Text gaugeSpeedLabel);
+        UIFactory.Place(gaugePanel, new Vector2(0f, 0f), new Vector2(18f, 12f), new Vector2(260f, 130f));
+
+        // Passenger ribbon (top left) — same PassengerChip pool pattern as Manual Mode.
+        var ribbon = UIFactory.CreateRect(canvas.transform, "PassengerRibbon",
+                                          new Vector2(0f, 1f), new Vector2(0f, 1f));
+        UIFactory.Place(ribbon, new Vector2(0f, 1f), new Vector2(18f, -18f), new Vector2(300f, 300f));
+        var ribbonLayout = UIFactory.AddVerticalLayout(ribbon, 8f, align: TextAnchor.UpperLeft);
+        ribbonLayout.childAlignment = TextAnchor.UpperLeft;
+
+        var ribbonChips = new PassengerChip[4];   // smaller pool than Manual's 8 — Automation's
+                                                    // seat capacity ceiling is lower in practice
+        for (int i = 0; i < ribbonChips.Length; i++)
+            ribbonChips[i] = ManualDriveSceneBuilder.BuildChip(ribbon, i);
+
+        var ribbonCtrl = canvas.gameObject.AddComponent<PassengerRibbonController>();
+        SceneBuilderUtil.WireArray(ribbonCtrl, "chips", ribbonChips);
 
         // --- Floating editor windows (Block / Code) ---------------------------------
 
@@ -152,18 +146,22 @@ public static class AutomationDriveSceneBuilder
                                               Vector2.zero, Vector2.zero);
 
         RectTransform blockPanel = BuildBlockWindow(
-            editorArea, (RectTransform)canvas.transform, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
+            editorArea, (RectTransform)canvas.transform, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas,
+            out Button run, out Button pause, out Button reset, out Button step,
+            out Slider speedSlider, out TMP_Text speedLabel, out Button autopilot);
         blockPanel.anchorMin = new Vector2(0f, 0f);
         blockPanel.anchorMax = new Vector2(0.365f, 1f);
         blockPanel.offsetMin = new Vector2(24f, 24f);
-        blockPanel.offsetMax = new Vector2(-12f, -212f);
+        blockPanel.offsetMax = new Vector2(-12f, -120f);
 
         RectTransform codePanel = BuildCodeWindow(
-            editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl);
+            editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl,
+            out Button codeRun, out Button codePause, out Button codeReset, out Button codeStep,
+            out Slider codeSpeedSlider, out TMP_Text codeSpeedLabel, out Button codeAutopilot);
         codePanel.anchorMin = new Vector2(0f, 0f);
         codePanel.anchorMax = new Vector2(0.365f, 1f);
         codePanel.offsetMin = new Vector2(24f, 24f);
-        codePanel.offsetMax = new Vector2(-12f, -212f);
+        codePanel.offsetMax = new Vector2(-12f, -120f);
 
         // Co-Pilot hint button + label (bottom-right of workspace)
         Button hintBtn = UIFactory.CreateButton(workspace, "HintButton",
@@ -224,6 +222,9 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "results",        results);
         SceneBuilderUtil.Wire(controller, "walletLabel",    walletLabel);
         SceneBuilderUtil.Wire(controller, "automationFuelFill", autoFuelFill);
+        SceneBuilderUtil.Wire(controller, "passengerRibbon", ribbonCtrl);
+        SceneBuilderUtil.Wire(controller, "gaugeFuelFill",  gaugeFuelFill);
+        SceneBuilderUtil.Wire(controller, "gaugeSpeedLabel", gaugeSpeedLabel);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",     flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",    cratePuzzle);
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);
@@ -235,6 +236,17 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "legCompletion",  legCompletion);
         SceneBuilderUtil.Wire(controller, "frontSeatCard",  frontSeat.gameObject);
         SceneBuilderUtil.Wire(controller, "frontSeatLabel", frontSeatLabel);
+        SceneBuilderUtil.Wire(controller, "workspaceToggleButton", workspaceToggle);
+
+        // Code window's own toolbar copy (Block window's copy is wired above via the
+        // original run/pause/reset/step/speedSlider/speedLabel/autopilot fields).
+        SceneBuilderUtil.Wire(controller, "codeRunButton",      codeRun);
+        SceneBuilderUtil.Wire(controller, "codePauseButton",    codePause);
+        SceneBuilderUtil.Wire(controller, "codeResetButton",    codeReset);
+        SceneBuilderUtil.Wire(controller, "codeStepButton",     codeStep);
+        SceneBuilderUtil.Wire(controller, "codeSpeedSlider",    codeSpeedSlider);
+        SceneBuilderUtil.Wire(controller, "codeSpeedLabel",     codeSpeedLabel);
+        SceneBuilderUtil.Wire(controller, "codeAutopilotButton", codeAutopilot);
 
         SceneBuilderUtil.SaveScene(scene, "AutomationDrive");
     }
@@ -322,16 +334,33 @@ public static class AutomationDriveSceneBuilder
     /// <summary>Scratch-style block window: palette column + drag-and-drop canvas.</summary>
     internal static RectTransform BuildBlockWindow(RectTransform parent, RectTransform dragLayer,
                                                    out BlockPaletteController palette,
-                                                   out BlockCanvasController canvas)
+                                                   out BlockCanvasController canvas,
+                                                   out Button run, out Button pause, out Button reset,
+                                                   out Button step, out Slider speedSlider,
+                                                   out TMP_Text speedLabel, out Button autopilot,
+                                                   bool embedToolbar = true)
     {
         RectTransform window = BuildWindow(parent, "BlockWindow", "BLOCKS — drag to build",
                                            out RectTransform content);
+
+        float toolbarHeight = 0f;
+        if (embedToolbar)
+        {
+            toolbarHeight = BuildEmbeddedRunToolbar(content, out run, out pause, out reset, out step,
+                                                    out speedSlider, out speedLabel, out autopilot);
+        }
+        else
+        {
+            run = pause = reset = step = autopilot = null;
+            speedSlider = null;
+            speedLabel = null;
+        }
 
         var paletteFrame = UIFactory.CreatePanel(content, "Palette",
                                                  new Vector2(0f, 0f), new Vector2(0f, 1f),
                                                  UIFactory.PanelDarker);
         paletteFrame.offsetMin = new Vector2(8f, 8f);
-        paletteFrame.offsetMax = new Vector2(222f, -8f);
+        paletteFrame.offsetMax = new Vector2(222f, -8f - toolbarHeight);
 
         var paletteHeader = UIFactory.CreateText(paletteFrame, "Header", "PALETTE", 18f, UIFactory.TextDim);
         UIFactory.Place(paletteHeader, new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(190f, 26f));
@@ -351,10 +380,57 @@ public static class AutomationDriveSceneBuilder
 
         var canvasArea = UIFactory.CreateRect(content, "BlockCanvasArea",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(230f, 8f), new Vector2(-8f, -8f));
+                                              new Vector2(230f, 8f), new Vector2(-8f, -8f - toolbarHeight));
         canvas = BuildBlockCanvas(canvasArea, dragLayer);
 
         return window;
+    }
+
+    /// <summary>
+    /// Builds the run/pause/reset/step/speed/autopilot control row pinned to the top
+    /// of an editor window's content area (a "The Farmer Was Replaced"-style embedded
+    /// toolbar rather than a separate floating bar). Returns the row's height so the
+    /// caller can shift the rest of the window's content down to avoid overlapping it.
+    /// </summary>
+    internal static float BuildEmbeddedRunToolbar(RectTransform content, out Button run, out Button pause,
+                                                   out Button reset, out Button step, out Slider speedSlider,
+                                                   out TMP_Text speedLabel, out Button autopilot)
+    {
+        const float height = 52f;
+        var row = UIFactory.CreatePanel(content, "RunToolbar", new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                        UIFactory.PanelDarker);
+        row.offsetMin = new Vector2(0f, -height);
+        row.offsetMax = Vector2.zero;
+        UIFactory.AddHorizontalLayout(row, 5f, new RectOffset(6, 6, 4, 4), TextAnchor.MiddleLeft);
+
+        run = MakeBarButton(row, "RunButton", "RUN", 58f);
+        run.image.color = new Color(0.20f, 0.55f, 0.25f);
+        UIFactory.LocalizeButton(run, "auto.run");
+        pause = MakeBarButton(row, "PauseButton", "Pause", 56f);
+        UIFactory.LocalizeButton(pause, "auto.pause");
+        reset = MakeBarButton(row, "ResetButton", "Reset", 56f);
+        UIFactory.LocalizeButton(reset, "auto.reset");
+        step = MakeBarButton(row, "StepButton", "Step", 50f);
+        UIFactory.LocalizeButton(step, "auto.step");
+
+        speedSlider = UIFactory.CreateSlider(row, "SpeedSlider", new Vector2(86f, 28f));
+        speedSlider.minValue = 0.2f;
+        speedSlider.maxValue = 8f;
+        speedSlider.value = 1f;
+        var sliderLe = speedSlider.gameObject.AddComponent<LayoutElement>();
+        sliderLe.preferredWidth = 86f;
+        sliderLe.preferredHeight = 28f;
+
+        speedLabel = UIFactory.CreateText(row, "SpeedLabel", "×1.0", 16f, UIFactory.TextBright);
+        var labelLe = speedLabel.gameObject.AddComponent<LayoutElement>();
+        labelLe.preferredWidth = 42f;
+        labelLe.preferredHeight = 28f;
+
+        autopilot = MakeBarButton(row, "Autopilot", "Auto", 54f);
+        autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
+        UIFactory.LocalizeButton(autopilot, "auto.autopilot");
+
+        return height;
     }
 
     /// <summary>
@@ -364,19 +440,36 @@ public static class AutomationDriveSceneBuilder
     /// driven by the returned <see cref="VibeCodingController"/>.
     /// </summary>
     internal static RectTransform BuildCodeWindow(RectTransform parent, out CodeEditorController editor,
-                                                  out VibeCodingController chat)
+                                                  out VibeCodingController chat,
+                                                  out Button run, out Button pause, out Button reset,
+                                                  out Button step, out Slider speedSlider,
+                                                  out TMP_Text speedLabel, out Button autopilot,
+                                                  bool embedToolbar = true)
     {
         RectTransform window = BuildWindow(parent, "CodeWindow", "CODE — type to program",
                                            out RectTransform content, out RectTransform titleBar,
                                            out _, closeable: false);
 
+        float toolbarHeight = 0f;
+        if (embedToolbar)
+        {
+            toolbarHeight = BuildEmbeddedRunToolbar(content, out run, out pause, out reset, out step,
+                                                    out speedSlider, out speedLabel, out autopilot);
+        }
+        else
+        {
+            run = pause = reset = step = autopilot = null;
+            speedSlider = null;
+            speedLabel = null;
+        }
+
         // Editor body and chat body share the content area; only one shows at a time.
         var editorBody = UIFactory.CreateRect(content, "EditorBody", Vector2.zero, Vector2.one,
-                                              Vector2.zero, Vector2.zero);
+                                              Vector2.zero, new Vector2(0f, -toolbarHeight));
         editor = BuildCodeEditor(editorBody);
 
         var chatBody = UIFactory.CreateRect(content, "ChatBody", Vector2.zero, Vector2.one,
-                                            Vector2.zero, Vector2.zero);
+                                            Vector2.zero, new Vector2(0f, -toolbarHeight));
 
         // Mode bar (Ask / Plan / Agent) pinned to the top of the chat body.
         var modeBar = UIFactory.CreateRect(chatBody, "ModeBar", new Vector2(0f, 1f), new Vector2(1f, 1f),
@@ -966,6 +1059,46 @@ public static class AutomationDriveSceneBuilder
         fuelFill.fillAmount = 1f;
 
         return card;
+    }
+
+    /// <summary>
+    /// Bottom-left gauge panel: fuel fill (mirrors the wallet card's fuel bar) plus a
+    /// readout of the execution-speed slider value — Automation has no throttle to
+    /// gauge, so this mirrors the existing speed control rather than inventing a metric.
+    /// </summary>
+    internal static RectTransform BuildAutomationGaugePanel(Transform parent, out Image fuelFill,
+                                                             out TMP_Text speedLabel)
+    {
+        var panel = UIFactory.CreatePanel(parent, "GaugePanel",
+                                          new Vector2(0f, 0f), new Vector2(0f, 0f),
+                                          new Color(0.06f, 0.07f, 0.10f, 0.88f));
+
+        var fuelCaption = UIFactory.CreateText(panel, "FuelCaption", "FUEL", 16f, UIFactory.TextDim,
+                                               TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(fuelCaption, new Vector2(0f, 1f), new Vector2(14f, -10f), new Vector2(70f, 24f));
+
+        var fuelTrack = UIFactory.CreatePanel(panel, "FuelTrack",
+                                              new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                              new Color(0.18f, 0.18f, 0.18f, 0.95f));
+        UIFactory.Place(fuelTrack, new Vector2(0.5f, 1f), new Vector2(0f, -38f), new Vector2(232f, 22f));
+
+        var fillRt = UIFactory.CreateRect(fuelTrack, "Fill", Vector2.zero, Vector2.one,
+                                          new Vector2(2f, 2f), new Vector2(-2f, -2f));
+        fuelFill = UIFactory.AddImage(fillRt, new Color(0.95f, 0.65f, 0.15f), UIFactory.BuiltinSprite("UISprite.psd"));
+        fuelFill.type = Image.Type.Filled;
+        fuelFill.fillMethod = Image.FillMethod.Horizontal;
+        fuelFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+        fuelFill.fillAmount = 1f;
+
+        var speedCaption = UIFactory.CreateText(panel, "SpeedCaption", "SPEED", 16f, UIFactory.TextDim,
+                                                TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(speedCaption, new Vector2(0f, 0f), new Vector2(14f, 36f), new Vector2(70f, 24f));
+
+        speedLabel = UIFactory.CreateText(panel, "SpeedValue", "×1.0", 22f, UIFactory.TextBright,
+                                          TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(speedLabel, new Vector2(0f, 0f), new Vector2(90f, 36f), new Vector2(140f, 30f));
+
+        return panel;
     }
 
     static Button MakeRowButton(RectTransform row, string name, string label, float width)

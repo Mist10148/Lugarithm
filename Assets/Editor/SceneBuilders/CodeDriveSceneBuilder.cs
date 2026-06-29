@@ -158,15 +158,19 @@ public static class CodeDriveSceneBuilder
         var editorArea = UIFactory.CreateRect(workspace, "EditorArea",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
                                               new Vector2(8f, 8f), new Vector2(-8f, -8f));
+        // This scene has its own standalone controlBar (above) for Run/Pause/Reset/Step/
+        // Speed, so the windows' embedded toolbar (used by AutomationDrive) is skipped here.
         RectTransform blockPanel = AutomationDriveSceneBuilder.BuildBlockWindow(
-            editorArea, canvasRoot, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
+            editorArea, canvasRoot, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas,
+            out _, out _, out _, out _, out _, out _, out _, embedToolbar: false);
         blockPanel.anchorMin = Vector2.zero;
         blockPanel.anchorMax = Vector2.one;
         blockPanel.offsetMin = Vector2.zero;
         blockPanel.offsetMax = Vector2.zero;
 
         RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
-            editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl);
+            editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl,
+            out _, out _, out _, out _, out _, out _, out _, embedToolbar: false);
         codePanel.anchorMin = Vector2.zero;
         codePanel.anchorMax = Vector2.one;
         codePanel.offsetMin = Vector2.zero;
