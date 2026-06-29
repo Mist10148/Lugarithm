@@ -1146,10 +1146,8 @@ public class AutomationDriveController : MonoBehaviour
         int saved = SaveSystem.Current != null ? SaveSystem.Current.currency : 0;
         int pending = GameManager.Instance != null ? GameManager.Instance.PendingCurrency : 0;
         int debt = SaveSystem.Current != null ? SaveSystem.Current.debt : 0;
-        int fares = exec != null && exec.Sim != null ? exec.Sim.FaresCollected : 0;
         int wallet = saved + pending;
-        string debtSuffix = debt > 0 ? $"   debt -{debt}" : "";
-        walletLabel.text = $"PHP {wallet}   run +{fares}   fuel {Mathf.RoundToInt(_autoFuel * 100f)}%   spent -{_autoRefuelSpent}{debtSuffix}";
+        walletLabel.text = debt > 0 ? $"₱ {wallet}  debt -{debt}" : $"₱ {wallet}";
     }
 
     void HandleStepDone(AgentActionResult result, StepResult step)

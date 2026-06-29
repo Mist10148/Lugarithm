@@ -103,7 +103,7 @@ public static class CodeDriveSceneBuilder
 
         // Top-right buttons: Exit, workspace toggle, Commands.
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(110f, 42f));
-        UIFactory.Place(exit, new Vector2(1f, 1f), new Vector2(-10f, -8f), new Vector2(110f, 42f));
+        UIFactory.Place(exit, new Vector2(1f, 1f), new Vector2(-24f, -84f), new Vector2(130f, 44f));
         var link = exit.gameObject.AddComponent<SceneLink>();
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
@@ -113,16 +113,16 @@ public static class CodeDriveSceneBuilder
         // instead of stacked under the goal banner on the left.
         Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
                                                          "Editor: Blocks", new Vector2(170f, 42f), 18f);
-        UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-10f, -158f), new Vector2(170f, 42f));
+        UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-24f, -240f), new Vector2(170f, 42f));
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         Button workspaceToggle = UIFactory.CreateButton(canvas.transform, "WorkspaceToggle",
                                                         "▤ Workspace", new Vector2(170f, 42f), 20f);
-        UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-10f, -58f), new Vector2(170f, 42f));
+        UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-24f, -136f), new Vector2(170f, 42f));
 
         Button journalToggle = UIFactory.CreateButton(canvas.transform, "JournalToggle",
                                                       "Journal", new Vector2(170f, 42f), 20f);
-        UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-10f, -108f), new Vector2(170f, 42f));
+        UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-24f, -188f), new Vector2(170f, 42f));
         journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
 
         // Front-seat story-passenger card (top-center): who you're coding for + talking to.
@@ -138,43 +138,41 @@ public static class CodeDriveSceneBuilder
 
         RectTransform runStatus = AutomationDriveSceneBuilder.BuildRunStatusHud(
             canvas.transform, out TMP_Text walletLabel, out Image autoFuelFill);
-        UIFactory.Place(runStatus, new Vector2(0.5f, 1f), new Vector2(0f, -80f), new Vector2(360f, 46f));
+        UIFactory.Place(runStatus, new Vector2(1f, 1f), new Vector2(-24f, -22f), new Vector2(260f, 50f));
+
+        RectTransform gaugePanel = AutomationDriveSceneBuilder.BuildAutomationGaugePanel(
+            canvas.transform, out Image gaugeFuelFill, out TMP_Text gaugeSpeedLabel);
+        UIFactory.Place(gaugePanel, new Vector2(0f, 0f), new Vector2(18f, 12f), new Vector2(470f, 150f));
 
         Button commands = UIFactory.CreateButton(canvas.transform, "CommandsButton",
                                                  "Commands ?", new Vector2(160f, 42f), 20f);
-        UIFactory.Place(commands, new Vector2(1f, 1f), new Vector2(-190f, -58f), new Vector2(160f, 42f));
+        UIFactory.Place(commands, new Vector2(1f, 1f), new Vector2(-204f, -136f), new Vector2(160f, 42f));
 
         // --- Workspace overlay (compact left dock, toggleable) ----------------------
 
-        var workspace = UIFactory.CreatePanel(canvas.transform, "Workspace",
-                                              new Vector2(0f, 0f), new Vector2(0.365f, 1f),
-                                              UIFactory.PanelDarker);
-        workspace.offsetMin = new Vector2(16f, 16f);
-        workspace.offsetMax = new Vector2(-4f, -204f);
+        var workspace = UIFactory.CreateRect(canvas.transform, "Workspace",
+                                             Vector2.zero, Vector2.one,
+                                             Vector2.zero, Vector2.zero);
 
         // Editor windows: Block and Code each in their own titled floating panel,
         // stacked in the same area. The active editor is chosen by the Block/Code
         // setting (the controller shows exactly one), so Code mode shows no blocks.
         var editorArea = UIFactory.CreateRect(workspace, "EditorArea",
-                                              new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(8f, 8f), new Vector2(-8f, -8f));
+                                              Vector2.zero, Vector2.one,
+                                              Vector2.zero, Vector2.zero);
         // This scene has its own standalone controlBar (above) for Run/Pause/Reset/Step/
         // Speed, so the windows' embedded toolbar (used by AutomationDrive) is skipped here.
         RectTransform blockPanel = AutomationDriveSceneBuilder.BuildBlockWindow(
             editorArea, canvasRoot, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas,
             out _, out _, out _, out _, out _, out _, out _, embedToolbar: false);
-        blockPanel.anchorMin = Vector2.zero;
-        blockPanel.anchorMax = Vector2.one;
-        blockPanel.offsetMin = Vector2.zero;
-        blockPanel.offsetMax = Vector2.zero;
+        AutomationDriveSceneBuilder.PlaceFloatingEditorWindow(
+            blockPanel, new Vector2(520f, -170f), new Vector2(760f, 780f));
 
         RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
             editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl,
             out _, out _, out _, out _, out _, out _, out _, embedToolbar: false);
-        codePanel.anchorMin = Vector2.zero;
-        codePanel.anchorMax = Vector2.one;
-        codePanel.offsetMin = Vector2.zero;
-        codePanel.offsetMax = Vector2.zero;
+        AutomationDriveSceneBuilder.PlaceFloatingEditorWindow(
+            codePanel, new Vector2(520f, -170f), new Vector2(760f, 780f));
 
         // (The old bottom "terminal" band — a state-monitor line + console log — was
         // removed; the editor now fills that reclaimed space and the in-window AI
@@ -233,6 +231,8 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "results",      results);
         SceneBuilderUtil.Wire(controller, "walletLabel",  walletLabel);
         SceneBuilderUtil.Wire(controller, "automationFuelFill", autoFuelFill);
+        SceneBuilderUtil.Wire(controller, "gaugeFuelFill",  gaugeFuelFill);
+        SceneBuilderUtil.Wire(controller, "gaugeSpeedLabel", gaugeSpeedLabel);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);

@@ -36,5 +36,28 @@ public class ResizeHandle : MonoBehaviour, IBeginDragHandler, IDragHandler
         size.x = Mathf.Max(minSize.x, size.x + d.x);
         size.y = Mathf.Max(minSize.y, size.y - d.y);   // dragging down (−y) grows height
         target.sizeDelta = size;
+        ClampToCanvas();
+    }
+
+    void ClampToCanvas()
+    {
+        if (target == null || _canvas == null) return;
+
+        var win = new Vector3[4];
+        var can = new Vector3[4];
+        target.GetWorldCorners(win);
+        _canvas.GetWorldCorners(can);
+
+        float scale = Mathf.Max(0.0001f, _canvas.localScale.x);
+        Vector2 size = target.sizeDelta;
+
+        if (win[2].x > can[2].x)
+            size.x -= (win[2].x - can[2].x) / scale;
+        if (win[0].y < can[0].y)
+            size.y -= (can[0].y - win[0].y) / scale;
+
+        size.x = Mathf.Max(minSize.x, size.x);
+        size.y = Mathf.Max(minSize.y, size.y);
+        target.sizeDelta = size;
     }
 }
