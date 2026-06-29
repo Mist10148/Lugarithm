@@ -23,6 +23,7 @@ public class SaveData
     public int       currentLevelIndex     = 0;
     public List<int> collectedJournalPages = new List<int>();
     public int       currency              = 0;
+    public int       debt                  = 0;
     public List<LevelScore> bestScores     = new List<LevelScore>();
     public List<int> earnedBadges          = new List<int>();
     public List<int>    unlockedThemes     = new List<int> { 0 };

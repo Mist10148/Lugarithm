@@ -967,7 +967,10 @@ public class AutomationDriveController : MonoBehaviour
         if (_interruptionScheduler == null)
             _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
 
-        _autoFuel = Mathf.Max(0f, _autoFuel - 0.03f);
+        // Assumes ExecutionController.baseStepSeconds == 1.0 (one step == one simulated
+        // second), so this drains at the same per-second rate as Manual Mode regardless
+        // of the playback Speed slider (Speed only stretches real-world animation time).
+        _autoFuel = Mathf.Max(0f, _autoFuel - RefuelMath.FuelDrainPerSecond);
         RefreshAutomationHud();
 
         if (_interruptionScheduler.ShouldRefuel(_autoFuel))
@@ -1073,9 +1076,11 @@ public class AutomationDriveController : MonoBehaviour
 
         int saved = SaveSystem.Current != null ? SaveSystem.Current.currency : 0;
         int pending = GameManager.Instance != null ? GameManager.Instance.PendingCurrency : 0;
+        int debt = SaveSystem.Current != null ? SaveSystem.Current.debt : 0;
         int fares = exec != null && exec.Sim != null ? exec.Sim.FaresCollected : 0;
         int wallet = saved + pending;
-        walletLabel.text = $"PHP {wallet}   run +{fares}   fuel {Mathf.RoundToInt(_autoFuel * 100f)}%   spent -{_autoRefuelSpent}";
+        string debtSuffix = debt > 0 ? $"   debt -{debt}" : "";
+        walletLabel.text = $"PHP {wallet}   run +{fares}   fuel {Mathf.RoundToInt(_autoFuel * 100f)}%   spent -{_autoRefuelSpent}{debtSuffix}";
     }
 
     void HandleStepDone(AgentActionResult result, StepResult step)
@@ -1093,6 +1098,9 @@ public class AutomationDriveController : MonoBehaviour
             if (result.ChangeGiven > 0)
                 console.Info($"   change given: ₱{result.ChangeGiven}");
         }
+
+        if (result.FareCollected > 0 && GameManager.Instance != null)
+            GameManager.Instance.EarnCurrency(result.FareCollected);
 
         if (result.FareCollected > 0 || result.ChangeGiven > 0)
             RefreshAutomationHud();
@@ -1562,10 +1570,12 @@ public class AutomationDriveController : MonoBehaviour
             sim.StepsUsed, _def.parSteps, elapsed, _def.softTimerSeconds, retries, _lastRunWasCode)
             + _townPuzzleBonus;
 
-        int earned = sim.FaresCollected + ScoreCalculator.CurrencyFor(score);
+        int bonus = ScoreCalculator.CurrencyFor(score);
         if (GameManager.Instance != null)
-            GameManager.Instance.PendingCurrency += earned;
+            GameManager.Instance.EarnCurrency(bonus);
         RefreshAutomationHud();
+
+        int earned = sim.FaresCollected + bonus;   // display-only; fares already credited per-step
 
         string playerSolution = _lastRunWasCode
             ? codeEditor.Source

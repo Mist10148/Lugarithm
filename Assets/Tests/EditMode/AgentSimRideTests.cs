@@ -84,6 +84,29 @@ public class AgentSimRideTests
     }
 
     [Test]
+    public void RideMode_CollectFare_SumsAllAboardPassengersFaresInOneCall()
+    {
+        GridModel grid = StraightGrid();
+        var sim = new AgentSim(grid, new FareTable(), startFacing: 1);
+        var origin = new Vector2Int(3, 1);
+        var dest = new Vector2Int(5, 1);
+        sim.LoadRides(new List<GridRide>
+        {
+            new GridRide { id = 0, origin = origin, dest = dest, fare = 13 },
+            new GridRide { id = 1, origin = origin, dest = dest, fare = 15 },
+        });
+
+        sim.Apply("moveForward");
+        sim.Apply("moveForward");
+        sim.Apply("pickUp");
+
+        AgentActionResult fareResult = sim.Apply("collectFare");
+
+        Assert.AreEqual(28, fareResult.FareCollected, "should sum both passengers' fares in one collectFare() call");
+        Assert.AreEqual(28, sim.FaresCollected);
+    }
+
+    [Test]
     public void DriveToDestination_PlansAPath_DrainedToReachD()
     {
         GridModel grid = StraightGrid();

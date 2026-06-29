@@ -60,14 +60,19 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// Spends from the player's visible wallet (saved currency + pending run
     /// earnings), clamping at zero so gameplay is never blocked by being broke.
+    /// Any shortfall becomes debt instead of being forgiven — see <see cref="ShortfallToDebt"/>.
     /// Pending earnings are spent first so the HUD stays consistent mid-run.
     /// </summary>
     public int SpendCurrency(int amount)
     {
+        if (amount <= 0) return 0;
+
         int pending = PendingCurrency;
-        int spent = SpendCurrency(SaveSystem.Current, ref pending, amount);
+        int shortfall = ShortfallToDebt(SaveSystem.Current, ref pending, amount);
         PendingCurrency = pending;
-        if (spent > 0) SaveSystem.AutoSave();
+
+        int spent = amount - shortfall;
+        if (spent > 0 || shortfall > 0) SaveSystem.AutoSave();
         return spent;
     }
 
@@ -87,6 +92,42 @@ public class GameManager : MonoBehaviour
         spent += fromSaved;
 
         return spent;
+    }
+
+    /// <summary>
+    /// Pure debt-accrual seam: spends via the existing clamped helper, then puts
+    /// whatever's left unpaid onto debt instead of forgiving it.
+    /// </summary>
+    public static int ShortfallToDebt(SaveData save, ref int pendingCurrency, int amount)
+    {
+        int spent = SpendCurrency(save, ref pendingCurrency, amount);
+        int shortfall = amount - spent;
+        if (shortfall > 0 && save != null) save.debt += shortfall;
+        return shortfall;
+    }
+
+    /// <summary>
+    /// Records currency the player earned (fares, score bonuses). Routes through
+    /// this — never PendingCurrency += directly — so any outstanding debt from an
+    /// underfunded refuel is paid down automatically out of the very next earning.
+    /// </summary>
+    public void EarnCurrency(int amount)
+    {
+        if (amount <= 0) return;
+
+        int remainder = EarnCurrency(SaveSystem.Current, amount);
+        if (remainder > 0) PendingCurrency += remainder;
+        if (remainder != amount) SaveSystem.AutoSave();   // some/all went to debt
+    }
+
+    /// <summary>Pure earning seam: pays down debt first, returns the remainder to add to PendingCurrency.</summary>
+    public static int EarnCurrency(SaveData save, int amount)
+    {
+        if (amount <= 0 || save == null) return 0;
+
+        int debtPayment = Mathf.Min(Mathf.Max(0, save.debt), amount);
+        save.debt -= debtPayment;
+        return amount - debtPayment;
     }
 
     /// <summary>Records a best score for a level (keeps the higher of old/new).</summary>

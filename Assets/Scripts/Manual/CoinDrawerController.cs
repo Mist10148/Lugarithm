@@ -204,7 +204,7 @@ public class CoinDrawerController : MonoBehaviour
     static void CreditFare(int amount)
     {
         if (GameManager.Instance != null)
-            GameManager.Instance.PendingCurrency += amount;
+            GameManager.Instance.EarnCurrency(amount);
     }
 
     IEnumerator Shake()

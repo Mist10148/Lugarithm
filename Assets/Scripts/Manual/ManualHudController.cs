@@ -22,6 +22,7 @@ public class ManualHudController : MonoBehaviour
 
     JeepneyController _jeepney;
     int _shownCurrency = int.MinValue;
+    int _shownDebt = int.MinValue;
 
     // -------------------------------------------------------------------------
 
@@ -55,11 +56,13 @@ public class ManualHudController : MonoBehaviour
 
         int pending = GameManager.Instance != null ? GameManager.Instance.PendingCurrency : 0;
         int saved   = SaveSystem.Current != null ? SaveSystem.Current.currency : 0;
+        int debt    = SaveSystem.Current != null ? SaveSystem.Current.debt : 0;
         int wallet  = saved + pending;
-        if (wallet != _shownCurrency && currencyLabel != null)
+        if ((wallet != _shownCurrency || debt != _shownDebt) && currencyLabel != null)
         {
             _shownCurrency = wallet;
-            currencyLabel.text = $"₱ {wallet}";
+            _shownDebt     = debt;
+            currencyLabel.text = debt > 0 ? $"₱ {wallet}  debt -{debt}" : $"₱ {wallet}";
         }
     }
 

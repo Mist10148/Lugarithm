@@ -53,7 +53,7 @@ public static class ManualDriveSceneBuilder
         jeepneySr.sortingOrder = 10;
 
         var jeepney = jeepneyGo.AddComponent<JeepneyController>();
-        SceneBuilderUtil.Wire(jeepney, "fuelDrainPerSecond", 0.006f);
+        SceneBuilderUtil.Wire(jeepney, "fuelDrainPerSecond", RefuelMath.FuelDrainPerSecond);
 
         SceneBuilderUtil.Wire(follow, "target",   jeepneyGo.transform);
         SceneBuilderUtil.Wire(follow, "leadBody", rb);

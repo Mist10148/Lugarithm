@@ -758,7 +758,7 @@ public class ManualDriveController : MonoBehaviour
         int bonus = ScoreCalculator.CurrencyFor(score);
 
         if (GameManager.Instance != null)
-            GameManager.Instance.PendingCurrency += bonus;
+            GameManager.Instance.EarnCurrency(bonus);
 
         int earnedTotal = GameManager.Instance != null
             ? GameManager.Instance.PendingCurrency
