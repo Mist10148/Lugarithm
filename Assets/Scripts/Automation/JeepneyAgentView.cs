@@ -57,7 +57,12 @@ public class JeepneyAgentView : MonoBehaviour, IAgentView
                 break;
 
             case "dropOff":
-                yield return Pop("Placeholders/peep", duration);
+                // Only show a passenger alighting when one actually did — dropOff() at a stop
+                // that isn't a rider's marked destination delivers nobody, so it must not animate.
+                if (result.DroppedOff)
+                    yield return Pop("Placeholders/peep", duration);
+                else
+                    yield return new WaitForSeconds(duration);
                 break;
 
             case "collectFare":

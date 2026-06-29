@@ -119,7 +119,7 @@ public static class AutomationDriveSceneBuilder
         // Bottom-left gauge panel: fuel + execution-speed readout, mirroring Manual's
         // dashboard corner (Automation has no throttle, so speed mirrors the toolbar slider).
         RectTransform gaugePanel = BuildAutomationGaugePanel(canvas.transform, out Image gaugeFuelFill,
-                                                              out TMP_Text gaugeSpeedLabel);
+                                                              out TMP_Text gaugeSpeedLabel, out RectTransform gaugeSpeedNeedle);
         UIFactory.Place(gaugePanel, new Vector2(0f, 0f), new Vector2(18f, 12f), new Vector2(470f, 150f));
 
         // Passenger ribbon (top left) — same PassengerChip pool pattern as Manual Mode.
@@ -217,6 +217,20 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "passengerRibbon", ribbonCtrl);
         SceneBuilderUtil.Wire(controller, "gaugeFuelFill",  gaugeFuelFill);
         SceneBuilderUtil.Wire(controller, "gaugeSpeedLabel", gaugeSpeedLabel);
+        SceneBuilderUtil.Wire(controller, "gaugeSpeedNeedle", gaugeSpeedNeedle);
+
+        // Drop-off dulog markers (color-coded world pin per onboard passenger + off-screen
+        // compass arrow). World pins live on a plain world-space object; the edge arrows live
+        // on a full-screen canvas layer. Mirrors Manual's DulogMarkerController setup.
+        var dulogEdgeLayer = UIFactory.CreateRect(canvas.transform, "DulogEdgeLayer",
+                                                  Vector2.zero, Vector2.one);
+        dulogEdgeLayer.offsetMin = Vector2.zero;
+        dulogEdgeLayer.offsetMax = Vector2.zero;
+        var dulogGo = new GameObject("DulogMarkers");
+        var dulogMarkers = dulogGo.AddComponent<AutomationDulogMarkerController>();
+        SceneBuilderUtil.Wire(dulogMarkers, "edgeArrowParent", dulogEdgeLayer);
+        SceneBuilderUtil.Wire(controller, "dulogMarkers",   dulogMarkers);
+
         SceneBuilderUtil.Wire(controller, "flowPuzzle",     flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",    cratePuzzle);
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);
@@ -1066,7 +1080,7 @@ public static class AutomationDriveSceneBuilder
     /// gauge, so this mirrors the existing speed control rather than inventing a metric.
     /// </summary>
     internal static RectTransform BuildAutomationGaugePanel(Transform parent, out Image fuelFill,
-                                                             out TMP_Text speedLabel)
+                                                             out TMP_Text speedLabel, out RectTransform speedNeedle)
     {
         var panel = UIFactory.CreatePanel(parent, "GaugePanel",
                                           new Vector2(0f, 0f), new Vector2(0f, 0f),
@@ -1082,6 +1096,7 @@ public static class AutomationDriveSceneBuilder
         needle.sizeDelta = new Vector2(6f, 56f);
         needle.localRotation = Quaternion.Euler(0f, 0f, 35f);
         UIFactory.AddImage(needle, new Color(0.95f, 0.25f, 0.2f), SceneBuilderUtil.LoadPlaceholder("white_box"));
+        speedNeedle = needle;
 
         var fuelCaption = UIFactory.CreateText(panel, "FuelCaption", "FUEL", 18f, UIFactory.TextDim,
                                                TextAlignmentOptions.MidlineLeft);

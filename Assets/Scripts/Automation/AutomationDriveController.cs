@@ -71,7 +71,9 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private Image                  automationFuelFill;
     [SerializeField] private Image                  gaugeFuelFill;
     [SerializeField] private TMP_Text               gaugeSpeedLabel;
+    [SerializeField] private RectTransform          gaugeSpeedNeedle;
     [SerializeField] private PassengerRibbonController passengerRibbon;
+    [SerializeField] private AutomationDulogMarkerController dulogMarkers;
     [SerializeField] private AutomationResultsPanel results;
 
     [Header("Town gate (non-code, required to advance)")]
@@ -315,6 +317,15 @@ public class AutomationDriveController : MonoBehaviour
         if (_proceduralTopDown && cameraFollow != null && topDownAgentView != null)
             cameraFollow.SnapTo(topDownAgentView.transform);
 
+        // Surface each onboard passenger's drop-off target (pulsing pin + off-screen compass).
+        if (dulogMarkers != null)
+        {
+            Transform agentT = _proceduralTopDown && topDownAgentView != null
+                ? topDownAgentView.transform
+                : (agentView != null ? agentView.transform : null);
+            dulogMarkers.Init(exec, activeSpace, agentT, worldCamera);
+        }
+
         // Workspace
         if (goalLabel != null) goalLabel.text = _def.goalText;
 
@@ -456,6 +467,7 @@ public class AutomationDriveController : MonoBehaviour
         if (_proceduralTopDown)
             RefreshChunkWindow();
         RefreshAutomationHud();
+        UpdateSpeedNeedle();
 
         // The instant a discrete step's motion finishes (Busy true -> false), reset the
         // camera's chase velocity so SmoothDamp doesn't carry overshoot-causing momentum
@@ -834,6 +846,28 @@ public class AutomationDriveController : MonoBehaviour
     {
         if (exec != null) exec.SetSpeed(speed);
         if (console != null) console.Info($"speed ×{speed:0}");
+    }
+
+    // Speedometer needle sweep: rest angle matches the static gauge art (35°); full speed
+    // swings the needle down to the high end of the dial. Mirrors ManualHudController's needle.
+    const float NeedleRestAngle = 35f;
+    const float NeedleFullAngle = -120f;
+    float _needleAngle = NeedleRestAngle;
+
+    /// <summary>Drives the bottom-left gauge needle from the jeepney's driving speed: it sweeps up
+    /// with the active speed preset (×0.5–×4) while the program runs and eases back to rest when
+    /// idle or paused, so the dial reflects how fast the automation jeepney is actually moving.</summary>
+    void UpdateSpeedNeedle()
+    {
+        if (gaugeSpeedNeedle == null) return;
+
+        bool driving = exec != null && exec.State == ExecutionController.ExecState.Running;
+        float t = driving ? Mathf.InverseLerp(0.5f, 4f, exec.Speed) : 0f;
+        float target = Mathf.Lerp(NeedleRestAngle, NeedleFullAngle, t);
+
+        // Frame-rate-independent ease so the needle settles smoothly rather than snapping.
+        _needleAngle = Mathf.Lerp(_needleAngle, target, 1f - Mathf.Exp(-8f * Time.deltaTime));
+        gaugeSpeedNeedle.localRotation = Quaternion.Euler(0f, 0f, _needleAngle);
     }
 
     /// <summary>Advances the speed cycle button to the next preset and updates every
@@ -1216,6 +1250,7 @@ public class AutomationDriveController : MonoBehaviour
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
         if (codeEditor != null) codeEditor.ClearHeat();
         if (passengerRibbon != null) passengerRibbon.ReleaseAll();
+        if (dulogMarkers != null) dulogMarkers.ClearAll();
         _autoFuel = 1f;
         _autoBreakdownActive = false;
         RefreshAutomationHud();

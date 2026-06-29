@@ -131,7 +131,8 @@ public static class CodeDriveSceneBuilder
         UIFactory.Place(runStatus, new Vector2(1f, 1f), new Vector2(-24f, -22f), new Vector2(260f, 50f));
 
         RectTransform gaugePanel = AutomationDriveSceneBuilder.BuildAutomationGaugePanel(
-            canvas.transform, out Image gaugeFuelFill, out TMP_Text gaugeSpeedLabel);
+            canvas.transform, out Image gaugeFuelFill, out TMP_Text gaugeSpeedLabel,
+            out RectTransform gaugeSpeedNeedle);
         UIFactory.Place(gaugePanel, new Vector2(0f, 0f), new Vector2(18f, 12f), new Vector2(470f, 150f));
 
         Button commands = UIFactory.CreateButton(canvas.transform, "CommandsButton",
@@ -223,6 +224,18 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "automationFuelFill", autoFuelFill);
         SceneBuilderUtil.Wire(controller, "gaugeFuelFill",  gaugeFuelFill);
         SceneBuilderUtil.Wire(controller, "gaugeSpeedLabel", gaugeSpeedLabel);
+        SceneBuilderUtil.Wire(controller, "gaugeSpeedNeedle", gaugeSpeedNeedle);
+
+        // Drop-off dulog markers (world pin per onboard passenger + off-screen compass arrow).
+        var dulogEdgeLayer = UIFactory.CreateRect(canvas.transform, "DulogEdgeLayer",
+                                                  Vector2.zero, Vector2.one);
+        dulogEdgeLayer.offsetMin = Vector2.zero;
+        dulogEdgeLayer.offsetMax = Vector2.zero;
+        var dulogGo = new GameObject("DulogMarkers");
+        var dulogMarkers = dulogGo.AddComponent<AutomationDulogMarkerController>();
+        SceneBuilderUtil.Wire(dulogMarkers, "edgeArrowParent", dulogEdgeLayer);
+        SceneBuilderUtil.Wire(controller, "dulogMarkers", dulogMarkers);
+
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);
