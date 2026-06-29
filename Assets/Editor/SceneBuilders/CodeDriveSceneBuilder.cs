@@ -86,20 +86,10 @@ public static class CodeDriveSceneBuilder
         Button reset  = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "ResetButton", "Reset",  76f);
         Button step   = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "StepButton",  "Step",    68f);
 
-        Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(160f, 34f));
-        speedSlider.minValue = 0.2f;
-        speedSlider.maxValue = 8f;
-        speedSlider.value = 1f;
-        var sliderLe = speedSlider.gameObject.GetComponent<LayoutElement>();
-        if (sliderLe == null) sliderLe = speedSlider.gameObject.AddComponent<LayoutElement>();
-        sliderLe.preferredWidth = 160f;
-        sliderLe.preferredHeight = 34f;
-
-        TMP_Text speedLabel = UIFactory.CreateText(controlBar, "SpeedLabel", "×1.0", 20f, UIFactory.TextBright);
-        var labelLe = speedLabel.gameObject.GetComponent<LayoutElement>();
-        if (labelLe == null) labelLe = speedLabel.gameObject.AddComponent<LayoutElement>();
-        labelLe.preferredWidth = 56f;
-        labelLe.preferredHeight = 36f;
+        // Speed is a single cycle button (tap to step ×0.5 → ×1 → ×2 → ×4 → …); its
+        // own face is the readout, so speedLabel points at the button's child label.
+        Button speedButton = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "SpeedButton", "×1.0", 96f);
+        TMP_Text speedLabel = speedButton.GetComponentInChildren<TMP_Text>();
 
         // Top-right buttons: Exit, workspace toggle, Commands.
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(110f, 42f));
@@ -224,7 +214,7 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "runButton",    run);
         SceneBuilderUtil.Wire(controller, "pauseButton",  pause);
         SceneBuilderUtil.Wire(controller, "resetButton",  reset);
-        SceneBuilderUtil.Wire(controller, "speedSlider",  speedSlider);
+        SceneBuilderUtil.Wire(controller, "speedButton",  speedButton);
         SceneBuilderUtil.Wire(controller, "speedLabel",   speedLabel);
         SceneBuilderUtil.Wire(controller, "stepButton",   step);
         SceneBuilderUtil.Wire(controller, "editorModeToggle", editorModeToggle);

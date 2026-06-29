@@ -50,7 +50,7 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private Button runButton;
     [SerializeField] private Button pauseButton;
     [SerializeField] private Button resetButton;
-    [SerializeField] private Slider speedSlider;
+    [SerializeField] private Button speedButton;
     [SerializeField] private TMP_Text speedLabel;
     [SerializeField] private Button stepButton;
     [SerializeField] private Button editorModeToggle;
@@ -60,7 +60,7 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private Button codePauseButton;
     [SerializeField] private Button codeResetButton;
     [SerializeField] private Button codeStepButton;
-    [SerializeField] private Slider codeSpeedSlider;
+    [SerializeField] private Button codeSpeedButton;
     [SerializeField] private TMP_Text codeSpeedLabel;
     [SerializeField] private Button codeAutopilotButton;
 
@@ -105,6 +105,10 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private Button         autopilotButton;
 
     // -------------------------------------------------------------------------
+
+    // Speed is a single cycle button now: tap to step through these presets.
+    static readonly float[] SpeedPresets = { 0.5f, 1f, 2f, 4f };
+    int _speedIndex = 1;   // start at ×1.0
 
     LevelDefinition _level;
     AutomationPuzzleDefinition _def;
@@ -386,21 +390,9 @@ public class AutomationDriveController : MonoBehaviour
         if (pauseButton  != null) pauseButton.onClick.AddListener(OnPause);
         if (resetButton  != null) resetButton.onClick.AddListener(OnReset);
 
-        if (speedSlider != null)
-        {
-            speedSlider.minValue = 0.2f;
-            speedSlider.maxValue = 8f;
-            speedSlider.value = 1f;
-            speedSlider.onValueChanged.AddListener(v =>
-            {
-                SetSpeed(v);
-                if (speedLabel != null) speedLabel.text = $"×{v:0.0}";
-                if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = $"×{v:0.0}";
-                if (codeSpeedLabel != null) codeSpeedLabel.text = $"×{v:0.0}";
-                if (codeSpeedSlider != null && !Mathf.Approximately(codeSpeedSlider.value, v))
-                    codeSpeedSlider.SetValueWithoutNotify(v);
-            });
-        }
+        // Both windows' speed buttons cycle the same shared preset index, so a tap on
+        // either advances the speed and both faces (plus the gauge) stay in sync.
+        if (speedButton != null) speedButton.onClick.AddListener(CycleSpeed);
 
         if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = "×1.0";
 
@@ -431,21 +423,7 @@ public class AutomationDriveController : MonoBehaviour
             codeAutopilotButton.onClick.AddListener(OnAutopilot);
         }
 
-        if (codeSpeedSlider != null)
-        {
-            codeSpeedSlider.minValue = 0.2f;
-            codeSpeedSlider.maxValue = 8f;
-            codeSpeedSlider.value = 1f;
-            codeSpeedSlider.onValueChanged.AddListener(v =>
-            {
-                SetSpeed(v);
-                if (codeSpeedLabel != null) codeSpeedLabel.text = $"×{v:0.0}";
-                if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = $"×{v:0.0}";
-                if (speedLabel != null) speedLabel.text = $"×{v:0.0}";
-                if (speedSlider != null && !Mathf.Approximately(speedSlider.value, v))
-                    speedSlider.SetValueWithoutNotify(v);
-            });
-        }
+        if (codeSpeedButton != null) codeSpeedButton.onClick.AddListener(CycleSpeed);
 
         if (legCompletion != null)
         {
@@ -856,6 +834,20 @@ public class AutomationDriveController : MonoBehaviour
     {
         if (exec != null) exec.SetSpeed(speed);
         if (console != null) console.Info($"speed ×{speed:0}");
+    }
+
+    /// <summary>Advances the speed cycle button to the next preset and updates every
+    /// readout (both windows' buttons + the on-screen gauge).</summary>
+    void CycleSpeed()
+    {
+        _speedIndex = (_speedIndex + 1) % SpeedPresets.Length;
+        float v = SpeedPresets[_speedIndex];
+        SetSpeed(v);
+
+        string text = $"×{v:0.0}";
+        if (speedLabel != null)      speedLabel.text      = text;
+        if (codeSpeedLabel != null)  codeSpeedLabel.text  = text;
+        if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = text;
     }
 
     // -------------------------------------------------------------------------
