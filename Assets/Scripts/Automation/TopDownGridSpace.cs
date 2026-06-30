@@ -185,6 +185,42 @@ public class TopDownGridSpace : IGridSpace, IStopView
         return _occupied.TryGetValue(cell, out bool occupied) && occupied;
     }
 
+    public void SpawnAlightingPeeps(Vector2Int cell, IReadOnlyList<Color> colors)
+    {
+        if (colors == null || colors.Count == 0) return;
+
+        Sprite peepSprite = Resources.Load<Sprite>("Placeholders/peep");
+        _zonesByCell.TryGetValue(cell, out StopZone zone);
+
+        // Lay the alighting peeps out beside the sign exactly like the waiting line, so a
+        // drop-off reads at the stop. Parent to the zone (inherits the road's orientation)
+        // when there is one; otherwise drop them in world space at the cell.
+        Vector2 startLocal = new Vector2(_roadHalfWidth + 2.1f, -0.8f);
+
+        for (int i = 0; i < colors.Count; i++)
+        {
+            var peep = new GameObject("AlightingPeep");
+            if (zone != null)
+            {
+                peep.transform.SetParent(zone.transform, false);
+                peep.transform.localPosition = (Vector3)(startLocal + Vector2.right * (0.75f * i));
+            }
+            else
+            {
+                peep.transform.SetParent(_worldRoot, false);
+                peep.transform.position = CellToWorld(cell) +
+                    new Vector3(startLocal.x, startLocal.y - 0.75f * i, 0f);
+            }
+
+            var sr = peep.AddComponent<SpriteRenderer>();
+            sr.sprite = peepSprite;
+            sr.sortingOrder = 5;
+            sr.color = colors[i];
+
+            Object.Destroy(peep, 6f);
+        }
+    }
+
     void SpawnWaitingPeeps()
     {
         foreach (KeyValuePair<Vector2Int, StopZone> pair in _zonesByCell)

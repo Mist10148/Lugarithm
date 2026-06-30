@@ -196,7 +196,8 @@ public class ExecutionController : MonoBehaviour
     /// slow, Manual-matching cadence. Every other action (turns, pickUp, dropOff,
     /// collectFare, giveChange, wait, and any future non-movement action) resolves at
     /// logicStepSeconds instead, so logic steps don't carry a perceptible wait.</summary>
-    static bool IsMovementAction(string action) => action == "moveForward";
+    static bool IsMovementAction(string action) =>
+        action == "moveForward" || action == "moveLeft" || action == "moveRight";
 
     float DurationFor(string action) =>
         IsMovementAction(action) ? baseStepSeconds / Speed : logicStepSeconds / Speed;

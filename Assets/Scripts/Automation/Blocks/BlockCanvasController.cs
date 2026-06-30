@@ -33,7 +33,9 @@ public class BlockCanvasController : MonoBehaviour
         {
             case BlockType.MoveForward:
             case BlockType.TurnLeft:
-            case BlockType.TurnRight:   return BlockCategory.Motion;
+            case BlockType.TurnRight:
+            case BlockType.MoveLeft:
+            case BlockType.MoveRight:   return BlockCategory.Motion;
             case BlockType.PickUp:
             case BlockType.DropOff:
             case BlockType.CollectFare: return BlockCategory.Passengers;

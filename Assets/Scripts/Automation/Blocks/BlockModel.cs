@@ -6,6 +6,8 @@ public enum BlockType
     MoveForward,
     TurnLeft,
     TurnRight,
+    MoveLeft,
+    MoveRight,
     DriveToNextStop,
     DriveToTerminal,
     KeepDriving,
@@ -65,6 +67,8 @@ public static class BlockProgram
             case BlockType.MoveForward: return "moveForward";
             case BlockType.TurnLeft:    return "turnLeft";
             case BlockType.TurnRight:   return "turnRight";
+            case BlockType.MoveLeft:    return "moveLeft";
+            case BlockType.MoveRight:   return "moveRight";
             case BlockType.DriveToNextStop: return "driveToNextStop";
             case BlockType.DriveToTerminal: return "driveToTerminal";
             case BlockType.KeepDriving:     return "keepDriving";
@@ -85,6 +89,8 @@ public static class BlockProgram
             case "moveForward": return BlockType.MoveForward;
             case "turnLeft":    return BlockType.TurnLeft;
             case "turnRight":   return BlockType.TurnRight;
+            case "moveLeft":    return BlockType.MoveLeft;
+            case "moveRight":   return BlockType.MoveRight;
             case "driveToNextStop": return BlockType.DriveToNextStop;
             case "driveToTerminal": return BlockType.DriveToTerminal;
             case "keepDriving":     return BlockType.KeepDriving;

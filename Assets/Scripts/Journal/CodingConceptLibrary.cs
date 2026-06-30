@@ -32,15 +32,18 @@ public static class CodingConceptLibrary
                     "You write it as a name followed by a pair of parentheses <b>()</b> — the " +
                     "parentheses are how the computer knows you mean \"do this action now.\"\n\n" +
                     "Driving commands: <b>moveForward()</b> drives one tile ahead, <b>turnLeft()</b> " +
-                    "and <b>turnRight()</b> rotate the jeepney without moving. Route helpers " +
+                    "and <b>turnRight()</b> rotate the jeepney to take the side of the road without " +
+                    "moving. To ride the lanes, <b>moveLeft()</b> and <b>moveRight()</b> slide the " +
+                    "jeepney one lane sideways while it keeps facing ahead — like changing lanes in " +
+                    "Manual mode. Route helpers " +
                     "<b>driveToNextStop()</b>, <b>driveToDropoff()</b> and <b>keepDriving()</b> plan smooth " +
                     "road paths for you — see <b>Endless Driving</b> for the never-ending road. " +
                     "Passenger commands: <b>pickUp()</b>, <b>dropOff()</b>, <b>collectFare()</b>, and " +
                     "<b>giveChange(amount)</b>. To pause for a beat, " +
                     "use <b>wait()</b>.\n\n" +
-                    "<b>Watch out:</b> the jeepney only turns — it never moves sideways. After a turn " +
-                    "you still need a <b>moveForward()</b> to actually go that way. Forgetting it is " +
-                    "the most common beginner slip.",
+                    "<b>Watch out:</b> <b>turnLeft()</b>/<b>turnRight()</b> rotate but don't move — after " +
+                    "a turn you still need a <b>moveForward()</b> to actually go that way. To shift lanes " +
+                    "without turning, use <b>moveLeft()</b>/<b>moveRight()</b> instead.",
                 codeExample =
                     "<mspace=0.6em># Pull up to a waiting rider, then carry them one tile on:\n" +
                     "moveForward()\n" +
@@ -51,6 +54,9 @@ public static class CodingConceptLibrary
                     "dropOff()       # rider gets off\n\n" +
                     "# Turning needs a move afterwards to go that way:\n" +
                     "turnLeft()\n" +
+                    "moveForward()\n\n" +
+                    "# Change lane without turning — slide over, then carry on:\n" +
+                    "moveLeft()\n" +
                     "moveForward()</mspace>"
             },
 
@@ -399,7 +405,7 @@ public static class CodingConceptLibrary
                     "Every name the jeepney understands, in one place. <b>Actions</b> <i>do</i> something " +
                     "(one tick each), <b>queries</b> answer True/False, and <b>reporters</b> hand back a " +
                     "number or word you can use in a calculation.\n\n" +
-                    "<b>Actions:</b> moveForward(), turnLeft(), turnRight(), wait(), " +
+                    "<b>Actions:</b> moveForward(), turnLeft(), turnRight(), moveLeft(), moveRight(), wait(), " +
                     "driveToNextStop(), driveToDropoff(), driveToTerminal(), driveToDestination(), " +
                     "keepDriving(), openDoor(), closeDoor(), pickUp() / board(), dropOff() / alight(), " +
                     "collectFare(), giveChange(amount), announceStop(), honk(). " +

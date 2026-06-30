@@ -112,6 +112,28 @@ public class GridWorldView : MonoBehaviour, IGridSpace, IStopView
             if (pair.Value != null) pair.Value.enabled = true;
     }
 
+    public void SpawnAlightingPeeps(Vector2Int cell,
+                                    System.Collections.Generic.IReadOnlyList<Color> colors)
+    {
+        if (colors == null || colors.Count == 0) return;
+
+        Sprite peep = Resources.Load<Sprite>("Placeholders/peep");
+        Vector3 world = CellToWorld(cell);
+
+        for (int i = 0; i < colors.Count; i++)
+        {
+            var go = new GameObject("AlightingPeep");
+            go.transform.position = world + new Vector3(0f, 0.22f + 0.18f * i, 0f);
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = peep;
+            sr.sortingOrder = SortOrder(cell) + 2;
+            sr.color = colors[i];
+
+            Destroy(go, 6f);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Iso math
 

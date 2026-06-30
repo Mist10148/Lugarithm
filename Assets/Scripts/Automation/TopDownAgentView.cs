@@ -49,6 +49,22 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
                 yield return Turn(result.FacingBefore, result.FacingAfter, duration);
                 break;
 
+            case "moveLeft":
+                // Slide sideways without rotating — MoveTo leaves the body facing untouched,
+                // so the jeepney drifts into the lane while still pointing ahead.
+                if (result.Blocked)
+                    yield return Bump((result.FacingBefore + 3) % 4, duration);
+                else
+                    yield return MoveTo(result.From, result.To, duration);
+                break;
+
+            case "moveRight":
+                if (result.Blocked)
+                    yield return Bump((result.FacingBefore + 1) % 4, duration);
+                else
+                    yield return MoveTo(result.From, result.To, duration);
+                break;
+
             case "pickUp":
                 if (_stopView != null && result.PickedUp)
                     _stopView.RemoveWaitingPeeps(result.From, Mathf.Max(1, result.PickedUpCount));
@@ -59,7 +75,11 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
                 // Only show a passenger alighting when one actually did — dropOff() at a stop
                 // that isn't a rider's marked destination delivers nobody, so it must not animate.
                 if (result.DroppedOff)
+                {
+                    if (_stopView != null)
+                        _stopView.SpawnAlightingPeeps(result.To, result.DroppedOffColors);
                     yield return Pop("Placeholders/peep", duration);
+                }
                 else
                     yield return new WaitForSeconds(duration);
                 break;

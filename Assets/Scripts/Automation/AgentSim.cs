@@ -35,6 +35,11 @@ public class AgentActionResult
     /// <summary>Ride ids delivered this action (ride mode only) — the view layer
     /// hides the matching chip for each id.</summary>
     public List<int> DeliveredRideIds;
+
+    /// <summary>Tints of the passengers who alighted this action — one per delivered
+    /// head, in ride color where known. The view layer spawns a lingering peep beside
+    /// the drop-off stop in each color so an automation delivery reads like a Manual one.</summary>
+    public List<Color> DroppedOffColors;
 }
 
 /// <summary>
@@ -336,6 +341,16 @@ public class AgentSim : IAgentApi
                 r.FacingAfter = Facing;
                 break;
 
+            case "moveLeft":
+                // Lane change: strafe one cell to the left of the heading, keeping facing.
+                ApplyLaneChange(r, (Facing + 3) % 4, "left");
+                break;
+
+            case "moveRight":
+                // Lane change: strafe one cell to the right of the heading, keeping facing.
+                ApplyLaneChange(r, (Facing + 1) % 4, "right");
+                break;
+
             case "pickUp":
                 if (_rides != null) { PickUpRides(r); break; }
                 if (_waiting.Remove(Position))
@@ -358,12 +373,15 @@ public class AgentSim : IAgentApi
                     StoryDelivered = true;
                     r.DroppedOff   = true;
                     r.DroppedOffCount = 1;
+                    AddAlightingColor(r, DefaultPeepColor);
                 }
                 if (_rides != null) { DropOffRides(r); break; }
                 if (Position == _grid.DestPos && PassengersAboard > 0)
                 {
                     r.DeliveredCount     = PassengersAboard;
                     r.DroppedOffCount    = PassengersAboard;
+                    for (int i = 0; i < PassengersAboard; i++)
+                        AddAlightingColor(r, DefaultPeepColor);
                     PassengersDelivered += PassengersAboard;
                     PassengersAboard     = 0;
                     r.DroppedOff         = true;
@@ -453,8 +471,36 @@ public class AgentSim : IAgentApi
         return r;
     }
 
+    /// <summary>Strafes one cell along <paramref name="dirIndex"/> (a perpendicular of the current
+    /// heading) without rotating — the grid analog of a Manual lane change. Bumps when there's no
+    /// open lane to slide into (e.g. a single-lane stretch).</summary>
+    void ApplyLaneChange(AgentActionResult r, int dirIndex, string sideName)
+    {
+        Vector2Int target = Position + FacingDeltas[dirIndex];
+        if (_grid.IsWalkable(target))
+        {
+            Position = target;
+            r.To = target;
+        }
+        else
+        {
+            r.Blocked = true;
+            r.Warning = $"no open lane to the {sideName} — there's no road to slide into.";
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Ride-mode actions
+
+    /// <summary>Neutral tint for an alighting passenger whose ride color is unknown
+    /// (generic-stop puzzles and the front-seat story rider).</summary>
+    static readonly Color DefaultPeepColor = new Color(0.85f, 0.85f, 0.9f);
+
+    static void AddAlightingColor(AgentActionResult r, Color color)
+    {
+        r.DroppedOffColors ??= new List<Color>();
+        r.DroppedOffColors.Add(color);
+    }
 
     void PickUpRides(AgentActionResult r)
     {
@@ -502,6 +548,7 @@ public class AgentSim : IAgentApi
 
                 r.DeliveredRideIds ??= new List<int>();
                 r.DeliveredRideIds.Add(ride.id);
+                AddAlightingColor(r, ride.color);
             }
 
         if (delivered > 0)

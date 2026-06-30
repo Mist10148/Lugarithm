@@ -47,6 +47,9 @@ public static class AgentApi
         new ApiEntry("moveForward",        ApiKind.Action,  minArity: 0, maxArity: 1),
         new ApiEntry("turnLeft",           ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("turnRight",          ApiKind.Action,  minArity: 0, maxArity: 0),
+        // Lane change: slide one lane sideways without turning (rides the road's lanes).
+        new ApiEntry("moveLeft",           ApiKind.Action,  minArity: 0, maxArity: 0),
+        new ApiEntry("moveRight",          ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("wait",               ApiKind.Action,  minArity: 0, maxArity: 1),
 
         new ApiEntry("frontIsClear",       ApiKind.Query,   minArity: 0, maxArity: 0),

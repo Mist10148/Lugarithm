@@ -64,6 +64,10 @@ public class MazeRepairMinigame : MonoBehaviour
     [SerializeField] private int mazeCells = 4;
     [Tooltip("Soft timer; on expiry the puzzle ends with a score penalty (run continues).")]
     [SerializeField] private float softTimerSeconds = 90f;
+    [Tooltip("Execution speed multiplier for this maze only (the maze owns its own " +
+             "ExecutionController, so this never affects the main Automation drive). " +
+             ">1 finishes the maze faster.")]
+    [SerializeField] private float runSpeed = 2.5f;
 
     Action<MinigameResult> _onDone;
     AutomationPuzzleDefinition _def;
@@ -148,7 +152,10 @@ public class MazeRepairMinigame : MonoBehaviour
         // animate the jeepney cell-to-cell (driven by ExecutionController).
         if (worldView != null) worldView.Build(grid);
         if (exec != null)
+        {
             exec.Init(grid, _sim, agentView, worldView, worldView, _def, _def.startFacing);
+            exec.SetSpeed(runSpeed);   // maze-only: snappier than the weighty open-road cadence
+        }
         EnsureRenderTexture();
         if (worldView != null) worldView.FrameCamera(mazeCamera);
         if (mazeCamera != null) mazeCamera.enabled = true;
@@ -243,6 +250,7 @@ public class MazeRepairMinigame : MonoBehaviour
 
         _attempts++;
         if (feedbackLabel != null) feedbackLabel.text = "Driving…";
+        exec.SetSpeed(runSpeed);   // re-assert in case a reset left it stale
         exec.Run(program);
     }
 

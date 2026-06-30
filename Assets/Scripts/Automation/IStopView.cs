@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -15,4 +16,9 @@ public interface IStopView
 
     /// <summary>Removes one or more waiting passenger markers from a stop cell.</summary>
     void RemoveWaitingPeeps(Vector2Int cell, int count);
+
+    /// <summary>Spawns one short-lived peep per color beside the stop at <paramref name="cell"/>
+    /// to show passengers alighting on dropOff() — mirrors Manual's exiting-peep so an
+    /// automation delivery is visible at the destination, not just at the jeepney.</summary>
+    void SpawnAlightingPeeps(Vector2Int cell, IReadOnlyList<Color> colors);
 }
