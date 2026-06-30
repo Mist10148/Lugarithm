@@ -55,7 +55,6 @@ public class CodeEditorController : MonoBehaviour
     // Auto-closing pairs state.
     const string Openers  = "([{\"";
     const string Closers  = ")]}\"";
-    bool _justAutoClosed;
 
     // Squiggle pool.
     readonly List<Image> _squiggleImages = new List<Image>();
@@ -68,6 +67,7 @@ public class CodeEditorController : MonoBehaviour
     readonly HashSet<int> _foldedLines = new HashSet<int>();
     readonly List<FoldRange> _foldRanges = new List<FoldRange>();
     readonly List<Button> _foldButtons = new List<Button>();
+    readonly HashSet<int> _visibleGutterIconLines = new HashSet<int>();
 
     struct FoldRange
     {
@@ -77,6 +77,8 @@ public class CodeEditorController : MonoBehaviour
     }
 
     public string Source => input != null ? input.text : "";
+    public int FoldRangeCount => _foldRanges.Count;
+    public int FoldedHeaderCount => _foldedLines.Count;
 
     // -------------------------------------------------------------------------
 
@@ -110,12 +112,14 @@ public class CodeEditorController : MonoBehaviour
             {
                 _dirty = true;
                 _lintTimer = lintDelaySeconds;
+                ComputeFoldRanges();
                 RefreshLineNumbers();
                 RefreshHighlight();
                 RequestAutocomplete();
             });
         }
 
+        ComputeFoldRanges();
         RefreshLineNumbers();
         RefreshHighlight();
         SyncHighlightToInput();
@@ -271,7 +275,6 @@ public class CodeEditorController : MonoBehaviour
             if (IsInStringOrComment(text, charIndex)) return addedChar;
 
             char close = Closers[opener];
-            _justAutoClosed = true;
             input.SetTextWithoutNotify(text.Insert(charIndex, addedChar.ToString() + close));
             input.stringPosition = charIndex + 1;
             RefreshLineNumbers();
@@ -280,14 +283,12 @@ public class CodeEditorController : MonoBehaviour
         }
 
         int closer = Closers.IndexOf(addedChar);
-        if (closer >= 0 && charIndex < text.Length && text[charIndex] == addedChar && _justAutoClosed)
+        if (closer >= 0 && charIndex < text.Length && text[charIndex] == addedChar)
         {
-            _justAutoClosed = false;
             input.stringPosition = charIndex + 1;
             return '\0';
         }
 
-        _justAutoClosed = false;
         return addedChar;
     }
 
@@ -310,6 +311,7 @@ public class CodeEditorController : MonoBehaviour
         if (input != null && string.IsNullOrEmpty(input.text))
         {
             input.SetTextWithoutNotify(scaffold ?? "");
+            ComputeFoldRanges();
             RefreshLineNumbers();
             RefreshHighlight();
         }
@@ -319,10 +321,18 @@ public class CodeEditorController : MonoBehaviour
     {
         if (input == null) return;
         input.SetTextWithoutNotify(source ?? "");
-        input.stringPosition = input.text.Length;
+        if (input.textComponent != null)
+            input.stringPosition = input.text.Length;
+        ComputeFoldRanges();
         RefreshLineNumbers();
         RefreshHighlight();
         Lint();
+    }
+
+    public void ConfigureAutocomplete(string[] allowedBlocks, string[] allowedQueries, string[] allowedReporters)
+    {
+        if (autocomplete != null)
+            autocomplete.SetVocabulary(allowedBlocks, allowedQueries, allowedReporters);
     }
 
     public ProgramNode BuildProgram(out List<LangError> errors)
@@ -342,7 +352,7 @@ public class CodeEditorController : MonoBehaviour
         if (lintLabel == null) return;
 
         if (_errors.Count == 0)
-            lintLabel.text = $"<color=#{ColorToHex(_theme.okColor)}>✓  looks good</color>";
+            lintLabel.text = $"<color=#{ColorToHex(_theme.okColor)}>OK  looks good</color>";
         else
             lintLabel.text = $"<color=#{ColorToHex(_theme.errorColor)}>{_errors[0]}</color>";
     }
@@ -380,8 +390,22 @@ public class CodeEditorController : MonoBehaviour
             sb.Append('\n');
         }
 
-        lineNumbers.text = sb.ToString();
+        lineNumbers.text = BuildLineNumberText(count);
         lineNumbers.ForceMeshUpdate();   // refresh metrics now so gutter icons line up
+    }
+
+    public string BuildLineNumberText(int count)
+    {
+        var sb = new StringBuilder();
+        for (int i = 1; i <= count; i++)
+        {
+            if (IsLineFolded(i))
+                sb.Append("<color=#").Append(LineNumberColorHex(i)).Append(">...</color>");
+            else
+                sb.Append("<color=#").Append(LineNumberColorHex(i)).Append('>').Append(i).Append("</color>");
+            sb.Append('\n');
+        }
+        return sb.ToString();
     }
 
     string LineNumberColorHex(int line)
@@ -467,61 +491,50 @@ public class CodeEditorController : MonoBehaviour
     // -------------------------------------------------------------------------
     // Folding
 
-    void ComputeFoldRanges()
+    public void ComputeFoldRanges()
     {
         _foldRanges.Clear();
-        string text = input.text;
-        var lineIndents = new List<int>();
-        int currentIndent = 0;
-        bool inLine = true;
-        for (int i = 0; i < text.Length; i++)
-        {
-            char c = text[i];
-            if (c == '\n')
-            {
-                lineIndents.Add(currentIndent);
-                currentIndent = 0;
-                inLine = true;
-            }
-            else if (inLine && c == ' ')
-            {
-                currentIndent++;
-            }
-            else if (inLine && c != ' ')
-            {
-                inLine = false;
-            }
-        }
-        lineIndents.Add(currentIndent);
+        string text = input != null ? input.text : "";
+        string[] lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var indents = new int[lines.Length];
+        var nonBlank = new bool[lines.Length];
 
-        // Find headers: lines ending in ':'.
-        int line = 1;
-        for (int i = 0; i < text.Length; i++)
+        for (int i = 0; i < lines.Length; i++)
         {
-            if (text[i] == ':')
+            string lineText = lines[i];
+            int indent = 0;
+            while (indent < lineText.Length && lineText[indent] == ' ') indent++;
+            indents[i] = indent;
+            nonBlank[i] = lineText.Trim().Length > 0;
+        }
+
+        for (int i = 0; i < lines.Length - 1; i++)
+        {
+            string trimmed = StripComment(lines[i]).TrimEnd();
+            if (!trimmed.EndsWith(":")) continue;
+            if (trimmed.StartsWith("#")) continue;
+
+            int body = NextNonBlankLine(lines, nonBlank, i + 1);
+            if (body < 0 || indents[body] <= indents[i]) continue;
+
+            int end = body;
+            for (int j = body + 1; j < lines.Length; j++)
             {
-                int headerIndent = lineIndents[line - 1];
-                if (line < lineIndents.Count)
+                if (!nonBlank[j])
                 {
-                    int bodyIndent = lineIndents[line];
-                    if (bodyIndent > headerIndent)
-                    {
-                        int end = line;
-                        for (int j = line + 1; j <= lineIndents.Count; j++)
-                        {
-                            if (j > lineIndents.Count) break;
-                            if (lineIndents[j - 1] > 0 && lineIndents[j - 1] < bodyIndent)
-                                break;
-                            if (lineIndents[j - 1] >= bodyIndent || j <= line)
-                                end = j;
-                            else
-                                break;
-                        }
-                        _foldRanges.Add(new FoldRange { HeaderLine = line, StartLine = line + 1, EndLine = end });
-                    }
+                    end = j;
+                    continue;
                 }
+                if (indents[j] <= indents[i]) break;
+                end = j;
             }
-            if (text[i] == '\n') line++;
+
+            _foldRanges.Add(new FoldRange
+            {
+                HeaderLine = i + 1,
+                StartLine = body + 1,
+                EndLine = end + 1,
+            });
         }
 
         // Remove folded lines for ranges that no longer exist.
@@ -538,7 +551,26 @@ public class CodeEditorController : MonoBehaviour
         foreach (int h in toRemove) _foldedLines.Remove(h);
     }
 
-    void ToggleFold(int headerLine)
+    static int NextNonBlankLine(string[] lines, bool[] nonBlank, int start)
+    {
+        for (int i = start; i < lines.Length; i++)
+            if (nonBlank[i]) return i;
+        return -1;
+    }
+
+    static string StripComment(string line)
+    {
+        bool inString = false;
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+            if (c == '"' && (i == 0 || line[i - 1] != '\\')) inString = !inString;
+            if (c == '#' && !inString) return line.Substring(0, i);
+        }
+        return line;
+    }
+
+    public void ToggleFold(int headerLine)
     {
         if (_foldedLines.Contains(headerLine))
             _foldedLines.Remove(headerLine);
@@ -612,6 +644,8 @@ public class CodeEditorController : MonoBehaviour
                 label.text = _foldedLines.Contains(fr.HeaderLine) ? "▸" : "▾";
 
             int header = fr.HeaderLine;
+            if (label != null)
+                label.text = _foldedLines.Contains(header) ? ">" : "v";
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(() => ToggleFold(header));
             btn.gameObject.SetActive(true);
@@ -655,9 +689,30 @@ public class CodeEditorController : MonoBehaviour
             return;
         }
 
+        ExpandFoldContaining(line);
         execLineBar.gameObject.SetActive(true);
         _executingLine = line;
         UpdateExecLineBarPosition();
+    }
+
+    void ExpandFoldContaining(int line)
+    {
+        int headerToExpand = -1;
+        foreach (FoldRange fr in _foldRanges)
+        {
+            if (_foldedLines.Contains(fr.HeaderLine) && line >= fr.StartLine && line <= fr.EndLine)
+            {
+                headerToExpand = fr.HeaderLine;
+                break;
+            }
+        }
+
+        if (headerToExpand > 0)
+        {
+            _foldedLines.Remove(headerToExpand);
+            RefreshLineNumbers();
+            RefreshHighlight();
+        }
     }
 
     public void ClearExecutionHighlight()
@@ -804,6 +859,9 @@ public class CodeEditorController : MonoBehaviour
         if (label != null)
             label.text = kind == GutterIconKind.Error ? "⚑" : "▶";
 
+        if (label != null)
+            label.text = kind == GutterIconKind.Error ? "!" : ">";
+
         icon.gameObject.SetActive(true);
         PositionGutterObject((RectTransform)icon.transform, line, 18f);
     }
@@ -830,19 +888,31 @@ public class CodeEditorController : MonoBehaviour
 
     void UpdateGutterIcons()
     {
-        // Error flags.
+        _visibleGutterIconLines.Clear();
+
         foreach (LangError err in _errors)
         {
             if (err.Line > 0)
+            {
                 SetGutterIcon(err.Line, GutterIconKind.Error);
+                _visibleGutterIconLines.Add(err.Line);
+            }
         }
 
-        // Execution marker.
-        if (_executingMarkerLine > 0 && _executingMarkerLine != _executingLine)
-            SetGutterIcon(_executingMarkerLine, GutterIconKind.None);
         _executingMarkerLine = _executingLine;
         if (_executingMarkerLine > 0)
+        {
             SetGutterIcon(_executingMarkerLine, GutterIconKind.Executing);
+            _visibleGutterIconLines.Add(_executingMarkerLine);
+        }
+
+        var stale = new List<int>();
+        foreach (int line in _gutterIconByLine.Keys)
+            if (!_visibleGutterIconLines.Contains(line))
+                stale.Add(line);
+
+        foreach (int line in stale)
+            SetGutterIcon(line, GutterIconKind.None);
     }
 
     void PositionGutterObject(RectTransform rt, int line, float xOffset)
@@ -891,7 +961,9 @@ public class CodeEditorController : MonoBehaviour
         {
             var vars = new List<string>();
             CollectVariableNames(text, vars);
-            autocomplete.Show(caret, prefix, vars);
+            var funcs = new List<string>();
+            CollectFunctionNames(text, funcs);
+            autocomplete.Show(caret, prefix, vars, funcs);
         }
         else
         {
@@ -928,6 +1000,26 @@ public class CodeEditorController : MonoBehaviour
                     names.Add(lhs);
                 }
             }
+        }
+    }
+
+    void CollectFunctionNames(string text, List<string> names)
+    {
+        var seen = new HashSet<string>();
+        var lines = text.Split('\n');
+        foreach (string line in lines)
+        {
+            string trimmed = line.TrimStart();
+            if (!trimmed.StartsWith("def ")) continue;
+
+            int start = 4;
+            int end = start;
+            while (end < trimmed.Length && IsWordChar(trimmed[end])) end++;
+            if (end <= start) continue;
+
+            string name = trimmed.Substring(start, end - start);
+            if (seen.Add(name))
+                names.Add(name);
         }
     }
 

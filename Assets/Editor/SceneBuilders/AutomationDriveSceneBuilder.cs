@@ -448,7 +448,7 @@ public static class AutomationDriveSceneBuilder
 
         // Speed is now a single cycle button (tap to step ×0.5 → ×1 → ×2 → ×4 → …);
         // its own face is the readout, so the controller updates this label.
-        speedButton = MakeBarButton(row, "SpeedButton", "×1.0", 88f);
+        speedButton = MakeBarButton(row, "SpeedButton", "x1.0", 88f);
         speedLabel = speedButton.GetComponentInChildren<TMP_Text>();
 
         autopilot = MakeBarButton(row, "Autopilot", "Auto", 124f);
@@ -619,6 +619,8 @@ public static class AutomationDriveSceneBuilder
                                                new Vector2(124f, 26f), 15f);
         UIFactory.Place(toggle, new Vector2(1f, 0f), new Vector2(-8f, 6f), new Vector2(124f, 26f));
         toggle.image.color = new Color(0.16f, 0.18f, 0.24f, 1f);
+        TMP_Text toggleLabel = toggle.GetComponentInChildren<TMP_Text>();
+        if (toggleLabel != null) toggleLabel.text = "Terminal";
 
         // Panel pinned to the bottom edge, full width.
         var panel = UIFactory.CreatePanel(content, "Terminal", new Vector2(0f, 0f), new Vector2(1f, 0f),
@@ -626,24 +628,33 @@ public static class AutomationDriveSceneBuilder
         panel.offsetMin = new Vector2(0f, 0f);
         panel.offsetMax = new Vector2(0f, terminalHeight);
 
+        var divider = UIFactory.CreatePanel(panel, "ResizeDivider", new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                            new Color(0.24f, 0.27f, 0.34f, 1f));
+        divider.offsetMin = new Vector2(0f, -6f);
+        divider.offsetMax = Vector2.zero;
+        var dividerHandle = divider.gameObject.AddComponent<TerminalResizeHandle>();
+
         // Header: title + close.
         var header = UIFactory.CreatePanel(panel, "Header", new Vector2(0f, 1f), new Vector2(1f, 1f),
                                            new Color(0.10f, 0.12f, 0.16f, 1f));
-        header.offsetMin = new Vector2(0f, -28f);
-        header.offsetMax = new Vector2(0f, 0f);
+        header.offsetMin = new Vector2(0f, -34f);
+        header.offsetMax = new Vector2(0f, -6f);
 
         TMP_Text title = UIFactory.CreateText(header, "Title", "TERMINAL — output", 15f,
                                               UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
         title.rectTransform.offsetMin = new Vector2(10f, 0f);
         title.rectTransform.offsetMax = new Vector2(-36f, 0f);
+        title.text = "TERMINAL - output";
 
         Button close = UIFactory.CreateButton(header, "CloseButton", "✕", new Vector2(28f, 22f), 16f);
         UIFactory.Place(close, new Vector2(1f, 0.5f), new Vector2(-6f, 0f), new Vector2(28f, 22f));
         close.image.color = new Color(0.18f, 0.20f, 0.26f, 1f);
+        TMP_Text closeLabel = close.GetComponentInChildren<TMP_Text>();
+        if (closeLabel != null) closeLabel.text = "x";
 
         // Log area (below the header) hosts the scrolling console.
         var logArea = UIFactory.CreateRect(panel, "Log", Vector2.zero, Vector2.one,
-                                           new Vector2(6f, 6f), new Vector2(-6f, -28f));
+                                           new Vector2(6f, 6f), new Vector2(-6f, -34f));
         console = BuildTerminalConsole(logArea);
 
         var ctrl = panel.gameObject.AddComponent<TerminalPanelController>();
@@ -652,6 +663,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(ctrl, "console",      console);
         SceneBuilderUtil.Wire(ctrl, "toggleButton", toggle);
         SceneBuilderUtil.Wire(ctrl, "closeButton",  close);
+        SceneBuilderUtil.Wire(dividerHandle, "terminal", ctrl);
 
         // Left active at build time so the controller's Awake wires its button
         // listeners; Awake then collapses it to the closed state.
@@ -662,11 +674,13 @@ public static class AutomationDriveSceneBuilder
     {
         ScrollRect scroll = UIFactory.CreateScrollView(parent, "ConsoleScroll",
                                                        Vector2.zero, Vector2.one, out RectTransform content);
-        UIFactory.AddVerticalScrollbar(scroll);
+        UIFactory.AddVerticalScrollbar(scroll, permanent: true);
 
         var template = UIFactory.CreateText(parent, "LineTemplate", "console line", 15f,
                                             UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
         template.textWrappingMode = TextWrappingModes.Normal;
+        var mono = Resources.Load<TMP_FontAsset>("Fonts/CodeMono");
+        if (mono != null) template.font = mono;
         var le = template.gameObject.AddComponent<LayoutElement>();
         le.preferredHeight = 22f;
         template.gameObject.SetActive(false);
@@ -1218,7 +1232,7 @@ public static class AutomationDriveSceneBuilder
                                                 TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(speedCaption, new Vector2(0f, 0f), new Vector2(170f, 34f), new Vector2(70f, 24f));
 
-        speedLabel = UIFactory.CreateText(panel, "SpeedValue", "×1.0", 22f, UIFactory.TextBright,
+        speedLabel = UIFactory.CreateText(panel, "SpeedValue", "x1.0", 22f, UIFactory.TextBright,
                                           TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(speedLabel, new Vector2(0f, 0f), new Vector2(240f, 32f), new Vector2(160f, 30f));
 

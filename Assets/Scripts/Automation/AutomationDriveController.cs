@@ -110,8 +110,11 @@ public class AutomationDriveController : MonoBehaviour
     // -------------------------------------------------------------------------
 
     // Speed is a single cycle button now: tap to step through these presets.
-    static readonly float[] SpeedPresets = { 0.5f, 1f, 2f, 4f };
+    static readonly float[] SpeedPresets = { 0.25f, 0.5f, 1f, 2f, 4f };
+    public static IReadOnlyList<float> SpeedPresetValues => SpeedPresets;
     int _speedIndex = 1;   // start at ×1.0
+
+    public float CurrentSpeedPreset => SpeedPresets[_speedIndex];
 
     LevelDefinition _level;
     AutomationPuzzleDefinition _def;
@@ -172,6 +175,8 @@ public class AutomationDriveController : MonoBehaviour
 
     void Start()
     {
+        _speedIndex = 2;
+
         // Resolve level (Tutorial fallback for direct editor play).
         _levelIndex = GameManager.Instance != null ? GameManager.Instance.SelectedLevelIndex : 0;
         _level = LevelLibrary.Get(_levelIndex);
@@ -360,7 +365,11 @@ public class AutomationDriveController : MonoBehaviour
         {
             if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, console);
             if (palette     != null) palette.Init(_def.allowedBlocks, blockCanvas);
-            if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold);
+            if (codeEditor  != null)
+            {
+                codeEditor.ConfigureAutocomplete(_def.allowedBlocks, _def.allowedQueries, _def.allowedReporters);
+                codeEditor.SetScaffold(_def.codeScaffold);
+            }
             if (ghost != null) ghost.Bind(_def);
         }
         catch (System.Exception e)
@@ -407,7 +416,7 @@ public class AutomationDriveController : MonoBehaviour
         // either advances the speed and both faces (plus the gauge) stay in sync.
         if (speedButton != null) speedButton.onClick.AddListener(CycleSpeed);
 
-        if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = "×1.0";
+        if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = "x1.0";
 
         if (stepButton != null)
             stepButton.onClick.AddListener(() => exec?.StepOnce());
@@ -879,6 +888,7 @@ public class AutomationDriveController : MonoBehaviour
         SetSpeed(v);
 
         string text = $"×{v:0.0}";
+        text = $"x{v:0.##}";
         if (speedLabel != null)      speedLabel.text      = text;
         if (codeSpeedLabel != null)  codeSpeedLabel.text  = text;
         if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = text;

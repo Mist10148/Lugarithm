@@ -88,7 +88,7 @@ public static class CodeDriveSceneBuilder
 
         // Speed is a single cycle button (tap to step ×0.5 → ×1 → ×2 → ×4 → …); its
         // own face is the readout, so speedLabel points at the button's child label.
-        Button speedButton = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "SpeedButton", "×1.0", 96f);
+        Button speedButton = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "SpeedButton", "x1.0", 96f);
         TMP_Text speedLabel = speedButton.GetComponentInChildren<TMP_Text>();
 
         // Top-right buttons: Exit, workspace toggle, Commands.
