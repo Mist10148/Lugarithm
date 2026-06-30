@@ -67,6 +67,82 @@ public class CodeEditorPolishTests
     }
 
     [Test]
+    public void CodeEditor_LongLineStillCountsAsOneLogicalLine()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        try
+        {
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = inputGo.AddComponent<TMP_InputField>();
+            editor.input = input;
+
+            string longComment =
+                "# Split the ride into helper functions, then call drive(): drive(), handlePassengers(), handleFares()";
+            editor.SetSource(longComment + "\npickUp()");
+
+            Assert.AreEqual(2, editor.LogicalLineCount);
+
+            string lineNumbers = editor.BuildLineNumberText(editor.LogicalLineCount);
+            int visibleRows = lineNumbers.Split('\n').Count(row => !string.IsNullOrWhiteSpace(row));
+            Assert.AreEqual(2, visibleRows);
+            StringAssert.Contains(">1</color>", lineNumbers);
+            StringAssert.Contains(">2</color>", lineNumbers);
+            Assert.IsFalse(lineNumbers.Contains(">3</color>"));
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
+    [Test]
+    public void CodeEditor_ForcesNoWrapMetricsForInputHighlightAndGutter()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        var inputTextGo = new GameObject("InputText");
+        var highlightGo = new GameObject("Highlight");
+        var lineNumbersGo = new GameObject("LineNumbers");
+        try
+        {
+            inputTextGo.transform.SetParent(inputGo.transform, false);
+            highlightGo.transform.SetParent(editorGo.transform, false);
+            lineNumbersGo.transform.SetParent(editorGo.transform, false);
+
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = inputGo.AddComponent<TMP_InputField>();
+            var inputText = inputTextGo.AddComponent<TextMeshProUGUI>();
+            var highlight = highlightGo.AddComponent<TextMeshProUGUI>();
+            var lineNumbers = lineNumbersGo.AddComponent<TextMeshProUGUI>();
+
+            input.textComponent = inputText;
+            editor.input = input;
+            SetPrivate(editor, "highlight", highlight);
+            SetPrivate(editor, "lineNumbers", lineNumbers);
+
+            inputText.textWrappingMode = TextWrappingModes.Normal;
+            highlight.textWrappingMode = TextWrappingModes.Normal;
+            lineNumbers.textWrappingMode = TextWrappingModes.Normal;
+
+            InvokePrivate(editor, "SyncHighlightToInput");
+
+            Assert.AreEqual(TextWrappingModes.NoWrap, inputText.textWrappingMode);
+            Assert.AreEqual(TextWrappingModes.NoWrap, highlight.textWrappingMode);
+            Assert.AreEqual(TextWrappingModes.NoWrap, lineNumbers.textWrappingMode);
+            Assert.AreEqual(TextOverflowModes.Overflow, inputText.overflowMode);
+            Assert.AreEqual(TextOverflowModes.Overflow, highlight.overflowMode);
+            Assert.AreEqual(TextOverflowModes.Overflow, lineNumbers.overflowMode);
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
+    [Test]
     public void Autocomplete_FiltersAgentApiToUnlockedVocabulary()
     {
         var go = new GameObject("Autocomplete");
@@ -179,5 +255,12 @@ public class CodeEditorPolishTests
         FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(field, fieldName);
         field.SetValue(target, value);
+    }
+
+    static void InvokePrivate(object target, string methodName)
+    {
+        MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method, methodName);
+        method.Invoke(target, null);
     }
 }

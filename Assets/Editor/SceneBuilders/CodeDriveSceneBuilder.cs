@@ -98,6 +98,17 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
 
+        Button hintBtn = UIFactory.CreateButton(canvas.transform, "HintButton",
+                                                "AI Hint", new Vector2(150f, 42f), 18f);
+        UIFactory.Place(hintBtn, new Vector2(1f, 1f), new Vector2(-164f, -84f), new Vector2(150f, 42f));
+        hintBtn.image.color = UIFactory.Accent;
+        hintBtn.gameObject.SetActive(false);
+
+        TMP_Text hintLbl = UIFactory.CreateText(canvas.transform, "HintLabel", "", 18f,
+                                                UIFactory.TextDim, TextAlignmentOptions.Top);
+        UIFactory.Place(hintLbl, new Vector2(0.5f, 1f), new Vector2(0f, -78f), new Vector2(600f, 60f));
+        hintLbl.enableWordWrapping = true;
+
         // Editor switch sits with the other global actions instead of over the road.
         // Editor switch grouped with the other top-right actions (below Journal),
         // instead of stacked under the goal banner on the left.
@@ -244,6 +255,8 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);
         SceneBuilderUtil.Wire(controller, "refuelMinigame",     refuel);
         SceneBuilderUtil.Wire(controller, "dialogue",     dialogue);
+        SceneBuilderUtil.Wire(controller, "hintButton",   hintBtn);
+        SceneBuilderUtil.Wire(controller, "hintLabel",    hintLbl);
         SceneBuilderUtil.Wire(controller, "legCompletion", legCompletion);
         SceneBuilderUtil.Wire(controller, "frontSeatCard",  frontSeat.gameObject);
         SceneBuilderUtil.Wire(controller, "frontSeatLabel", frontSeatLabel);

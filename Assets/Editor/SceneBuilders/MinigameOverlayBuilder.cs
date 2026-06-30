@@ -276,7 +276,17 @@ public static class MinigameOverlayBuilder
         }
 
         var feedback = UIFactory.CreateText(window, "Feedback", "", 22f, UIFactory.TextBright, TextAlignmentOptions.Center);
-        UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 100f), new Vector2(660f, 32f));
+        UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 160f), new Vector2(660f, 32f));
+
+        Button hint = UIFactory.CreateButton(window, "HintButton", "Hint", new Vector2(150f, 46f), 18f);
+        UIFactory.Place(hint, new Vector2(0.5f, 0f), new Vector2(0f, 76f), new Vector2(150f, 46f));
+        hint.image.color = UIFactory.Accent;
+        hint.gameObject.SetActive(false);
+
+        var hintText = UIFactory.CreateText(window, "HintLabel", "", 17f, UIFactory.TextDim,
+                                            TextAlignmentOptions.Center);
+        UIFactory.Place(hintText, new Vector2(0.5f, 0f), new Vector2(0f, 120f), new Vector2(660f, 42f));
+        hintText.enableWordWrapping = true;
 
         Button run = UIFactory.CreateButton(window, "RunButton", "▶ RUN", new Vector2(200f, 56f));
         UIFactory.Place(run, new Vector2(0.5f, 0f), new Vector2(-120f, 28f), new Vector2(200f, 56f));
@@ -296,6 +306,8 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.WireArray(game, "downButtons",     downs);
         SceneBuilderUtil.Wire(game, "runButton",  run);
         SceneBuilderUtil.Wire(game, "quitButton", quit);
+        SceneBuilderUtil.Wire(game, "hintButton", hint);
+        SceneBuilderUtil.Wire(game, "hintLabel",  hintText);
         return game;
     }
 
@@ -614,6 +626,11 @@ public static class MinigameOverlayBuilder
         var title = UIFactory.CreateText(window, "Title", "", 26f, UIFactory.Accent);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(680f, 44f));
 
+        Button hint = UIFactory.CreateButton(window, "HintButton", "Hint", new Vector2(140f, 38f), 17f);
+        UIFactory.Place(hint, new Vector2(1f, 1f), new Vector2(-92f, -18f), new Vector2(140f, 38f));
+        hint.image.color = UIFactory.Accent;
+        hint.gameObject.SetActive(false);
+
         var list = UIFactory.CreateRect(window, "Cards", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
         UIFactory.Place(list, new Vector2(0.5f, 1f), new Vector2(0f, -68f), new Vector2(620f, 416f));
         UIFactory.AddVerticalLayout(list, 8f, align: TextAnchor.UpperCenter);
@@ -661,6 +678,11 @@ public static class MinigameOverlayBuilder
         var feedback = UIFactory.CreateText(window, "Feedback", "", 22f, UIFactory.TextBright);
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(660f, 32f));
 
+        var hintText = UIFactory.CreateText(window, "HintLabel", "", 17f, UIFactory.TextDim,
+                                            TextAlignmentOptions.Center);
+        UIFactory.Place(hintText, new Vector2(0.5f, 0f), new Vector2(0f, 132f), new Vector2(660f, 48f));
+        hintText.enableWordWrapping = true;
+
         var game = overlay.gameObject.AddComponent<CodeFixMinigame>();
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
@@ -670,6 +692,8 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.WireArray(game, "upButtons",       ups);
         SceneBuilderUtil.WireArray(game, "downButtons",     downs);
         SceneBuilderUtil.Wire(game, "runButton", run);
+        SceneBuilderUtil.Wire(game, "hintButton", hint);
+        SceneBuilderUtil.Wire(game, "hintLabel",  hintText);
         SceneBuilderUtil.Wire(game, "timerFill", timerFill);
 
         return game;

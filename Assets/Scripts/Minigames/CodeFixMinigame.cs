@@ -24,6 +24,8 @@ public class CodeFixMinigame : MonoBehaviour
     [SerializeField] private Button[]   upButtons;         // parallel to cardLabels
     [SerializeField] private Button[]   downButtons;       // parallel to cardLabels
     [SerializeField] private Button     runButton;
+    [SerializeField] private Button     hintButton;
+    [SerializeField] private TMP_Text   hintLabel;
     [SerializeField] private Image      timerFill;
 
     [Header("Timing")]
@@ -42,6 +44,8 @@ public class CodeFixMinigame : MonoBehaviour
     readonly List<string> _order = new List<string>();
     int   _count;
     int   _mistakes;
+    int   _hintTier;
+    int   _lastWrongIndex = -1;
     float _timer;
     bool  _running;
 
@@ -59,7 +63,14 @@ public class CodeFixMinigame : MonoBehaviour
                 downButtons[i].onClick.AddListener(() => Move(idx, +1));
         }
         if (runButton != null) runButton.onClick.AddListener(OnRun);
+        if (hintButton != null) hintButton.onClick.AddListener(OnHintRequested);
         if (root != null) root.SetActive(false);
+    }
+
+    void OnDestroy()
+    {
+        if (runButton != null) runButton.onClick.RemoveListener(OnRun);
+        if (hintButton != null) hintButton.onClick.RemoveListener(OnHintRequested);
     }
 
     void Update()
@@ -82,8 +93,12 @@ public class CodeFixMinigame : MonoBehaviour
         _onDone   = onDone;
         _fault    = fault;
         _mistakes = 0;
+        _hintTier = 0;
+        _lastWrongIndex = -1;
         _timer    = softTimerSeconds;
         _running  = true;
+        if (hintButton != null) hintButton.gameObject.SetActive(false);
+        if (hintLabel != null) hintLabel.text = "";
 
         var rng = new System.Random(seed);
 
@@ -138,12 +153,30 @@ public class CodeFixMinigame : MonoBehaviour
         }
 
         _mistakes++;
+        _lastWrongIndex = wrong;
         if (feedbackLabel != null)
         {
             feedbackLabel.text  = $"Step {wrong + 1} is out of order — keep arranging.";
             feedbackLabel.color = FeedbackBad;
         }
         RefreshCards(wrongIndex: wrong);
+        RevealHintAfterStruggle();
+    }
+
+    void RevealHintAfterStruggle()
+    {
+        if (_mistakes < 2 || hintButton == null) return;
+        hintButton.gameObject.SetActive(true);
+        if (hintLabel != null && string.IsNullOrWhiteSpace(hintLabel.text))
+            hintLabel.text = "Stuck? Ask for a hint and I will point at the repair order without doing it for you.";
+    }
+
+    public void OnHintRequested()
+    {
+        int tier = MinigameHintLibrary.ClampTier(_hintTier, MinigameHintLibrary.RepairOrderHints.Length);
+        _hintTier = MinigameHintLibrary.ClampTier(_hintTier + 1, MinigameHintLibrary.RepairOrderHints.Length);
+        if (hintLabel != null)
+            hintLabel.text = MinigameHintLibrary.RepairOrderHint(tier, _fault, _lastWrongIndex);
     }
 
     // -------------------------------------------------------------------------
@@ -176,6 +209,8 @@ public class CodeFixMinigame : MonoBehaviour
     void Finish(bool timedOut)
     {
         _running = false;
+        if (hintButton != null) hintButton.gameObject.SetActive(false);
+        if (hintLabel != null) hintLabel.text = "";
         if (root != null) root.SetActive(false);
 
         var result = new MinigameResult

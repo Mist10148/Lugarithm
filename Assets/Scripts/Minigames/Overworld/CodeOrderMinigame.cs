@@ -29,6 +29,8 @@ public class CodeOrderMinigame : MonoBehaviour
     [SerializeField] private Button[]   downButtons;
     [SerializeField] private Button     runButton;
     [SerializeField] private Button     quitButton;
+    [SerializeField] private Button     hintButton;
+    [SerializeField] private TMP_Text   hintLabel;
 
     static readonly Color CardNormal = new Color(0.22f, 0.30f, 0.42f);
     static readonly Color CardWrong  = new Color(0.55f, 0.25f, 0.25f);
@@ -40,6 +42,9 @@ public class CodeOrderMinigame : MonoBehaviour
     readonly List<string> _order   = new List<string>();
     string[] _correct;
     int _count;
+    int _mistakes;
+    int _hintTier;
+    int _lastWrongIndex = -1;
 
     void Awake()
     {
@@ -54,13 +59,26 @@ public class CodeOrderMinigame : MonoBehaviour
         }
         if (runButton  != null) runButton.onClick.AddListener(OnRun);
         if (quitButton != null) quitButton.onClick.AddListener(QuitOut);
+        if (hintButton != null) hintButton.onClick.AddListener(OnHintRequested);
         if (root != null) root.SetActive(false);
+    }
+
+    void OnDestroy()
+    {
+        if (runButton  != null) runButton.onClick.RemoveListener(OnRun);
+        if (quitButton != null) quitButton.onClick.RemoveListener(QuitOut);
+        if (hintButton != null) hintButton.onClick.RemoveListener(OnHintRequested);
     }
 
     public void Begin(MinigameStationDef def, Action onSolved, Action onQuit)
     {
         _onSolved = onSolved;
         _onQuit = onQuit;
+        _mistakes = 0;
+        _hintTier = 0;
+        _lastWrongIndex = -1;
+        if (hintButton != null) hintButton.gameObject.SetActive(false);
+        if (hintLabel != null) hintLabel.text = "";
 
         CodingPuzzle puzzle = OverworldPuzzleLibrary.GetCoding(def.id, def.concept);
         _correct = puzzle.orderedLines;
@@ -101,7 +119,26 @@ public class CodeOrderMinigame : MonoBehaviour
         }
 
         if (feedbackLabel != null) { feedbackLabel.text = $"Line {wrong + 1} is out of order — keep arranging."; feedbackLabel.color = Bad; }
+        _mistakes++;
+        _lastWrongIndex = wrong;
         Refresh(wrong);
+        RevealHintAfterStruggle();
+    }
+
+    void RevealHintAfterStruggle()
+    {
+        if (_mistakes < 2 || hintButton == null) return;
+        hintButton.gameObject.SetActive(true);
+        if (hintLabel != null && string.IsNullOrWhiteSpace(hintLabel.text))
+            hintLabel.text = "Stuck? Ask for a hint and I will nudge the program order.";
+    }
+
+    public void OnHintRequested()
+    {
+        int tier = MinigameHintLibrary.ClampTier(_hintTier, MinigameHintLibrary.CodeOrderHints.Length);
+        _hintTier = MinigameHintLibrary.ClampTier(_hintTier + 1, MinigameHintLibrary.CodeOrderHints.Length);
+        if (hintLabel != null)
+            hintLabel.text = MinigameHintLibrary.CodeOrderHint(tier, _lastWrongIndex);
     }
 
     void QuitOut()
@@ -144,6 +181,8 @@ public class CodeOrderMinigame : MonoBehaviour
     {
         _onSolved = null;
         _onQuit = null;
+        if (hintButton != null) hintButton.gameObject.SetActive(false);
+        if (hintLabel != null) hintLabel.text = "";
         if (root != null) root.SetActive(false);
     }
 

@@ -85,6 +85,17 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
 
+        Button hintBtn = UIFactory.CreateButton(canvas.transform, "HintButton",
+                                                "AI Hint", new Vector2(150f, 42f), 18f);
+        UIFactory.Place(hintBtn, new Vector2(1f, 1f), new Vector2(-164f, -84f), new Vector2(150f, 42f));
+        hintBtn.image.color = UIFactory.Accent;
+        hintBtn.gameObject.SetActive(false);
+
+        TMP_Text hintLbl = UIFactory.CreateText(canvas.transform, "HintLabel", "", 18f,
+                                                UIFactory.TextDim, TextAlignmentOptions.Top);
+        UIFactory.Place(hintLbl, new Vector2(0.5f, 1f), new Vector2(0f, -78f), new Vector2(600f, 60f));
+        hintLbl.enableWordWrapping = true;
+
         // In-editor Block/Code switch, grouped with the other top-right actions
         // (below Exit) instead of stacked under the goal banner on the left.
         Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
@@ -163,17 +174,6 @@ public static class AutomationDriveSceneBuilder
             out Button codeSpeedButton, out TMP_Text codeSpeedLabel, out Button codeAutopilot,
             out ConsoleController console, out TerminalPanelController terminal);
         PlaceFloatingEditorWindow(codePanel, new Vector2(520f, -118f), new Vector2(760f, 830f));
-
-        // Co-Pilot hint button + label (bottom-right of workspace)
-        Button hintBtn = UIFactory.CreateButton(workspace, "HintButton",
-                                                  "💡 Ask for a hint", new Vector2(200f, 40f), 20f);
-        UIFactory.Place(hintBtn, new Vector2(1f, 0f), new Vector2(-120f, 60f), new Vector2(200f, 40f));
-        hintBtn.image.color = UIFactory.Accent;
-        hintBtn.gameObject.SetActive(false);
-
-        TMP_Text hintLbl = UIFactory.CreateText(workspace, "HintLabel", "", 20f, UIFactory.TextDim);
-        UIFactory.Place(hintLbl, new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(600f, 60f));
-        hintLbl.enableWordWrapping = true;
 
         // (The old bottom "terminal" band — a state-monitor line + console log —
         // was removed; the editor now fills that reclaimed space.)

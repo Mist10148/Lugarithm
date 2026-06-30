@@ -82,6 +82,7 @@ public class CodeEditorController : MonoBehaviour
     public string Source => input != null ? input.text : "";
     public int FoldRangeCount => _foldRanges.Count;
     public int FoldedHeaderCount => _foldedLines.Count;
+    public int LogicalLineCount => LineCount();
 
     // -------------------------------------------------------------------------
 
@@ -205,6 +206,10 @@ public class CodeEditorController : MonoBehaviour
         if (highlight == null || input == null || input.textComponent == null) return;
 
         TMP_Text src = input.textComponent;
+        ApplyCodeTextLayout(src);
+        ApplyCodeTextLayout(highlight);
+        ApplyCodeTextLayout(lineNumbers);
+
         RectTransform s = src.rectTransform;
         RectTransform h = highlight.rectTransform;
 
@@ -219,7 +224,8 @@ public class CodeEditorController : MonoBehaviour
         highlight.alignment        = src.alignment;
         highlight.lineSpacing      = src.lineSpacing;
         highlight.characterSpacing = src.characterSpacing;
-        highlight.textWrappingMode  = src.textWrappingMode;
+        highlight.textWrappingMode  = TextWrappingModes.NoWrap;
+        highlight.overflowMode      = TextOverflowModes.Overflow;
         if (src.font != null && highlight.font != src.font) highlight.font = src.font;
 
         // Rebuild the overlay mesh at most once per change — the per-line geometry
@@ -249,7 +255,8 @@ public class CodeEditorController : MonoBehaviour
             lineNumbers.fontSize         = src.fontSize;
             lineNumbers.lineSpacing      = src.lineSpacing;
             lineNumbers.characterSpacing = src.characterSpacing;
-            lineNumbers.textWrappingMode  = src.textWrappingMode;
+            lineNumbers.textWrappingMode  = TextWrappingModes.NoWrap;
+            lineNumbers.overflowMode      = TextOverflowModes.Overflow;
             if (src.font != null && lineNumbers.font != src.font)
                 lineNumbers.font = src.font;
         }
@@ -258,6 +265,13 @@ public class CodeEditorController : MonoBehaviour
         UpdateSquiggles();
         UpdateGutterIcons();
         UpdateFoldButtons();
+    }
+
+    static void ApplyCodeTextLayout(TMP_Text text)
+    {
+        if (text == null) return;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Overflow;
     }
 
     // -------------------------------------------------------------------------
@@ -406,6 +420,7 @@ public class CodeEditorController : MonoBehaviour
     public void RefreshLineNumbers()
     {
         if (lineNumbers == null || input == null) return;
+        ApplyCodeTextLayout(lineNumbers);
         lineNumbers.text = BuildLineNumberText(LineCount());
         lineNumbers.ForceMeshUpdate();   // refresh metrics now so gutter icons line up
     }
@@ -462,6 +477,7 @@ public class CodeEditorController : MonoBehaviour
     public void RefreshHighlight()
     {
         if (highlight == null || input == null) return;
+        ApplyCodeTextLayout(highlight);
 
         string src = input.text;
         if (_foldedLines.Count > 0)
