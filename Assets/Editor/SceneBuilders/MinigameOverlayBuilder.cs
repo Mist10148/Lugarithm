@@ -763,7 +763,8 @@ public static class MinigameOverlayBuilder
             out _, out _, out _, out _, out _, out _, out _, embedToolbar: false);
         RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
             editorArea, out CodeEditorController codeEditor, out VibeCodingController mazeVibe,
-            out _, out _, out _, out _, out _, out _, out _, embedToolbar: false);
+            out _, out _, out _, out _, out _, out _, out _,
+            out _, out _, embedToolbar: false);
 
         // Execution engine (drives the shared AgentSim through the maze grid).
         var exec = overlay.gameObject.AddComponent<ExecutionController>();

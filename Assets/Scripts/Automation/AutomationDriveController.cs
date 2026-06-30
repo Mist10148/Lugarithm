@@ -66,6 +66,7 @@ public class AutomationDriveController : MonoBehaviour
 
     [Header("Readouts")]
     [SerializeField] private ConsoleController      console;
+    [SerializeField] private TerminalPanelController terminal;
     [SerializeField] private StateMonitorController monitor;
     [SerializeField] private TMP_Text               walletLabel;
     [SerializeField] private Image                  automationFuelFill;
@@ -136,6 +137,7 @@ public class AutomationDriveController : MonoBehaviour
     int  _hintTier;
     int  _bestDelivered;   // best passengers-delivered across runs; eases the hint tier on progress
     int  _lastExecutedLine;
+    int  _outputCursor;   // how many print() lines we've already pushed to the terminal this run
     int  _townPuzzleBonus;
     float _startTime;
     bool  _won;
@@ -812,6 +814,10 @@ public class AutomationDriveController : MonoBehaviour
         if (_runCount >= 3 && hintButton != null)
             hintButton.gameObject.SetActive(true);
 
+        // Fresh terminal for this run: clear the log, reset the print cursor, and
+        // pop the terminal open so debug output is visible while the program runs.
+        _outputCursor = 0;
+        if (terminal != null) terminal.Open();
         if (console != null)
         {
             console.Clear();
@@ -1170,8 +1176,23 @@ public class AutomationDriveController : MonoBehaviour
         walletLabel.text = debt > 0 ? $"₱ {wallet}  debt -{debt}" : $"₱ {wallet}";
     }
 
+    // Drains print() output produced since the last flush into the terminal. The
+    // interpreter appends to exec.Output as it runs and clears it on (re)load, so a
+    // simple cursor tracks what we've already shown.
+    void FlushOutput()
+    {
+        if (exec == null || console == null) return;
+        IReadOnlyList<string> output = exec.Output;
+        if (output == null) return;
+        for (; _outputCursor < output.Count; _outputCursor++)
+            console.Print(output[_outputCursor]);
+    }
+
     void HandleStepDone(AgentActionResult result, StepResult step)
     {
+        // Surface any print() output that ran up to this action, in order.
+        FlushOutput();
+
         _lastExecutedLine = step.Node != null ? step.Node.Line : 0;
 
         if (console != null)
@@ -1235,11 +1256,14 @@ public class AutomationDriveController : MonoBehaviour
 
     void HandleRuntimeError(LangError error)
     {
+        FlushOutput();   // show any print() output that preceded the error
+        if (terminal != null) terminal.Open();
         if (console != null) console.Error(error.ToString());
     }
 
     void HandleWorldReset()
     {
+        _outputCursor = 0;   // exec clears its Output on reload; keep our cursor in step
         if (monitor != null) monitor.ShowIdle();
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
         if (codeEditor != null) codeEditor.ClearHeat();
@@ -1252,6 +1276,7 @@ public class AutomationDriveController : MonoBehaviour
 
     void HandleFinished(bool win)
     {
+        FlushOutput();   // a print()-only program never hits HandleStepDone, so flush here
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
 
         if (win)

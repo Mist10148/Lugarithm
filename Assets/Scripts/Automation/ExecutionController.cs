@@ -61,6 +61,11 @@ public class ExecutionController : MonoBehaviour
     public AgentSim Sim => _sim;
     public IReadOnlyDictionary<int, int> LineHits => _vm.LineHits;
 
+    /// <summary>Accumulated <c>print()</c> output for the current run. Cleared when
+    /// a new program is loaded; the drive controller drains new lines into the
+    /// terminal as the program steps.</summary>
+    public IReadOnlyList<string> Output => _vm.Output;
+
     /// <summary>True while the agent is mid-animation (a path or action is playing).
     /// Procedural streaming only re-rasterizes the grid when this is false, so an
     /// in-flight animation can never have the world shift under it.</summary>

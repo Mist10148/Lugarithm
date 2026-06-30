@@ -161,7 +161,8 @@ public static class CodeDriveSceneBuilder
 
         RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
             editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl,
-            out _, out _, out _, out _, out _, out _, out _, embedToolbar: false);
+            out _, out _, out _, out _, out _, out _, out _,
+            out ConsoleController console, out TerminalPanelController terminal, embedToolbar: false);
         AutomationDriveSceneBuilder.PlaceFloatingEditorWindow(
             codePanel, new Vector2(520f, -170f), new Vector2(760f, 780f));
 
@@ -205,6 +206,8 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "blockCanvas",    blockCanvas);
         SceneBuilderUtil.Wire(controller, "palette",        paletteCtrl);
         SceneBuilderUtil.Wire(controller, "codeEditor",     codeEditor);
+        SceneBuilderUtil.Wire(controller, "console",        console);
+        SceneBuilderUtil.Wire(controller, "terminal",       terminal);
         SceneBuilderUtil.Wire(controller, "vibeCtrl",       vibeCtrl);
         SceneBuilderUtil.Wire(controller, "deriveGridFromRoute",   true);
         SceneBuilderUtil.Wire(controller, "workspaceToggleButton", workspaceToggle);

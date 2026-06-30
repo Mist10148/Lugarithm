@@ -152,7 +152,8 @@ public static class AutomationDriveSceneBuilder
         RectTransform codePanel = BuildCodeWindow(
             editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl,
             out Button codeRun, out Button codePause, out Button codeReset, out Button codeStep,
-            out Button codeSpeedButton, out TMP_Text codeSpeedLabel, out Button codeAutopilot);
+            out Button codeSpeedButton, out TMP_Text codeSpeedLabel, out Button codeAutopilot,
+            out ConsoleController console, out TerminalPanelController terminal);
         PlaceFloatingEditorWindow(codePanel, new Vector2(520f, -118f), new Vector2(760f, 830f));
 
         // Co-Pilot hint button + label (bottom-right of workspace)
@@ -202,6 +203,8 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "palette",        paletteCtrl);
         SceneBuilderUtil.Wire(controller, "codeEditor",     codeEditor);
         SceneBuilderUtil.Wire(controller, "ghost",          codeEditor.GetComponent<GhostTextController>());
+        SceneBuilderUtil.Wire(controller, "console",        console);
+        SceneBuilderUtil.Wire(controller, "terminal",       terminal);
         SceneBuilderUtil.Wire(controller, "runButton",      run);
         SceneBuilderUtil.Wire(controller, "pauseButton",    pause);
         SceneBuilderUtil.Wire(controller, "resetButton",    reset);
@@ -474,6 +477,8 @@ public static class AutomationDriveSceneBuilder
                                                   out Button run, out Button pause, out Button reset,
                                                   out Button step, out Button speedButton,
                                                   out TMP_Text speedLabel, out Button autopilot,
+                                                  out ConsoleController console,
+                                                  out TerminalPanelController terminal,
                                                   bool embedToolbar = true)
     {
         RectTransform window = BuildWindow(parent, "CodeWindow", "CODE — type to program",
@@ -497,6 +502,11 @@ public static class AutomationDriveSceneBuilder
         var editorBody = UIFactory.CreateRect(content, "EditorBody", Vector2.zero, Vector2.one,
                                               Vector2.zero, new Vector2(0f, -toolbarHeight));
         editor = BuildCodeEditor(editorBody);
+
+        // Collapsible terminal docked to the bottom of the window: shows print()
+        // output and the execution log. Starts closed (editor fills the body); the
+        // toolbar "Terminal" button opens it and the header ✕ closes it.
+        terminal = BuildTerminalPanel(content, editorBody, out console);
 
         var chatBody = UIFactory.CreateRect(content, "ChatBody", Vector2.zero, Vector2.one,
                                             Vector2.zero, new Vector2(0f, -toolbarHeight));
@@ -590,6 +600,82 @@ public static class AutomationDriveSceneBuilder
         if (codeBtn != null) SceneBuilderUtil.Wire(chat, "codeButton", codeBtn);
 
         return window;
+    }
+
+    /// <summary>
+    /// Collapsible terminal docked to the bottom of the code window. Hosts a
+    /// scrolling <see cref="ConsoleController"/> (print() output + execution log)
+    /// and shrinks <paramref name="editorBody"/> from the bottom while open.
+    /// </summary>
+    internal static TerminalPanelController BuildTerminalPanel(RectTransform content, RectTransform editorBody,
+                                                              out ConsoleController console)
+    {
+        const float terminalHeight = 190f;
+
+        // Toggle button — bottom-right of the editor body, so it rides up just
+        // above the terminal when it opens and never collides with the bottom-left
+        // lint label.
+        Button toggle = UIFactory.CreateButton(editorBody, "TerminalToggle", "⌗ Terminal",
+                                               new Vector2(124f, 26f), 15f);
+        UIFactory.Place(toggle, new Vector2(1f, 0f), new Vector2(-8f, 6f), new Vector2(124f, 26f));
+        toggle.image.color = new Color(0.16f, 0.18f, 0.24f, 1f);
+
+        // Panel pinned to the bottom edge, full width.
+        var panel = UIFactory.CreatePanel(content, "Terminal", new Vector2(0f, 0f), new Vector2(1f, 0f),
+                                          new Color(0.06f, 0.07f, 0.10f, 1f));
+        panel.offsetMin = new Vector2(0f, 0f);
+        panel.offsetMax = new Vector2(0f, terminalHeight);
+
+        // Header: title + close.
+        var header = UIFactory.CreatePanel(panel, "Header", new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                           new Color(0.10f, 0.12f, 0.16f, 1f));
+        header.offsetMin = new Vector2(0f, -28f);
+        header.offsetMax = new Vector2(0f, 0f);
+
+        TMP_Text title = UIFactory.CreateText(header, "Title", "TERMINAL — output", 15f,
+                                              UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
+        title.rectTransform.offsetMin = new Vector2(10f, 0f);
+        title.rectTransform.offsetMax = new Vector2(-36f, 0f);
+
+        Button close = UIFactory.CreateButton(header, "CloseButton", "✕", new Vector2(28f, 22f), 16f);
+        UIFactory.Place(close, new Vector2(1f, 0.5f), new Vector2(-6f, 0f), new Vector2(28f, 22f));
+        close.image.color = new Color(0.18f, 0.20f, 0.26f, 1f);
+
+        // Log area (below the header) hosts the scrolling console.
+        var logArea = UIFactory.CreateRect(panel, "Log", Vector2.zero, Vector2.one,
+                                           new Vector2(6f, 6f), new Vector2(-6f, -28f));
+        console = BuildTerminalConsole(logArea);
+
+        var ctrl = panel.gameObject.AddComponent<TerminalPanelController>();
+        SceneBuilderUtil.Wire(ctrl, "panelRoot",    panel);
+        SceneBuilderUtil.Wire(ctrl, "editorBody",   editorBody);
+        SceneBuilderUtil.Wire(ctrl, "console",      console);
+        SceneBuilderUtil.Wire(ctrl, "toggleButton", toggle);
+        SceneBuilderUtil.Wire(ctrl, "closeButton",  close);
+
+        // Left active at build time so the controller's Awake wires its button
+        // listeners; Awake then collapses it to the closed state.
+        return ctrl;
+    }
+
+    static ConsoleController BuildTerminalConsole(RectTransform parent)
+    {
+        ScrollRect scroll = UIFactory.CreateScrollView(parent, "ConsoleScroll",
+                                                       Vector2.zero, Vector2.one, out RectTransform content);
+        UIFactory.AddVerticalScrollbar(scroll);
+
+        var template = UIFactory.CreateText(parent, "LineTemplate", "console line", 15f,
+                                            UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        template.textWrappingMode = TextWrappingModes.Normal;
+        var le = template.gameObject.AddComponent<LayoutElement>();
+        le.preferredHeight = 22f;
+        template.gameObject.SetActive(false);
+
+        var console = parent.gameObject.AddComponent<ConsoleController>();
+        SceneBuilderUtil.Wire(console, "scrollRect",   scroll);
+        SceneBuilderUtil.Wire(console, "content",      content);
+        SceneBuilderUtil.Wire(console, "lineTemplate", template);
+        return console;
     }
 
     // -------------------------------------------------------------------------
@@ -770,24 +856,33 @@ public static class AutomationDriveSceneBuilder
 
     internal static CodeEditorController BuildCodeEditor(RectTransform parent)
     {
-        // Gutter background (line-number column)
+        // Gutter background (line-number column). A RectMask2D clips the scrolling
+        // numbers so they never bleed over the toolbar or lint row.
         var gutter = UIFactory.CreatePanel(parent, "Gutter",
                                            new Vector2(0f, 0f), new Vector2(0f, 1f),
                                            new Color(0.05f, 0.06f, 0.08f, 1f));
         gutter.offsetMin = new Vector2(0f, 36f);
         gutter.offsetMax = new Vector2(46f, 0f);
+        gutter.gameObject.AddComponent<RectMask2D>();
+
+        // Scrolling layer: the line numbers and gutter icons live here together so
+        // the controller can shift them as one in lockstep with the code text.
+        var gutterContent = UIFactory.CreateRect(gutter, "GutterContent",
+                                                 Vector2.zero, Vector2.one,
+                                                 Vector2.zero, Vector2.zero);
 
         // Container for gutter icons + fold arrows (drawn over the gutter background).
-        var gutterRoot = UIFactory.CreateRect(gutter, "GutterIcons",
+        var gutterRoot = UIFactory.CreateRect(gutterContent, "GutterIcons",
                                               Vector2.zero, Vector2.one,
                                               Vector2.zero, Vector2.zero);
 
-        var lineNumbers = UIFactory.CreateText(parent, "LineNumbers", "1", 22f,
+        var lineNumbers = UIFactory.CreateText(gutterContent, "LineNumbers", "1", 22f,
                                                UIFactory.TextDim, TextAlignmentOptions.TopRight);
         lineNumbers.rectTransform.anchorMin = new Vector2(0f, 0f);
         lineNumbers.rectTransform.anchorMax = new Vector2(0f, 1f);
-        lineNumbers.rectTransform.offsetMin = new Vector2(0f, 44f);
+        lineNumbers.rectTransform.offsetMin = new Vector2(0f, 8f);
         lineNumbers.rectTransform.offsetMax = new Vector2(40f, -8f);
+        lineNumbers.overflowMode = TextOverflowModes.Overflow;
 
         TMP_InputField input = UIFactory.CreateMultilineInput(parent, "CodeInput",
                                                               Vector2.zero, Vector2.one, 22f);
@@ -809,8 +904,10 @@ public static class AutomationDriveSceneBuilder
         highlight.richText = true;
         highlight.transform.SetAsFirstSibling();
 
-        // Execution line highlight bar (behind the text, inside the viewport).
-        var execBarRt = UIFactory.CreatePanel(input.textViewport, "ExecLineBar",
+        // Execution line highlight bar. Parented to the highlight overlay so it
+        // shares the glyph coordinate frame and scrolls with the code; the
+        // controller positions it from the line metrics each frame.
+        var execBarRt = UIFactory.CreatePanel(highlight.rectTransform, "ExecLineBar",
                                               Vector2.zero, Vector2.one,
                                               new Color(0.18f, 0.36f, 0.58f, 0.45f));
         execBarRt.offsetMin = Vector2.zero;
@@ -820,8 +917,9 @@ public static class AutomationDriveSceneBuilder
         execBarRt.gameObject.SetActive(false);
         execBarRt.SetAsFirstSibling();
 
-        // Squiggle underlines for lint errors.
-        var squigglesRoot = UIFactory.CreateRect(input.textViewport, "Squiggles",
+        // Squiggle underlines for lint errors — also parented to the highlight so
+        // they scroll glued to their line.
+        var squigglesRoot = UIFactory.CreateRect(highlight.rectTransform, "Squiggles",
                                                  Vector2.zero, Vector2.one,
                                                  Vector2.zero, Vector2.zero);
 
@@ -851,6 +949,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(editor, "lintLabel",   lint);
         SceneBuilderUtil.Wire(editor, "execLineBar", execBar);
         SceneBuilderUtil.Wire(editor, "gutterRoot",  gutterRoot);
+        SceneBuilderUtil.Wire(editor, "gutterContent", gutterContent);
         SceneBuilderUtil.Wire(editor, "squigglesRoot", squigglesRoot);
         SceneBuilderUtil.Wire(editor, "autocomplete", autocomplete);
 
