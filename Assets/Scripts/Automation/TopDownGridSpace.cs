@@ -170,7 +170,7 @@ public class TopDownGridSpace : IGridSpace, IStopView
             for (int i = 0; i < remove; i++)
             {
                 GameObject peep = zone.TakeWaitingPeep();
-                if (peep != null) Object.Destroy(peep);
+                DestroyPeep(peep);
             }
         }
 
@@ -217,8 +217,21 @@ public class TopDownGridSpace : IGridSpace, IStopView
             sr.sortingOrder = 5;
             sr.color = colors[i];
 
-            Object.Destroy(peep, 6f);
+            DestroyPeep(peep, 6f);
         }
+    }
+
+    /// <summary>
+    /// Edit-mode-safe destroy: <see cref="Object.Destroy(Object)"/> logs an error under the
+    /// Unity Test Framework's EditMode (where nothing is playing), so fall back to
+    /// <see cref="Object.DestroyImmediate(Object)"/> there. The optional delay only applies at
+    /// play time — edit-mode tests don't tick, so a delayed destroy would never fire anyway.
+    /// </summary>
+    static void DestroyPeep(GameObject go, float delay = 0f)
+    {
+        if (go == null) return;
+        if (Application.isPlaying) Object.Destroy(go, delay);
+        else Object.DestroyImmediate(go);
     }
 
     void SpawnWaitingPeeps()
