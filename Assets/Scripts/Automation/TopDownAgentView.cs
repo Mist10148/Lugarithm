@@ -15,6 +15,18 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
     IGridSpace _space;
     IStopView  _stopView;
 
+    // Persistent motion state carried ACROSS animation batches so a drive that is
+    // streamed in 4-cell chunks reads as one continuous cruise instead of easing to
+    // a stop and re-accelerating every batch. Reset only on a genuine teleport (SnapTo)
+    // or a real stop (see PlayAction).
+    float      _cruiseSpeed;   // world units / sec, eased toward the batch's target speed
+    float      _speedVel;      // SmoothDamp velocity ref for _cruiseSpeed
+    Quaternion _bodyRot;       // lagged body heading, carried across batches
+    bool       _hasBodyRot;
+
+    // How quickly the cruise speed ramps up from a standstill. Bigger = lazier launch.
+    const float AccelSmoothTime = 0.45f;
+
     // -------------------------------------------------------------------------
 
     public void Init(IGridSpace space, Vector2Int cell, int facing)
@@ -29,12 +41,35 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
         transform.position = _space.CellToWorld(cell);
         SetSortOrder(cell);
         SetBodyFacing(facing);
+
+        // A teleport breaks motion continuity: drop cruise momentum and re-pin the
+        // lagged heading to the snapped facing so the next drive eases in cleanly.
+        _cruiseSpeed = 0f;
+        _speedVel    = 0f;
+        _bodyRot     = body != null ? body.transform.localRotation : Quaternion.identity;
+        _hasBodyRot  = true;
     }
 
     // -------------------------------------------------------------------------
 
     public IEnumerator PlayAction(AgentActionResult result, float duration)
     {
+        // A flowing cruise only happens through PlayContinuousPath. Anything routed here as a
+        // single beat that isn't locomotion (a stop, fare, change, idle wait) is a genuine halt,
+        // so drop cruise momentum — the next drive eases in from rest instead of resuming at speed.
+        switch (result.Action)
+        {
+            case "moveForward":
+            case "moveLeft":
+            case "moveRight":
+            case "turnLeft":
+            case "turnRight":
+                break;
+            default:
+                _cruiseSpeed = 0f;
+                break;
+        }
+
         switch (result.Action)
         {
             case "moveForward":
@@ -147,15 +182,26 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
         for (int i = 0; i < segCount; i++) { segLen[i] = Vector3.Distance(pts[i], pts[i + 1]); total += segLen[i]; }
         if (total < 1e-4f) yield break;
 
-        float duration = Mathf.Max(0.04f, secondsPerStep * segCount);
-        Quaternion rot = body != null ? body.transform.localRotation : Quaternion.identity;
+        // Constant cruise speed for this batch. secondsPerStep is constant across batches,
+        // so targetSpeed is too — the jeepney holds one speed through every chunk and corner
+        // instead of re-running an ease-in/ease-out per batch ("pumping").
+        float duration    = Mathf.Max(0.04f, secondsPerStep * segCount);
+        float targetSpeed = total / duration;
 
-        float elapsed = 0f;
-        while (elapsed < duration)
+        if (!_hasBodyRot)
         {
-            elapsed += Time.deltaTime;
-            // One SmoothStep across the entire path = a single ease-in/cruise/ease-out.
-            float dist = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration)) * total;
+            _bodyRot    = body != null ? body.transform.localRotation : Quaternion.identity;
+            _hasBodyRot = true;
+        }
+
+        float traveled = 0f;
+        while (traveled < total)
+        {
+            // Ease the speed up only when launching from rest (_cruiseSpeed near 0); mid-drive
+            // batches start already at targetSpeed, so there's no per-batch slowdown.
+            _cruiseSpeed = Mathf.SmoothDamp(_cruiseSpeed, targetSpeed, ref _speedVel, AccelSmoothTime);
+            traveled    += Mathf.Max(_cruiseSpeed, 0.0001f) * Time.deltaTime;
+            float dist   = Mathf.Min(traveled, total);
 
             int s = 0;
             while (s < segCount - 1 && dist > segLen[s]) { dist -= segLen[s]; s++; }
@@ -166,9 +212,10 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
             if (dir.sqrMagnitude > 1e-5f && body != null)
             {
                 Quaternion target = BodyRotationFromDir(dir);
-                // Frame-rate-independent lag: heavier (smaller k) reads as a heavier body.
-                rot = Quaternion.Slerp(rot, target, 1f - Mathf.Exp(-9f * Time.deltaTime));
-                body.transform.localRotation = rot;
+                // Frame-rate-independent lag, carried in _bodyRot so heading flows smoothly
+                // across batch boundaries (no snap to the final segment when a batch ends).
+                _bodyRot = Quaternion.Slerp(_bodyRot, target, 1f - Mathf.Exp(-9f * Time.deltaTime));
+                body.transform.localRotation = _bodyRot;
             }
 
             SetSortOrder(toCells[Mathf.Min(s, toCells.Count - 1)]);
@@ -176,7 +223,6 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
         }
 
         transform.position = pts[pts.Count - 1];
-        if (body != null) body.transform.localRotation = BodyRotationFromDir(pts[pts.Count - 1] - pts[pts.Count - 2]);
         SetSortOrder(toCells[toCells.Count - 1]);
     }
 
@@ -207,6 +253,7 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
 
     IEnumerator Bump(int facing, float duration)
     {
+        _cruiseSpeed = 0f;   // hit a wall — kill momentum so the next drive eases in
         Vector3 origin = transform.position;
         Vector3 push   = (Vector3)(_space.FacingDirection(facing) * 0.16f);
 

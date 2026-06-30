@@ -161,7 +161,7 @@ public class AutomationDriveController : MonoBehaviour
 
     // Lookahead distance (world units) at which the procedural town streams the next
     // chunk ahead of the driving program — matches Manual's StreamLookAhead.
-    const float StreamLookAhead = 45f;
+    const float StreamLookAhead = 70f;   // spawn the next chunk well off-camera (cam half-width ~21 + lead) so it doesn't pop in at the edge
     const int ActiveChunksBehind = 2;
     const int ActiveChunksAhead = 6;
 
@@ -456,8 +456,6 @@ public class AutomationDriveController : MonoBehaviour
         PlayBoardingDialogue();
     }
 
-    bool _wasExecBusy;
-
     void Update()
     {
         if (_proceduralTopDown)
@@ -469,16 +467,12 @@ public class AutomationDriveController : MonoBehaviour
         RefreshAutomationHud();
         UpdateSpeedNeedle();
 
-        // The instant a discrete step's motion finishes (Busy true -> false), reset the
-        // camera's chase velocity so SmoothDamp doesn't carry overshoot-causing momentum
-        // into the next step's static hold. See CameraFollow2D.ResetVelocity().
-        if (exec != null && cameraFollow != null)
-        {
-            bool busyNow = exec.Busy;
-            if (_wasExecBusy && !busyNow)
-                cameraFollow.ResetVelocity();
-            _wasExecBusy = busyNow;
-        }
+        // NOTE: we intentionally do NOT reset the camera's chase velocity at every batch
+        // boundary anymore. The agent now cruises continuously across batches
+        // (TopDownAgentView carries speed + heading between PlayContinuousPath calls), so
+        // there's no per-step hard stop to overshoot — SmoothDamp self-settles when the
+        // jeepney genuinely stops. Zeroing it each batch only produced a camera hitch synced
+        // to the 4-cell cadence. ResetVelocity() is still used on real teleports (spawn snap).
     }
 
     /// <summary>

@@ -54,6 +54,8 @@ public class CameraFollow2D : MonoBehaviour
             Vector3 p = newTarget.position;
             transform.position = new Vector3(p.x, p.y, transform.position.z);
         }
+
+        ResetVelocity();   // a snap is a teleport — don't carry chase momentum across it
     }
 
     /// <summary>Snaps the camera to a world position.</summary>
