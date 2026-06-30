@@ -863,15 +863,14 @@ public class AutomationDriveController : MonoBehaviour
     const float NeedleFullAngle = -120f;
     float _needleAngle = NeedleRestAngle;
 
-    /// <summary>Drives the bottom-left gauge needle from the jeepney's driving speed: it sweeps up
-    /// with the active speed preset (×0.5–×4) while the program runs and eases back to rest when
-    /// idle or paused, so the dial reflects how fast the automation jeepney is actually moving.</summary>
+    /// <summary>Drives the bottom-left gauge needle from the top-down jeepney's real cruise speed
+    /// (world units/sec). It rises as the agent accelerates, holds while cruising, and falls back to
+    /// rest when stopped or idle — matching Manual mode's speedometer behavior.</summary>
     void UpdateSpeedNeedle()
     {
         if (gaugeSpeedNeedle == null) return;
 
-        bool driving = exec != null && exec.State == ExecutionController.ExecState.Running;
-        float t = driving ? Mathf.InverseLerp(0.5f, 4f, exec.Speed) : 0f;
+        float t = topDownAgentView != null ? topDownAgentView.CurrentSpeed01 : 0f;
         float target = Mathf.Lerp(NeedleRestAngle, NeedleFullAngle, t);
 
         // Frame-rate-independent ease so the needle settles smoothly rather than snapping.

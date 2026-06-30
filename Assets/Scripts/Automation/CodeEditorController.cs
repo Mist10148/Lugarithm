@@ -56,6 +56,9 @@ public class CodeEditorController : MonoBehaviour
     const string Openers  = "([{\"";
     const string Closers  = ")]}\"";
 
+    struct PendingPair { public int Caret; public char Closer; }
+    PendingPair? _pendingPair;
+
     // Squiggle pool.
     readonly List<Image> _squiggleImages = new List<Image>();
 
@@ -178,7 +181,23 @@ public class CodeEditorController : MonoBehaviour
 
     void LateUpdate()
     {
+        ApplyPendingAutoClose();
         SyncHighlightToInput();
+    }
+
+    void ApplyPendingAutoClose()
+    {
+        if (!_pendingPair.HasValue || input == null) return;
+
+        var pp = _pendingPair.Value;
+        string t = input.text;
+        int caret = Mathf.Clamp(pp.Caret, 0, t.Length);
+        input.SetTextWithoutNotify(t.Insert(caret, pp.Closer.ToString()));
+        input.stringPosition = caret;
+        _pendingPair = null;
+
+        RefreshLineNumbers();
+        RefreshHighlight();
     }
 
     void SyncHighlightToInput()
@@ -221,6 +240,18 @@ public class CodeEditorController : MonoBehaviour
             Vector2 gp = gutterContent.anchoredPosition;
             gp.y = src.rectTransform.anchoredPosition.y;
             gutterContent.anchoredPosition = gp;
+        }
+
+        // Keep gutter numbers on the same line metrics as the code so they stay
+        // vertically aligned one-for-one even when font size or line spacing changes.
+        if (lineNumbers != null)
+        {
+            lineNumbers.fontSize         = src.fontSize;
+            lineNumbers.lineSpacing      = src.lineSpacing;
+            lineNumbers.characterSpacing = src.characterSpacing;
+            lineNumbers.textWrappingMode  = src.textWrappingMode;
+            if (src.font != null && lineNumbers.font != src.font)
+                lineNumbers.font = src.font;
         }
 
         UpdateExecLineBarPosition();
@@ -274,12 +305,11 @@ public class CodeEditorController : MonoBehaviour
         {
             if (IsInStringOrComment(text, charIndex)) return addedChar;
 
-            char close = Closers[opener];
-            input.SetTextWithoutNotify(text.Insert(charIndex, addedChar.ToString() + close));
-            input.stringPosition = charIndex + 1;
-            RefreshLineNumbers();
-            RefreshHighlight();
-            return '\0';
+            // Defer the closer insertion until LateUpdate so TMP_InputField has
+            // finished applying the opener and placed the caret; inserting inside
+            // the callback caused the caret to be overwritten and the pair to fail.
+            _pendingPair = new PendingPair { Caret = charIndex + 1, Closer = Closers[opener] };
+            return addedChar;
         }
 
         int closer = Closers.IndexOf(addedChar);
@@ -363,15 +393,19 @@ public class CodeEditorController : MonoBehaviour
     public void RefreshLineNumbers()
     {
         if (lineNumbers == null || input == null) return;
+        lineNumbers.text = BuildLineNumberText(LineCount());
+        lineNumbers.ForceMeshUpdate();   // refresh metrics now so gutter icons line up
+    }
 
+    public string BuildLineNumberText(int count)
+    {
         var sb = new StringBuilder();
-        int count = LineCount();
         for (int i = 1; i <= count; i++)
         {
             if (IsLineFolded(i))
             {
-                sb.Append("<color=#").Append(LineNumberColorHex(i)).Append(">⋯</color>");
-                // Skip folded body lines.
+                sb.Append("<color=#").Append(LineNumberColorHex(i)).Append(">...</color>");
+                // Skip folded body lines so the gutter shows one entry per visible line.
                 int skipEnd = i;
                 foreach (FoldRange fr in _foldRanges)
                 {
@@ -387,22 +421,6 @@ public class CodeEditorController : MonoBehaviour
             {
                 sb.Append("<color=#").Append(LineNumberColorHex(i)).Append('>').Append(i).Append("</color>");
             }
-            sb.Append('\n');
-        }
-
-        lineNumbers.text = BuildLineNumberText(count);
-        lineNumbers.ForceMeshUpdate();   // refresh metrics now so gutter icons line up
-    }
-
-    public string BuildLineNumberText(int count)
-    {
-        var sb = new StringBuilder();
-        for (int i = 1; i <= count; i++)
-        {
-            if (IsLineFolded(i))
-                sb.Append("<color=#").Append(LineNumberColorHex(i)).Append(">...</color>");
-            else
-                sb.Append("<color=#").Append(LineNumberColorHex(i)).Append('>').Append(i).Append("</color>");
             sb.Append('\n');
         }
         return sb.ToString();
@@ -482,7 +500,7 @@ public class CodeEditorController : MonoBehaviour
     {
         if (input == null) return 0;
         int count = 1;
-        string text = input.text;
+        string text = input.text.Replace("\r\n", "\n").Replace('\r', '\n');
         for (int i = 0; i < text.Length; i++)
             if (text[i] == '\n') count++;
         return count;
