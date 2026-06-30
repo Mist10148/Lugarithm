@@ -21,6 +21,7 @@ public class TopDownLevelController : MonoBehaviour
     [Header("World")]
     [SerializeField] private Tilemap groundTilemap;
     [SerializeField] private Tilemap wallTilemap;
+    [SerializeField] private GameObject tutorialEnvironmentRoot;
 
     [Header("Player")]
     [SerializeField] private TopDownPlayerController playerController;
@@ -94,6 +95,7 @@ public class TopDownLevelController : MonoBehaviour
         }
 
         BuildTilemap();
+        ApplyEnvironmentVisualState();
         SpawnEntities();
         PositionPlayer();
         SetupCamera();
@@ -101,6 +103,23 @@ public class TopDownLevelController : MonoBehaviour
 
         if (exitButton != null)
             exitButton.onClick.AddListener(OnExitClicked);
+    }
+
+    void ApplyEnvironmentVisualState()
+    {
+        bool useTutorialEnvironment = _levelIndex == 0 && tutorialEnvironmentRoot != null;
+        if (tutorialEnvironmentRoot != null)
+            tutorialEnvironmentRoot.SetActive(useTutorialEnvironment);
+
+        if (!useTutorialEnvironment) return;
+
+        TilemapRenderer groundRenderer =
+            groundTilemap != null ? groundTilemap.GetComponent<TilemapRenderer>() : null;
+        TilemapRenderer wallRenderer =
+            wallTilemap != null ? wallTilemap.GetComponent<TilemapRenderer>() : null;
+
+        if (groundRenderer != null) groundRenderer.enabled = false;
+        if (wallRenderer != null) wallRenderer.enabled = false;
     }
 
     void OnDestroy()

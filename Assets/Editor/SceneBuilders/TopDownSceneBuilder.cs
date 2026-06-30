@@ -16,6 +16,7 @@ public static class TopDownSceneBuilder
 {
     // Tile asset creation path (persistent across rebuilds)
     const string TileAssetDir = "Assets/Resources/Tiles";
+    const string TutorialArtDir = "Assets/Art/Tutorial";
 
     // -------------------------------------------------------------------------
     // Public entry point
@@ -63,6 +64,8 @@ public static class TopDownSceneBuilder
         var wallRenderer = wallGo.AddComponent<TilemapRenderer>();
         wallRenderer.sortingOrder = -5;
         wallGo.AddComponent<TilemapCollider2D>();
+
+        GameObject tutorialEnvironmentRoot = BuildTutorialEnvironment();
 
         // --- Create Tile assets from placeholder sprites ---------------------------
 
@@ -165,6 +168,7 @@ public static class TopDownSceneBuilder
 
         SceneBuilderUtil.Wire(controller, "groundTilemap", groundTilemap);
         SceneBuilderUtil.Wire(controller, "wallTilemap",   wallTilemap);
+        SceneBuilderUtil.Wire(controller, "tutorialEnvironmentRoot", tutorialEnvironmentRoot);
         SceneBuilderUtil.Wire(controller, "playerController", player);
         SceneBuilderUtil.Wire(controller, "cameraFollow",  follow);
         SceneBuilderUtil.Wire(controller, "promptRoot",    promptBg.gameObject);
@@ -196,6 +200,93 @@ public static class TopDownSceneBuilder
         // --- Save -------------------------------------------------------------------
 
         SceneBuilderUtil.SaveScene(scene, "TopDownLevel");
+    }
+
+    static GameObject BuildTutorialEnvironment()
+    {
+        var root = new GameObject("TutorialEnvironment");
+
+        var background = new GameObject("HeritagePlazaBackground");
+        background.transform.SetParent(root.transform, false);
+        background.transform.position = new Vector3(8f, 6f, 0f);
+        var backgroundRenderer = background.AddComponent<SpriteRenderer>();
+        backgroundRenderer.sprite = LoadTutorialSprite("TutorialHeritagePlaza.png", false);
+        backgroundRenderer.sortingOrder = -20;
+
+        Sprite treeA = LoadTutorialSprite("TutorialTreeA.png", true);
+        Sprite treeB = LoadTutorialSprite("TutorialTreeB.png", true);
+        Sprite treeC = LoadTutorialSprite("TutorialTreeC.png", true);
+        Sprite treeE = LoadTutorialSprite("TutorialTreeE.png", true);
+
+        CreateTutorialTree(root.transform, "Tree_A_NorthWest", treeA, new Vector2(0.8f, 9f));
+        CreateTutorialTree(root.transform, "Tree_B_NorthInner", treeB, new Vector2(4.5f, 9.2f));
+        CreateTutorialTree(root.transform, "Tree_C_NorthEast", treeC, new Vector2(10f, 10.2f));
+        CreateTutorialTree(root.transform, "Tree_A_EastUpper", treeA, new Vector2(15.2f, 8.5f));
+        CreateTutorialTree(root.transform, "Tree_B_WestLower", treeB, new Vector2(0.7f, 6.2f));
+        CreateTutorialTree(root.transform, "Tree_C_EastLower", treeC, new Vector2(14.8f, 6f));
+        CreateTutorialTree(root.transform, "Tree_E_SouthWest", treeE, new Vector2(4.3f, 0.5f));
+        CreateTutorialTree(root.transform, "Tree_E_SouthEast", treeE, new Vector2(10f, 0.4f));
+
+        root.SetActive(false);
+        return root;
+    }
+
+    static void CreateTutorialTree(
+        Transform parent,
+        string name,
+        Sprite sprite,
+        Vector2 position)
+    {
+        if (sprite == null) return;
+
+        var tree = new GameObject(name);
+        tree.transform.SetParent(parent, false);
+        tree.transform.position = new Vector3(position.x, position.y, 0f);
+
+        var renderer = tree.AddComponent<SpriteRenderer>();
+        renderer.sprite = sprite;
+        renderer.sortingOrder = 6;
+
+        Bounds bounds = sprite.bounds;
+        var canopyTrigger = tree.AddComponent<BoxCollider2D>();
+        canopyTrigger.isTrigger = true;
+        canopyTrigger.size = new Vector2(bounds.size.x * 0.76f, bounds.size.y * 0.62f);
+        canopyTrigger.offset = new Vector2(0f, bounds.size.y * 0.62f);
+
+        var occluder = tree.AddComponent<TutorialTreeOccluder>();
+        occluder.Configure(renderer);
+    }
+
+    static Sprite LoadTutorialSprite(string fileName, bool bottomPivot)
+    {
+        string path = $"{TutorialArtDir}/{fileName}";
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+
+        var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null)
+        {
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.spritePixelsPerUnit = 64f;
+            importer.filterMode = FilterMode.Point;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.mipmapEnabled = false;
+            importer.alphaIsTransparency = true;
+
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            settings.spriteMeshType = SpriteMeshType.FullRect;
+            settings.spriteAlignment = bottomPivot
+                ? (int)SpriteAlignment.BottomCenter
+                : (int)SpriteAlignment.Center;
+            settings.spritePivot = bottomPivot
+                ? new Vector2(0.5f, 0f)
+                : new Vector2(0.5f, 0.5f);
+            importer.SetTextureSettings(settings);
+            importer.SaveAndReimport();
+        }
+
+        return AssetDatabase.LoadAssetAtPath<Sprite>(path);
     }
 
     // -------------------------------------------------------------------------
