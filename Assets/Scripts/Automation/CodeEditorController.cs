@@ -325,11 +325,24 @@ public class CodeEditorController : MonoBehaviour
     bool IsInStringOrComment(string text, int upTo)
     {
         bool inString = false;
+        char quote = '\0';
         for (int i = 0; i < upTo && i < text.Length; i++)
         {
             char c = text[i];
-            if (c == '#' && !inString) return true;
-            if (c == '\"') inString = !inString;
+            if (inString)
+            {
+                if (c == '\\' && i + 1 < text.Length) { i++; continue; }
+                if (c == quote) { inString = false; quote = '\0'; }
+            }
+            else if (c == '"' || c == '\'')
+            {
+                inString = true;
+                quote = c;
+            }
+            else if (c == '#')
+            {
+                return true; // comment runs to end of line; everything after is comment
+            }
         }
         return inString;
     }
@@ -579,11 +592,24 @@ public class CodeEditorController : MonoBehaviour
     static string StripComment(string line)
     {
         bool inString = false;
+        char quote = '\0';
         for (int i = 0; i < line.Length; i++)
         {
             char c = line[i];
-            if (c == '"' && (i == 0 || line[i - 1] != '\\')) inString = !inString;
-            if (c == '#' && !inString) return line.Substring(0, i);
+            if (inString)
+            {
+                if (c == '\\' && i + 1 < line.Length) { i++; continue; }
+                if (c == quote) { inString = false; quote = '\0'; }
+            }
+            else if (c == '"' || c == '\'')
+            {
+                inString = true;
+                quote = c;
+            }
+            else if (c == '#')
+            {
+                return line.Substring(0, i);
+            }
         }
         return line;
     }
@@ -1050,27 +1076,42 @@ public class CodeEditorController : MonoBehaviour
 
         var sb = new StringBuilder(src.Length + 64);
         int i = 0;
+        bool inString = false;
+        char quote = '\0';
+
         while (i < src.Length)
         {
             char c = src[i];
 
-            if (c == '#')                                   // comment to end of line
+            if (inString)
             {
+                // Consume the rest of the string literal; a '#' here is just text.
                 int j = i;
-                while (j < src.Length && src[j] != '\n') j++;
-                AppendRun(sb, src, i, j - i, ColorToHex(_theme.commentColor));
-                i = j;
-            }
-            else if (c == '"')                              // string literal
-            {
-                int j = i + 1;
-                while (j < src.Length && src[j] != '"' && src[j] != '\n')
+                while (j < src.Length && src[j] != quote && src[j] != '\n')
                 {
                     if (src[j] == '\\' && j + 1 < src.Length) j++;   // skip escaped char
                     j++;
                 }
-                if (j < src.Length && src[j] == '"') j++;            // include closing quote
-                AppendRun(sb, src, i, j - i, ColorToHex(_theme.stringColor));
+                if (j < src.Length && src[j] == quote) j++;            // include closing quote
+                AppendRun(sb, src, i - 1, j - i + 1, ColorToHex(_theme.stringColor));
+                i = j;
+                inString = false;
+                continue;
+            }
+
+            if (c == '"' || c == '\'')                     // string literal start
+            {
+                inString = true;
+                quote = c;
+                i++;
+                continue;
+            }
+
+            if (c == '#')                                   // real comment to end of line
+            {
+                int j = i;
+                while (j < src.Length && src[j] != '\n') j++;
+                AppendRun(sb, src, i, j - i, ColorToHex(_theme.commentColor));
                 i = j;
             }
             else if (char.IsDigit(c))                       // number literal

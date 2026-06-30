@@ -82,6 +82,20 @@ public class LexerTests
     }
 
     [Test]
+    public void HashInsideString_IsNotAComment()
+    {
+        string source = "print(\"hello # world\")\n";
+
+        var tokens = Lexer.Tokenize(source, out var errors);
+
+        CollectionAssert.IsEmpty(errors);
+        Assert.AreEqual(TokenType.Identifier, tokens[0].Type); // print
+        Assert.AreEqual(TokenType.LParen,     tokens[1].Type);
+        Assert.AreEqual(TokenType.String,     tokens[2].Type);
+        Assert.AreEqual("hello # world",      tokens[2].Text);
+    }
+
+    [Test]
     public void MisalignedDedent_ReportsPlainEnglishError()
     {
         string source =

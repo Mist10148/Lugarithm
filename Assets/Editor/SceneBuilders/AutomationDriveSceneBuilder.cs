@@ -100,6 +100,14 @@ public static class AutomationDriveSceneBuilder
         UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-24f, -184f), new Vector2(190f, 40f));
         workspaceToggle.image.color = new Color(0.35f, 0.35f, 0.40f);
 
+        // Journal toggle (below Reopen Editor)
+        Button journalToggle = UIFactory.CreateButton(canvas.transform, "JournalToggle",
+                                                      "Journal", new Vector2(190f, 40f), 18f);
+        UIFactory.LocalizeButton(journalToggle, "hud.journal");
+        UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-24f, -232f), new Vector2(190f, 40f));
+        journalToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
+        journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
+
         // Front-seat story-passenger card (top-center): who you're coding for + talking to.
         var frontSeat = UIFactory.CreatePanel(canvas.transform, "FrontSeatCard",
                                               new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
