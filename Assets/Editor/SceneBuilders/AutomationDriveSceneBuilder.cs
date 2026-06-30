@@ -674,15 +674,28 @@ public static class AutomationDriveSceneBuilder
     {
         ScrollRect scroll = UIFactory.CreateScrollView(parent, "ConsoleScroll",
                                                        Vector2.zero, Vector2.one, out RectTransform content);
+        var layout = content.GetComponent<VerticalLayoutGroup>();
+        if (layout != null)
+        {
+            layout.spacing = 3f;
+            layout.padding = new RectOffset(10, 14, 10, 10);
+            layout.childControlHeight = true;
+            layout.childForceExpandHeight = false;
+        }
         UIFactory.AddVerticalScrollbar(scroll, permanent: true);
 
-        var template = UIFactory.CreateText(parent, "LineTemplate", "console line", 15f,
+        var template = UIFactory.CreateText(parent, "LineTemplate", "console line", 16f,
                                             UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
-        template.textWrappingMode = TextWrappingModes.Normal;
+        template.textWrappingMode = TextWrappingModes.NoWrap;
+        template.overflowMode = TextOverflowModes.Masking;
+        template.margin = Vector4.zero;
+        template.lineSpacing = 0f;
         var mono = Resources.Load<TMP_FontAsset>("Fonts/CodeMono");
         if (mono != null) template.font = mono;
         var le = template.gameObject.AddComponent<LayoutElement>();
-        le.preferredHeight = 22f;
+        le.minHeight = 26f;
+        le.preferredHeight = 26f;
+        le.flexibleHeight = 0f;
         template.gameObject.SetActive(false);
 
         var console = parent.gameObject.AddComponent<ConsoleController>();

@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class CodeEditorPolishTests
 {
@@ -117,5 +119,65 @@ public class CodeEditorPolishTests
         CollectionAssert.AreEqual(
             new[] { 0.25f, 0.5f, 1f, 2f, 4f },
             AutomationDriveController.SpeedPresetValues.ToArray());
+    }
+
+    [Test]
+    public void ConsoleRows_UseReadableFixedHeights()
+    {
+        var consoleGo = new GameObject("Console", typeof(RectTransform));
+        var scrollGo = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect));
+        var contentGo = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        var templateGo = new GameObject("LineTemplate", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
+        try
+        {
+            scrollGo.transform.SetParent(consoleGo.transform, false);
+            contentGo.transform.SetParent(scrollGo.transform, false);
+            templateGo.transform.SetParent(consoleGo.transform, false);
+
+            var content = (RectTransform)contentGo.transform;
+            var layout = contentGo.GetComponent<VerticalLayoutGroup>();
+            layout.childControlHeight = true;
+            layout.childForceExpandHeight = false;
+
+            var template = templateGo.GetComponent<TextMeshProUGUI>();
+            template.fontSize = 16f;
+            templateGo.SetActive(false);
+
+            var console = consoleGo.AddComponent<ConsoleController>();
+            SetPrivate(console, "scrollRect", scrollGo.GetComponent<ScrollRect>());
+            SetPrivate(console, "content", content);
+            SetPrivate(console, "lineTemplate", template);
+
+            console.Info("first terminal line");
+            console.Info("second terminal line");
+
+            Assert.AreEqual(2, content.childCount);
+            for (int i = 0; i < content.childCount; i++)
+            {
+                var row = content.GetChild(i);
+                var rowText = row.GetComponent<TMP_Text>();
+                var rowLayout = row.GetComponent<LayoutElement>();
+                var rowRect = (RectTransform)row;
+
+                Assert.NotNull(rowText);
+                Assert.NotNull(rowLayout);
+                Assert.AreEqual(TextWrappingModes.NoWrap, rowText.textWrappingMode);
+                Assert.AreEqual(TextOverflowModes.Masking, rowText.overflowMode);
+                Assert.GreaterOrEqual(rowLayout.preferredHeight, 24f);
+                Assert.AreEqual(0f, rowRect.anchorMin.x);
+                Assert.AreEqual(1f, rowRect.anchorMax.x);
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(consoleGo);
+        }
+    }
+
+    static void SetPrivate(object target, string fieldName, object value)
+    {
+        FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field, fieldName);
+        field.SetValue(target, value);
     }
 }
