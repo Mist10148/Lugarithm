@@ -14,7 +14,7 @@ public static class LevelSelectSceneBuilder
     static readonly Color TextMuted = new Color(0.77f, 0.67f, 0.82f, 1f);
     static readonly Color Gold = new Color(0.96f, 0.65f, 0.14f, 1f);
     static readonly Color LockedBg = new Color(0.10f, 0.07f, 0.13f, 0.82f);
-    static readonly Color Road = new Color(0.29f, 0.20f, 0.34f, 0.94f);
+    static readonly Color Road = new Color(0.15f, 0.14f, 0.18f, 1f);
 
     public static void Build()
     {
@@ -56,13 +56,16 @@ public static class LevelSelectSceneBuilder
         UIFactory.Place(sub, new Vector2(0.5f, 1f), new Vector2(0f, -96f), new Vector2(1040f, 34f));
 
         // Wallet total (top-right of header area)
-        var walletBadge = CreatePixelPanel(canvas.transform, "WalletBadge",
-                                           new Vector2(1f, 1f), new Vector2(-34f, -34f),
-                                           new Vector2(190f, 54f), PanelBg, PanelBorder);
+        var walletBadge = CreateSpritePanel(canvas.transform, "WalletBadge",
+                                            new Vector2(1f, 1f), new Vector2(-248f, -32f),
+                                            new Vector2(72f, 72f), SproutLandsUiLibrary.SquareButton);
         var wallet = UIFactory.CreateText(walletBadge, "WalletLabel",
                                           "P 0", 24f, Gold,
                                           TextAlignmentOptions.Center);
-        UIFactory.Place(wallet, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(168f, 34f));
+        wallet.enableAutoSizing = true;
+        wallet.fontSizeMin = 13f;
+        wallet.fontSizeMax = 24f;
+        UIFactory.Place(wallet, new Vector2(0.5f, 0.5f), new Vector2(0f, 0f), new Vector2(60f, 44f));
 
         // --- Road strip -------------------------------------------------------------
 
@@ -85,7 +88,7 @@ public static class LevelSelectSceneBuilder
         UIFactory.Place(back, new Vector2(0f, 1f), new Vector2(32f, -32f), new Vector2(190f, 54f));
 
         Button settings = CreatePixelButton(canvas.transform, "SettingsButton", "SETTINGS", new Vector2(190f, 54f), false);
-        UIFactory.Place(settings, new Vector2(1f, 1f), new Vector2(-238f, -32f), new Vector2(190f, 54f));
+        UIFactory.Place(settings, new Vector2(1f, 1f), new Vector2(-34f, -32f), new Vector2(190f, 54f));
 
         // --- Settings panel + manager ----------------------------------------------------
 
@@ -121,17 +124,10 @@ public static class LevelSelectSceneBuilder
         row.sizeDelta = new Vector2(940f, index == 0 ? 92f : 78f);
 
         var face = row.gameObject.AddComponent<Image>();
+        face.sprite = index == 0 ? SproutLandsUiLibrary.MainMenuButton : SproutLandsUiLibrary.MainMenuButtonDisabled;
         face.type   = Image.Type.Simple;
-        face.color  = index == 0
-            ? new Color(0.88f, 0.72f, 0.48f, 0.97f)
-            : new Color(0.12f, 0.08f, 0.16f, 0.82f);
+        face.color  = Color.white;
         face.raycastTarget = true;
-        var faceOutline = row.gameObject.AddComponent<Outline>();
-        faceOutline.effectColor = index == 0
-            ? new Color(0.34f, 0.18f, 0.09f, 0.92f)
-            : new Color(0.22f, 0.13f, 0.28f, 0.76f);
-        faceOutline.effectDistance = new Vector2(2f, -2f);
-        faceOutline.useGraphicAlpha = true;
 
         var button = row.gameObject.AddComponent<Button>();
         button.targetGraphic = face;
@@ -162,7 +158,11 @@ public static class LevelSelectSceneBuilder
 
         var subtitle = UIFactory.CreateText(row, "Subtitle",
                                             LevelLibrary.Names[index].ToUpperInvariant(),
-                                            12f, TextMuted, TextAlignmentOptions.MidlineLeft);
+                                            12f,
+                                            index == 0
+                                                ? new Color(0.32f, 0.17f, 0.07f, 0.95f)
+                                                : new Color(0.88f, 0.82f, 0.92f, 1f),
+                                            TextAlignmentOptions.MidlineLeft);
         subtitle.textWrappingMode = TextWrappingModes.NoWrap;
         subtitle.overflowMode = TextOverflowModes.Ellipsis;
         UIFactory.Place(subtitle, new Vector2(0f, 0.5f), new Vector2(130f, index == 0 ? -24f : -20f), new Vector2(560f, 24f));
@@ -181,7 +181,7 @@ public static class LevelSelectSceneBuilder
 
         var lockOverlay = UIFactory.CreatePanel(row, "LockOverlay",
                                                 Vector2.zero, Vector2.one,
-                                                new Color(0.02f, 0.01f, 0.03f, 0.46f));
+                                                new Color(0.02f, 0.01f, 0.03f, 0f));
         lockOverlay.GetComponent<Image>().raycastTarget = false;
 
         var entry = row.gameObject.AddComponent<LevelSelectEntry>();
@@ -209,34 +209,46 @@ public static class LevelSelectSceneBuilder
 
     static void BuildRoadStrip(Transform parent)
     {
-        var strip = CreatePixelPanel(parent, "RoadMap",
-                                    new Vector2(0.5f, 1f), new Vector2(0f, -154f),
-                                    new Vector2(980f, 96f), PanelBg, PanelBorder);
+        var strip = CreateSpritePanel(parent, "RoadMap",
+                                      new Vector2(0.5f, 1f), new Vector2(0f, -142f),
+                                      new Vector2(920f, 84f), SproutLandsUiLibrary.MainMenuButtonDisabled);
 
         var road = UIFactory.CreatePanel(strip, "RoadLine",
                                          new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                          Road);
         road.pivot = new Vector2(0.5f, 0.5f);
-        road.sizeDelta = new Vector2(780f, 8f);
+        road.anchoredPosition = new Vector2(0f, 11f);
+        road.sizeDelta = new Vector2(820f, 16f);
         SetNonInteractive(road);
+
+        for (int d = 0; d < 13; d++)
+        {
+            var dash = UIFactory.CreatePanel(strip, $"RoadDash_{d}",
+                                             new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                             new Color(0.86f, 0.70f, 0.30f, 0.90f));
+            dash.pivot = new Vector2(0.5f, 0.5f);
+            dash.anchoredPosition = new Vector2(-360f + d * 60f, 11f);
+            dash.sizeDelta = new Vector2(26f, 3f);
+            SetNonInteractive(dash);
+        }
 
         string[] names = { "TUTORIAL", "MOLO", "OTON", "TIGBAUAN", "MIAG-AO", "SAN JOAQUIN" };
         for (int i = 0; i < names.Length; i++)
         {
-            float x = -390f + i * 156f;
+            float x = -380f + i * 152f;
             var node = CreatePixelPanel(strip, $"Node_{i}",
-                                        new Vector2(0.5f, 0.5f), new Vector2(x, 8f),
-                                        new Vector2(i == 0 ? 54f : 42f, i == 0 ? 54f : 42f),
-                                        i == 0 ? Gold : new Color(0.18f, 0.12f, 0.23f, 0.96f),
-                                        i == 0 ? new Color(0.32f, 0.17f, 0.08f, 1f) : PanelBorder);
-            var number = UIFactory.CreateText(node, "Number", (i + 1).ToString(), i == 0 ? 18f : 14f,
-                                              i == 0 ? new Color(0.18f, 0.08f, 0.03f, 1f) : TextMuted,
+                                        new Vector2(0.5f, 0.5f), new Vector2(x, 11f),
+                                        new Vector2(i == 0 ? 54f : 44f, i == 0 ? 54f : 44f),
+                                        i == 0 ? Gold : new Color(0.24f, 0.17f, 0.30f, 1f),
+                                        i == 0 ? new Color(0.32f, 0.17f, 0.08f, 1f) : new Color(0.52f, 0.42f, 0.62f, 1f));
+            var number = UIFactory.CreateText(node, "Number", (i + 1).ToString(), i == 0 ? 21f : 16f,
+                                              i == 0 ? new Color(0.18f, 0.08f, 0.03f, 1f) : TextBright,
                                               TextAlignmentOptions.Center);
-            UIFactory.Place(number, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(34f, 24f));
+            UIFactory.Place(number, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(38f, 26f));
 
-            var label = UIFactory.CreateText(strip, $"Node_{i}_Label", names[i], 11f,
-                                             i == 0 ? Gold : TextMuted, TextAlignmentOptions.Center);
-            UIFactory.Place(label, new Vector2(0.5f, 0.5f), new Vector2(x, -34f), new Vector2(136f, 24f));
+            var label = UIFactory.CreateText(strip, $"Node_{i}_Label", names[i], 12f,
+                                             i == 0 ? Gold : new Color(0.90f, 0.85f, 0.93f, 1f), TextAlignmentOptions.Center);
+            UIFactory.Place(label, new Vector2(0.5f, 0.5f), new Vector2(x, -29f), new Vector2(132f, 20f));
         }
     }
 
@@ -255,7 +267,7 @@ public static class LevelSelectSceneBuilder
 
         var text = UIFactory.CreateText(row, "Label", label, 18f, TextBright, TextAlignmentOptions.Center);
         text.fontStyle = FontStyles.Bold;
-        UIFactory.Place(text, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(size.x - 28f, size.y - 18f));
+        UIFactory.Place(text, new Vector2(0.5f, 0.5f), new Vector2(0f, -2f), new Vector2(size.x - 28f, size.y - 14f));
         return button;
     }
 
@@ -272,6 +284,30 @@ public static class LevelSelectSceneBuilder
         outline.useGraphicAlpha = true;
         SetNonInteractive(panel);
         return panel;
+    }
+
+    static RectTransform CreateSpritePanel(Transform parent, string name, Vector2 anchor,
+                                           Vector2 position, Vector2 size, Sprite sprite)
+    {
+        var panel = UIFactory.CreatePanel(parent, name, anchor, anchor, sprite == null ? Color.clear : Color.white);
+        panel.pivot = anchor;
+        panel.anchoredPosition = position;
+        panel.sizeDelta = size;
+        var image = panel.GetComponent<Image>();
+        if (image != null)
+        {
+            image.sprite = sprite;
+            image.type = Image.Type.Simple;
+            image.raycastTarget = false;
+        }
+        return panel;
+    }
+
+    static void FlattenPanelOutline(RectTransform panel)
+    {
+        var outline = panel.GetComponent<Outline>();
+        if (outline != null)
+            outline.effectDistance = Vector2.zero;
     }
 
     static void SetNonInteractive(RectTransform rect)

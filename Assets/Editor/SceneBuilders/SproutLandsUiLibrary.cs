@@ -25,6 +25,7 @@ public static class SproutLandsUiLibrary
     public static Sprite MainMenuTitle => Get("LugarithmTitle.png");
     public static Sprite MainMenuButton => Get("MainMenuButton.png");
     public static Sprite MainMenuButtonDisabled => Get("MainMenuButtonDisabled.png");
+    public static Sprite DialogBoxSmall => Get("dialog box small.png");
 
     public static Sprite SquareButton    => Get("Square Buttons 26x26.png", "Square26_0_0");
 
