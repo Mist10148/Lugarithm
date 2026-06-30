@@ -346,16 +346,34 @@ public class AlmanacController : MonoBehaviour
         HeritageEntry town = HeritageLibrary.ForLevel(pageId);
         if (town == null || town.keyFacts == null) return "";
 
-        var sb = new System.Text.StringBuilder();
+        string accent = ColorUtility.ToHtmlStringRGB(Accent);
+        string dim    = ColorUtility.ToHtmlStringRGB(TextDim);
+        const string rule = "────────────────────";
+
+        // Each discovered fact becomes its own framed "field note" — a rule, a bold
+        // accent headline at a larger size, then the in-depth body — so the page reads
+        // like an almanac of entries the player has collected, not a flat blob.
+        var entries = new System.Text.StringBuilder();
+        int found = 0;
         for (int i = 0; i < town.keyFacts.Length; i++)
         {
             if (!SaveSystem.Current.HasFact(town.townKey + ":" + i)) continue;
             HeritageFact f = town.keyFacts[i];
-            sb.Append("\n\n<color=#").Append(ColorUtility.ToHtmlStringRGB(Accent)).Append("><b>")
-              .Append(f.headline).Append("</b></color>\n").Append(f.detail);
+            found++;
+
+            entries.Append("\n\n<color=#").Append(dim).Append(">").Append(rule).Append("</color>\n")
+                   .Append("<size=120%><color=#").Append(accent).Append("><b>")
+                   .Append(f.headline).Append("</b></color></size>\n")
+                   .Append(f.detail);
         }
-        if (sb.Length > 0)
-            sb.Insert(0, $"\n\n<color=#{ColorUtility.ToHtmlStringRGB(Accent)}>— Fun facts you've uncovered —</color>");
+
+        if (found == 0) return "";
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append("\n\n<size=130%><color=#").Append(accent).Append("><b>— Field Notes —</b></color></size>")
+          .Append("  <color=#").Append(dim).Append("><i>(").Append(found).Append(" gathered)</i></color>");
+        sb.Append(entries);
+        sb.Append("\n\n<color=#").Append(dim).Append(">").Append(rule).Append("</color>");
         return sb.ToString();
     }
 

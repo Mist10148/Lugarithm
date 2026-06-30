@@ -65,6 +65,11 @@ public class DialogueChoice
     public DialogueEventKind unlocksEvent;
     public DialogueTone tone;
     public int affinityDelta;
+
+    /// <summary>Optional. When set, choosing this option records this exact oracle fact
+    /// (a "townKey:index" key into HeritageLibrary) instead of the generic next-in-order
+    /// discovery — so what an NPC tells you is what gets jotted in the almanac.</summary>
+    public string discoversFactKey;
 }
 
 /// <summary>

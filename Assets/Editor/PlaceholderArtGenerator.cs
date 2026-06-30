@@ -62,6 +62,25 @@ public static class PlaceholderArtGenerator
     static readonly Color TDJeepStopDark = new Color(0.60f, 0.50f, 0.15f);
     static readonly Color TDInteract    = new Color(1.0f, 0.90f, 0.20f);
 
+    // Roadside building palette (Manual drive street — Filipino heritage mix)
+    static readonly Color BldgOutline   = new Color(0.18f, 0.14f, 0.12f);
+    static readonly Color RoofTerra     = new Color(0.74f, 0.36f, 0.28f);
+    static readonly Color RoofTerraDk   = new Color(0.62f, 0.29f, 0.22f);
+    static readonly Color RoofGalv      = new Color(0.60f, 0.62f, 0.64f);
+    static readonly Color RoofGalvDk    = new Color(0.49f, 0.51f, 0.54f);
+    static readonly Color WoodBrown     = new Color(0.55f, 0.40f, 0.26f);
+    static readonly Color WoodDark      = new Color(0.40f, 0.28f, 0.18f);
+    static readonly Color StoneGray     = new Color(0.64f, 0.62f, 0.57f);
+    static readonly Color ThatchTan     = new Color(0.80f, 0.68f, 0.40f);
+    static readonly Color ThatchDark    = new Color(0.65f, 0.53f, 0.30f);
+    static readonly Color AwningRed     = new Color(0.82f, 0.30f, 0.28f);
+    static readonly Color AwningOrange  = new Color(0.92f, 0.55f, 0.18f);
+    static readonly Color AwningStripe  = new Color(0.95f, 0.92f, 0.86f);
+    static readonly Color ChapelWhite   = new Color(0.92f, 0.90f, 0.84f);
+    static readonly Color CapizPane     = new Color(0.86f, 0.86f, 0.70f);
+    static readonly Color DoorBrown     = new Color(0.36f, 0.24f, 0.16f);
+    static readonly Color CounterTan    = new Color(0.72f, 0.56f, 0.36f);
+
     // -------------------------------------------------------------------------
 
     public static void GenerateAll()
@@ -107,9 +126,24 @@ public static class PlaceholderArtGenerator
         Make("td_jeep_stop", 16, 16, 64, TDJeepStopPainter);
         Make("td_interaction", 16, 16, 64, (x, y, w, h) => TDInteractionPainter(x, y, w, h));
 
+        // Minigame station markers (white → tinted at runtime to the station colour).
+        Make("td_puzzle", 16, 16, 64, TDPuzzlePainter);
+        Make("td_code",   16, 16, 64, TDCodePainter);
+
         // Top-down characters
         Make("td_player", 16, 24, 64, TDPlayerPainter, pivot: new Vector2(0.5f, 0.25f));
         Make("td_npc",    16, 24, 64, TDNpcPainter,    pivot: new Vector2(0.5f, 0.25f));
+
+        // Roadside buildings (Manual drive street — heritage mix). Top-down roof with
+        // a "front" strip along the bottom edge; the spawner rotates the front to the road.
+        Make("bldg_bahay_bato", 80, 84, 16, BahayBato);
+        Make("bldg_sari_sari",  64, 64, 16, SariSari);
+        Make("bldg_carinderia", 64, 64, 16, Carinderia);
+        Make("bldg_nipa",       56, 60, 16, NipaHut);
+        Make("bldg_chapel",     64, 92, 16, Chapel);
+
+        // Ambient street person (non-passenger) — white so the runtime tints it a muted color.
+        Make("townsfolk", 16, 24, 32, Townsfolk, pivot: new Vector2(0.5f, 0.2f));
 
         AssetDatabase.Refresh();
         Debug.Log("[Lugarithm] Placeholder art generated in " + Dir);
@@ -362,6 +396,27 @@ public static class PlaceholderArtGenerator
         return Color.clear;
     }
 
+    static Color TDPuzzlePainter(int x, int y, int w, int h)
+    {
+        // Four quadrant blocks with a cross-shaped gap — reads as a puzzle/grid.
+        // Drawn white so the runtime tints it to the station's marker colour.
+        bool border = x < 1 || y < 1 || x > w - 2 || y > h - 2;
+        if (border) return Color.clear;
+        bool gap = Mathf.Abs(x - w / 2) < 1 || Mathf.Abs(y - h / 2) < 1;
+        return gap ? Color.clear : Color.white;
+    }
+
+    static Color TDCodePainter(int x, int y, int w, int h)
+    {
+        // A little screen with two "code" lines — reads as the coding station.
+        // White; the runtime tints it green.
+        if (x < 2 || y < 3 || x > w - 3 || y > h - 4) return Color.clear;
+        bool frame = x == 2 || x == w - 3 || y == 3 || y == h - 4;
+        bool line1 = y == h / 2 - 2 && x >= 4 && x <= 9;
+        bool line2 = y == h / 2 + 1 && x >= 4 && x <= 11;
+        return (frame || line1 || line2) ? Color.white : Color.clear;
+    }
+
     static Color TDPlayerPainter(int x, int y, int w, int h)
     {
         // Top-down character: body (blue shirt), head, hair.
@@ -406,6 +461,106 @@ public static class PlaceholderArtGenerator
 
         if (y >= 4 && y < h * 0.62f && x >= 4 && x < w - 4) return TDNpcBody;
 
+        return Color.clear;
+    }
+
+    // -------------------------------------------------------------------------
+    // Roadside buildings + ambient people (Manual drive street)
+
+    static bool BldgBorder(int x, int y, int w, int h)
+        => x == 0 || y == 0 || x == w - 1 || y == h - 1;
+
+    static Color BahayBato(int x, int y, int w, int h)
+    {
+        // Heritage stone-and-wood house: terracotta tiled roof + capiz-window gallery.
+        if (BldgBorder(x, y, w, h)) return BldgOutline;
+        float fy = (float)y / h;
+        if (fy < 0.30f)                                  // wood gallery + capiz windows
+        {
+            if (y < 3) return WoodDark;                  // sill
+            bool mullion = (x % 9) < 2;
+            return mullion ? WoodBrown : CapizPane;
+        }
+        int ridge = (int)(h * 0.66f);
+        if (Mathf.Abs(y - ridge) < 2) return WoodDark;   // roof ridge
+        Color roof = (y < ridge) ? RoofTerra : RoofTerraDk;
+        if ((y % 5) == 0) roof *= 0.92f;                 // tile rows
+        return roof;
+    }
+
+    static Color SariSari(int x, int y, int w, int h)
+    {
+        // Sari-sari store: red candy-striped awning over a shaded opening, galvanized roof.
+        if (BldgBorder(x, y, w, h)) return BldgOutline;
+        float fy = (float)y / h;
+        if (fy < 0.30f)
+        {
+            if (fy < 0.12f) return WindowDark;           // shaded storefront
+            bool stripe = ((x / 5) % 2) == 0;
+            return stripe ? AwningRed : AwningStripe;
+        }
+        bool rib = (x % 6) < 3;                           // corrugated roof
+        return rib ? RoofGalv : RoofGalvDk;
+    }
+
+    static Color Carinderia(int x, int y, int w, int h)
+    {
+        // Carinderia (eatery): open counter + orange awning, galvanized roof.
+        if (BldgBorder(x, y, w, h)) return BldgOutline;
+        float fy = (float)y / h;
+        if (fy < 0.34f)
+        {
+            if (fy < 0.10f) return WoodDark;             // base
+            if (fy < 0.18f) return CounterTan;           // counter
+            bool stripe = ((x / 5) % 2) == 0;
+            return stripe ? AwningOrange : AwningStripe;
+        }
+        bool rib = (x % 6) < 3;
+        return rib ? RoofGalv : RoofGalvDk;
+    }
+
+    static Color NipaHut(int x, int y, int w, int h)
+    {
+        // Bahay kubo: bamboo-slat wall + thatch roof.
+        if (BldgBorder(x, y, w, h)) return BldgOutline;
+        float fy = (float)y / h;
+        if (fy < 0.32f)
+        {
+            bool slat = (x % 4) < 2;                      // bamboo slats
+            return slat ? WoodBrown : WoodBrown * 0.82f;
+        }
+        Color t = (((x + y) % 6) < 2) ? ThatchDark : ThatchTan;   // thatch texture
+        if (fy > 0.64f) t *= 0.95f;
+        return t;
+    }
+
+    static Color Chapel(int x, int y, int w, int h)
+    {
+        // Small chapel: white facade + arched door, gray roof with a cross.
+        if (BldgBorder(x, y, w, h)) return BldgOutline;
+        float fy = (float)y / h;
+        float cx = w * 0.5f;
+        if (fy < 0.32f)
+        {
+            if (Mathf.Abs(x - cx + 0.5f) < w * 0.14f && fy < 0.24f) return DoorBrown;
+            return ChapelWhite;
+        }
+        bool crossV = Mathf.Abs(x - cx + 0.5f) < 1.5f && fy > 0.72f;
+        bool crossH = fy > 0.84f && fy < 0.90f && Mathf.Abs(x - cx + 0.5f) < 5f;
+        if (crossV || crossH) return ChapelWhite;        // cross on the roof
+        return (y < (int)(h * 0.66f)) ? StoneGray : StoneGray * 0.88f;
+    }
+
+    static Color Townsfolk(int x, int y, int w, int h)
+    {
+        // Standing person with a wide hat — white so the runtime tints it a muted color
+        // (distinct from the saturated, boardable peeps clustered at the stop signs).
+        float cx = w * 0.5f;
+        float headCy = h * 0.72f, headR = w * 0.26f;
+        float dx = x - cx + 0.5f, dy = y - headCy;
+        if (Mathf.Abs(dy - headR * 0.7f) < 1.5f && Mathf.Abs(dx) < w * 0.44f) return Color.white; // hat brim
+        if (dx * dx + dy * dy <= headR * headR) return Color.white;                                // head
+        if (y > 1 && y < h * 0.56f && Mathf.Abs(dx) < w * 0.30f) return Color.white;               // body
         return Color.clear;
     }
 

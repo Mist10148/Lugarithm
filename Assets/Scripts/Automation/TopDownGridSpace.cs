@@ -8,12 +8,15 @@ using UnityEngine;
 /// </summary>
 public class TopDownGridSpace : IGridSpace, IStopView
 {
-    readonly GridTransform _transform;
+    GridTransform _transform;
     readonly RouteContext  _routeContext;
     readonly Transform     _worldRoot;
     readonly float         _roadHalfWidth;
 
     readonly Dictionary<Vector2Int, bool> _occupied = new Dictionary<Vector2Int, bool>();
+    readonly Dictionary<Vector2Int, StopZone> _zonesByCell = new Dictionary<Vector2Int, StopZone>();
+    readonly Dictionary<Vector2Int, List<Color>> _peepColorsByCell = new Dictionary<Vector2Int, List<Color>>();
+    readonly Dictionary<Vector2Int, int> _waitingCountsByCell = new Dictionary<Vector2Int, int>();
 
     public RouteContext RouteContext => _routeContext;
     public Transform    WorldRoot    => _worldRoot;
@@ -31,9 +34,69 @@ public class TopDownGridSpace : IGridSpace, IStopView
         _routeContext = RouteVisualBuilder.BuildProcedural(
             worldRoot, ManualLayoutProjector.Project(layout), roadHalfWidth);
 
+        RefreshFromLayout(layout);
+    }
+
+    /// <summary>
+    /// Re-derives the grid mapping, stop cells, occupancy and waiting-peep colors from
+    /// a (possibly grown) layout WITHOUT rebuilding road visuals — the streamed chunk's
+    /// tiles/buildings are appended separately via <see cref="RouteVisualBuilder.AppendProcedural"/>.
+    /// Cell indices may shift when the layout grows; callers re-pin the agent by its world
+    /// position afterwards. When <paramref name="rides"/> is supplied, only un-boarded,
+    /// un-delivered rides leave a waiting peep (so already-served stops don't re-populate).
+    /// </summary>
+    public void RefreshFromLayout(TownLayout layout, IReadOnlyList<GridRide> rides = null)
+    {
+        if (layout == null) return;
+
+        GridLayoutProjector.ToGridMap(layout, _transform.cellSize, out _transform, out _, out _);
+
+        _occupied.Clear();
+        _zonesByCell.Clear();
+        _peepColorsByCell.Clear();
+        _waitingCountsByCell.Clear();
+
         foreach (TownNode n in layout.nodes)
             if (n.IsStop)
-                _occupied[n.gridCell] = true;
+            {
+                _occupied[n.gridCell] = false;
+                if (_routeContext.ZoneByNode != null &&
+                    _routeContext.ZoneByNode.TryGetValue(n.id, out StopZone zone))
+                    _zonesByCell[n.gridCell] = zone;
+            }
+
+        if (rides != null)
+        {
+            foreach (GridRide ride in rides)
+            {
+                if (ride == null || ride.aboard || ride.delivered) continue;
+                AddWaitingPeepColor(ride.origin, ride.color);
+            }
+        }
+        else
+        {
+            foreach (PassengerRequest req in layout.requests)
+                AddWaitingPeepColor(layout.Node(req.originNodeId).gridCell, req.color);
+        }
+
+        // A stop is "occupied" exactly where a waiting peep stands.
+        foreach (KeyValuePair<Vector2Int, List<Color>> pair in _peepColorsByCell)
+        {
+            _waitingCountsByCell[pair.Key] = pair.Value.Count;
+            _occupied[pair.Key] = true;
+        }
+
+        SpawnWaitingPeeps();
+    }
+
+    void AddWaitingPeepColor(Vector2Int cell, Color color)
+    {
+        if (!_peepColorsByCell.TryGetValue(cell, out List<Color> colors))
+        {
+            colors = new List<Color>();
+            _peepColorsByCell[cell] = colors;
+        }
+        colors.Add(color);
     }
 
     // -------------------------------------------------------------------------
@@ -42,6 +105,11 @@ public class TopDownGridSpace : IGridSpace, IStopView
     public Vector3 CellToWorld(Vector2Int cell)
     {
         return _transform.CellToWorld(cell);
+    }
+
+    public Vector2Int WorldToCell(Vector2 world)
+    {
+        return _transform.WorldToCell(world);
     }
 
     public int SortOrder(Vector2Int cell)
@@ -69,17 +137,124 @@ public class TopDownGridSpace : IGridSpace, IStopView
     {
         var cells = new List<Vector2Int>(_occupied.Keys);
         foreach (Vector2Int cell in cells)
-            _occupied[cell] = true;
+        {
+            int count = _peepColorsByCell.TryGetValue(cell, out List<Color> colors) ? colors.Count : 0;
+            _waitingCountsByCell[cell] = count;
+            _occupied[cell] = count > 0;
+        }
+        SpawnWaitingPeeps();
     }
 
     public void SetStopOccupied(Vector2Int cell, bool occupied)
     {
-        _occupied[cell] = occupied;
+        if (!occupied)
+        {
+            RemoveWaitingPeeps(cell, 1);
+            return;
+        }
+
+        int count = _peepColorsByCell.TryGetValue(cell, out List<Color> colors) ? Mathf.Max(1, colors.Count) : 1;
+        _waitingCountsByCell[cell] = count;
+        _occupied[cell] = true;
+    }
+
+    public void RemoveWaitingPeeps(Vector2Int cell, int count)
+    {
+        if (count <= 0) return;
+
+        int current = _waitingCountsByCell.TryGetValue(cell, out int waiting) ? waiting : 0;
+        int remove = Mathf.Min(count, Mathf.Max(0, current));
+
+        if (_zonesByCell.TryGetValue(cell, out StopZone zone) && zone != null)
+        {
+            for (int i = 0; i < remove; i++)
+            {
+                GameObject peep = zone.TakeWaitingPeep();
+                DestroyPeep(peep);
+            }
+        }
+
+        int remaining = Mathf.Max(0, current - remove);
+        _waitingCountsByCell[cell] = remaining;
+        _occupied[cell] = remaining > 0;
     }
 
     /// <summary>True if the stop at this cell still has a waiting passenger.</summary>
     public bool IsOccupied(Vector2Int cell)
     {
         return _occupied.TryGetValue(cell, out bool occupied) && occupied;
+    }
+
+    public void SpawnAlightingPeeps(Vector2Int cell, IReadOnlyList<Color> colors)
+    {
+        if (colors == null || colors.Count == 0) return;
+
+        Sprite peepSprite = Resources.Load<Sprite>("Placeholders/peep");
+        _zonesByCell.TryGetValue(cell, out StopZone zone);
+
+        // Lay the alighting peeps out beside the sign exactly like the waiting line, so a
+        // drop-off reads at the stop. Parent to the zone (inherits the road's orientation)
+        // when there is one; otherwise drop them in world space at the cell.
+        Vector2 startLocal = new Vector2(_roadHalfWidth + 2.1f, -0.8f);
+
+        for (int i = 0; i < colors.Count; i++)
+        {
+            var peep = new GameObject("AlightingPeep");
+            if (zone != null)
+            {
+                peep.transform.SetParent(zone.transform, false);
+                peep.transform.localPosition = (Vector3)(startLocal + Vector2.right * (0.75f * i));
+            }
+            else
+            {
+                peep.transform.SetParent(_worldRoot, false);
+                peep.transform.position = CellToWorld(cell) +
+                    new Vector3(startLocal.x, startLocal.y - 0.75f * i, 0f);
+            }
+
+            var sr = peep.AddComponent<SpriteRenderer>();
+            sr.sprite = peepSprite;
+            sr.sortingOrder = 5;
+            sr.color = colors[i];
+
+            DestroyPeep(peep, 6f);
+        }
+    }
+
+    /// <summary>
+    /// Edit-mode-safe destroy: <see cref="Object.Destroy(Object)"/> logs an error under the
+    /// Unity Test Framework's EditMode (where nothing is playing), so fall back to
+    /// <see cref="Object.DestroyImmediate(Object)"/> there. The optional delay only applies at
+    /// play time — edit-mode tests don't tick, so a delayed destroy would never fire anyway.
+    /// </summary>
+    static void DestroyPeep(GameObject go, float delay = 0f)
+    {
+        if (go == null) return;
+        if (Application.isPlaying) Object.Destroy(go, delay);
+        else Object.DestroyImmediate(go);
+    }
+
+    void SpawnWaitingPeeps()
+    {
+        foreach (KeyValuePair<Vector2Int, StopZone> pair in _zonesByCell)
+        {
+            StopZone zone = pair.Value;
+            if (zone == null) continue;
+
+            zone.ClearWaitingPeeps();
+            if (!_peepColorsByCell.TryGetValue(pair.Key, out List<Color> colors) || colors.Count <= 0)
+                continue;
+
+            int count = _waitingCountsByCell.TryGetValue(pair.Key, out int waiting)
+                ? Mathf.Clamp(waiting, 0, colors.Count)
+                : colors.Count;
+            if (count <= 0) continue;
+
+            if (count == colors.Count)
+                zone.SpawnWaitingPeeps(colors, new Vector2(_roadHalfWidth + 2.1f, -0.8f), Vector2.right);
+            else
+                zone.SpawnWaitingPeeps(colors.GetRange(0, count),
+                    new Vector2(_roadHalfWidth + 2.1f, -0.8f), Vector2.right);
+        }
     }
 }

@@ -60,15 +60,15 @@ public static class MainMenuSceneBuilder
             menuStack.anchoredPosition = new Vector2(-250f, 140f);
             menuStack.sizeDelta = new Vector2(462f, 486f);
 
-            newGame = CreateMenuRowButton(menuStack, "NewGameButton", "JEEP JOURNEY",
+            newGame = CreateMenuRowButton(menuStack, "NewGameButton", "JEEP JOURNEY", "menu.newgame",
                                           SproutLandsUiLibrary.MenuIconJeep, 0f, false);
-            cont = CreateMenuRowButton(menuStack, "ContinueButton", "CONTINUE",
+            cont = CreateMenuRowButton(menuStack, "ContinueButton", "CONTINUE", "menu.continue",
                                        SproutLandsUiLibrary.MenuIconRoute, -92f, true);
-            journal = CreateMenuRowButton(menuStack, "JournalButton", "JOURNAL",
+            journal = CreateMenuRowButton(menuStack, "JournalButton", "JOURNAL", "menu.journal",
                                           SproutLandsUiLibrary.MenuIconBook, -184f, false);
-            settings = CreateMenuRowButton(menuStack, "SettingsButton", "SETTINGS",
+            settings = CreateMenuRowButton(menuStack, "SettingsButton", "SETTINGS", "menu.settings",
                                            SproutLandsUiLibrary.MenuIconSettings, -276f, false);
-            quit = CreateMenuRowButton(menuStack, "QuitButton", "EXIT",
+            quit = CreateMenuRowButton(menuStack, "QuitButton", "EXIT", "menu.quit",
                                        SproutLandsUiLibrary.MenuIconQuit, -368f, false);
 
             var version = UIFactory.CreateText(canvas.transform, "Version",
@@ -120,7 +120,7 @@ public static class MainMenuSceneBuilder
         SetNonInteractive(lowerWash);
     }
 
-    static Button CreateMenuRowButton(RectTransform parent, string name, string label,
+    static Button CreateMenuRowButton(RectTransform parent, string name, string label, string labelKey,
                                       Sprite iconSprite, float y, bool disabledTint)
     {
         var row = UIFactory.CreateRect(parent, name, new Vector2(1f, 1f), new Vector2(1f, 1f));
@@ -184,6 +184,7 @@ public static class MainMenuSceneBuilder
         text.rectTransform.anchorMax = new Vector2(1f, 1f);
         text.rectTransform.offsetMin = new Vector2(106f, 8f);
         text.rectTransform.offsetMax = new Vector2(-22f, -8f);
+        UIFactory.Localize(text, labelKey);
 
         return button;
     }

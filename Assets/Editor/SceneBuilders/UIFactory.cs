@@ -392,6 +392,77 @@ public static class UIFactory
     }
 
     // -------------------------------------------------------------------------
+    // Segmented selector (pill buttons — a clearer either/or-or-more control)
+
+    /// <summary>
+    /// A horizontal row of pill buttons for a mutually-exclusive setting
+    /// (Manual/Automation, Blocks/Code, Slow/Normal/Fast/Instant, …). The container
+    /// carries a <see cref="SegmentedSelector"/> that highlights the active option;
+    /// segment index == option index. Anchored top-left so it flows beneath a row
+    /// label placed with <see cref="Place"/>.
+    /// </summary>
+    public static SegmentedSelector CreateSegmentedSelector(Transform parent, string name,
+                                                            string[] options, float segmentWidth,
+                                                            float height, float gap = 6f,
+                                                            float fontSize = 19f,
+                                                            string[] optionKeys = null)
+    {
+        int n = options != null ? options.Length : 0;
+        float totalW = n > 0 ? n * segmentWidth + (n - 1) * gap : segmentWidth;
+
+        var rt = CreateRect(parent, name, new Vector2(0f, 1f), new Vector2(0f, 1f));
+        rt.pivot     = new Vector2(0f, 1f);
+        rt.sizeDelta = new Vector2(totalW, height);
+
+        var selector = rt.gameObject.AddComponent<SegmentedSelector>();
+        for (int i = 0; i < n; i++)
+        {
+            Button seg = CreateButton(rt, $"{name}_seg{i}", options[i],
+                                      new Vector2(segmentWidth, height), fontSize);
+            Place(seg, new Vector2(0f, 1f), new Vector2(i * (segmentWidth + gap), 0f),
+                  new Vector2(segmentWidth, height));
+            if (optionKeys != null && i < optionKeys.Length)
+                LocalizeButton(seg, optionKeys[i]);
+        }
+        return selector;
+    }
+
+    // -------------------------------------------------------------------------
+    // Localization
+
+    /// <summary>Makes an existing TMP label follow the active UI language: seeds
+    /// the English text now (build time) and attaches a <see cref="LocalizedLabel"/>
+    /// carrying the key (set via SerializedObject so it persists in the scene).</summary>
+    public static void Localize(TMP_Text label, string key)
+    {
+        if (label == null || string.IsNullOrEmpty(key)) return;
+        label.text = LocalizationTable.Get(key, GameLanguage.English);
+        var loc = label.gameObject.GetComponent<LocalizedLabel>();
+        if (loc == null) loc = label.gameObject.AddComponent<LocalizedLabel>();
+        SceneBuilderUtil.Wire(loc, "key", key);
+    }
+
+    /// <summary>Localizes a <see cref="CreateButton"/> / <see cref="CreateArtButton"/>
+    /// label by key.</summary>
+    public static void LocalizeButton(Button button, string key)
+    {
+        if (button == null) return;
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null) Localize(label, key);
+    }
+
+    /// <summary>CreateText that follows the active UI language.</summary>
+    public static TextMeshProUGUI CreateLocalizedText(Transform parent, string name, string key,
+                                                      float fontSize, Color color,
+                                                      TextAlignmentOptions alignment = TextAlignmentOptions.Center)
+    {
+        var tmp = CreateText(parent, name, LocalizationTable.Get(key, GameLanguage.English),
+                             fontSize, color, alignment);
+        Localize(tmp, key);
+        return tmp;
+    }
+
+    // -------------------------------------------------------------------------
     // Scroll view
 
     /// <summary>
@@ -444,7 +515,8 @@ public static class UIFactory
     /// <see cref="CreateScrollView"/> result, and insets the viewport so content
     /// never sits under the bar. Auto-hides when the content fits.
     /// </summary>
-    public static Scrollbar AddVerticalScrollbar(ScrollRect scroll, float width = 12f)
+    public static Scrollbar AddVerticalScrollbar(ScrollRect scroll, float width = 12f,
+                                                 bool permanent = false)
     {
         var sbRt = CreateRect(scroll.transform, "Scrollbar Vertical",
                               new Vector2(1f, 0f), new Vector2(1f, 1f),
@@ -467,7 +539,11 @@ public static class UIFactory
         scrollbar.targetGraphic = handleImage;
 
         scroll.verticalScrollbar = scrollbar;
-        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+        // Permanent keeps the bar always visible (so the user can see there's more to read
+        // even before they hover); AutoHide tucks it away when everything already fits.
+        scroll.verticalScrollbarVisibility = permanent
+            ? ScrollRect.ScrollbarVisibility.Permanent
+            : ScrollRect.ScrollbarVisibility.AutoHide;
 
         // Keep content clear of the bar.
         if (scroll.viewport != null)

@@ -19,6 +19,7 @@ public class VibeCodingController : MonoBehaviour
     [SerializeField] TMP_InputField      chatInput;
     [SerializeField] Button              sendButton;
     [SerializeField] CodeEditorController codeEditor;
+    [SerializeField] BlockCanvasController blockCanvas;   // block-mode target (optional)
 
     [Header("Transcript")]
     [SerializeField] RectTransform chatContent;     // bubble container (preferred)
@@ -49,7 +50,8 @@ public class VibeCodingController : MonoBehaviour
     string[] _allowedQueries;
     readonly List<GameObject> _rows = new List<GameObject>();
     VibeMode _mode = VibeMode.Auto;
-    string   _stashedCode;   // the editor text before the last refactor, for a one-tap "undo"
+    string   _stashedCode;   // the program text before the last refactor, for a one-tap "undo"
+    bool     _blockMode;     // set per request: are we editing blocks (vs text) this turn?
 
     // Live world context (references, so we always read the current state).
     GridModel                  _grid;
@@ -85,11 +87,13 @@ public class VibeCodingController : MonoBehaviour
 
     /// <summary>Constrains generated code to the level's vocabulary and (re)binds the
     /// editor. Optional — the chat already works from the serialized wiring.</summary>
-    public void Init(string[] allowedBlocks, string[] allowedQueries, CodeEditorController editor)
+    public void Init(string[] allowedBlocks, string[] allowedQueries, CodeEditorController editor,
+                     BlockCanvasController blocks = null)
     {
         _allowedBlocks  = allowedBlocks;
         _allowedQueries = allowedQueries;
         if (editor != null) codeEditor = editor;
+        if (blocks != null) blockCanvas = blocks;
         Wire();
     }
 
@@ -156,13 +160,25 @@ public class VibeCodingController : MonoBehaviour
         AddBubble(message, player: true);
         TMP_Text reply = AddBubble("…", player: false);
 
-        bool blockMode = SaveSystem.Current != null && SaveSystem.Current.settings != null &&
-                         SaveSystem.Current.settings.blockMode;
-        string editorText = codeEditor != null && codeEditor.input != null ? codeEditor.input.text : "";
-        string world = VibeCodingService.BuildWorldContext(_grid, _sim, _def, blockMode, editorText,
+        _blockMode = SaveSystem.Current != null && SaveSystem.Current.settings != null &&
+                     SaveSystem.Current.settings.blockMode;
+
+        // In block mode the player's program lives on the canvas, not the code editor — read
+        // it as source so the AI sees (and can rewrite) the actual blocks.
+        string currentSource = _blockMode && blockCanvas != null
+            ? blockCanvas.ToSourceText()
+            : (codeEditor != null && codeEditor.input != null ? codeEditor.input.text : "");
+
+        string world = VibeCodingService.BuildWorldContext(_grid, _sim, _def, _blockMode, currentSource,
                                                            _allowedBlocks, _allowedQueries);
 
-        // A one-tap "undo" after a refactor restores the player's original code (no AI call).
+        // Hand the agent the same problem read-out the hint system gets — what the current
+        // program actually does and where it falls short — so it reasons like an IDE copilot.
+        string diagnosis = BuildDiagnosis(currentSource);
+        if (!string.IsNullOrEmpty(diagnosis))
+            world += "\nCURRENT PROGRAM DIAGNOSIS:\n" + diagnosis;
+
+        // A one-tap "undo" after a refactor restores the player's original program (no AI call).
         if (_stashedCode != null && VibeIntentRouter.IsUndo(message))
         {
             RevertStash(reply);
@@ -171,13 +187,13 @@ public class VibeCodingController : MonoBehaviour
         {
             // In Auto, classify the message; an explicit mode button overrides the router.
             VibeMode effective = _mode == VibeMode.Auto
-                ? VibeIntentRouter.Classify(message, !string.IsNullOrWhiteSpace(editorText))
+                ? VibeIntentRouter.Classify(message, !string.IsNullOrWhiteSpace(currentSource))
                 : _mode;
 
             switch (effective)
             {
                 case VibeMode.Agent:    yield return RunAgent(message, world, reply); break;
-                case VibeMode.Refactor: yield return RunRefactor(world, reply, editorText); break;
+                case VibeMode.Refactor: yield return RunRefactor(world, reply, currentSource); break;
                 default:                yield return RunTextMode(effective, message, world, reply); break;
             }
         }
@@ -195,7 +211,33 @@ public class VibeCodingController : MonoBehaviour
 
         UpdateBubble(reply, result != null && result.Success && !string.IsNullOrWhiteSpace(result.Text)
             ? result.Text.Trim()
-            : "(couldn't reach the AI — check your connection and try again)");
+            : ConnectionError(result));
+    }
+
+    // The agent's answer can fail two very different ways, and the player (and we)
+    // need to tell them apart. ConnectionError = the call never came back usable
+    // (network, missing key, quota, timeout). ParseError = the AI *did* reply but
+    // its program couldn't be turned into a valid action graph. Both log the real
+    // cause so "couldn't reach the AI" stops hiding key/quota/parse problems.
+
+    /// <summary>The AI call itself failed. Logs the classified cause for diagnosis.</summary>
+    static string ConnectionError(AiResult result)
+    {
+        Debug.LogWarning("[VibeCoding] AI call failed: " +
+                         $"kind={(result != null ? result.ErrorKind.ToString() : "null-result")} " +
+                         $"http={(result != null ? result.HttpStatus : 0)} " +
+                         $"error={(result != null ? result.Error : "(no result)")}");
+        return "(couldn't reach the AI — check your connection and try again)";
+    }
+
+    /// <summary>The AI replied, but its answer wasn't a usable program.</summary>
+    static string ParseError(AiResult result)
+    {
+        string raw = result != null && result.Text != null
+            ? (result.Text.Length > 200 ? result.Text.Substring(0, 200) + "…" : result.Text)
+            : "(empty)";
+        Debug.LogWarning("[VibeCoding] AI replied but its program couldn't be parsed. Raw: " + raw);
+        return "(the AI replied, but I couldn't turn it into a program — try rephrasing, or use Plan mode for the steps)";
     }
 
     /// <summary>Agent: generate an action graph, compile + validate it, dry-run it against the
@@ -214,22 +256,42 @@ public class VibeCodingController : MonoBehaviour
             AiResult result = null;
             yield return GeminiClient.Stream(request, null, completed => result = completed);
 
-            if (result == null || !result.Success ||
-                !ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            if (result == null || !result.Success)
             {
-                UpdateBubble(reply, "(couldn't reach the AI — check your connection and try again)");
+                UpdateBubble(reply, ConnectionError(result));
                 yield break;
             }
-            lastMessage = graph.message;
 
-            // Syntax + vocabulary: compile the flat graph and check it against the level's
-            // unlocked names. A failure here is repaired with the compile/validation error.
-            if (!ActionGraphCompiler.TryCompile(graph, out string compiled, out string compileError) ||
+            // Turn the reply into source. Preferred path: the structured action graph.
+            // Fallback: the model sometimes emits raw Para code (often fenced) instead —
+            // accept that directly if it compiles, rather than dead-ending into Plan mode.
+            string compiled = null;
+            string compileError = null;
+            if (ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            {
+                lastMessage = graph.message ?? lastMessage;
+                if (!ActionGraphCompiler.TryCompile(graph, out compiled, out compileError))
+                    compiled = null;
+            }
+            else if (TryExtractParaProgram(result.Text, out string fallbackCode))
+            {
+                compiled = fallbackCode;
+                lastMessage = lastMessage ?? "Here's a program for you.";
+            }
+            else
+            {
+                UpdateBubble(reply, ParseError(result));
+                yield break;
+            }
+
+            // Syntax + vocabulary: check the source against the level's unlocked names.
+            // A failure here is repaired with the compile/validation error.
+            if (compiled == null ||
                 VibeCodingService.Validate(compiled, _allowedBlocks, _allowedQueries, out _) != null)
             {
                 if (attempt == maxRepairs) break;
                 string err = compileError ?? "the program used something that isn't unlocked here";
-                UpdateBubble(reply, (graph.message ?? "Let me fix that…").Trim() + "  (checking one correction…)");
+                UpdateBubble(reply, (lastMessage ?? "Let me fix that…").Trim() + "  (checking one correction…)");
                 request = VibeCodingService.BuildAgentRepairRequest(message, world, err);
                 continue;
             }
@@ -243,24 +305,103 @@ public class VibeCodingController : MonoBehaviour
             }
 
             if (attempt == maxRepairs) break;
-            UpdateBubble(reply, (graph.message ?? "Let me check my route…").Trim() + "  (testing and refining…)");
+            UpdateBubble(reply, (lastMessage ?? "Let me check my route…").Trim() + "  (testing and refining…)");
             request = VibeCodingService.BuildAgentRepairRequest(message, world,
                 "the program ran but didn't solve it — " + goalGap);
         }
 
-        if (code != null && codeEditor != null && codeEditor.input != null)
+        if (code != null)
         {
-            codeEditor.input.SetTextWithoutNotify(code);
-            codeEditor.RefreshLineNumbers();
-            codeEditor.RefreshHighlight();
-            UpdateBubble(reply, (lastMessage ?? "Here's a program for you.").Trim() +
-                "\n✓ Placed in your editor. Press Code to review it, then RUN when you're ready.");
+            bool toBlocks = ApplyProgram(code);
+            string note = toBlocks
+                ? "✓ Built it on your block canvas — press RUN when you're ready."
+                : _blockMode
+                    ? "✓ This solution uses code this level can't show as blocks, so I put it in the code editor — switch to Code to use it."
+                    : "✓ Placed in your editor. Press Code to review it, then RUN when you're ready.";
+            UpdateBubble(reply, (lastMessage ?? "Here's a program for you.").Trim() + "\n" + note);
         }
         else
         {
             UpdateBubble(reply, "I couldn't make a program that fits this level's rules, so I left your code " +
                 "unchanged. Try asking in Plan mode for the approach.");
         }
+    }
+
+    /// <summary>Fallback when the Agent reply isn't the structured action graph: the model
+    /// sometimes returns plain Para code (usually inside a ``` fence). Pull that out and accept
+    /// it only if it actually compiles to a non-empty program, so we still hand the player
+    /// something runnable instead of giving up and pointing them at Plan mode.</summary>
+    static bool TryExtractParaProgram(string text, out string code)
+    {
+        code = null;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+
+        string candidate = ExtractFencedCode(text);
+        ProgramNode program = Parser.Compile(candidate, out List<LangError> errors);
+        if (program == null || (errors != null && errors.Count > 0)) return false;
+        if (program.Statements == null || program.Statements.Count == 0) return false;
+
+        code = candidate;
+        return true;
+    }
+
+    /// <summary>Returns the contents of the first ``` fenced block, or the whole trimmed text
+    /// when there is no fence.</summary>
+    static string ExtractFencedCode(string text)
+    {
+        string s = text.Trim();
+        int fence = s.IndexOf("```", System.StringComparison.Ordinal);
+        if (fence >= 0)
+        {
+            int afterOpen = s.IndexOf('\n', fence);
+            if (afterOpen >= 0)
+            {
+                int close = s.IndexOf("```", afterOpen, System.StringComparison.Ordinal);
+                if (close >= 0) return s.Substring(afterOpen + 1, close - afterOpen - 1).Trim();
+            }
+        }
+        return s;
+    }
+
+    /// <summary>Drops a verified program onto the player's active surface: the block canvas in
+    /// block mode (when the program is block-expressible), else the code editor. Returns true
+    /// when it landed as blocks.</summary>
+    bool ApplyProgram(string code)
+    {
+        if (_blockMode && blockCanvas != null)
+        {
+            ProgramNode program = Parser.Compile(code, out List<LangError> errors);
+            if ((errors == null || errors.Count == 0) && program != null && blockCanvas.LoadProgram(program))
+                return true;
+        }
+
+        if (codeEditor != null && codeEditor.input != null)
+        {
+            codeEditor.input.SetTextWithoutNotify(code);
+            codeEditor.RefreshLineNumbers();
+            codeEditor.RefreshHighlight();
+        }
+        return false;
+    }
+
+    /// <summary>Reads the current program (block source in block mode, editor text otherwise),
+    /// dry-runs it, and returns a one-line read-out of what it does + where it falls short.</summary>
+    string BuildDiagnosis(string source)
+    {
+        if (_grid == null || _sim == null || _def == null) return null;
+        if (string.IsNullOrWhiteSpace(source)) return "the program is empty so far.";
+
+        ProgramNode program = Parser.Compile(source, out List<LangError> errors);
+        if (errors != null && errors.Count > 0)
+            return "it doesn't compile yet — " + errors[0].Message;
+
+        HeadlessProgramRunner.VerifyReport(program, _sim.CloneFresh(), _def, out RunReport report);
+        string outcome = report != null && !string.IsNullOrEmpty(report.GoalGap)
+            ? report.GoalGap
+            : "it reaches the goal";
+        DiagnosticsResult diag = CodeDiagnostics.Analyze(source, report, _allowedBlocks);
+        string patterns = diag != null && !string.IsNullOrEmpty(diag.Summary) ? diag.Summary : "None.";
+        return $"outcome: {outcome}; patterns: {patterns}";
     }
 
     /// <summary>Refactor: take the player's already-working code and offer a shorter version that
@@ -304,10 +445,14 @@ public class VibeCodingController : MonoBehaviour
             AiResult result = null;
             yield return GeminiClient.Stream(request, null, completed => result = completed);
 
-            if (result == null || !result.Success ||
-                !ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            if (result == null || !result.Success)
             {
-                UpdateBubble(reply, "(couldn't reach the AI — check your connection and try again)");
+                UpdateBubble(reply, ConnectionError(result));
+                yield break;
+            }
+            if (!ActionGraphCompiler.TryParse(result.Text, out ActionGraphResponse graph))
+            {
+                UpdateBubble(reply, ParseError(result));
                 yield break;
             }
             lastMessage = graph.message;
@@ -339,16 +484,15 @@ public class VibeCodingController : MonoBehaviour
             request = VibeCodingService.BuildRefactorRepairRequest(editorText, world, reason);
         }
 
-        if (code != null && codeEditor != null && codeEditor.input != null)
+        if (code != null)
         {
-            _stashedCode = editorText;   // enable a one-tap revert
+            _stashedCode = editorText;   // enable a one-tap revert (block source or editor text)
             int saved = playerStatements - CodeAnalyticsService.Measure(code).Statements;
-            codeEditor.input.SetTextWithoutNotify(code);
-            codeEditor.RefreshLineNumbers();
-            codeEditor.RefreshHighlight();
-            string note = saved > 0 ? $"Made it {saved} line(s) shorter with a loop. " : "Tightened it up with a loop. ";
+            bool toBlocks = ApplyProgram(code);
+            string where = toBlocks ? "Your blocks are rebuilt" : "Press Code to review";
+            string note = saved > 0 ? $"Made it {saved} step(s) shorter with a loop. " : "Tightened it up with a loop. ";
             UpdateBubble(reply, (lastMessage ?? "").Trim() + (lastMessage != null ? "\n" : "") + note +
-                "Press Code to review — say \"undo\" to put your version back, then RUN when ready.");
+                where + " — say \"undo\" to put your version back, then RUN when ready.");
         }
         else
         {
@@ -357,15 +501,11 @@ public class VibeCodingController : MonoBehaviour
         }
     }
 
-    /// <summary>Restores the editor to the text stashed before the last refactor.</summary>
+    /// <summary>Restores the active surface (blocks or editor) to the program stashed before
+    /// the last refactor.</summary>
     void RevertStash(TMP_Text reply)
     {
-        if (codeEditor != null && codeEditor.input != null)
-        {
-            codeEditor.input.SetTextWithoutNotify(_stashedCode);
-            codeEditor.RefreshLineNumbers();
-            codeEditor.RefreshHighlight();
-        }
+        if (_stashedCode != null) ApplyProgram(_stashedCode);
         _stashedCode = null;
         UpdateBubble(reply, "Done — I put your original version back.");
     }

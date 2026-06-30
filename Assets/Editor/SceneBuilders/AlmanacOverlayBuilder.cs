@@ -129,9 +129,10 @@ public static class AlmanacOverlayBuilder
         var contentBody = UIFactory.CreateText(contentBodyRect, "Body", "", 20f,
                                                UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         contentBody.textWrappingMode = TextWrappingModes.Normal;
-        var bodyLe = contentBody.gameObject.AddComponent<LayoutElement>();
-        bodyLe.preferredHeight = 1000f;
-        bodyLe.flexibleWidth = 1f;
+        // Size the body to its actual text so long reference entries scroll instead of
+        // clipping at a fixed height (the scroll content fitter grows to match).
+        var bodyFitter = contentBody.gameObject.AddComponent<ContentSizeFitter>();
+        bodyFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
         // ==== Oracle pane (its own tab) =======================================
         var oraclePane = UIFactory.CreateRect(bookPanel, "OraclePane",
@@ -159,7 +160,7 @@ public static class AlmanacOverlayBuilder
         var chatScrollRt = (RectTransform)chatScroll.transform;
         chatScrollRt.offsetMin = new Vector2(0f, 72f);
         chatScrollRt.offsetMax = new Vector2(0f, -40f);
-        UIFactory.AddVerticalScrollbar(chatScroll);
+        UIFactory.AddVerticalScrollbar(chatScroll, permanent: true);
 
         var bubbleTemplate = UIFactory.CreateText(chatContent, "BubbleTemplate", "", 18f,
                                                   UIFactory.TextBright, TextAlignmentOptions.TopLeft);

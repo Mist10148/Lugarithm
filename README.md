@@ -1,158 +1,360 @@
 # Lugarithm
 
-**A Heritage Jeepney Road Trip**
+### *A Heritage Jeepney Road-Trip that Teaches You to Code*
 
 > *"Drive the coast. Recover the pages. Learn the history."*
 
-| | |
+**Game Design Document** — AI Game On! IV • AI Fest 2026
+Team **Cyfer** • Region VI – Western Visayas
+*Theme: "Giving Our History a New Heartbeat through the Intelligence of Tomorrow."*
+
+> **About this document.** This GDD describes Lugarithm's design and the systems the team is building
+> in this repository. Both play modes (Manual and Automation), the five-town coastal route, the Para
+> play-by-coding language, the journal/Almanac, and the five runtime AI systems are implemented; some
+> content, balancing, and production assets are still in active development (Section 13). The
+> narrative beats and heritage reveals are authored from sourced research and continue to be reviewed.
+> This document fixes the *structure, mechanics, and roles*.
+
+---
+
+## Contents
+
+1. Executive Summary
+2. Theme Alignment
+3. Game Overview
+4. Narrative Premise
+5. Design Pillars
+6. Core Gameplay Loop
+7. The Two Modes (Manual & Automation)
+8. The Para Language (Play-by-Coding)
+9. Heritage, Towns & the Journal
+10. AI Integration & Disclosure
+11. Progression & Gacha
+12. Technical Overview
+13. Current Build Status
+14. Ethics, Copyright & Cultural Responsibility
+15. Team
+16. Closing
+- Appendix A — Glossary
+
+---
+
+## 1. Executive Summary
+
+Lugarithm is a cozy, single-player **heritage road-trip that teaches computational thinking**. You
+play a young man who has just lost a father he barely knew. The father left two things: a vintage
+jeepney kept in perfect running order, and a journal — *Ang Aking Mga Ugat* ("My Roots") — meant to
+explain the family's history. But every page has been torn out (*gisi*) and given away to old friends
+in towns along the coast, one per town, so the son has to go meet them himself.
+
+So he drives. The game is one road trip down the real coastal highway from **Iloilo City to San
+Joaquin**, stopping at five historic towns to find the person holding a page and earn it back. Each
+stop is a real place with real, sourced history. By the final town the player has absorbed enough to
+give the tour themselves — which is the whole point.
+
+Lugarithm's hook is that **you can drive the jeepney two ways, and they are the same game**: drive it
+yourself in real time (**Manual Mode**), or write code to drive it (**Automation Mode**) using
+**Para**, a friendly Python-subset offered as drag-and-drop blocks or a text editor. The route, the
+passengers, the heritage, the mechanics, and the ending are identical; only your hands on the wheel
+change. Coding is taught the way driving is — by doing, with stakes that are about earnings, never
+failure.
+
+AI is woven through the game as live, diegetic systems: passengers whose dialogue is freshly phrased
+each playthrough but never invents history; an in-world heritage chatbot that answers only from what
+you've unlocked; a coding mentor that reviews your solution against the ideal; and a co-pilot that
+hints, explains, and can even compile plain-language intent into runnable code.
+
+---
+
+## 2. Theme Alignment
+
+*"Giving Our History a New Heartbeat through the Intelligence of Tomorrow."*
+
+- **History, driven not displayed.** Heritage is never delivered on a menu. You drive into a real
+  town, meet a person who knew your father, and earn back a page of a single connected story — from
+  pre-colonial gold-working to Spanish fort-churches to the craftsmen who signed their work in stone.
+- **The intelligence of tomorrow, in service of yesterday.** AI in Lugarithm is diegetic, not a
+  shortcut: it keeps passengers' voices alive on replay, runs the Almanac's heritage chatbot, mentors
+  the player's code, and adapts placement to how each player plays — always grounded in sourced facts.
+- **Roots passed hand to hand.** *Ang Aking Mga Ugat* is the father's journal; the pages were given
+  to people, not left in a drawer. The player gathers them by meeting those people and listening.
+- **Coding as a new literacy.** Teaching programming alongside heritage answers the theme literally:
+  the tools of tomorrow carry the stories of yesterday forward to the next generation.
+
+---
+
+## 3. Game Overview
+
+| Attribute | Detail |
 |---|---|
-| **Genre** | 2D Narrative Adventure / Puzzle |
-| **Engine** | Unity (2D, Isometric) |
-| **Platform** | PC (Windows / macOS) |
-| **Team** | Cyfer |
+| Working title | Lugarithm |
+| Genre | Cozy narrative road-trip × coding puzzle |
+| Platform | PC (Windows / macOS) |
+| Engine | Unity (2D; isometric authored puzzles + top-down procedural towns), C# |
+| Modes | Manual (real-time driving) and Automation (drive by code) — same content, 1:1 |
+| Play-by-coding | **Para** — a Python-subset, as drag-drop blocks or a text editor (1:1 parity) |
+| Session length | ~3–5 hours for a first full route |
+| Target audience | Learners ~10–16 and up; players who enjoy cozy, story-rich games |
+| Input | Keyboard/mouse; Manual uses WASD + brake |
+| Language | English + Filipino UI (live switch); story/heritage content English in this pass |
+| Team | Team Cyfer (Section 15) |
 
 ---
 
-## Story
+## 4. Narrative Premise
 
-You play as a young man who has just lost his father — someone he barely knew. His father left behind two things: a vintage jeepney kept in perfect running order, and a thick journal titled *Ang Aking Mga Ugat* ("My Roots"), meant to explain the family's history. When he finally opens it, every page has been torn out (*gisi*). A note inside says the pages were given away to old friends in towns along the coast, one per town, so the son would have to go meet them himself.
+A young man inherits his estranged father's vintage jeepney and a journal whose pages have all been
+torn out and scattered to old friends along the Iloilo coast. To rebuild the journal — and understand
+the man who left it — he drives the old coastal highway from **Iloilo City to San Joaquin**, stopping
+in five towns. In each, a person who knew his father rides with him or hosts him, shares the town's
+history, and returns one page. The pages assemble a single arc: the region's deep history *and* the
+personal reason the father scattered them in the first place, which the final town closes.
 
-So he drives.
-
-The game follows a single road trip down the old coastal highway from **Iloilo City to San Joaquin**, stopping at five historic towns to find the person holding a page and earn it back. Each stop is a real place with real history. By the time the player reaches the final town, they've absorbed enough to give the tour themselves — which is the whole point.
-
----
-
-## Towns & Heritage
-
-| Level | Town | Heritage Focus |
-|-------|------|----------------|
-| Tutorial | Intro Segment | Basic sequencing and navigation — before the journey begins |
-| 1 | **Iloilo City (Molo)** | American-era architecture, textile trade history, the "feminist church" of Molo (nave lined with 16 statues of female saints), Fort San Pedro |
-| 2 | **Oton** | Pre-colonial gold-working & burial customs — the Oton Gold Mask (13g hammered gold, eyepiece + nose piece), Katagman Festival, maritime trade with China via the Batiano River |
-| 3 | **Tigbauan** | Hablon handloom weaving (*habol* = to weave; piña, cotton, jusi fibers), WWII guerrilla resistance — Panay Landing Memorial, First Ambush Marker, Bantayan Watch Tower |
-| 4 | **Miag-ao** | Miag-ao Church (UNESCO World Heritage, completed 1797) — coconut tree as the tree of life on the facade, St. Christopher depicted in local clothing, folk-baroque fusion, defensive fort-church origin |
-| 5 | **San Joaquin** | *Rendicion de Tetuan* bas-relief (Battle of Tetouan, 1861), Campo Santo Spanish-era baroque cemetery (National Cultural Treasure 2015), Augustinian convent ruins |
-
-> **Guimbal** (*Taytay Tigre* bridge, coral stone architecture, the "little Luneta of southern Iloilo") appears as a scenic drive-through with heritage dialogue — not a dedicated puzzle town in v1.
-
-The entire coastal route acts as an **interactive living museum** — heritage is never delivered on a menu screen. You arrive in a town, step out of the jeepney, and handle what's in front of you.
+The road trip is structured as an **interactive living museum**. Heritage arrives through people and
+place — a passenger's stories on the drive, townsfolk chatter on foot, and a heritage reveal at each
+town's end — and is recorded, permanently, in the journal.
 
 ---
 
-## Core Gameplay
+## 5. Design Pillars
 
-### Two Ways to Drive
-
-The game has two distinct gameplay modes, toggled any time in Settings. Both modes cover the same route and heritage — the setting changes how you interact with it.
-
-#### Manual Mode
-Drive the jeepney in real-time. WASD controls on a continuous 2.5D isometric road with drift physics and velocity momentum. While steering, you also manage passenger boarding (tracking seats and drop-off flags) and collect fares using an interactive Coin Drawer on the dashboard — selecting denominations before a satisfaction timer empties. When the engine overheats or a belt snaps, a rapid non-code minigame interrupts the drive.
-
-#### Automation Mode
-Step out of the driver's seat and into a programming workspace. The route maps to a discrete, node-based isometric tilemap grid on the left (~40% of the screen). The right side (~60%) is your code canvas — choose between drag-and-drop blocks (no syntax, Scratch-style) or a lightweight text editor (Python/pseudocode). Write logic to automate movement, fare calculation, and passenger routing; execution plays out step-by-step on the grid. An execution control bar lets you run, pause, reset, or speed up playback (1×, 2×, 5×).
-
-> **Command reference:** see [`docs/AutomationCommands.md`](docs/AutomationCommands.md) for the full list of actions, conditions, and control-flow syntax used in both the Block Interface and the Code Editor.
-
-### Coding Concepts Per Town
-
-| Level | Town | Programming Focus |
-|-------|------|-------------------|
-| Tutorial | Intro | Linear sequencing (`moveForward`, `turnLeft`, `turnRight`) |
-| 1 | Iloilo City (Molo) | Conditionals (`while !atDestination`, `if frontIsClear`) |
-| 2 | Oton | List indexing & array sorting |
-| 3 | Tigbauan | Function parameters & iterative counters |
-| 4 | Miag-ao | Multiple tracking variables & nested conditionals |
-| 5 | San Joaquin | Multi-variable constraints (fuel, arrays, safety paths) |
-
-The difficulty curve is intentional: early legs use one concept in isolation, later legs layer them together, and post-game levels randomly recombine the full concept pool.
-
-### Town Puzzles
-Each town has a unique puzzle tied to its actual heritage — assembling the Oton Gold Mask, reconstructing a Hablon weave pattern, restoring the Miag-ao Church facade, navigating to the Campo Santo cemetery. Solving these earns a **journal page** and advances the story. You can't truly "lose" — mistakes only reduce your earnings at the end of a leg. A first run takes around **3–5 hours**.
-
----
-
-## The Journal — *Ang Aking Mga Ugat*
-
-The journal is the heart of the game. It has two sections that unlock as you progress:
-
-| Section | Content | Unlocks |
-|---------|---------|---------|
-| Heritage Pages | Father's recovered writing about each town's history and the family story | After completing that town's puzzles |
-| Coding Reference / Guide | Plain explanation of each programming concept + annotated code example | After the concept is first introduced in gameplay |
-
-Each recovered page adds a piece of a single connected story — from pre-colonial gold-working and burial customs through the Spanish colonial churches that doubled as forts, to the local craftsmen who worked their own marks into stone. The final town closes the personal side: why the father scattered the pages in the first place.
-
----
-
-## Level Variety
-
-Levels aren't all structured the same way:
-
-| Level Type | Description |
+| Pillar | What it means in play |
 |---|---|
-| **Passenger as Guide** | A local passenger rides with you, shares stories during the drive, and assists with the upcoming town's puzzle. History arrives through conversation. |
-| **You as Tour Guide** | You lead tourists through the town yourself, explaining its heritage at each stop. Arriving at a landmark rewards you with an artifact and its cultural context. |
-| **Special Challenges** | Unique puzzle formats and heritage encounters unlocked through progression or high scores. |
+| **Two hands, one road** | Manual and Automation are the same journey. Whether you steer or you code, you cover the same route, meet the same people, and end the same way. Switching modes never changes the story. |
+| **History is inherited, not assigned** | You don't read facts off a card; you earn them from people who knew your father. The passenger system makes heritage feel handed down. |
+| **You can't lose, only learn** | Mistakes reduce a leg's earnings, never end the run. Coding and driving are both taught by doing, safely. |
+| **AI assists; the player drives** | AI keeps voices alive, mentors your code, and hints without spoiling — but it never invents history and never finishes the puzzle for you unless you ask it to. |
 
 ---
 
-## Passengers
+## 6. Core Gameplay Loop
 
-Each leg introduces a specific passenger who knew the father personally. They board at the start of a drive and ride to the next town — sharing stories and actively helping solve the upcoming puzzle. Their presence is what makes the history feel **inherited rather than assigned**.
+Each leg of the journey runs the same shape, in either mode:
 
----
+1. **Arrive on foot.** A leg begins in a top-down **town hub**. Walk around, talk to townsfolk
+   (press **E**) for ambient, lighter heritage flavor, then step onto the jeepney stop to drive.
+2. **Board the story passenger.** A specific person who knew the father rides with you, sharing
+   stories that set up the town's history (and often help with its puzzle).
+3. **Drive the leg.** Either steer it yourself (**Manual**) or program it (**Automation**). Mid-drive,
+   a mandatory **progression gate** — a short town puzzle tied to that town's real heritage — pops at
+   a random point and must be cleared to continue.
+4. **Deliver & reveal.** Drop the passenger at the destination *and* finish their conversation →
+   a **heritage reveal** plays inline → a **completion card** → a **results** screen with your score
+   and earnings.
+5. **Recover & grow.** A **journal page** is recovered. Spend earned currency on **gacha** heritage
+   cosmetics; replay towns for higher scores and more pulls.
 
-## AI Features
-
-Five AI systems are built into the game:
-
-### 1. Context-Aware Procedural Generator
-Heritage artifacts and hidden collectibles are placed on the map based on your skill and playstyle — near the main path for players who are struggling, tucked in harder zones for completionists. The AI adapts to how you play, not just rolls dice.
-
-### 2. Living Story Engine — Dynamic Passenger Dialogue
-Passengers don't repeat the same lines. Their responses are freshly generated each playthrough within a strict Lore Book of verified heritage facts — so conversations feel alive on replay without hallucinating history.
-
-### 3. Virtual Coding Mentor — Post-Level Analytics
-After every puzzle, a breakdown screen shows your solution side-by-side with the optimal one. Hoverable tooltips explain *why* the optimal version uses fewer steps or less memory. Like a coach reviewing the ideal play after the match.
-
-### 4. Heritage Oracle — Almanac AI Assistant
-The **Almanac** is where recovered journal pages live. Its built-in AI chatbot (powered by RAG) lets you ask questions about unlocked history, request contextual coding hints, and look up programming concepts from your Coding Reference — without spoiling towns you haven't visited yet.
-
-> If you ask about a town you haven't reached: *"My records on that region are currently corrupted or locked. Explore further to help me recover those files."*
-
-### 5. Co-Pilot & Vibe Coding — Hints + Autopilot
-
-**Co-Pilot** is a three-tier hint system that teaches without giving away the answer:
-- 1st request: a nudge pointing out a logical flaw
-- 2nd request: an explanation of the concept you should use
-- 3rd request: pseudocode to guide you to the finish line
-
-**Vibe Coding / Autopilot** flips the game from writing code to managing systems. Type a plain-language intent — *"Stop at every flag and collect the fare"* — and the AI compiles it into executable block code. Designed for players who want story immersion without line-by-line syntax.
+The leg-completion gate is the same in both modes: **passenger delivered + conversation finished**.
 
 ---
 
-## Progression & Gacha
+## 7. The Two Modes (Manual & Automation)
 
-- **In-game currency** is earned by completing levels efficiently, solving puzzles, and learning history accurately.
-- Spend currency on **Gacha Pulls** to unlock heritage-themed rewards:
+Both modes cover the same route and heritage; the Settings menu switches between them at any time.
 
-| Town | Badge | Jeepney Cosmetic |
-|------|-------|-----------------|
-| Iloilo City (Molo) | Anak ng Molo | Floral side panel decorations |
-| Oton | Panday ng Dagat | Anchor decal |
-| Tigbauan | Mangangukit | Decorative coral-stone trim |
-| Miag-ao | UNESCO Keeper | Golden sandstone paint |
-| San Joaquin | Tagapagtanggol | Full battle-scene mural |
+### 7.1 Manual Mode
+Drive in real time on a continuous top-down road with lane drift and momentum. While steering you
+manage **passenger boarding** (seats and drop-off flags) and **collect fares** through an interactive
+**Coin Drawer** — choosing denominations to make exact change before a satisfaction timer empties. A
+breakdown (overheating engine, snapped belt, empty tank) interrupts with a quick repair/refuel
+minigame. Floating **dulog** markers show each passenger's drop-off stop and call *"Para!"* as you
+approach.
 
-- Performance upgrades and entirely new vehicles are also in the gacha pool.
-- Replay towns to improve your score and earn more pulls.
+### 7.2 Automation Mode
+Step out of the seat and into a **coding workspace**. The route is shown as the same dressed,
+streaming town as Manual; you drive it by writing **Para** — drag-and-drop blocks (no syntax) or a
+text editor — and pressing **Run**. An execution bar gives **Run / Pause / Step / Reset** and a
+**speed** slider; the jeepney animates smoothly along the road as your program runs. Fares and change
+resolve through code (`collectFare()`, `giveChange(changeOwed())`), not the Coin Drawer.
+
+A one-click **Autopilot** loads the canonical solution into your editor and runs it, so you can watch
+the intended program drive the whole route — boarding riders, settling fares, and finishing at the
+terminal. The solution is written as **named functions** so it reads like the real "ride a jeepney"
+program (see Section 8).
+
+**Parity:** the procedural town is dressed (heritage frontage + townsfolk) and laid out ahead from
+the first frame, the driving is smooth, and the leg ends through the *same* reveal → completion card →
+results flow as Manual. The only difference between the modes is that you write code instead of steer.
 
 ---
 
-## Technical Stack
+## 8. The Para Language (Play-by-Coding)
 
-- **Engine:** Unity (2D, isometric)
-- **UI System:** Unity UI Screen Space – Overlay for the Automation Mode code workspace
-- **AI Integration:** Runtime LLM calls for dialogue, hints, and analytics; RAG pipeline for the Almanac chatbot; procedural generator for artifact spawning
-- **Target Platforms:** PC — Windows & macOS
+**Para** (after the call passengers shout to alight) is a **Python-minus-OOP** language with one
+shared program model behind two front-ends — a **block editor** and a **text editor** — kept at 1:1
+parity. It runs on a stepping interpreter that performs one jeepney action per tick, which makes
+Run/Pause/Step/Speed natural and keeps procedural runs reproducible.
+
+- **Control flow:** `if` / `elif` / `else`, `while`, `for … in range(…)`, `repeat`, `break`,
+  `continue`, and the `not` / `and` / `or` operators.
+- **Values & data:** variables, numbers/strings/booleans, lists, dicts, tuples, indexing/slicing, and
+  built-ins (`len`, `range`, `print`, `min`, `max`, `sum`, `sorted`, `randint`, …).
+- **User-defined functions:** players can `def` their own functions and call them — and are
+  encouraged to, splitting a route into jobs like `drive()`, `handlePassengers()`, and
+  `handleFares()`. Autopilot and the reference solutions are written this way as a model.
+- **Domain API:** actions (`driveToNextStop`, `pickUp`, `dropOff`, `collectFare`, `giveChange`),
+  questions (`passengerWaiting`, `atRequestedStop`, `routeComplete`, `frontIsClear`, …), and
+  reporters (`changeOwed`, `fareOwed`, `seatsLeft`, `passengerCount`, …).
+
+Concepts escalate per town: sequencing → conditionals → lists → functions + loops → nested
+conditionals → multi-variable constraints. Errors are coached in plain language, never raw stack
+traces. Full reference: [`docs/AutomationCommands.md`](docs/AutomationCommands.md) and the design in
+[`docs/LANGUAGE_PLAN.md`](docs/LANGUAGE_PLAN.md).
+
+---
+
+## 9. Heritage, Towns & the Journal
+
+The five-town route is a real stretch of the Iloilo coast, each town a sourced heritage focus:
+
+| Level | Town | Heritage focus | Coding focus |
+|---|---|---|---|
+| Tutorial | Intro segment | Basic sequencing before the journey begins | Linear sequencing |
+| 1 | **Iloilo City (Molo)** | Molo Church ("feminist church"), American-era architecture, textile trade | Conditionals |
+| 2 | **Oton** | Pre-colonial gold-working & burial customs (the Oton Gold Mask), Batiano River trade | Lists & indexing |
+| 3 | **Tigbauan** | Hablon handloom weaving; WWII guerrilla resistance markers | Functions + loops |
+| 4 | **Miag-ao** | Miag-ao Church (UNESCO, 1797): coconut tree of life on the facade, fort-church origin | Nested conditionals |
+| 5 | **San Joaquin** | *Rendicion de Tetuan* bas-relief; Campo Santo baroque cemetery | Multi-variable constraints |
+
+> **Guimbal** (*Taytay Tigre* bridge, coral-stone architecture) appears as a scenic drive-through with
+> heritage dialogue, not a dedicated puzzle town in v1.
+
+**Town puzzles** are tied to each town's real heritage (assembling the Oton Gold Mask, reconstructing
+a Hablon weave, restoring the Miag-ao facade, finding the Campo Santo). Solving a town earns a
+journal page.
+
+**The journal — *Ang Aking Mga Ugat*** — is the heart of the game and unlocks as you progress: a
+**Heritage** section (the father's recovered writing per town) and a **Coding Reference** (a plain
+explanation + annotated example for each concept as it's introduced). The journal's **Almanac** hosts
+the Heritage Oracle chatbot (Section 10). Heritage *payoffs* are reserved for the in-jeepney
+conversation, the reveal, and the journal — townsfolk chatter is deliberately lighter. All historical
+claims are drawn from [`docs/HERITAGE_RESEARCH.md`](docs/HERITAGE_RESEARCH.md); folklore is labelled
+as folklore.
+
+---
+
+## 10. AI Integration & Disclosure
+
+Lugarithm uses AI on two layers: inside the game as live systems the player touches, and in
+development as fully disclosed production tools. The complete log is in
+[`docs/AI_DISCLOSURE.md`](docs/AI_DISCLOSURE.md).
+
+**Runtime AI (in-game, Google Gemini).** Each system has a deterministic authored fallback, hard
+timeouts/token budgets, and grounding in authored, sourced content:
+
+| System | Role |
+|---|---|
+| **Living Story** | Rephrases authored passenger dialogue fresh each playthrough — phrasing/warmth only, never new facts, names, or plot. |
+| **Heritage Oracle (Almanac)** | RAG chatbot that answers only from **unlocked** journal pages, cites records, and refuses spoilers for unvisited towns. |
+| **Coding Mentor** | After each puzzle, shows the player's solution beside an authored optimal one with plain explanations of why it's better. |
+| **Co-Pilot / Vibe-Coding** | Tiered, spoiler-free hints; and Ask / Plan / Agent / Refactor modes — Agent compiles plain-language intent into validated, puzzle-solving code. |
+| **Context-Aware placement** | Places heritage collectibles by player skill/playstyle (near the path when struggling, deeper for completionists). |
+
+Keys live only in the local, git-ignored root `.env` (synced to a generated `ai_config.json`); no
+secret is committed.
+
+**Development AI (disclosed tools).**
+
+| Area | Tooling | Use & safeguard |
+|---|---|---|
+| Code | **Claude (Anthropic)** + **OpenAI Codex** | Scripting and coding assistance — systems, refactors, tests, docs — reviewed and owned by the team in public Git history. |
+| Art | **Gemini "Nano Banana 2"** | Concept and placeholder art generation, hand-reviewed and finished; original/licensed assets only; folklore labelled as folklore. |
+
+---
+
+## 11. Progression & Gacha
+
+- **Currency** is earned by completing legs efficiently, solving town puzzles, and learning the
+  history accurately. The Code editor carries a small scoring multiplier over blocks.
+- **Gacha pulls** unlock heritage-themed rewards — per-town **badges** and **jeepney cosmetics**
+  (Molo floral panels, Oton anchor decal, Tigbauan coral-stone trim, Miag-ao golden-sandstone paint,
+  San Joaquin battle-scene mural), plus performance upgrades and new vehicles.
+- Replay any town to improve your score and earn more pulls.
+
+---
+
+## 12. Technical Overview
+
+- **Engine:** Unity 2D — isometric authored puzzles + top-down procedural towns; C#, no namespaces,
+  manager singletons. Production scenes are **generated by editor scripts**
+  (`Assets/Editor/SceneBuilders/`), not hand-edited.
+- **Shared systems:** both modes build the procedural world from one `TownLayout`
+  (`StreamingTownGenerator` → projectors → `RouteVisualBuilder.BuildProcedural` + `RoadsideDecorator`)
+  and share fare math (`FareMath`) and dulog logic, so the two modes stay 1:1.
+- **Para runtime:** `Lexer` → `Parser` → `Ast` → `Interpreter` (stepping VM) with a deterministic
+  simulation (`AgentSim`) as the source of truth; `HeadlessProgramRunner` dry-runs programs in tests.
+- **AI:** runtime Gemini calls via `GeminiClient` with a multi-key + model-ladder fallback, configured
+  from the git-ignored `.env`; a RAG pipeline backs the Almanac; usage is tracked in editor.
+- **Save & settings:** local JSON saves (auto-save on town completion); sectioned settings with
+  segmented pill selectors; English/Filipino UI via `LocalizationManager`/`LocalizedLabel` (live).
+- **Targets:** PC (Windows & macOS).
+
+---
+
+## 13. Current Build Status
+
+**Implemented:** both play modes end-to-end (Manual real-time driving with passengers/fares/breakdowns;
+Automation with the Para block + code editors, stepping execution, and autopilot); the shared dressed,
+streaming procedural town; the Para language including user-defined functions; the five Gemini AI
+systems with authored fallbacks; the journal/Almanac; sectioned settings and English/Filipino UI;
+gacha/badges; local save.
+
+**Recent (this pass):** Automation pre-grows the procedural town so the dressed street is present from
+the first frame; the autopilot/reference solution is restructured into user-defined functions and the
+scaffold teaches functions; the Automation completion card matches Manual's wording so endings read
+identically.
+
+**In active development:** true mid-program world streaming in Automation (currently pre-grown +
+on-completion append, since rebuilding the interpreter grid mid-run interrupts execution); the
+Vibe-Coding action-graph generator emitting user-defined functions; a full Manual/Automation
+mechanic-parity audit; content balancing and final/original production art (placeholders in use);
+story/heritage localization beyond the English pass.
+
+---
+
+## 14. Ethics, Copyright & Cultural Responsibility
+
+- **Full AI disclosure** is maintained in [`docs/AI_DISCLOSURE.md`](docs/AI_DISCLOSURE.md) and updated
+  with every new tool, generated asset batch, or runtime change.
+- **Original or properly-licensed assets only.** No third-party IP; generated art is reviewed,
+  finished, and replaced with original/licensed assets before release.
+- **Sourced history, labelled folklore.** Heritage facts come from `docs/HERITAGE_RESEARCH.md`;
+  runtime AI may not assert new history; folklore is always framed as folklore.
+- **Cultural respect.** Town heritage and Filipino-language usage are checked against sourced
+  references; the journal reserves the strongest beats for an authored reveal, not an AI paraphrase.
+- **No secrets shipped.** Runtime keys stay in the local git-ignored `.env`.
+
+---
+
+## 15. Team
+
+**Team Cyfer** • Region VI – Western Visayas • AI Game On! IV / AI Fest 2026.
+
+| Member | Roles |
+|---|---|
+| Carlos John Aristoki | Lead Developer · Game Design · Narrative · Documentation |
+| Sol Vincent Sartaguda | Developer · Narrative · Documentation |
+| Zneb John Delariman | 2D Artist · Asset Maker · Design |
+
+---
+
+## 16. Closing
+
+Lugarithm turns a quiet road trip into two things at once: a way to inherit a region's history from
+the people who hold it, and a way to learn to code by driving. Whether the player keeps their hands on
+the wheel or writes the program that does, they cover the same coast, meet the same people, and earn
+back the same torn pages. AI keeps the voices alive, reviews the code, and points the way — but it's
+the player who drives, listens, and, by the last town, can tell the story themselves. That is how
+history gets a new heartbeat.
+
+---
+
+## Appendix A — Glossary
+
+- **Para** — the call passengers shout to alight; also the name of the play-by-coding language.
+- **Dulog** — a passenger's drop-off stop; marked in-world and shared by both modes.
+- **Gisi** — "torn"; the journal's pages were torn out and scattered.
+- **Ang Aking Mga Ugat** — "My Roots," the father's journal the player rebuilds.
+- **Autopilot** — a one-click run of the canonical, function-structured reference solution.
+- **Town hub** — the on-foot, top-down area at the start of a leg where you meet townsfolk and board.
+- **Heritage reveal** — the inline payoff that plays when a leg's story passenger is delivered.

@@ -33,7 +33,9 @@ public class BlockCanvasController : MonoBehaviour
         {
             case BlockType.MoveForward:
             case BlockType.TurnLeft:
-            case BlockType.TurnRight:   return BlockCategory.Motion;
+            case BlockType.TurnRight:
+            case BlockType.MoveLeft:
+            case BlockType.MoveRight:   return BlockCategory.Motion;
             case BlockType.PickUp:
             case BlockType.DropOff:
             case BlockType.CollectFare: return BlockCategory.Passengers;
@@ -135,6 +137,23 @@ public class BlockCanvasController : MonoBehaviour
         Rebuild();
     }
 
+    /// <summary>Rebuilds the whole canvas from an AST (the AI agent / refactor uses this to
+    /// place a generated program as blocks). Returns false — leaving the canvas untouched —
+    /// when the program isn't fully block-expressible, so the caller can fall back to the
+    /// code editor rather than show a lossy half-program.</summary>
+    public bool LoadProgram(ProgramNode program)
+    {
+        if (program == null) return false;
+
+        List<BlockNode> roots = BlockProgram.FromAst(program, out bool fullyRepresentable);
+        if (!fullyRepresentable) return false;
+
+        _roots.Clear();
+        _roots.AddRange(roots);
+        Rebuild();
+        return true;
+    }
+
     // -------------------------------------------------------------------------
     // Rendering
 
@@ -155,7 +174,7 @@ public class BlockCanvasController : MonoBehaviour
     {
         for (int i = 0; i <= list.Count; i++)
         {
-            SpawnSlot(list, i);
+            SpawnSlot(list, i, indent);
 
             if (i == list.Count) break;
 
@@ -171,18 +190,56 @@ public class BlockCanvasController : MonoBehaviour
                     SpawnElseHeader(indent);
                     RenderList(node.ElseBody, indent + 1);
                 }
+
+                // Footer cap closes the C-block so its body reads as enclosed.
+                SpawnCap(indent, CategoryColor(node.Type));
             }
         }
     }
 
-    void SpawnSlot(List<BlockNode> list, int index)
+    void SpawnSlot(List<BlockNode> list, int index, int indent)
     {
         BlockDropSlot slot = Instantiate(slotTemplate, content);
         slot.gameObject.SetActive(true);
-        slot.Setup(list, index);
+        slot.Setup(list, index, indent);
         slot.SetVisible(false);
         _spawned.Add(slot.gameObject);
         _slots.Add(slot);
+    }
+
+    /// <summary>
+    /// A short colored stub under a container's body — the bottom arm of the
+    /// Scratch-style C-block. Built inline (no template) since it carries no data.
+    /// </summary>
+    void SpawnCap(int indent, Color color)
+    {
+        var go = new GameObject("BlockCap", typeof(RectTransform));
+        var rt = (RectTransform)go.transform;
+        rt.SetParent(content, false);
+
+        var hl = go.AddComponent<HorizontalLayoutGroup>();
+        hl.childAlignment        = TextAnchor.MiddleLeft;
+        hl.spacing               = 0f;
+        hl.childControlWidth      = true;
+        hl.childControlHeight     = true;
+        hl.childForceExpandWidth  = false;
+        hl.childForceExpandHeight = false;
+        go.AddComponent<LayoutElement>().preferredHeight = 14f;
+
+        var spacer = new GameObject("Indent", typeof(RectTransform));
+        spacer.transform.SetParent(rt, false);
+        spacer.AddComponent<LayoutElement>().preferredWidth = indent * 24f;
+
+        var capGo = new GameObject("Cap", typeof(RectTransform));
+        capGo.transform.SetParent(rt, false);
+        var img = capGo.AddComponent<Image>();
+        img.color = new Color(color.r, color.g, color.b, 0.92f);
+        img.raycastTarget = false;
+        var cle = capGo.AddComponent<LayoutElement>();
+        cle.preferredWidth  = 54f;
+        cle.preferredHeight = 12f;
+
+        _spawned.Add(go);
     }
 
     void SpawnRow(BlockNode node, int indent)
@@ -192,21 +249,54 @@ public class BlockCanvasController : MonoBehaviour
         _spawned.Add(row.gameObject);
         _rowMap[node] = row;
 
-        string headerText  = node.IsContainer
-            ? (node.Type == BlockType.While ? "while" : "if")
-            : BlockProgram.ActionName(node.Type) + "()";
-        string conditionText = (node.Negate ? "not " : "") + node.Query + "()";
+        // FunctionDef / FunctionCall carry a name chip (no negate). if/while carry a
+        // query chip + not toggle. Leaf actions are just a label.
+        bool isFunc      = node.Type == BlockType.FunctionDef || node.Type == BlockType.FunctionCall;
+        bool isCondCont  = node.IsContainer && node.Type != BlockType.FunctionDef;
+
+        string headerText;
+        bool   showCondition, showNot;
+        string conditionText;
+        Action onCycle;
+
+        if (isFunc)
+        {
+            headerText    = node.Type == BlockType.FunctionDef ? "def" : "call";
+            showCondition = true;
+            showNot       = false;
+            conditionText = node.FuncName + "()";
+            onCycle       = node.Type == BlockType.FunctionDef
+                ? (Action)(() => { CycleFuncDefName(node); Rebuild(); })
+                : (Action)(() => { CycleFuncCallName(node); Rebuild(); });
+        }
+        else if (isCondCont)
+        {
+            headerText    = node.Type == BlockType.While ? "while" : "if";
+            showCondition = true;
+            showNot       = true;
+            conditionText = (node.Negate ? "not " : "") + node.Query + "()";
+            onCycle       = () => { CycleQuery(node); Rebuild(); };
+        }
+        else
+        {
+            headerText    = BlockProgram.Label(node);
+            showCondition = false;
+            showNot       = false;
+            conditionText = "";
+            onCycle       = null;
+        }
 
         row.Configure(this, node, headerText, indent,
                       CategoryColor(node.Type),
-                      isContainer: node.IsContainer,
+                      showCondition: showCondition,
+                      showNot: showNot,
                       negateOn: node.Negate,
                       conditionText: conditionText,
                       draggable: true);
 
         row.Bind(
-            onCycleCondition: () => { CycleQuery(node); Rebuild(); },
-            onToggleNot:      () => { node.Negate = !node.Negate; Rebuild(); },
+            onCycleCondition: onCycle,
+            onToggleNot:      showNot ? () => { node.Negate = !node.Negate; Rebuild(); } : (Action)null,
             onDelete:         () => { RemoveNode(node); Rebuild(); });
     }
 
@@ -217,7 +307,7 @@ public class BlockCanvasController : MonoBehaviour
         _spawned.Add(row.gameObject);
 
         row.Configure(this, null, "else:", indent, ElseColor,
-                      isContainer: false, negateOn: false, conditionText: "",
+                      showCondition: false, showNot: false, negateOn: false, conditionText: "",
                       draggable: false);
         row.Bind(null, null, null);
     }
@@ -229,7 +319,9 @@ public class BlockCanvasController : MonoBehaviour
     {
         _dragNode    = node;
         _paletteType = null;
-        CreateGhost(BlockProgram.Label(node));
+        int carried = CountDescendants(node);
+        string label = BlockProgram.Label(node) + (carried > 0 ? $"  +{carried}" : "");
+        CreateGhost(label, CategoryColor(node.Type));
         ShowSlots(excludeSubtreeOf: node);
         UpdateDrag(e);
     }
@@ -238,9 +330,17 @@ public class BlockCanvasController : MonoBehaviour
     {
         _paletteType = type;
         _dragNode    = null;
-        CreateGhost(PaletteGhostLabel(type));
+        CreateGhost(PaletteGhostLabel(type), CategoryColor(type));
         ShowSlots(excludeSubtreeOf: null);
         UpdateDrag(e);
+    }
+
+    static int CountDescendants(BlockNode node)
+    {
+        int count = 0;
+        foreach (BlockNode child in node.Body)     count += 1 + CountDescendants(child);
+        foreach (BlockNode child in node.ElseBody) count += 1 + CountDescendants(child);
+        return count;
     }
 
     public void UpdateDrag(PointerEventData e)
@@ -310,7 +410,7 @@ public class BlockCanvasController : MonoBehaviour
                RectTransformUtility.RectangleContainsScreenPoint(trashZone, screenPos, null);
     }
 
-    void CreateGhost(string text)
+    void CreateGhost(string text, Color color)
     {
         DestroyGhost();
         if (dragLayer == null) return;
@@ -321,7 +421,7 @@ public class BlockCanvasController : MonoBehaviour
         rt.sizeDelta = new Vector2(210f, 42f);
 
         var img = go.AddComponent<Image>();
-        img.color = new Color(0.95f, 0.65f, 0.15f, 0.85f);
+        img.color = new Color(color.r, color.g, color.b, 0.88f);
 
         var labelGo = new GameObject("Text", typeof(RectTransform));
         var labelRt = (RectTransform)labelGo.transform;
@@ -399,6 +499,38 @@ public class BlockCanvasController : MonoBehaviour
         node.Query = _allowedQueries[(current + 1 + _allowedQueries.Length) % _allowedQueries.Length];
     }
 
+    // The helper vocabulary a player can name a def after (no free text on the canvas).
+    static readonly string[] FuncNames =
+        { "drive", "handlePassengers", "handleFares", "handleDropoffs", "ride" };
+
+    void CycleFuncDefName(BlockNode node)
+    {
+        int current = Array.IndexOf(FuncNames, node.FuncName);
+        node.FuncName = FuncNames[(current + 1 + FuncNames.Length) % FuncNames.Length];
+    }
+
+    /// <summary>A call cycles through the names of the defs the canvas actually has
+    /// (so a call always points at a real helper); falls back to the vocabulary.</summary>
+    void CycleFuncCallName(BlockNode node)
+    {
+        var defined = new List<string>();
+        CollectDefNames(_roots, defined);
+        string[] choices = defined.Count > 0 ? defined.ToArray() : FuncNames;
+        int current = Array.IndexOf(choices, node.FuncName);
+        node.FuncName = choices[(current + 1 + choices.Length) % choices.Length];
+    }
+
+    static void CollectDefNames(List<BlockNode> list, List<string> into)
+    {
+        foreach (BlockNode n in list)
+        {
+            if (n.Type == BlockType.FunctionDef && !into.Contains(n.FuncName))
+                into.Add(n.FuncName);
+            CollectDefNames(n.Body, into);
+            CollectDefNames(n.ElseBody, into);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Tree queries
 
@@ -433,6 +565,9 @@ public class BlockCanvasController : MonoBehaviour
             case BlockType.While:  return "while …:";
             case BlockType.If:     return "if …:";
             case BlockType.IfElse: return "if …: else:";
+            case BlockType.FunctionDef:  return "def …():";
+            case BlockType.FunctionCall: return "call …()";
+            case BlockType.GiveChange: return "giveChange(changeOwed())";
             default:               return BlockProgram.ActionName(type) + "()";
         }
     }

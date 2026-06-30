@@ -39,11 +39,27 @@ public static class VibeCodingService
 
         if (grid != null)
         {
-            sb.AppendLine($"GRID {grid.Width}x{grid.Height} (#=wall .=road S=start D=dest P=stop, @=jeepney):");
-            for (int y = 0; y < grid.Height; y++)
+            // Bound the ASCII map. A large procedural town would otherwise balloon
+            // the prompt into thousands of tokens — slow to first-packet, which the
+            // transport reports as a timeout and the chat shows as "couldn't reach
+            // the AI". Window around the jeepney when the grid is bigger than the
+            // cap; small authored mazes (the minigame) are under it and unchanged.
+            const int MaxSpan = 31;
+            int cx = sim != null ? sim.Position.x : grid.Width / 2;
+            int cy = sim != null ? sim.Position.y : grid.Height / 2;
+            int x0 = 0, x1 = grid.Width, y0 = 0, y1 = grid.Height;
+            bool windowed = false;
+            if (grid.Width > MaxSpan)
+            { x0 = Mathf.Clamp(cx - MaxSpan / 2, 0, grid.Width  - MaxSpan); x1 = x0 + MaxSpan; windowed = true; }
+            if (grid.Height > MaxSpan)
+            { y0 = Mathf.Clamp(cy - MaxSpan / 2, 0, grid.Height - MaxSpan); y1 = y0 + MaxSpan; windowed = true; }
+
+            sb.AppendLine($"GRID {grid.Width}x{grid.Height} (#=wall .=road S=start D=dest P=stop, @=jeepney)" +
+                          (windowed ? $" — window rows {y0}-{y1 - 1}, cols {x0}-{x1 - 1} around the jeepney:" : ":"));
+            for (int y = y0; y < y1; y++)
             {
                 var row = new StringBuilder();
-                for (int x = 0; x < grid.Width; x++)
+                for (int x = x0; x < x1; x++)
                 {
                     if (sim != null && sim.Position.x == x && sim.Position.y == y) { row.Append('@'); continue; }
                     switch (grid.Get(x, y))
@@ -66,6 +82,7 @@ public static class VibeCodingService
         sb.AppendLine("EDITOR: " + (blockMode ? "block mode" : "code mode"));
         sb.AppendLine("UNLOCKED ACTIONS/CONTROL: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
         sb.AppendLine("UNLOCKED QUERIES: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
+        sb.AppendLine("Fare helpers: collectFare() records tender; giveChange(changeOwed()) settles exact change; procedural routes finish with routeComplete().");
 
         if (!string.IsNullOrWhiteSpace(editorText))
         {
@@ -179,6 +196,7 @@ public static class VibeCodingService
         sb.AppendLine("GOAL: " + (string.IsNullOrWhiteSpace(goalText) ? "Reach the destination (D)." : goalText));
         sb.AppendLine("UNLOCKED ACTIONS/CONTROL: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
         sb.AppendLine("UNLOCKED QUERIES: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
+        sb.AppendLine("Fare helpers: use fareOwed(), cashTendered(), changeOwed(), and giveChange(changeOwed()) when unlocked.");
         sb.AppendLine("CODE SO FAR (the cursor is at the very end):");
         sb.Append(codeBeforeCursor);
 
@@ -211,6 +229,7 @@ public static class VibeCodingService
         StringBuilder prompt = new StringBuilder();
         prompt.AppendLine("Unlocked actions/control structures: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
         prompt.AppendLine("Unlocked queries: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
+        prompt.AppendLine("Current Automation route pattern uses routeComplete(), driveToNextStop(), collectFare(), and giveChange(changeOwed()).");
         prompt.AppendLine("If the player explicitly asks to create, automate, write, fix, or change a program, return kind=code and a complete program.");
         prompt.AppendLine("Otherwise return kind=explanation and an empty code field. Keep the message to two or three friendly sentences.");
         prompt.AppendLine("Player request:");

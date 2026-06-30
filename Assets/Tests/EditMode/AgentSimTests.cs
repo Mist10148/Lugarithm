@@ -61,6 +61,46 @@ public class AgentSimTests
         Assert.AreEqual(0, sim.Facing); // W → N
     }
 
+    static AgentSim NewWideSim()
+    {
+        // A two-cell-wide road so a lane change has somewhere to slide.
+        GridModel grid = GridModel.Parse(new[]
+        {
+            "#####",
+            "#S..#",
+            "#...#",
+            "#..D#",
+            "#####",
+        }, out List<string> errors);
+        CollectionAssert.IsEmpty(errors);
+        return new AgentSim(grid, new FareTable(), startFacing: 1); // facing East
+    }
+
+    [Test]
+    public void MoveRight_StrafesPerpendicular_WithoutChangingFacing()
+    {
+        var sim = NewWideSim(); // at (1,1) facing East
+
+        var result = sim.Apply("moveRight"); // right of East = South
+
+        Assert.IsFalse(result.Blocked);
+        Assert.AreEqual(new Vector2Int(1, 2), sim.Position); // slid one lane over
+        Assert.AreEqual(1, sim.Facing);                       // heading unchanged — no turn
+    }
+
+    [Test]
+    public void MoveLeft_IntoAWall_Bumps_WithoutTurning()
+    {
+        var sim = NewWideSim(); // at (1,1) facing East
+
+        var result = sim.Apply("moveLeft"); // left of East = North → wall
+
+        Assert.IsTrue(result.Blocked);
+        StringAssert.Contains("lane", result.Warning);
+        Assert.AreEqual(new Vector2Int(1, 1), sim.Position); // didn't move
+        Assert.AreEqual(1, sim.Facing);                       // heading unchanged
+    }
+
     [Test]
     public void PickUp_OnAStop_BoardsThePassenger_OnceOnly()
     {
@@ -171,5 +211,44 @@ public class AgentSimTests
 
         def.requireAllPassengersDelivered = false;
         Assert.IsTrue(sim.IsWin(def));
+    }
+
+    [Test]
+    public void EndlessKeepDriving_QueuesOnlyAShortHop()
+    {
+        GridModel grid = GridModel.Parse(new[]
+        {
+            "################",
+            "#S............D#",
+            "################",
+        }, out List<string> errors);
+        CollectionAssert.IsEmpty(errors);
+
+        var sim = new AgentSim(grid, new FareTable(), startFacing: 1) { EndlessRoute = true };
+        sim.Apply("keepDriving");
+
+        Assert.Greater(sim.PendingMoveCount, 0);
+        Assert.LessOrEqual(sim.PendingMoveCount, 4,
+            "endless cruise macros must yield often enough for stream-ahead generation");
+    }
+
+    [Test]
+    public void EndlessDriveToDropoff_QueuesOnlyAShortHop()
+    {
+        GridModel grid = GridModel.Parse(new[]
+        {
+            "################",
+            "#S............D#",
+            "################",
+        }, out List<string> errors);
+        CollectionAssert.IsEmpty(errors);
+
+        var sim = new AgentSim(grid, new FareTable(), startFacing: 1) { EndlessRoute = true };
+        sim.ArmStoryDropoff(new Vector2Int(12, 1));
+        sim.Apply("driveToDropoff");
+
+        Assert.Greater(sim.PendingMoveCount, 0);
+        Assert.LessOrEqual(sim.PendingMoveCount, 4,
+            "story drop-off navigation must not monopolize the execution loop");
     }
 }

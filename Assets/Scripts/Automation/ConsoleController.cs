@@ -21,6 +21,7 @@ public class ConsoleController : MonoBehaviour
     static readonly Color InfoColor  = new Color(0.78f, 0.80f, 0.78f);
     static readonly Color WarnColor  = new Color(0.95f, 0.78f, 0.30f);
     static readonly Color ErrorColor = new Color(0.95f, 0.40f, 0.35f);
+    static readonly Color PrintColor = new Color(0.92f, 0.95f, 1f);
 
     readonly Queue<TMP_Text> _lines = new Queue<TMP_Text>();
 
@@ -29,6 +30,10 @@ public class ConsoleController : MonoBehaviour
     public void Info(string message)  => AddLine(message, InfoColor);
     public void Warn(string message)  => AddLine("⚠  " + message, WarnColor);
     public void Error(string message) => AddLine("✖  " + message, ErrorColor);
+
+    /// <summary>Program stdout — a <c>print()</c> line, rendered bright like a
+    /// real terminal so it stands out from the action log.</summary>
+    public void Print(string message) => AddLine("» " + message, PrintColor);
 
     public void Clear()
     {

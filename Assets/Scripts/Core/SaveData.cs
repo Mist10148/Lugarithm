@@ -23,6 +23,7 @@ public class SaveData
     public int       currentLevelIndex     = 0;
     public List<int> collectedJournalPages = new List<int>();
     public int       currency              = 0;
+    public int       debt                  = 0;
     public List<LevelScore> bestScores     = new List<LevelScore>();
     public List<int> earnedBadges          = new List<int>();
     public List<int>    unlockedThemes     = new List<int> { 0 };
@@ -107,6 +108,15 @@ public class GameSettings
     public bool  subtitles     = true;
     public int   brakeMode     = (int)BrakeMode.Hold;      // how Space brakes in Manual Mode
     public int   codeThemeId   = 0;                        // selected CodeTheme.id
+    public int   language      = (int)GameLanguage.English; // UI language (localization)
+}
+
+/// <summary>UI language. Filipino translates the interface; story/heritage content
+/// is translated in a later content pass.</summary>
+public enum GameLanguage
+{
+    English  = 0,
+    Filipino = 1
 }
 
 /// <summary>Dialogue reveal speed options (PRD §9).</summary>

@@ -2,10 +2,14 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Top-down player movement for the overworld levels: 4-directional WASD /
-/// Arrow-key walk with acceleration and smooth deceleration. Uses
-/// <see cref="Rigidbody2D"/> for physics-based collision against TilemapCollider2D
-/// walls, matching the project's existing top-down physics pattern.
+/// Top-down player movement for the overworld levels, tuned to feel like the
+/// classic GBA/DS Pokémon games: crisp 4-directional walking with no diagonal
+/// sliding. Movement starts and stops near-instantly (no floaty acceleration),
+/// and when two directions are held the most-recently-pressed axis wins, so the
+/// player snaps cleanly between cardinals instead of drifting on a diagonal.
+///
+/// Uses <see cref="Rigidbody2D"/> for physics-based collision against
+/// TilemapCollider2D walls, matching the project's existing top-down pattern.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 public class TopDownPlayerController : MonoBehaviour
@@ -15,18 +19,8 @@ public class TopDownPlayerController : MonoBehaviour
     // -------------------------------------------------------------------------
 
     [Header("Movement")]
-    [Tooltip("Maximum walk speed in world units per second.")]
-    [SerializeField] private float maxSpeed = 5f;
-
-    [Tooltip("How quickly the player reaches max speed (higher = snappier).")]
-    [SerializeField] private float accelTime = 0.15f;
-
-    [Tooltip("How quickly the player stops when no input is held.")]
-    [SerializeField] private float decelTime = 0.1f;
-
-    [Header("Facing")]
-    [Tooltip("Degrees per second the sprite rotates toward the movement direction.")]
-    [SerializeField] private float turnSpeed = 720f;
+    [Tooltip("Walk speed in world units (tiles) per second. Constant — no ramp.")]
+    [SerializeField] private float moveSpeed = 5f;
 
     [Header("References")]
     [SerializeField] private SpriteRenderer bodySprite;
@@ -35,9 +29,17 @@ public class TopDownPlayerController : MonoBehaviour
     // State
     // -------------------------------------------------------------------------
 
-    private Vector2 _inputDir;         // normalised input this frame
-    private Vector2 _velocity;          // current smoothed velocity
-    private float _speedSmoothVel;      // for SmoothDamp magnitude tracking
+    // One entry per cardinal in CardinalDirs order (Up, Down, Left, Right).
+    // Tracks the moment each direction key transitioned to "pressed" so the
+    // most-recently-pressed held direction can win when several are down.
+    private static readonly Vector2[] CardinalDirs =
+    {
+        Vector2.up, Vector2.down, Vector2.left, Vector2.right
+    };
+    private readonly float[] _pressTime = new float[4];
+    private readonly bool[]  _wasDown   = new bool[4];
+
+    private Vector2 _moveDir;            // resolved cardinal move direction (or zero)
     private Rigidbody2D _rb;
     private bool _inputLocked;
 
@@ -48,14 +50,22 @@ public class TopDownPlayerController : MonoBehaviour
     public bool InputLocked
     {
         get => _inputLocked;
-        set => _inputLocked = value;
+        set
+        {
+            _inputLocked = value;
+            if (value)
+            {
+                _moveDir = Vector2.zero;
+                for (int i = 0; i < _wasDown.Length; i++) _wasDown[i] = false;
+            }
+        }
     }
 
-    /// <summary>True while the player is actively providing movement input.</summary>
-    public bool IsMoving => _inputDir.sqrMagnitude > 0.01f;
+    /// <summary>True while the player is actively walking.</summary>
+    public bool IsMoving => _moveDir.sqrMagnitude > 0.01f;
 
-    /// <summary>Current world-space facing direction (unit vector).</summary>
-    public Vector2 FacingDirection { get; private set; } = Vector2.up;
+    /// <summary>Current world-space facing direction (unit cardinal vector).</summary>
+    public Vector2 FacingDirection { get; private set; } = Vector2.down;
 
     // -------------------------------------------------------------------------
     // Unity lifecycle
@@ -73,48 +83,25 @@ public class TopDownPlayerController : MonoBehaviour
         _rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
     }
 
-    void FixedUpdate()
-    {
-        if (_inputLocked)
-        {
-            _inputDir = Vector2.zero;
-        }
-        else
-        {
-            ReadInput();
-        }
-
-        float targetMag = _inputDir.sqrMagnitude > 0.01f ? maxSpeed : 0f;
-        float smoothT = targetMag > _velocity.magnitude ? accelTime : decelTime;
-        float mag = Mathf.SmoothDamp(_velocity.magnitude, targetMag, ref _speedSmoothVel, smoothT);
-
-        if (mag < 0.01f)
-        {
-            _velocity = Vector2.zero;
-            _rb.MovePosition(_rb.position);
-            return;
-        }
-
-        Vector2 dir = _inputDir.sqrMagnitude > 0.01f ? _inputDir : _velocity.normalized;
-        _velocity = dir * mag;
-
-        // Clamp diagonal speed to maxSpeed
-        if (_velocity.sqrMagnitude > maxSpeed * maxSpeed)
-            _velocity = _velocity.normalized * maxSpeed;
-
-        Vector2 newPos = _rb.position + _velocity * Time.fixedDeltaTime;
-        _rb.MovePosition(newPos);
-    }
-
     void Update()
     {
-        // Update facing direction toward movement direction
-        if (_velocity.sqrMagnitude > 0.1f)
+        if (!_inputLocked)
+            ReadInput();
+
+        // Snap the body to face the cardinal we're moving toward, instantly —
+        // never rotate smoothly through in-between angles.
+        if (_moveDir.sqrMagnitude > 0.01f)
         {
-            Vector2 targetFacing = _velocity.normalized;
-            FacingDirection = targetFacing;
-            UpdateSpriteFacing(targetFacing);
+            FacingDirection = _moveDir;
+            UpdateSpriteFacing(_moveDir);
         }
+    }
+
+    void FixedUpdate()
+    {
+        // Constant-speed step: instant start, instant stop (no glide).
+        Vector2 newPos = _rb.position + _moveDir * (moveSpeed * Time.fixedDeltaTime);
+        _rb.MovePosition(newPos);
     }
 
     // -------------------------------------------------------------------------
@@ -124,25 +111,36 @@ public class TopDownPlayerController : MonoBehaviour
     void ReadInput()
     {
         var kb = Keyboard.current;
-        if (kb == null) return;
+        if (kb == null) { _moveDir = Vector2.zero; return; }
 
-        float x = 0f, y = 0f;
+        // Held state per cardinal (Up, Down, Left, Right).
+        bool up    = kb.upArrowKey.isPressed    || kb.wKey.isPressed;
+        bool down  = kb.downArrowKey.isPressed  || kb.sKey.isPressed;
+        bool left  = kb.leftArrowKey.isPressed  || kb.aKey.isPressed;
+        bool right = kb.rightArrowKey.isPressed || kb.dKey.isPressed;
+        bool[] held = { up, down, left, right };
 
-        if (kb.leftArrowKey.isPressed  || kb.aKey.isPressed) x -= 1f;
-        if (kb.rightArrowKey.isPressed || kb.dKey.isPressed) x += 1f;
-        if (kb.downArrowKey.isPressed  || kb.sKey.isPressed) y -= 1f;
-        if (kb.upArrowKey.isPressed    || kb.wKey.isPressed) y += 1f;
-
-        // Normalise diagonal so it's not √2 faster
-        if (x != 0f || y != 0f)
+        // Record the timestamp when each key first goes down so the most recent
+        // press can take priority while it stays held.
+        for (int i = 0; i < held.Length; i++)
         {
-            float len = Mathf.Sqrt(x * x + y * y);
-            _inputDir = new Vector2(x / len, y / len);
+            if (held[i] && !_wasDown[i]) _pressTime[i] = Time.time;
+            _wasDown[i] = held[i];
         }
-        else
+
+        // Pick the held cardinal with the latest press time — last input wins.
+        int best = -1;
+        float bestTime = float.NegativeInfinity;
+        for (int i = 0; i < held.Length; i++)
         {
-            _inputDir = Vector2.zero;
+            if (held[i] && _pressTime[i] >= bestTime)
+            {
+                bestTime = _pressTime[i];
+                best = i;
+            }
         }
+
+        _moveDir = best >= 0 ? CardinalDirs[best] : Vector2.zero;
     }
 
     // -------------------------------------------------------------------------
@@ -151,13 +149,13 @@ public class TopDownPlayerController : MonoBehaviour
 
     void UpdateSpriteFacing(Vector2 dir)
     {
-        // Rotate the body sprite to face the movement direction.
-        // In top-down, "up" = -90°, "right" = 0°, "down" = 90°, "left" = 180°.
+        // Snap the body sprite to the cardinal it's heading toward. With a
+        // single placeholder sprite we rotate it; once 4-direction sprites exist
+        // this is the hook to swap them instead.
+        // In top-down: up = -90°, right = 0°, down = 90°, left = 180°.
         if (bodySprite == null) return;
 
         float targetAngle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
-        float currentAngle = bodySprite.transform.localEulerAngles.z;
-        float newAngle = Mathf.MoveTowardsAngle(currentAngle, targetAngle, turnSpeed * Time.deltaTime);
-        bodySprite.transform.localEulerAngles = new Vector3(0f, 0f, newAngle);
+        bodySprite.transform.localEulerAngles = new Vector3(0f, 0f, targetAngle);
     }
 }

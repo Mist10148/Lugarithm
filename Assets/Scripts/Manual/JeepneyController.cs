@@ -48,7 +48,7 @@ public class JeepneyController : MonoBehaviour
     [SerializeField] private float offRoadSpeedFactor = 0.45f;
 
     [Header("Fuel")]
-    [SerializeField] private float fuelDrainPerSecond = 0.004f;
+    [SerializeField] private float fuelDrainPerSecond = RefuelMath.FuelDrainPerSecond;
 
     private Rigidbody2D _rb;
     private float _fuel = 1f;

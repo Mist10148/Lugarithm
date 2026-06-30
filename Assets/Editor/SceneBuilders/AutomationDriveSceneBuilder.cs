@@ -61,11 +61,9 @@ public static class AutomationDriveSceneBuilder
         // Workspace backdrop first (compact left rail) so the road remains visible
         // draws above it — uncovered screen areas outside the world camera's
         // viewport would otherwise show garbage.
-        var workspace = UIFactory.CreatePanel(canvas.transform, "Workspace",
-                                              new Vector2(0f, 0f), new Vector2(0.365f, 1f),
-                                              UIFactory.PanelDarker);
-        workspace.offsetMin = new Vector2(16f, 16f);
-        workspace.offsetMax = new Vector2(-4f, -204f);
+        var workspace = UIFactory.CreateRect(canvas.transform, "Workspace",
+                                             Vector2.zero, Vector2.one,
+                                             Vector2.zero, Vector2.zero);
 
         // Goal banner (top-left, over the world view). Width capped so long
         // goal text wraps inside the banner instead of spilling into the road.
@@ -79,41 +77,10 @@ public static class AutomationDriveSceneBuilder
         goalText.rectTransform.offsetMax = new Vector2(-12f, -6f);
         goalText.enableWordWrapping = true;
 
-        // Control bar in its own band below the goal banner with a clear gutter,
-        // not flush against it. Stays in the left UI rail; never crosses the road.
-        var controlBar = UIFactory.CreatePanel(canvas.transform, "ControlBar",
-                                               new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                                               UIFactory.PanelDark);
-        UIFactory.Place(controlBar, new Vector2(0f, 1f), new Vector2(16f, -108f), new Vector2(640f, 48f));
-        UIFactory.AddHorizontalLayout(controlBar, 5f, new RectOffset(7, 7, 5, 5), TextAnchor.MiddleCenter);
-
-        Button run    = MakeBarButton(controlBar, "RunButton",   "RUN",    78f);
-        run.image.color = new Color(0.20f, 0.55f, 0.25f);
-        Button pause  = MakeBarButton(controlBar, "PauseButton", "Pause",  66f);
-        Button reset  = MakeBarButton(controlBar, "ResetButton", "Reset",  66f);
-        Button step   = MakeBarButton(controlBar, "StepButton",  "Step",    58f);
-
-        Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(128f, 34f));
-        speedSlider.minValue = 0.2f;
-        speedSlider.maxValue = 8f;
-        speedSlider.value = 1f;
-        var sliderLe = speedSlider.gameObject.GetComponent<LayoutElement>();
-        if (sliderLe == null) sliderLe = speedSlider.gameObject.AddComponent<LayoutElement>();
-        sliderLe.preferredWidth = 128f;
-        sliderLe.preferredHeight = 34f;
-
-        TMP_Text speedLabel = UIFactory.CreateText(controlBar, "SpeedLabel", "×1.0", 20f, UIFactory.TextBright);
-        var labelLe = speedLabel.gameObject.GetComponent<LayoutElement>();
-        if (labelLe == null) labelLe = speedLabel.gameObject.AddComponent<LayoutElement>();
-        labelLe.preferredWidth = 56f;
-        labelLe.preferredHeight = 36f;
-
-        Button autopilot = MakeBarButton(controlBar, "Autopilot", "Auto", 72f);
-        autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
-
         // Exit (top-right corner)
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(110f, 42f));
-        UIFactory.Place(exit, new Vector2(1f, 1f), new Vector2(-10f, -8f), new Vector2(110f, 42f));
+        UIFactory.LocalizeButton(exit, "hud.exit");
+        UIFactory.Place(exit, new Vector2(1f, 1f), new Vector2(-24f, -84f), new Vector2(130f, 44f));
         var link = exit.gameObject.AddComponent<SceneLink>();
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
@@ -122,8 +89,16 @@ public static class AutomationDriveSceneBuilder
         // (below Exit) instead of stacked under the goal banner on the left.
         Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
                                                          "Editor: Blocks", new Vector2(190f, 40f), 18f);
-        UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-10f, -58f), new Vector2(190f, 40f));
+        UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-24f, -136f), new Vector2(190f, 40f));
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
+
+        // Reopens/focuses the active editor window after it's been closed or
+        // minimized — wires to AutomationDriveController.FocusActiveEditor (already
+        // written, was previously dead code with no button assigned to it).
+        Button workspaceToggle = UIFactory.CreateButton(canvas.transform, "WorkspaceToggle",
+                                                        "Reopen Editor", new Vector2(190f, 40f), 18f);
+        UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-24f, -184f), new Vector2(190f, 40f));
+        workspaceToggle.image.color = new Color(0.35f, 0.35f, 0.40f);
 
         // Front-seat story-passenger card (top-center): who you're coding for + talking to.
         var frontSeat = UIFactory.CreatePanel(canvas.transform, "FrontSeatCard",
@@ -136,6 +111,32 @@ public static class AutomationDriveSceneBuilder
         frontSeatLabel.rectTransform.offsetMax = new Vector2(-12f, 0f);
         frontSeat.gameObject.SetActive(false);
 
+        RectTransform runStatus = BuildRunStatusHud(canvas.transform, out TMP_Text walletLabel, out Image autoFuelFill);
+        UIFactory.Place(runStatus, new Vector2(1f, 1f), new Vector2(-24f, -22f), new Vector2(260f, 50f));
+        // Stacked below the passenger ribbon (300px reserved height, starting at -18) —
+        // re-check this offset in-engine if the ribbon's built height ever changes.
+
+        // Bottom-left gauge panel: fuel + execution-speed readout, mirroring Manual's
+        // dashboard corner (Automation has no throttle, so speed mirrors the toolbar slider).
+        RectTransform gaugePanel = BuildAutomationGaugePanel(canvas.transform, out Image gaugeFuelFill,
+                                                              out TMP_Text gaugeSpeedLabel, out RectTransform gaugeSpeedNeedle);
+        UIFactory.Place(gaugePanel, new Vector2(0f, 0f), new Vector2(18f, 12f), new Vector2(470f, 150f));
+
+        // Passenger ribbon (top left) — same PassengerChip pool pattern as Manual Mode.
+        var ribbon = UIFactory.CreateRect(canvas.transform, "PassengerRibbon",
+                                          new Vector2(0f, 1f), new Vector2(0f, 1f));
+        UIFactory.Place(ribbon, new Vector2(0f, 1f), new Vector2(18f, -18f), new Vector2(300f, 300f));
+        var ribbonLayout = UIFactory.AddVerticalLayout(ribbon, 8f, align: TextAnchor.UpperLeft);
+        ribbonLayout.childAlignment = TextAnchor.UpperLeft;
+
+        var ribbonChips = new PassengerChip[4];   // smaller pool than Manual's 8 — Automation's
+                                                    // seat capacity ceiling is lower in practice
+        for (int i = 0; i < ribbonChips.Length; i++)
+            ribbonChips[i] = ManualDriveSceneBuilder.BuildChip(ribbon, i);
+
+        var ribbonCtrl = canvas.gameObject.AddComponent<PassengerRibbonController>();
+        SceneBuilderUtil.WireArray(ribbonCtrl, "chips", ribbonChips);
+
         // --- Floating editor windows (Block / Code) ---------------------------------
 
         var editorArea = UIFactory.CreateRect(canvas.transform, "EditorArea",
@@ -143,18 +144,17 @@ public static class AutomationDriveSceneBuilder
                                               Vector2.zero, Vector2.zero);
 
         RectTransform blockPanel = BuildBlockWindow(
-            editorArea, (RectTransform)canvas.transform, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
-        blockPanel.anchorMin = new Vector2(0f, 0f);
-        blockPanel.anchorMax = new Vector2(0.365f, 1f);
-        blockPanel.offsetMin = new Vector2(24f, 24f);
-        blockPanel.offsetMax = new Vector2(-12f, -212f);
+            editorArea, (RectTransform)canvas.transform, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas,
+            out Button run, out Button pause, out Button reset, out Button step,
+            out Button speedButton, out TMP_Text speedLabel, out Button autopilot);
+        PlaceFloatingEditorWindow(blockPanel, new Vector2(520f, -118f), new Vector2(760f, 830f));
 
         RectTransform codePanel = BuildCodeWindow(
-            editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl);
-        codePanel.anchorMin = new Vector2(0f, 0f);
-        codePanel.anchorMax = new Vector2(0.365f, 1f);
-        codePanel.offsetMin = new Vector2(24f, 24f);
-        codePanel.offsetMax = new Vector2(-12f, -212f);
+            editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl,
+            out Button codeRun, out Button codePause, out Button codeReset, out Button codeStep,
+            out Button codeSpeedButton, out TMP_Text codeSpeedLabel, out Button codeAutopilot,
+            out ConsoleController console, out TerminalPanelController terminal);
+        PlaceFloatingEditorWindow(codePanel, new Vector2(520f, -118f), new Vector2(760f, 830f));
 
         // Co-Pilot hint button + label (bottom-right of workspace)
         Button hintBtn = UIFactory.CreateButton(workspace, "HintButton",
@@ -203,16 +203,37 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "palette",        paletteCtrl);
         SceneBuilderUtil.Wire(controller, "codeEditor",     codeEditor);
         SceneBuilderUtil.Wire(controller, "ghost",          codeEditor.GetComponent<GhostTextController>());
+        SceneBuilderUtil.Wire(controller, "console",        console);
+        SceneBuilderUtil.Wire(controller, "terminal",       terminal);
         SceneBuilderUtil.Wire(controller, "runButton",      run);
         SceneBuilderUtil.Wire(controller, "pauseButton",    pause);
         SceneBuilderUtil.Wire(controller, "resetButton",    reset);
-        SceneBuilderUtil.Wire(controller, "speedSlider",    speedSlider);
+        SceneBuilderUtil.Wire(controller, "speedButton",    speedButton);
         SceneBuilderUtil.Wire(controller, "speedLabel",     speedLabel);
         SceneBuilderUtil.Wire(controller, "stepButton",     step);
         SceneBuilderUtil.Wire(controller, "editorModeToggle", editorModeToggle);
         SceneBuilderUtil.Wire(controller, "autopilotButton", autopilot);
         SceneBuilderUtil.Wire(controller, "selfDrive",      selfDrive);
         SceneBuilderUtil.Wire(controller, "results",        results);
+        SceneBuilderUtil.Wire(controller, "walletLabel",    walletLabel);
+        SceneBuilderUtil.Wire(controller, "automationFuelFill", autoFuelFill);
+        SceneBuilderUtil.Wire(controller, "passengerRibbon", ribbonCtrl);
+        SceneBuilderUtil.Wire(controller, "gaugeFuelFill",  gaugeFuelFill);
+        SceneBuilderUtil.Wire(controller, "gaugeSpeedLabel", gaugeSpeedLabel);
+        SceneBuilderUtil.Wire(controller, "gaugeSpeedNeedle", gaugeSpeedNeedle);
+
+        // Drop-off dulog markers (color-coded world pin per onboard passenger + off-screen
+        // compass arrow). World pins live on a plain world-space object; the edge arrows live
+        // on a full-screen canvas layer. Mirrors Manual's DulogMarkerController setup.
+        var dulogEdgeLayer = UIFactory.CreateRect(canvas.transform, "DulogEdgeLayer",
+                                                  Vector2.zero, Vector2.one);
+        dulogEdgeLayer.offsetMin = Vector2.zero;
+        dulogEdgeLayer.offsetMax = Vector2.zero;
+        var dulogGo = new GameObject("DulogMarkers");
+        var dulogMarkers = dulogGo.AddComponent<AutomationDulogMarkerController>();
+        SceneBuilderUtil.Wire(dulogMarkers, "edgeArrowParent", dulogEdgeLayer);
+        SceneBuilderUtil.Wire(controller, "dulogMarkers",   dulogMarkers);
+
         SceneBuilderUtil.Wire(controller, "flowPuzzle",     flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",    cratePuzzle);
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);
@@ -224,6 +245,17 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "legCompletion",  legCompletion);
         SceneBuilderUtil.Wire(controller, "frontSeatCard",  frontSeat.gameObject);
         SceneBuilderUtil.Wire(controller, "frontSeatLabel", frontSeatLabel);
+        SceneBuilderUtil.Wire(controller, "workspaceToggleButton", workspaceToggle);
+
+        // Code window's own toolbar copy (Block window's copy is wired above via the
+        // original run/pause/reset/step/speedButton/speedLabel/autopilot fields).
+        SceneBuilderUtil.Wire(controller, "codeRunButton",      codeRun);
+        SceneBuilderUtil.Wire(controller, "codePauseButton",    codePause);
+        SceneBuilderUtil.Wire(controller, "codeResetButton",    codeReset);
+        SceneBuilderUtil.Wire(controller, "codeStepButton",     codeStep);
+        SceneBuilderUtil.Wire(controller, "codeSpeedButton",    codeSpeedButton);
+        SceneBuilderUtil.Wire(controller, "codeSpeedLabel",     codeSpeedLabel);
+        SceneBuilderUtil.Wire(controller, "codeAutopilotButton", codeAutopilot);
 
         SceneBuilderUtil.SaveScene(scene, "AutomationDrive");
     }
@@ -308,27 +340,61 @@ public static class AutomationDriveSceneBuilder
         return BuildWindow(parent, name, title, out content, out _, out _);
     }
 
+    internal static void PlaceFloatingEditorWindow(RectTransform window, Vector2 anchoredPosition, Vector2 size)
+    {
+        if (window == null) return;
+        window.anchorMin = new Vector2(0f, 1f);
+        window.anchorMax = new Vector2(0f, 1f);
+        window.pivot = new Vector2(0f, 1f);
+        window.anchoredPosition = anchoredPosition;
+        window.sizeDelta = size;
+    }
+
     /// <summary>Scratch-style block window: palette column + drag-and-drop canvas.</summary>
     internal static RectTransform BuildBlockWindow(RectTransform parent, RectTransform dragLayer,
                                                    out BlockPaletteController palette,
-                                                   out BlockCanvasController canvas)
+                                                   out BlockCanvasController canvas,
+                                                   out Button run, out Button pause, out Button reset,
+                                                   out Button step, out Button speedButton,
+                                                   out TMP_Text speedLabel, out Button autopilot,
+                                                   bool embedToolbar = true)
     {
         RectTransform window = BuildWindow(parent, "BlockWindow", "BLOCKS — drag to build",
                                            out RectTransform content);
+
+        float toolbarHeight = 0f;
+        if (embedToolbar)
+        {
+            toolbarHeight = BuildEmbeddedRunToolbar(content, out run, out pause, out reset, out step,
+                                                    out speedButton, out speedLabel, out autopilot);
+        }
+        else
+        {
+            run = pause = reset = step = autopilot = null;
+            speedButton = null;
+            speedLabel = null;
+        }
 
         var paletteFrame = UIFactory.CreatePanel(content, "Palette",
                                                  new Vector2(0f, 0f), new Vector2(0f, 1f),
                                                  UIFactory.PanelDarker);
         paletteFrame.offsetMin = new Vector2(8f, 8f);
-        paletteFrame.offsetMax = new Vector2(222f, -8f);
+        paletteFrame.offsetMax = new Vector2(222f, -8f - toolbarHeight);
 
         var paletteHeader = UIFactory.CreateText(paletteFrame, "Header", "PALETTE", 18f, UIFactory.TextDim);
         UIFactory.Place(paletteHeader, new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(190f, 26f));
 
-        var paletteContent = UIFactory.CreateRect(paletteFrame, "Content",
-                                                  Vector2.zero, Vector2.one,
-                                                  new Vector2(8f, 8f), new Vector2(-8f, -36f));
-        UIFactory.AddVerticalLayout(paletteContent, 8f, align: TextAnchor.UpperCenter);
+        // Scrollable palette: a long block list (or a small window) no longer runs
+        // off the bottom — the scroll view masks overflow and the bar appears only
+        // when needed. CreateScrollView gives the content a VerticalLayoutGroup +
+        // ContentSizeFitter, so the headers/buttons still stack and size themselves.
+        ScrollRect paletteScroll = UIFactory.CreateScrollView(paletteFrame, "Content",
+                                                              Vector2.zero, Vector2.one,
+                                                              out RectTransform paletteContent);
+        var paletteScrollRt = (RectTransform)paletteScroll.transform;
+        paletteScrollRt.offsetMin = new Vector2(8f, 8f);
+        paletteScrollRt.offsetMax = new Vector2(-8f, -36f);
+        UIFactory.AddVerticalScrollbar(paletteScroll);
 
         Button paletteTemplate = UIFactory.CreateButton(paletteContent, "PaletteButtonTemplate",
                                                         "block", new Vector2(190f, 46f), 21f);
@@ -340,10 +406,64 @@ public static class AutomationDriveSceneBuilder
 
         var canvasArea = UIFactory.CreateRect(content, "BlockCanvasArea",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(230f, 8f), new Vector2(-8f, -8f));
+                                              new Vector2(230f, 8f), new Vector2(-8f, -8f - toolbarHeight));
         canvas = BuildBlockCanvas(canvasArea, dragLayer);
 
         return window;
+    }
+
+    /// <summary>
+    /// Builds the run/pause/reset/step/speed/autopilot control row pinned to the top
+    /// of an editor window's content area (a "The Farmer Was Replaced"-style embedded
+    /// toolbar rather than a separate floating bar). Returns the row's height so the
+    /// caller can shift the rest of the window's content down to avoid overlapping it.
+    /// </summary>
+    internal static float BuildEmbeddedRunToolbar(RectTransform content, out Button run, out Button pause,
+                                                   out Button reset, out Button step, out Button speedButton,
+                                                   out TMP_Text speedLabel, out Button autopilot)
+    {
+        const float height = 56f;
+        var toolbar = UIFactory.CreatePanel(content, "RunToolbar", new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                            UIFactory.PanelDarker);
+        toolbar.offsetMin = new Vector2(0f, -height);
+        toolbar.offsetMax = Vector2.zero;
+
+        // One row, evenly distributed: every control shares the toolbar width so the
+        // buttons span the full window instead of clustering on the left.
+        var row = UIFactory.CreateRect(toolbar, "ActionRow", new Vector2(0f, 0f), new Vector2(1f, 1f),
+                                       new Vector2(8f, 6f), new Vector2(-8f, -6f));
+        var layout = UIFactory.AddHorizontalLayout(row, 8f, new RectOffset(0, 0, 0, 0), TextAnchor.MiddleCenter);
+        layout.childControlWidth     = true;
+        layout.childForceExpandWidth = true;
+
+        run = MakeBarButton(row, "RunButton", "RUN", 92f);
+        run.image.color = new Color(0.20f, 0.55f, 0.25f);
+        UIFactory.LocalizeButton(run, "auto.run");
+        pause = MakeBarButton(row, "PauseButton", "Pause", 86f);
+        UIFactory.LocalizeButton(pause, "auto.pause");
+        reset = MakeBarButton(row, "ResetButton", "Reset", 86f);
+        UIFactory.LocalizeButton(reset, "auto.reset");
+        step = MakeBarButton(row, "StepButton", "Step", 78f);
+        UIFactory.LocalizeButton(step, "auto.step");
+
+        // Speed is now a single cycle button (tap to step ×0.5 → ×1 → ×2 → ×4 → …);
+        // its own face is the readout, so the controller updates this label.
+        speedButton = MakeBarButton(row, "SpeedButton", "×1.0", 88f);
+        speedLabel = speedButton.GetComponentInChildren<TMP_Text>();
+
+        autopilot = MakeBarButton(row, "Autopilot", "Auto", 124f);
+        autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
+        UIFactory.LocalizeButton(autopilot, "auto.autopilot");
+
+        // Share the row evenly: each child keeps its preferredWidth as a baseline and
+        // splits the leftover space equally.
+        foreach (Button b in new[] { run, pause, reset, step, speedButton, autopilot })
+        {
+            var le = b.GetComponent<LayoutElement>();
+            if (le != null) le.flexibleWidth = 1f;
+        }
+
+        return height;
     }
 
     /// <summary>
@@ -353,19 +473,43 @@ public static class AutomationDriveSceneBuilder
     /// driven by the returned <see cref="VibeCodingController"/>.
     /// </summary>
     internal static RectTransform BuildCodeWindow(RectTransform parent, out CodeEditorController editor,
-                                                  out VibeCodingController chat)
+                                                  out VibeCodingController chat,
+                                                  out Button run, out Button pause, out Button reset,
+                                                  out Button step, out Button speedButton,
+                                                  out TMP_Text speedLabel, out Button autopilot,
+                                                  out ConsoleController console,
+                                                  out TerminalPanelController terminal,
+                                                  bool embedToolbar = true)
     {
         RectTransform window = BuildWindow(parent, "CodeWindow", "CODE — type to program",
                                            out RectTransform content, out RectTransform titleBar,
                                            out _, closeable: false);
 
+        float toolbarHeight = 0f;
+        if (embedToolbar)
+        {
+            toolbarHeight = BuildEmbeddedRunToolbar(content, out run, out pause, out reset, out step,
+                                                    out speedButton, out speedLabel, out autopilot);
+        }
+        else
+        {
+            run = pause = reset = step = autopilot = null;
+            speedButton = null;
+            speedLabel = null;
+        }
+
         // Editor body and chat body share the content area; only one shows at a time.
         var editorBody = UIFactory.CreateRect(content, "EditorBody", Vector2.zero, Vector2.one,
-                                              Vector2.zero, Vector2.zero);
+                                              Vector2.zero, new Vector2(0f, -toolbarHeight));
         editor = BuildCodeEditor(editorBody);
 
+        // Collapsible terminal docked to the bottom of the window: shows print()
+        // output and the execution log. Starts closed (editor fills the body); the
+        // toolbar "Terminal" button opens it and the header ✕ closes it.
+        terminal = BuildTerminalPanel(content, editorBody, out console);
+
         var chatBody = UIFactory.CreateRect(content, "ChatBody", Vector2.zero, Vector2.one,
-                                            Vector2.zero, Vector2.zero);
+                                            Vector2.zero, new Vector2(0f, -toolbarHeight));
 
         // Mode bar (Ask / Plan / Agent) pinned to the top of the chat body.
         var modeBar = UIFactory.CreateRect(chatBody, "ModeBar", new Vector2(0f, 1f), new Vector2(1f, 1f),
@@ -391,6 +535,7 @@ public static class AutomationDriveSceneBuilder
         scrollRt.offsetMin = new Vector2(6f, 50f);
         scrollRt.offsetMax = new Vector2(-6f, -40f);
         scroll.vertical = true;
+        UIFactory.AddVerticalScrollbar(scroll, permanent: true);
 
         TMP_Text historyLabel = UIFactory.CreateText(chatContent, "History",
             "Ask me about your code, ask me to plan an approach, or switch to Agent and tell me what the jeepney should do.",
@@ -457,6 +602,82 @@ public static class AutomationDriveSceneBuilder
         return window;
     }
 
+    /// <summary>
+    /// Collapsible terminal docked to the bottom of the code window. Hosts a
+    /// scrolling <see cref="ConsoleController"/> (print() output + execution log)
+    /// and shrinks <paramref name="editorBody"/> from the bottom while open.
+    /// </summary>
+    internal static TerminalPanelController BuildTerminalPanel(RectTransform content, RectTransform editorBody,
+                                                              out ConsoleController console)
+    {
+        const float terminalHeight = 190f;
+
+        // Toggle button — bottom-right of the editor body, so it rides up just
+        // above the terminal when it opens and never collides with the bottom-left
+        // lint label.
+        Button toggle = UIFactory.CreateButton(editorBody, "TerminalToggle", "⌗ Terminal",
+                                               new Vector2(124f, 26f), 15f);
+        UIFactory.Place(toggle, new Vector2(1f, 0f), new Vector2(-8f, 6f), new Vector2(124f, 26f));
+        toggle.image.color = new Color(0.16f, 0.18f, 0.24f, 1f);
+
+        // Panel pinned to the bottom edge, full width.
+        var panel = UIFactory.CreatePanel(content, "Terminal", new Vector2(0f, 0f), new Vector2(1f, 0f),
+                                          new Color(0.06f, 0.07f, 0.10f, 1f));
+        panel.offsetMin = new Vector2(0f, 0f);
+        panel.offsetMax = new Vector2(0f, terminalHeight);
+
+        // Header: title + close.
+        var header = UIFactory.CreatePanel(panel, "Header", new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                           new Color(0.10f, 0.12f, 0.16f, 1f));
+        header.offsetMin = new Vector2(0f, -28f);
+        header.offsetMax = new Vector2(0f, 0f);
+
+        TMP_Text title = UIFactory.CreateText(header, "Title", "TERMINAL — output", 15f,
+                                              UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
+        title.rectTransform.offsetMin = new Vector2(10f, 0f);
+        title.rectTransform.offsetMax = new Vector2(-36f, 0f);
+
+        Button close = UIFactory.CreateButton(header, "CloseButton", "✕", new Vector2(28f, 22f), 16f);
+        UIFactory.Place(close, new Vector2(1f, 0.5f), new Vector2(-6f, 0f), new Vector2(28f, 22f));
+        close.image.color = new Color(0.18f, 0.20f, 0.26f, 1f);
+
+        // Log area (below the header) hosts the scrolling console.
+        var logArea = UIFactory.CreateRect(panel, "Log", Vector2.zero, Vector2.one,
+                                           new Vector2(6f, 6f), new Vector2(-6f, -28f));
+        console = BuildTerminalConsole(logArea);
+
+        var ctrl = panel.gameObject.AddComponent<TerminalPanelController>();
+        SceneBuilderUtil.Wire(ctrl, "panelRoot",    panel);
+        SceneBuilderUtil.Wire(ctrl, "editorBody",   editorBody);
+        SceneBuilderUtil.Wire(ctrl, "console",      console);
+        SceneBuilderUtil.Wire(ctrl, "toggleButton", toggle);
+        SceneBuilderUtil.Wire(ctrl, "closeButton",  close);
+
+        // Left active at build time so the controller's Awake wires its button
+        // listeners; Awake then collapses it to the closed state.
+        return ctrl;
+    }
+
+    static ConsoleController BuildTerminalConsole(RectTransform parent)
+    {
+        ScrollRect scroll = UIFactory.CreateScrollView(parent, "ConsoleScroll",
+                                                       Vector2.zero, Vector2.one, out RectTransform content);
+        UIFactory.AddVerticalScrollbar(scroll);
+
+        var template = UIFactory.CreateText(parent, "LineTemplate", "console line", 15f,
+                                            UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        template.textWrappingMode = TextWrappingModes.Normal;
+        var le = template.gameObject.AddComponent<LayoutElement>();
+        le.preferredHeight = 22f;
+        template.gameObject.SetActive(false);
+
+        var console = parent.gameObject.AddComponent<ConsoleController>();
+        SceneBuilderUtil.Wire(console, "scrollRect",   scroll);
+        SceneBuilderUtil.Wire(console, "content",      content);
+        SceneBuilderUtil.Wire(console, "lineTemplate", template);
+        return console;
+    }
+
     // -------------------------------------------------------------------------
     // Block canvas
 
@@ -467,6 +688,18 @@ public static class AutomationDriveSceneBuilder
                                                        out RectTransform content);
         // Leave a strip at the bottom for the trash zone.
         ((RectTransform)scroll.transform).offsetMin = new Vector2(0f, 44f);
+
+        // Scratch-style canvas: blocks hug their content and stack flush-left so
+        // the stack reads as connected puzzle pieces rather than a full-width grid.
+        var contentLayout = content.GetComponent<VerticalLayoutGroup>();
+        if (contentLayout != null)
+        {
+            contentLayout.spacing              = 0f;
+            contentLayout.childForceExpandWidth = false;
+            contentLayout.childControlWidth     = true;
+            contentLayout.childAlignment        = TextAnchor.UpperLeft;
+            contentLayout.padding               = new RectOffset(10, 10, 10, 10);
+        }
 
         // Trash zone (drag a block here to delete it).
         var trash = UIFactory.CreatePanel(parent, "TrashZone",
@@ -497,45 +730,67 @@ public static class AutomationDriveSceneBuilder
 
     static BlockRowView BuildBlockRowTemplate(RectTransform parent)
     {
+        // Outer row = [indent spacer][colored card]. The card hugs its content so
+        // blocks render as left-aligned pills; the spacer shifts a nested block
+        // right, leaving room for its parent C-block's arm.
         var row = UIFactory.CreateRect(parent, "BlockRowTemplate",
-                                       new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-        row.sizeDelta = new Vector2(620f, 46f);
+                                       new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+        row.sizeDelta = new Vector2(420f, 46f);
         UIFactory.SetLayoutSize(row, -1f, 46f);
 
-        var bg = row.gameObject.AddComponent<Image>();
+        var rowLayout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+        rowLayout.spacing = 0f;
+        rowLayout.padding = new RectOffset(0, 0, 0, 0);
+        rowLayout.childAlignment = TextAnchor.MiddleLeft;
+        rowLayout.childControlWidth      = true;
+        rowLayout.childControlHeight     = true;
+        rowLayout.childForceExpandWidth  = false;
+        rowLayout.childForceExpandHeight = false;
+        // No ContentSizeFitter: the parent VerticalLayoutGroup (childControlWidth)
+        // sizes the row from this HorizontalLayoutGroup's reported preferred width.
+
+        // Indent spacer (transparent; width = depth * 24 set at runtime).
+        var spacer = UIFactory.CreateRect(row, "Indent", Vector2.zero, Vector2.zero);
+        var spacerLayout = spacer.gameObject.AddComponent<LayoutElement>();
+        spacerLayout.preferredWidth = 0f;
+        spacerLayout.flexibleWidth  = 0f;
+
+        // The card itself: rounded colored background hugging label + chips.
+        var card = UIFactory.CreateRect(row, "Card", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+        UIFactory.SetLayoutSize(card, -1f, 44f);
+        var bg = card.gameObject.AddComponent<Image>();
         bg.sprite = UIFactory.BuiltinSprite("UISprite.psd");
         bg.type   = Image.Type.Sliced;
         bg.color  = new Color(0.22f, 0.30f, 0.42f, 1f);
 
-        var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-        layout.spacing = 4f;
-        layout.padding = new RectOffset(6, 6, 4, 4);
-        layout.childAlignment = TextAnchor.MiddleLeft;
-        layout.childControlWidth = true;
-        layout.childControlHeight = true;
-        layout.childForceExpandWidth = false;
-        layout.childForceExpandHeight = false;
+        var cardLayout = card.gameObject.AddComponent<HorizontalLayoutGroup>();
+        cardLayout.spacing = 6f;
+        cardLayout.padding = new RectOffset(14, 12, 4, 4);
+        cardLayout.childAlignment = TextAnchor.MiddleLeft;
+        cardLayout.childControlWidth      = true;
+        cardLayout.childControlHeight     = true;
+        cardLayout.childForceExpandWidth  = false;
+        cardLayout.childForceExpandHeight = false;
+        // The row's HorizontalLayoutGroup sizes this card from this group's
+        // reported preferred width — so no ContentSizeFitter here either.
 
-        // Indent spacer
-        var spacer = UIFactory.CreateRect(row, "Indent", Vector2.zero, Vector2.zero);
-        var spacerLayout = spacer.gameObject.AddComponent<LayoutElement>();
-        spacerLayout.preferredWidth = 0f;
-
-        // Label (the keyword / action name)
-        var label = UIFactory.CreateText(row, "Label", "moveForward()", 20f,
+        // Label (the keyword / action name) — sizes to its text.
+        var label = UIFactory.CreateText(card, "Label", "moveForward()", 20f,
                                          UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        label.enableWordWrapping = false;
         var labelLayout = label.gameObject.AddComponent<LayoutElement>();
-        labelLayout.preferredWidth  = 150f;
-        labelLayout.flexibleWidth   = 1f;
+        labelLayout.preferredWidth  = -1f;   // let TMP drive the pill width
+        labelLayout.flexibleWidth   = 0f;
+        labelLayout.minWidth        = 70f;
         labelLayout.preferredHeight = 36f;
 
         // Condition chip (containers only) — click to cycle the query
-        Button cond = MakeRowButton(row, "CondButton", "frontIsClear()", 168f);
+        Button cond = MakeRowButton(card, "CondButton", "frontIsClear()", 168f);
         var condLabel = cond.GetComponentInChildren<TMP_Text>();
         cond.image.color = new Color(0.20f, 0.24f, 0.34f, 1f);
 
-        Button not = MakeRowButton(row, "NotButton", "not", 50f);
-        Button del = MakeRowButton(row, "DeleteButton", "✕", 36f);
+        Button not = MakeRowButton(card, "NotButton", "not", 50f);
+        Button del = MakeRowButton(card, "DeleteButton", "✕", 36f);
 
         var view = row.gameObject.AddComponent<BlockRowView>();
         SceneBuilderUtil.Wire(view, "background",      bg);
@@ -553,21 +808,44 @@ public static class AutomationDriveSceneBuilder
 
     static BlockDropSlot BuildSlotTemplate(RectTransform parent)
     {
+        // Slot = [indent spacer][guide bar]. The root height is the gap that opens
+        // while dragging; the bar is a thin centered guide line. Indented to its
+        // nesting level so the cursor's x picks the right C-block to snap into.
         var slot = UIFactory.CreateRect(parent, "SlotTemplate",
-                                        new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-        slot.sizeDelta = new Vector2(620f, 12f);
+                                        new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+        slot.sizeDelta = new Vector2(420f, 12f);
 
-        var layout = slot.gameObject.AddComponent<LayoutElement>();
-        layout.preferredHeight = 12f;
+        var slotLayout = slot.gameObject.AddComponent<HorizontalLayoutGroup>();
+        slotLayout.spacing = 0f;
+        slotLayout.padding = new RectOffset(0, 0, 0, 0);
+        slotLayout.childAlignment = TextAnchor.MiddleLeft;
+        slotLayout.childControlWidth      = true;
+        slotLayout.childControlHeight     = true;
+        slotLayout.childForceExpandWidth  = false;
+        slotLayout.childForceExpandHeight = false;
 
-        var bar = UIFactory.CreatePanel(slot, "Bar", new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
-                                        new Color(0.50f, 0.55f, 0.62f, 0.45f));
-        bar.offsetMin = new Vector2(6f, -3f);
-        bar.offsetMax = new Vector2(-6f, 3f);
-        bar.GetComponent<Image>().raycastTarget = false;
+        var sizer = slot.gameObject.AddComponent<LayoutElement>();
+        sizer.preferredHeight = 12f;
+
+        var spacer = UIFactory.CreateRect(slot, "Indent", Vector2.zero, Vector2.zero);
+        var spacerLayout = spacer.gameObject.AddComponent<LayoutElement>();
+        spacerLayout.preferredWidth = 0f;
+        spacerLayout.flexibleWidth  = 0f;
+
+        var barHolder = UIFactory.CreateRect(slot, "Bar", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+        var barHolderLe = barHolder.gameObject.AddComponent<LayoutElement>();
+        barHolderLe.preferredWidth  = 220f;
+        barHolderLe.preferredHeight = 8f;
+        var barImg = barHolder.gameObject.AddComponent<Image>();
+        barImg.sprite = UIFactory.BuiltinSprite("UISprite.psd");
+        barImg.type   = Image.Type.Sliced;
+        barImg.color  = new Color(0.55f, 0.60f, 0.68f, 0.40f);
+        barImg.raycastTarget = false;
 
         var view = slot.gameObject.AddComponent<BlockDropSlot>();
-        SceneBuilderUtil.Wire(view, "bar", bar.GetComponent<Image>());
+        SceneBuilderUtil.Wire(view, "bar",          barImg);
+        SceneBuilderUtil.Wire(view, "sizer",        sizer);
+        SceneBuilderUtil.Wire(view, "indentSpacer", spacerLayout);
 
         slot.gameObject.SetActive(false);
         return view;
@@ -578,24 +856,33 @@ public static class AutomationDriveSceneBuilder
 
     internal static CodeEditorController BuildCodeEditor(RectTransform parent)
     {
-        // Gutter background (line-number column)
+        // Gutter background (line-number column). A RectMask2D clips the scrolling
+        // numbers so they never bleed over the toolbar or lint row.
         var gutter = UIFactory.CreatePanel(parent, "Gutter",
                                            new Vector2(0f, 0f), new Vector2(0f, 1f),
                                            new Color(0.05f, 0.06f, 0.08f, 1f));
         gutter.offsetMin = new Vector2(0f, 36f);
         gutter.offsetMax = new Vector2(46f, 0f);
+        gutter.gameObject.AddComponent<RectMask2D>();
+
+        // Scrolling layer: the line numbers and gutter icons live here together so
+        // the controller can shift them as one in lockstep with the code text.
+        var gutterContent = UIFactory.CreateRect(gutter, "GutterContent",
+                                                 Vector2.zero, Vector2.one,
+                                                 Vector2.zero, Vector2.zero);
 
         // Container for gutter icons + fold arrows (drawn over the gutter background).
-        var gutterRoot = UIFactory.CreateRect(gutter, "GutterIcons",
+        var gutterRoot = UIFactory.CreateRect(gutterContent, "GutterIcons",
                                               Vector2.zero, Vector2.one,
                                               Vector2.zero, Vector2.zero);
 
-        var lineNumbers = UIFactory.CreateText(parent, "LineNumbers", "1", 22f,
+        var lineNumbers = UIFactory.CreateText(gutterContent, "LineNumbers", "1", 22f,
                                                UIFactory.TextDim, TextAlignmentOptions.TopRight);
         lineNumbers.rectTransform.anchorMin = new Vector2(0f, 0f);
         lineNumbers.rectTransform.anchorMax = new Vector2(0f, 1f);
-        lineNumbers.rectTransform.offsetMin = new Vector2(0f, 44f);
+        lineNumbers.rectTransform.offsetMin = new Vector2(0f, 8f);
         lineNumbers.rectTransform.offsetMax = new Vector2(40f, -8f);
+        lineNumbers.overflowMode = TextOverflowModes.Overflow;
 
         TMP_InputField input = UIFactory.CreateMultilineInput(parent, "CodeInput",
                                                               Vector2.zero, Vector2.one, 22f);
@@ -617,8 +904,10 @@ public static class AutomationDriveSceneBuilder
         highlight.richText = true;
         highlight.transform.SetAsFirstSibling();
 
-        // Execution line highlight bar (behind the text, inside the viewport).
-        var execBarRt = UIFactory.CreatePanel(input.textViewport, "ExecLineBar",
+        // Execution line highlight bar. Parented to the highlight overlay so it
+        // shares the glyph coordinate frame and scrolls with the code; the
+        // controller positions it from the line metrics each frame.
+        var execBarRt = UIFactory.CreatePanel(highlight.rectTransform, "ExecLineBar",
                                               Vector2.zero, Vector2.one,
                                               new Color(0.18f, 0.36f, 0.58f, 0.45f));
         execBarRt.offsetMin = Vector2.zero;
@@ -628,8 +917,9 @@ public static class AutomationDriveSceneBuilder
         execBarRt.gameObject.SetActive(false);
         execBarRt.SetAsFirstSibling();
 
-        // Squiggle underlines for lint errors.
-        var squigglesRoot = UIFactory.CreateRect(input.textViewport, "Squiggles",
+        // Squiggle underlines for lint errors — also parented to the highlight so
+        // they scroll glued to their line.
+        var squigglesRoot = UIFactory.CreateRect(highlight.rectTransform, "Squiggles",
                                                  Vector2.zero, Vector2.one,
                                                  Vector2.zero, Vector2.zero);
 
@@ -659,6 +949,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(editor, "lintLabel",   lint);
         SceneBuilderUtil.Wire(editor, "execLineBar", execBar);
         SceneBuilderUtil.Wire(editor, "gutterRoot",  gutterRoot);
+        SceneBuilderUtil.Wire(editor, "gutterContent", gutterContent);
         SceneBuilderUtil.Wire(editor, "squigglesRoot", squigglesRoot);
         SceneBuilderUtil.Wire(editor, "autocomplete", autocomplete);
 
@@ -780,23 +1071,28 @@ public static class AutomationDriveSceneBuilder
                                                  new Color(0.55f, 0.78f, 1f), TextAlignmentOptions.Center);
         UIFactory.Place(optimalHeader, new Vector2(0.5f, 1f), new Vector2(285f, -94f), new Vector2(520f, 30f));
 
-        var playerPanel = UIFactory.CreatePanel(window, "PlayerPanel",
-                                                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                                                UIFactory.PanelDarker);
-        UIFactory.Place(playerPanel, new Vector2(0.5f, 1f), new Vector2(-295f, -116f), new Vector2(560f, 440f));
-        var playerText = UIFactory.CreateText(playerPanel, "Text", "", 19f,
+        // Player + AI code panels scroll, so long solutions/AI versions never clip.
+        ScrollRect playerScroll = UIFactory.CreateScrollView(window, "PlayerScroll",
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform playerContent);
+        UIFactory.Place((RectTransform)playerScroll.transform, new Vector2(0.5f, 1f),
+                        new Vector2(-295f, -116f), new Vector2(560f, 440f));
+        UIFactory.AddVerticalScrollbar(playerScroll, permanent: true);
+        var playerText = UIFactory.CreateText(playerContent, "Text", "", 19f,
                                               UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        playerText.rectTransform.offsetMin = new Vector2(12f, 8f);
-        playerText.rectTransform.offsetMax = new Vector2(-12f, -8f);
+        playerText.enableWordWrapping = true;
+        var playerFit = playerText.gameObject.AddComponent<ContentSizeFitter>();
+        playerFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        var optimalPanel = UIFactory.CreatePanel(window, "OptimalPanel",
-                                                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                                                 UIFactory.PanelDarker);
-        UIFactory.Place(optimalPanel, new Vector2(0.5f, 1f), new Vector2(295f, -116f), new Vector2(560f, 440f));
-        var optimalText = UIFactory.CreateText(optimalPanel, "Text", "", 19f,
+        ScrollRect optimalScroll = UIFactory.CreateScrollView(window, "OptimalScroll",
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform optimalContent);
+        UIFactory.Place((RectTransform)optimalScroll.transform, new Vector2(0.5f, 1f),
+                        new Vector2(295f, -116f), new Vector2(560f, 440f));
+        UIFactory.AddVerticalScrollbar(optimalScroll, permanent: true);
+        var optimalText = UIFactory.CreateText(optimalContent, "Text", "", 19f,
                                                UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        optimalText.rectTransform.offsetMin = new Vector2(12f, 8f);
-        optimalText.rectTransform.offsetMax = new Vector2(-12f, -8f);
+        optimalText.enableWordWrapping = true;
+        var optimalFit = optimalText.gameObject.AddComponent<ContentSizeFitter>();
+        optimalFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
         var stats = UIFactory.CreateText(window, "Stats", "", 24f, UIFactory.Accent);
         UIFactory.Place(stats, new Vector2(0.5f, 0f), new Vector2(0f, 174f), new Vector2(1160f, 34f));
@@ -829,10 +1125,12 @@ public static class AutomationDriveSceneBuilder
         tooltip.gameObject.SetActive(false);
 
         Button cont = UIFactory.CreateButton(window, "ContinueButton", "Continue", new Vector2(240f, 58f));
+        UIFactory.LocalizeButton(cont, "common.continue");
         UIFactory.Place(cont, new Vector2(0.5f, 0f), new Vector2(130f, 30f), new Vector2(240f, 58f));
         cont.image.color = new Color(0.85f, 0.55f, 0.12f);
 
         Button replay = UIFactory.CreateButton(window, "ReplayButton", "Replay Puzzle", new Vector2(240f, 58f));
+        UIFactory.LocalizeButton(replay, "results.replaypuzzle");
         UIFactory.Place(replay, new Vector2(0.5f, 0f), new Vector2(-130f, 30f), new Vector2(240f, 58f));
 
         var panel = overlay.gameObject.AddComponent<AutomationResultsPanel>();
@@ -861,6 +1159,70 @@ public static class AutomationDriveSceneBuilder
         Button button = UIFactory.CreateButton(bar, name, label, new Vector2(width, 44f), 22f);
         UIFactory.SetLayoutSize(button, width, 44f);
         return button;
+    }
+
+    internal static RectTransform BuildRunStatusHud(Transform parent, out TMP_Text walletLabel, out Image fuelFill)
+    {
+        walletLabel = UIFactory.CreateText(parent, "Currency", "₱ 0", 40f,
+                                           UIFactory.Accent, TextAlignmentOptions.MidlineRight);
+        walletLabel.textWrappingMode = TextWrappingModes.NoWrap;
+        walletLabel.overflowMode = TextOverflowModes.Ellipsis;
+
+        fuelFill = null;
+
+        return walletLabel.rectTransform;
+    }
+
+    /// <summary>
+    /// Bottom-left gauge panel: fuel fill (mirrors the wallet card's fuel bar) plus a
+    /// readout of the execution-speed slider value — Automation has no throttle to
+    /// gauge, so this mirrors the existing speed control rather than inventing a metric.
+    /// </summary>
+    internal static RectTransform BuildAutomationGaugePanel(Transform parent, out Image fuelFill,
+                                                             out TMP_Text speedLabel, out RectTransform speedNeedle)
+    {
+        var panel = UIFactory.CreatePanel(parent, "GaugePanel",
+                                          new Vector2(0f, 0f), new Vector2(0f, 0f),
+                                          UIFactory.PanelDark);
+
+        var dial = UIFactory.CreateRect(panel, "Dial", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+        UIFactory.Place(dial, new Vector2(0f, 0.5f), new Vector2(18f, -4f), new Vector2(126f, 126f));
+        UIFactory.AddImage(dial, Color.white, SceneBuilderUtil.LoadPlaceholder("dial"));
+
+        var needle = UIFactory.CreateRect(dial, "Needle", new Vector2(0.5f, 0.18f), new Vector2(0.5f, 0.18f));
+        needle.pivot = new Vector2(0.5f, 0.08f);
+        needle.anchoredPosition = Vector2.zero;
+        needle.sizeDelta = new Vector2(6f, 56f);
+        needle.localRotation = Quaternion.Euler(0f, 0f, 35f);
+        UIFactory.AddImage(needle, new Color(0.95f, 0.25f, 0.2f), SceneBuilderUtil.LoadPlaceholder("white_box"));
+        speedNeedle = needle;
+
+        var fuelCaption = UIFactory.CreateText(panel, "FuelCaption", "FUEL", 18f, UIFactory.TextDim,
+                                               TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(fuelCaption, new Vector2(0f, 1f), new Vector2(170f, -28f), new Vector2(70f, 30f));
+
+        var fuelTrack = UIFactory.CreatePanel(panel, "FuelTrack",
+                                              new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                              new Color(0.18f, 0.18f, 0.18f, 0.95f));
+        UIFactory.Place(fuelTrack, new Vector2(0f, 1f), new Vector2(240f, -28f), new Vector2(200f, 26f));
+
+        var fillRt = UIFactory.CreateRect(fuelTrack, "Fill", Vector2.zero, Vector2.one,
+                                          new Vector2(2f, 2f), new Vector2(-2f, -2f));
+        fuelFill = UIFactory.AddImage(fillRt, new Color(0.95f, 0.65f, 0.15f), UIFactory.BuiltinSprite("UISprite.psd"));
+        fuelFill.type = Image.Type.Filled;
+        fuelFill.fillMethod = Image.FillMethod.Horizontal;
+        fuelFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+        fuelFill.fillAmount = 1f;
+
+        var speedCaption = UIFactory.CreateText(panel, "SpeedCaption", "SPEED", 16f, UIFactory.TextDim,
+                                                TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(speedCaption, new Vector2(0f, 0f), new Vector2(170f, 34f), new Vector2(70f, 24f));
+
+        speedLabel = UIFactory.CreateText(panel, "SpeedValue", "×1.0", 22f, UIFactory.TextBright,
+                                          TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(speedLabel, new Vector2(0f, 0f), new Vector2(240f, 32f), new Vector2(160f, 30f));
+
+        return panel;
     }
 
     static Button MakeRowButton(RectTransform row, string name, string label, float width)

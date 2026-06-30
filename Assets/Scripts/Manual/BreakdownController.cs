@@ -3,12 +3,10 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Triggers the Manual Mode breakdown: at a scripted fraction of the route a
-/// warning fires, the jeepney coasts to a stop, and a repair minigame interrupts
-/// the drive. The fault (engine vs fuel) and the interface (non-code taps/gauge
-/// vs escaping a code-driven maze) are both rolled at random for every breakdown,
-/// independent of the player's Manual/Automation setting, so any of four
-/// variants can appear. The run always continues afterwards (PRD §5.4).
+/// Triggers Manual Mode roadside interruptions. Scripted mid-route breakdowns
+/// are engine repairs only; the refuel minigame is reserved for a genuinely
+/// empty tank, except for the tutorial dialogue drill wired elsewhere.
+/// The run always continues afterwards (PRD Section 5.4).
 /// </summary>
 public class BreakdownController : MonoBehaviour
 {
@@ -16,14 +14,14 @@ public class BreakdownController : MonoBehaviour
     [SerializeField] private float warningSeconds = 2.2f;
 
     JeepneyController    _jeepney;
-    PatternMatchMinigame _engineRepair;   // non-code · engine
-    RefuelMinigame       _refuel;         // non-code · fuel
-    MazeRepairMinigame   _maze;           // code · either fault (escape a maze)
+    PatternMatchMinigame _engineRepair;   // non-code engine
+    RefuelMinigame       _refuel;         // non-code fuel
+    MazeRepairMinigame   _maze;           // code repair
     ToastNotification    _toast;
     DriveScoreTracker    _tracker;
 
-    float _triggerDistance = -1f;
-    bool  _armed;
+    DriveInterruptionScheduler _scheduler;
+    float _routeLength = 1f;
     bool  _inProgress;
 
     public bool InProgress => _inProgress;
@@ -49,13 +47,9 @@ public class BreakdownController : MonoBehaviour
         _toast        = toast;
         _tracker      = tracker;
 
-        bool anyPanel = engineRepair != null || refuel != null || maze != null;
-        // A repair breakdown now happens on every level (the tutorial included).
-        // When the level doesn't script a fraction, roll a random mid-route point.
-        _armed = anyPanel;
-        float frac = triggerFraction > 0f ? triggerFraction
-                                          : UnityEngine.Random.Range(0.35f, 0.7f);
-        _triggerDistance = routeLength * frac;
+        _routeLength = Mathf.Max(1f, routeLength);
+        _scheduler = new DriveInterruptionScheduler(
+            3000 + Mathf.RoundToInt(routeLength * 10f) + Mathf.RoundToInt(triggerFraction * 100f));
     }
 
     /// <summary>Called each frame by the drive controller with route progress.</summary>
@@ -63,19 +57,17 @@ public class BreakdownController : MonoBehaviour
     {
         if (_inProgress) return;
 
-        // Tank ran dry → refuel mini-game, independent of the scripted breakdown.
+        // Tank ran dry: refuel minigame, independent of the scripted breakdown.
         if (_jeepney != null && _refuel != null && _jeepney.Fuel01 <= 0f)
         {
             StartCoroutine(BreakdownSequence(forceFuel: true));
             return;
         }
 
-        if (!_armed) return;
-        if (distanceAlongRoute >= _triggerDistance)
-        {
-            _armed = false;
+        bool anyRepairPanel = _engineRepair != null || _maze != null;
+        if (anyRepairPanel && _scheduler != null &&
+            _scheduler.TryStartRepair(distanceAlongRoute / _routeLength, UnityEngine.Random.value))
             StartCoroutine(BreakdownSequence(forceFuel: false));
-        }
     }
 
     // -------------------------------------------------------------------------
@@ -84,43 +76,57 @@ public class BreakdownController : MonoBehaviour
     {
         _inProgress = true;
 
-        // Roll the fault and the interface fresh each run. A dry tank forces a
-        // (non-code) refuel; otherwise either fault and either interface can appear.
-        bool fuel = forceFuel || UnityEngine.Random.value < 0.5f;
-        bool code = !forceFuel && UnityEngine.Random.value < 0.5f;
+        // A dry tank forces a refuel. Scripted/random breakdowns stay engine-only.
+        bool fuel = forceFuel;
+        bool code = !fuel && UnityEngine.Random.value < 0.5f;
         int  seed = UnityEngine.Random.Range(0, 99999);
         BreakdownFault fault = fuel ? BreakdownFault.Fuel : BreakdownFault.Engine;
 
         if (_toast != null)
             _toast.Show(fuel
-                ? "The tank's run dry…  pull over and refuel!"
-                : "The engine is chugging…  something's about to give!");
+                ? "The tank's run dry... pull over and refuel!"
+                : "The engine is chugging... something's about to give!");
 
         yield return new WaitForSeconds(warningSeconds);
 
-        _jeepney.InputLocked = true;
+        if (_jeepney != null) _jeepney.InputLocked = true;
 
         bool finished = false;
         Action<MinigameResult> onDone = result =>
         {
-            _tracker.SetBreakdownResult(result.TimedOut);
-            if (fuel && _jeepney != null) _jeepney.Refuel();   // fill the tank back up
+            if (result != null)
+                _tracker.SetBreakdownResult(result.TimedOut);
+
+            int refuelSpent = 0;
+            if (fuel && _jeepney != null)
+            {
+                _jeepney.Refuel();
+                int cost = RefuelMath.CostForScore(result != null ? result.Score : 0);
+                refuelSpent = GameManager.Instance != null
+                    ? GameManager.Instance.SpendCurrency(cost)
+                    : cost;
+            }
+
             if (_toast != null)
-                _toast.Show(result.TimedOut
-                    ? "Patched it up… barely. (−100)"
-                    : "Back on the road!");
+            {
+                string message = result != null && result.TimedOut
+                    ? "Patched it up... barely. (-100)"
+                    : "Back on the road!";
+                if (fuel)
+                    message = $"Refuel cost: PHP {refuelSpent}. " + message;
+                _toast.Show(message);
+            }
             finished = true;
         };
 
-        // Dispatch with graceful fallbacks if a panel is missing.
-        if (code && _maze != null)
-            _maze.Show(fault, seed, onDone);
-        else if (fuel && _refuel != null)
+        // Dispatch with graceful fallbacks if a repair panel is missing. Refuel
+        // is only used for the forced empty-tank path above.
+        if (fuel && _refuel != null)
             _refuel.Show(seed, onDone);
+        else if (code && _maze != null)
+            _maze.Show(fault, seed, onDone);
         else if (_engineRepair != null)
             _engineRepair.Show(seed, EngineHeadlines[seed % EngineHeadlines.Length], onDone);
-        else if (_refuel != null)
-            _refuel.Show(seed, onDone);
         else if (_maze != null)
             _maze.Show(fault, seed, onDone);
         else
@@ -128,7 +134,7 @@ public class BreakdownController : MonoBehaviour
 
         yield return new WaitUntil(() => finished);
 
-        _jeepney.InputLocked = false;
+        if (_jeepney != null) _jeepney.InputLocked = false;
         _inProgress = false;
     }
 }

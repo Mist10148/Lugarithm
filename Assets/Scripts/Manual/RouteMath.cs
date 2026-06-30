@@ -136,4 +136,44 @@ public static class RouteMath
 
         return Mathf.Sqrt(bestSqr);
     }
+
+    /// <summary>
+    /// Picks the outward roadside direction that keeps a probe point furthest from
+    /// EVERY road in the graph, so a stop's sign and waiting peeps land in genuinely
+    /// clear space — even where the streamed Manhattan trunk folds back near itself
+    /// or a parallel/crossing road runs close (the cause of signs drifting onto the
+    /// road as generation continues). Evaluates the 8 compass directions and probes
+    /// at <paramref name="roadHalfWidth"/> + the peep reach. Near-ties fall back to
+    /// <paramref name="preferred"/> (the incident-leg normal) so stops on an open
+    /// straight road keep the single consistent side they pick today.
+    /// </summary>
+    public static Vector2 ClearestRoadside(Vector2 pos, IReadOnlyList<RoadSegment> segments,
+                                           float roadHalfWidth, Vector2 preferred)
+    {
+        preferred = preferred.sqrMagnitude < 1e-6f ? Vector2.down : preferred.normalized;
+        if (segments == null || segments.Count == 0) return preferred;
+
+        float reach = roadHalfWidth + 2.6f;   // sign sits at +1.1, peeps out to ~+2.1
+        const float eps = 0.05f;
+
+        // Seed with the preferred direction at perfect alignment, so any compass
+        // candidate must be STRICTLY clearer (not merely tied) to displace it.
+        Vector2 best      = preferred;
+        float   bestClear = NearestDistanceToGraph(segments, pos + preferred * reach);
+        float   bestAlign = 1f;
+
+        for (int k = 0; k < 8; k++)
+        {
+            float ang = k * 45f * Mathf.Deg2Rad;
+            Vector2 cand = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
+            float clear = NearestDistanceToGraph(segments, pos + cand * reach);
+            float align = Vector2.Dot(cand, preferred);
+
+            bool better = clear > bestClear + eps ||
+                          (clear > bestClear - eps && align > bestAlign);
+            if (better) { best = cand; bestClear = clear; bestAlign = align; }
+        }
+
+        return best;
+    }
 }

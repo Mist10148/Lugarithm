@@ -80,6 +80,19 @@ public class StopZone : MonoBehaviour
         return peep;
     }
 
+    public void ClearWaitingPeeps()
+    {
+        foreach (GameObject peep in _waitingPeeps)
+        {
+            if (peep == null) continue;
+            // Destroy logs an error under EditMode tests (nothing is playing); fall back to
+            // DestroyImmediate there so cleanup stays test-safe.
+            if (Application.isPlaying) Destroy(peep);
+            else DestroyImmediate(peep);
+        }
+        _waitingPeeps.Clear();
+    }
+
     /// <summary>Deterministic placeholder tint per peep.</summary>
     public static Color PeepColor(int seed)
     {

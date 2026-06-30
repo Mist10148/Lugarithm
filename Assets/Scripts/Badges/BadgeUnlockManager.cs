@@ -29,3 +29,7 @@ public class BadgeUnlockManager : MonoBehaviour
         panel.Show(badge, onDone);
     }
 }
+
+// Note: every scene is built with its own EventSystem (SceneBuilderUtil.CreateEventSystem,
+// Input System UI module), so the badge overlay is always clickable. As a final safety net,
+// BadgeUnlockPanel also accepts Enter/Space/Esc, which work without any EventSystem at all.

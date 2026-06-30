@@ -52,6 +52,8 @@ public class MazeRepairMinigame : MonoBehaviour
     [Header("Controls")]
     [SerializeField] private Button runButton;
     [SerializeField] private Button resetButton;
+    [Tooltip("Loads a known-good maze solver into the editor/blocks and runs it — for testing.")]
+    [SerializeField] private Button autopilotButton;
 
     [Header("Co-Pilot hint (optional)")]
     [SerializeField] private Button   hintButton;
@@ -62,6 +64,10 @@ public class MazeRepairMinigame : MonoBehaviour
     [SerializeField] private int mazeCells = 4;
     [Tooltip("Soft timer; on expiry the puzzle ends with a score penalty (run continues).")]
     [SerializeField] private float softTimerSeconds = 90f;
+    [Tooltip("Execution speed multiplier for this maze only (the maze owns its own " +
+             "ExecutionController, so this never affects the main Automation drive). " +
+             ">1 finishes the maze faster.")]
+    [SerializeField] private float runSpeed = 2.5f;
 
     Action<MinigameResult> _onDone;
     AutomationPuzzleDefinition _def;
@@ -82,6 +88,7 @@ public class MazeRepairMinigame : MonoBehaviour
     {
         if (runButton   != null) runButton.onClick.AddListener(OnRun);
         if (resetButton != null) resetButton.onClick.AddListener(OnReset);
+        if (autopilotButton != null) autopilotButton.onClick.AddListener(OnAutopilot);
         if (hintButton  != null)
         {
             hintButton.gameObject.SetActive(false);
@@ -106,6 +113,7 @@ public class MazeRepairMinigame : MonoBehaviour
     {
         if (runButton   != null) runButton.onClick.RemoveListener(OnRun);
         if (resetButton != null) resetButton.onClick.RemoveListener(OnReset);
+        if (autopilotButton != null) autopilotButton.onClick.RemoveListener(OnAutopilot);
         if (hintButton  != null) hintButton.onClick.RemoveListener(OnHintRequested);
 
         if (exec != null)
@@ -144,7 +152,10 @@ public class MazeRepairMinigame : MonoBehaviour
         // animate the jeepney cell-to-cell (driven by ExecutionController).
         if (worldView != null) worldView.Build(grid);
         if (exec != null)
+        {
             exec.Init(grid, _sim, agentView, worldView, worldView, _def, _def.startFacing);
+            exec.SetSpeed(runSpeed);   // maze-only: snappier than the weighty open-road cadence
+        }
         EnsureRenderTexture();
         if (worldView != null) worldView.FrameCamera(mazeCamera);
         if (mazeCamera != null) mazeCamera.enabled = true;
@@ -157,7 +168,7 @@ public class MazeRepairMinigame : MonoBehaviour
         // Give the in-editor AI agent the level vocabulary + live maze/jeepney state.
         if (vibeCtrl != null)
         {
-            vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor);
+            vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor, blockCanvas);
             vibeCtrl.SetWorldContext(grid, _sim, _def);
         }
         if (ghost != null) ghost.Bind(_def);
@@ -239,6 +250,7 @@ public class MazeRepairMinigame : MonoBehaviour
 
         _attempts++;
         if (feedbackLabel != null) feedbackLabel.text = "Driving…";
+        exec.SetSpeed(runSpeed);   // re-assert in case a reset left it stale
         exec.Run(program);
     }
 
@@ -247,6 +259,59 @@ public class MazeRepairMinigame : MonoBehaviour
         if (!_active || exec == null) return;
         exec.ResetWorld();   // snaps the agent view back to the start
         if (feedbackLabel != null) feedbackLabel.text = "World reset — edit and RUN again.";
+    }
+
+    /// <summary>
+    /// Testing aid: drops a known-good maze solver (the right-hand wall-follower) into the
+    /// active surface — block canvas in block mode, code editor otherwise — and runs it, so a
+    /// tester can confirm the whole code→blocks→drive pipeline solves the maze in one click.
+    /// Mirrors <see cref="AutomationDriveController.LoadAutopilotProgramForCurrentEditor"/>.
+    /// </summary>
+    void OnAutopilot()
+    {
+        if (!_active || exec == null || _def == null) return;
+        if (exec.State == ExecutionController.ExecState.Running) return;
+
+        string source = !string.IsNullOrWhiteSpace(_def.optimalSolutionText)
+            ? _def.optimalSolutionText
+            : MazeContent.WallFollower;
+
+        ProgramNode program = Parser.Compile(source, out List<LangError> errors);
+        if (errors != null && errors.Count > 0)
+        {
+            if (feedbackLabel != null) feedbackLabel.text = errors[0].ToString();
+            return;
+        }
+
+        bool loaded;
+        if (_codeActive)
+        {
+            loaded = codeEditor != null;
+            if (loaded) codeEditor.SetSource(source);
+        }
+        else
+        {
+            loaded = blockCanvas != null && blockCanvas.LoadProgram(program);
+            if (!loaded && codeEditor != null)
+            {
+                // The solver uses code this canvas can't show as blocks — run it as code instead.
+                codeEditor.SetSource(source);
+                if (codePanel  != null) codePanel.SetActive(true);
+                if (blockPanel != null) blockPanel.SetActive(false);
+                _codeActive = true;
+                loaded = true;
+            }
+        }
+
+        if (!loaded)
+        {
+            if (feedbackLabel != null) feedbackLabel.text = "Autopilot couldn't load the solver.";
+            return;
+        }
+
+        // Load only — the player presses RUN themselves so they can review, re-run,
+        // and Reset cleanly (auto-running here conflicted with the redo flow).
+        if (feedbackLabel != null) feedbackLabel.text = "Autopilot loaded the wall-follower — press RUN to drive.";
     }
 
     static ProgramNode EmptyProgram(out List<LangError> errors)

@@ -87,6 +87,22 @@ public class ParserTests
         Assert.AreEqual(2, program.Statements[1].Line);
     }
 
+    [Test]
+    public void FareChangeCommands_ParseWithReporterArgument()
+    {
+        var program = Compile("collectFare()\ngiveChange(changeOwed())\n", out var errors);
+
+        CollectionAssert.IsEmpty(errors);
+        Assert.AreEqual("collectFare", ((CallStmt)program.Statements[0]).Name);
+        var give = (CallStmt)program.Statements[1];
+        Assert.AreEqual("giveChange", give.Name);
+        Assert.AreEqual("changeOwed", ((CallExpr)give.Args[0]).Name);
+        Assert.IsTrue(AgentApi.IsReporter("cashTendered"));
+        Assert.IsTrue(AgentApi.IsReporter("changeOwed"));
+        Assert.IsTrue(AgentApi.IsAction("driveToTerminal"));
+        Assert.IsTrue(AgentApi.IsQuery("routeComplete"));
+    }
+
     // -------------------------------------------------------------------------
     // Coaching errors
 

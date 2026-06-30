@@ -85,6 +85,12 @@ public static class GeminiClient
         GeminiRestTransport.ResetApiKeyCache();
     }
 
+    /// <summary>Diagnostic: number of usable API keys the active transport has
+    /// loaded from ai_config.json (-1 if the transport doesn't expose it). Reading
+    /// it warms the shared config cache. Used for one-line startup logging so a
+    /// scene that "can't reach the AI" can be told apart from a missing key.</summary>
+    public static int ConfiguredKeyCount => (Transport as GeminiRestTransport)?.UsableKeyCount ?? -1;
+
     public static IEnumerator Stream(AiRequest request, Action<string> onDelta, Action<AiResult> onDone)
     {
         if (request == null)
@@ -196,6 +202,9 @@ sealed class GeminiRestTransport : IAiTransport
         _keyCursor = 0;
         _cooldownUntil.Clear();
     }
+
+    /// <summary>How many usable keys are loaded (warms the cache on first read).</summary>
+    internal int UsableKeyCount => Config.Keys.Length;
 
     public IEnumerator Send(AiRequest aiRequest, Action<string> onDelta, Action<AiResult> onDone)
     {
@@ -525,7 +534,10 @@ sealed class GeminiRestTransport : IAiTransport
                 case AiFeature.Hint: return new FeatureLimits(3f, 6f, 220);
                 case AiFeature.Oracle: return new FeatureLimits(3f, 12f, 320);
                 case AiFeature.Mentor: return new FeatureLimits(5f, 18f, 800);
-                case AiFeature.VibeCode: return new FeatureLimits(5f, 15f, 900);
+                // Code generation with medium thinking can be slow on the free tier;
+                // give it more headroom before falling through to the next key/model
+                // so a slow-but-fine reply isn't misread as an unreachable AI.
+                case AiFeature.VibeCode: return new FeatureLimits(8f, 24f, 900);
                 default: return new FeatureLimits(3f, 10f, 300);
             }
         }

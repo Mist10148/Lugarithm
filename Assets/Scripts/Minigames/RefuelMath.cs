@@ -11,6 +11,13 @@ public static class RefuelMath
     /// <summary>Tank runs 0 (empty) .. 1 (full).</summary>
     public const float TankCapacity = 1f;
 
+    /// <summary>
+    /// Shared fuel-drain rate (fraction of a full tank per real second of active
+    /// driving in Manual Mode, or per simulated step-second in Automation Mode).
+    /// Single source of truth so the two modes can't drift apart again.
+    /// </summary>
+    public const float FuelDrainPerSecond = 0.006f;
+
     // Band is always landable: its width is wider than the largest pump tap, so
     // there is always a tap that lands inside it coming from below.
     const float BandWidth   = 0.16f;
@@ -22,6 +29,10 @@ public static class RefuelMath
 
     const float StartMin    = 0.06f;
     const float StartMax    = 0.20f;
+
+    const int   MinRefuelCost = 15;
+    const int   MaxRefuelCost = 60;
+    const float CostPerMissedScorePoint = 0.5f;
 
     // -------------------------------------------------------------------------
 
@@ -57,6 +68,14 @@ public static class RefuelMath
         score -= Mathf.RoundToInt(miss * 300f);
 
         return Mathf.Max(10, score);
+    }
+
+    /// <summary>Money charged for a real refuel, scaled by minigame performance.</summary>
+    public static int CostForScore(int score)
+    {
+        int clampedScore = Mathf.Clamp(score, 0, 100);
+        int cost = MinRefuelCost + Mathf.RoundToInt((100 - clampedScore) * CostPerMissedScorePoint);
+        return Mathf.Clamp(cost, MinRefuelCost, MaxRefuelCost);
     }
 
     // -------------------------------------------------------------------------

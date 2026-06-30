@@ -98,9 +98,13 @@ public static class TopDownSceneBuilder
 
         var player = playerGo.AddComponent<TopDownPlayerController>();
 
-        // Wire camera follow
-        SceneBuilderUtil.Wire(follow, "target",   playerGo.transform);
-        SceneBuilderUtil.Wire(follow, "leadBody", rb);
+        // Wire camera follow. The overworld wants a Pokémon-style POV: stay
+        // centered on the player with only a touch of softness and NO velocity
+        // lead (the lead is for the drive scenes, where seeing road ahead helps).
+        SceneBuilderUtil.Wire(follow, "target",       playerGo.transform);
+        SceneBuilderUtil.Wire(follow, "smoothTime",   0.08f);
+        SceneBuilderUtil.Wire(follow, "velocityLead", 0f);
+        // leadBody intentionally left unwired so there is no directional lead.
 
         // --- HUD --------------------------------------------------------------------
 
@@ -122,15 +126,37 @@ public static class TopDownSceneBuilder
                                                22f, UIFactory.TextBright);
         UIFactory.Place(promptText, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(380f, 40f));
 
+        // Objectives counter (top-left, under the level name)
+        var objectives = UIFactory.CreateText(canvas.transform, "Objectives", "",
+                                              20f, UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(objectives, new Vector2(0f, 1f), new Vector2(18f, -58f), new Vector2(300f, 30f));
+
         // Controls hint (bottom-left)
         var hint = UIFactory.CreateText(canvas.transform, "Hint", "WASD / Arrows: Move  |  E: Interact",
                                         16f, UIFactory.TextDim);
         UIFactory.Place(hint, new Vector2(0f, 0f), new Vector2(18f, 18f), new Vector2(460f, 30f));
 
+        // Minigame-station access card (placeholder, for kinds with no game yet).
+        MinigamePlaceholderPanel minigamePanel =
+            MinigameOverlayBuilder.BuildMinigamePlaceholder(canvas.transform);
+
+        // Playable lightweight station games: a shared grid puzzle (maze / block-fill
+        // / pattern) and the concept-tied coding line-ordering challenge.
+        GridPuzzleMinigame gridPuzzle = MinigameOverlayBuilder.BuildGridPuzzle(canvas.transform);
+        CodeOrderMinigame  codeOrder  = MinigameOverlayBuilder.BuildCodeOrder(canvas.transform);
+
         // Exit button (top-right)
         Button exitButton = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit",
                                                     new Vector2(120f, 44f));
         UIFactory.Place(exitButton, new Vector2(1f, 1f), new Vector2(-18f, -18f), new Vector2(120f, 44f));
+
+        // Branching dialogue overlay for talking to town NPCs (reuses the same
+        // controller as the drive scenes). Compact card pinned bottom-right so it
+        // clears the bottom-center interaction prompt.
+        DialogueController dialogue = DialogueOverlayBuilder.BuildDriveDialogue(
+                                          canvas.transform,
+                                          boxSize: new Vector2(680f, 200f),
+                                          boxAnchoredPos: new Vector2(-24f, 80f));
 
         // --- Orchestrator -----------------------------------------------------------
 
@@ -144,7 +170,12 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(controller, "promptRoot",    promptBg.gameObject);
         SceneBuilderUtil.Wire(controller, "levelNameLabel", levelName);
         SceneBuilderUtil.Wire(controller, "promptLabel",   promptText);
+        SceneBuilderUtil.Wire(controller, "objectivesLabel", objectives);
         SceneBuilderUtil.Wire(controller, "exitButton",    exitButton);
+        SceneBuilderUtil.Wire(controller, "dialogue",      dialogue);
+        SceneBuilderUtil.Wire(controller, "minigamePanel", minigamePanel);
+        SceneBuilderUtil.Wire(controller, "gridPuzzle",    gridPuzzle);
+        SceneBuilderUtil.Wire(controller, "codeOrder",     codeOrder);
         SceneBuilderUtil.Wire(controller, "grassTile",     tGrass);
         SceneBuilderUtil.Wire(controller, "pathTile",      tPath);
         SceneBuilderUtil.Wire(controller, "wallTile",      tWall);
@@ -154,6 +185,10 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(controller, "npcSprite",          SceneBuilderUtil.LoadPlaceholder("td_npc"));
         SceneBuilderUtil.Wire(controller, "interactionIndicatorSprite",
                                SceneBuilderUtil.LoadPlaceholder("td_interaction"));
+        SceneBuilderUtil.Wire(controller, "puzzleStationSprite",
+                               SceneBuilderUtil.LoadPlaceholder("td_puzzle"));
+        SceneBuilderUtil.Wire(controller, "codeStationSprite",
+                               SceneBuilderUtil.LoadPlaceholder("td_code"));
 
         // Wire the body sprite on the player controller
         SceneBuilderUtil.Wire(player, "bodySprite", bodySr);

@@ -76,4 +76,137 @@ public class SelfDriveAgentTests
         Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
         CollectionAssert.IsEmpty(errors, "the displayed reference solution must compile");
     }
+
+    // The function-structured autopilot (def drive()/handlePassengers()/handleFares()/
+    // handleDropoffs()) must actually run to a win — calling helpers as statements lets
+    // their actions yield across ticks, so the riding logic executes for real.
+    [Test]
+    public void ReferenceSolution_FunctionStructured_DrivesEverySeedToAWin()
+    {
+        ProceduralLayoutDefinition pdef = LevelLibrary.Get(2).procedural;
+        ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        for (int seed = 0; seed < 20; seed++)
+        {
+            TownLayout layout = TownLayoutGenerator.Generate(pdef, new FareTable(), seed);
+            AutomationPuzzleDefinition def = SelfDrivePlanner.BuildPuzzle(
+                layout, pdef.gen.gridCellSize, out List<GridRide> rides, out int facing);
+            GridModel grid = GridModel.Parse(def.gridMap, out _);
+            var sim = new AgentSim(grid, new FareTable(), facing);
+            sim.LoadRides(rides);
+
+            Assert.IsTrue(HeadlessProgramRunner.Verify(program, sim, def, out string gap),
+                $"seed {seed}: {gap}");
+        }
+    }
+
+    [Test]
+    public void ProceduralPalette_UsesRouteComplete_NotAtDestination()
+    {
+        Run r = Build(5);
+
+        CollectionAssert.Contains(r.def.allowedQueries, "routeComplete");
+        CollectionAssert.DoesNotContain(r.def.allowedQueries, "atDestination");
+        CollectionAssert.Contains(r.def.allowedBlocks, "driveToTerminal");
+    }
+
+    [Test]
+    public void StreamedContinuation_RemapsRides_AndCanCompleteNextRoute()
+    {
+        ProceduralLayoutDefinition pdef = LevelLibrary.Get(2).procedural;
+        var stream = StreamingTownGenerator.Begin(pdef, new FareTable(), 909);
+        int oldTerminalId = stream.Layout.destNodeId;
+
+        AutomationPuzzleDefinition def = SelfDrivePlanner.BuildPuzzle(
+            stream.Layout, pdef.gen.gridCellSize, out List<GridRide> rides, out int facing);
+        GridModel grid = GridModel.Parse(def.gridMap, out _);
+        var sim = new AgentSim(grid, new FareTable(), facing);
+        sim.LoadRides(rides);
+
+        ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
+        CollectionAssert.IsEmpty(errors);
+        Assert.IsTrue(HeadlessProgramRunner.Verify(program, sim, def, out string firstGap), firstGap);
+
+        StreamingTownGenerator.AppendChunk(stream);
+        AutomationPuzzleDefinition nextDef = SelfDrivePlanner.BuildPuzzle(
+            stream.Layout, pdef.gen.gridCellSize, out List<GridRide> nextRides, out int nextFacing);
+        TransferState(rides, nextRides);
+        GridModel nextGrid = GridModel.Parse(nextDef.gridMap, out _);
+
+        Vector2Int oldTerminalCell = stream.Layout.Node(oldTerminalId).gridCell;
+        sim.RebindGrid(nextGrid, oldTerminalCell, sim.Facing, nextRides);
+
+        Assert.IsFalse(sim.EvaluateQuery("routeComplete"),
+            "the appended chunk should add a new terminal and optional riders");
+        Assert.IsTrue(HeadlessProgramRunner.Verify(program, sim, nextDef, out string nextGap), nextGap);
+    }
+
+    // Authored levels (no committed rides) must also be fully autopilot-able: the
+    // button is now shown everywhere, synthesizing rides from the grid's 'P' stops.
+    [Test]
+    public void AuthoredGridWithStops_AutopilotTendsEveryStop_AndReachesDestination()
+    {
+        string[] map =
+        {
+            "########",
+            "#S....D#",
+            "#.####.#",
+            "#P....P#",
+            "########",
+        };
+        GridModel grid = GridModel.Parse(map, out _);
+        var fares = new FareTable();
+
+        List<GridRide> rides = SelfDrivePlanner.RidesFromGrid(grid, fares);
+        Assert.AreEqual(2, rides.Count, "both 'P' stops become rides bound for D");
+
+        var def = new AutomationPuzzleDefinition { requireAllPassengersDelivered = true };
+        var sim = new AgentSim(grid, fares, 1);
+        sim.LoadRides(rides);
+
+        List<string> plan = SelfDrivePlanner.Plan(grid, rides, 1, grid.DestPos);
+        foreach (string action in plan) sim.Apply(action);
+
+        Assert.IsTrue(sim.IsWin(def), sim.DescribeGoalGap(def));
+        Assert.AreEqual(2, sim.PassengersDelivered, "both passengers delivered");
+        Assert.AreEqual(2 * fares.baseFare, sim.FaresCollected, "both fares collected");
+    }
+
+    [Test]
+    public void AuthoredGridWithNoStops_AutopilotJustReachesDestination()
+    {
+        string[] map = { "#####", "#S.D#", "#####" };
+        GridModel grid = GridModel.Parse(map, out _);
+
+        List<GridRide> rides = SelfDrivePlanner.RidesFromGrid(grid, new FareTable());
+        Assert.AreEqual(0, rides.Count, "no stops → no synthesized rides");
+
+        var def = new AutomationPuzzleDefinition { requireAllPassengersDelivered = true };
+        var sim = new AgentSim(grid, new FareTable(), 1);
+        sim.LoadRides(rides);
+
+        foreach (string action in SelfDrivePlanner.Plan(grid, rides, 1, grid.DestPos))
+            sim.Apply(action);
+
+        Assert.IsTrue(sim.IsWin(def), sim.DescribeGoalGap(def));
+    }
+
+    static void TransferState(List<GridRide> oldRides, List<GridRide> newRides)
+    {
+        var oldById = new Dictionary<int, GridRide>();
+        foreach (GridRide ride in oldRides)
+            oldById[ride.id] = ride;
+
+        foreach (GridRide ride in newRides)
+            if (oldById.TryGetValue(ride.id, out GridRide old))
+            {
+                ride.aboard    = old.aboard;
+                ride.delivered = old.delivered;
+                ride.fareCollected = old.fareCollected;
+                ride.changeSettled = old.changeSettled;
+                ride.paid      = old.paid;
+                ride.tender    = old.tender;
+            }
+    }
 }

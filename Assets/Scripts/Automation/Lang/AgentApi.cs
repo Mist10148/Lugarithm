@@ -47,12 +47,17 @@ public static class AgentApi
         new ApiEntry("moveForward",        ApiKind.Action,  minArity: 0, maxArity: 1),
         new ApiEntry("turnLeft",           ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("turnRight",          ApiKind.Action,  minArity: 0, maxArity: 0),
+        // Lane change: slide one lane sideways without turning (rides the road's lanes).
+        new ApiEntry("moveLeft",           ApiKind.Action,  minArity: 0, maxArity: 0),
+        new ApiEntry("moveRight",          ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("wait",               ApiKind.Action,  minArity: 0, maxArity: 1),
 
         new ApiEntry("frontIsClear",       ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("leftIsClear",        ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("rightIsClear",       ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("atDestination",      ApiKind.Query,   minArity: 0, maxArity: 0),
+        new ApiEntry("routeComplete",      ApiKind.Query,   minArity: 0, maxArity: 0),
+        new ApiEntry("moreRoad",           ApiKind.Query,   minArity: 0, maxArity: 0),
 
         // Maze / puzzle add-on
         new ApiEntry("atGoal",             ApiKind.Query,   minArity: 0, maxArity: 0),
@@ -64,6 +69,9 @@ public static class AgentApi
         // Automation-exclusive actions
         new ApiEntry("driveToNextStop",    ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("driveToDestination", ApiKind.Action,  minArity: 0, maxArity: 0),
+        new ApiEntry("driveToTerminal",    ApiKind.Action,  minArity: 0, maxArity: 0),
+        new ApiEntry("driveToDropoff",     ApiKind.Action,  minArity: 0, maxArity: 0),
+        new ApiEntry("keepDriving",        ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("openDoor",           ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("closeDoor",          ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("board",              ApiKind.Action,  minArity: 0, maxArity: 0),
@@ -71,6 +79,7 @@ public static class AgentApi
         new ApiEntry("pickUp",             ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("dropOff",            ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("collectFare",        ApiKind.Action,  minArity: 0, maxArity: 0),
+        new ApiEntry("giveChange",         ApiKind.Action,  minArity: 1, maxArity: 1),
         new ApiEntry("announceStop",       ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("honk",               ApiKind.Action,  minArity: 0, maxArity: 0),
 
@@ -86,6 +95,8 @@ public static class AgentApi
         new ApiEntry("passengerCount",     ApiKind.Reporter,minArity: 0, maxArity: 0),
         new ApiEntry("passengerType",      ApiKind.Reporter,minArity: 0, maxArity: 0),
         new ApiEntry("fareOwed",           ApiKind.Reporter,minArity: 0, maxArity: 0),
+        new ApiEntry("cashTendered",       ApiKind.Reporter,minArity: 0, maxArity: 0),
+        new ApiEntry("changeOwed",         ApiKind.Reporter,minArity: 0, maxArity: 0),
         new ApiEntry("distanceTraveled",   ApiKind.Reporter,minArity: 0, maxArity: 0),
         new ApiEntry("distanceToDestination", ApiKind.Reporter,minArity: 0, maxArity: 0),
         new ApiEntry("currentStop",        ApiKind.Reporter,minArity: 0, maxArity: 0),

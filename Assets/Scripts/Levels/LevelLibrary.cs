@@ -165,7 +165,8 @@ public static class LevelLibrary
 
             procedural = FromManual(manual, new TownGenParams
             {
-                branchCountMin = 0, branchCountMax = 1,
+                // No side-streets: one continuous forward road (stops sit on the trunk).
+                branchCountMin = 0, branchCountMax = 0,
                 branchSpacing  = 18f,
                 branchLenMin   = 6f, branchLenMax = 10f,
                 passengerCountMin = 1, passengerCountMax = 2,
@@ -214,6 +215,7 @@ public static class LevelLibrary
             hasContent  = true,
             fares       = new FareTable(),
             townPuzzle  = TownPuzzleKind.FlowConnect,   // Molo: non-intersecting transit links
+            overworldSceneName = "TopDownLevel",        // walk Molo + talk to NPCs, then board
 
             manual = manual,
 
@@ -269,7 +271,8 @@ public static class LevelLibrary
 
             procedural = FromManual(manual, new TownGenParams
             {
-                branchCountMin = 1, branchCountMax = 2,
+                // No side-streets: one continuous forward road (stops sit on the trunk).
+                branchCountMin = 0, branchCountMax = 0,
                 branchSpacing  = 18f,
                 branchLenMin   = 8f, branchLenMax = 14f,
                 passengerCountMin = 2, passengerCountMax = 4,
@@ -301,6 +304,7 @@ public static class LevelLibrary
             hasContent  = true,
             fares       = new FareTable(),
             townPuzzle  = TownPuzzleKind.CrateStack,
+            overworldSceneName = "TopDownLevel",        // walk Oton + talk to NPCs, then board
             auto        = maze,
 
             manual = new ManualRouteDefinition
@@ -354,7 +358,8 @@ public static class LevelLibrary
                 },
                 gen = new TownGenParams
                 {
-                    branchCountMin = 1, branchCountMax = 3,
+                    // No side-streets: one continuous forward road (stops sit on the trunk).
+                    branchCountMin = 0, branchCountMax = 0,
                     branchSpacing  = 18f,
                     branchLenMin   = 8f, branchLenMax = 14f,
                     passengerCountMin = 2, passengerCountMax = 5,

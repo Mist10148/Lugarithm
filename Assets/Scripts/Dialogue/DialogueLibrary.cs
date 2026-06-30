@@ -236,7 +236,7 @@ public static class DialogueLibrary
         convo.nodes["TA2"] = Node("TA2", DialogueNodeKind.Branch,
             Lines(
                 Line(gemma, "Driving words first. moveForward() rolls her one step ahead — moveForward(3) goes three. turnLeft() and turnRight() spin her in place. That's the whole alphabet of movement."),
-                Line(gemma, "When you don't want to count every step, the big ones do the thinking: driveToNextStop() drives her to the next stop, driveToDestination() takes her all the way home.")
+                Line(gemma, "When you don't want to count every step, the big ones do the thinking: driveToNextStop() drives her to the next stop, driveToTerminal() takes her to the current terminal.")
             ),
             choices: new[]
             {
@@ -261,14 +261,14 @@ public static class DialogueLibrary
 
         convo.nodes["TA4"] = Node("TA4", DialogueNodeKind.Line,
             Lines(
-                Line(gemma, "Now the coins. collectFare() takes the rider's payment and hands you back the amount — you can keep it in a variable: earned = collectFare(). That's money counted, in code."),
-                Line(gemma, "If you want to think before collecting: fareOwed() tells you what they owe, and passengerType() tells you who they are — \"regular\", \"student\", \"senior\". Students and seniors pay less; your father kept a little fare table for that. Whole list's in the Commands panel.")
+                Line(gemma, "Now the coins. collectFare() takes the rider's fare and records the cash they handed over. Then giveChange(changeOwed()) gives back the exact sukli before they get off."),
+                Line(gemma, "If you want to think before collecting: fareOwed() tells you the fare, cashTendered() tells you what they paid, and changeOwed() tells you the sukli. Whole list's in the Commands panel.")
             ),
             returnToHub: true);
 
         convo.nodes["TA5"] = Node("TA5", DialogueNodeKind.Line,
             Lines(
-                Line(gemma, "She's not blind — she can tell you where she is. atStop() is true when she's at a stop; atDestination() when she's finally home. currentStop() and nextStop() give you their names."),
+                Line(gemma, "She's not blind — she can tell you where she is. atStop() is true when she's at a stop; routeComplete() is true only when the riders are delivered and you're at the terminal. atDestination() still belongs to maze-style drills."),
                 Line(gemma, "distanceToDestination() counts how far's left. Wrap any of these in an if to decide, or a while to keep going until something's true — that's how a short routine handles a long road.")
             ),
             returnToHub: true);

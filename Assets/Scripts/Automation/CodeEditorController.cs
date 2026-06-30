@@ -25,6 +25,9 @@ public class CodeEditorController : MonoBehaviour
     [SerializeField] private TMP_Text highlight;
     [SerializeField] private TMP_Text lintLabel;
     [SerializeField] private RectTransform gutterRoot;
+    // Scrolling layer holding the line numbers + gutter icons. Kept in lockstep
+    // with the input's text component so numbers stay glued to their code line.
+    [SerializeField] private RectTransform gutterContent;
 
     [Header("Exec highlight")]
     [SerializeField] private Image execLineBar;
@@ -204,6 +207,18 @@ public class CodeEditorController : MonoBehaviour
             _meshDirty = false;
         }
 
+        // Scroll the line-number gutter in lockstep with the code. The input field
+        // scrolls by shifting its text component vertically; mirror that exact
+        // offset so every number tracks its glyph line (the gutter has a RectMask2D
+        // so numbers that run past the top/bottom are clipped, not drawn over the
+        // toolbar or lint row).
+        if (gutterContent != null)
+        {
+            Vector2 gp = gutterContent.anchoredPosition;
+            gp.y = src.rectTransform.anchoredPosition.y;
+            gutterContent.anchoredPosition = gp;
+        }
+
         UpdateExecLineBarPosition();
         UpdateSquiggles();
         UpdateGutterIcons();
@@ -298,6 +313,16 @@ public class CodeEditorController : MonoBehaviour
             RefreshLineNumbers();
             RefreshHighlight();
         }
+    }
+
+    public void SetSource(string source)
+    {
+        if (input == null) return;
+        input.SetTextWithoutNotify(source ?? "");
+        input.stringPosition = input.text.Length;
+        RefreshLineNumbers();
+        RefreshHighlight();
+        Lint();
     }
 
     public ProgramNode BuildProgram(out List<LangError> errors)
@@ -651,19 +676,20 @@ public class CodeEditorController : MonoBehaviour
         if (highlight.textInfo == null || _executingLine > highlight.textInfo.lineCount) return;
 
         TMP_LineInfo lineInfo = highlight.textInfo.lineInfo[_executingLine - 1];
-        RectTransform viewport = input != null ? input.textViewport : highlight.rectTransform;
         RectTransform barRt = (RectTransform)execLineBar.transform;
 
-        barRt.SetParent(viewport, false);
+        // Parent the bar to the highlight overlay itself — that layer is already
+        // kept glyph-aligned and scrolled with the code (see SyncHighlightToInput),
+        // so positioning the bar from the line metrics in the highlight's own local
+        // space keeps it pinned to its line through scrolling, with no separate
+        // scroll term to drift out of sync.
+        if (barRt.parent != highlight.rectTransform) barRt.SetParent(highlight.rectTransform, false);
         barRt.anchorMin = new Vector2(0f, 1f);
         barRt.anchorMax = new Vector2(1f, 1f);
         barRt.pivot     = new Vector2(0.5f, 1f);
 
-        float y = lineInfo.ascender + highlight.rectTransform.anchoredPosition.y;
-        float height = lineInfo.lineHeight;
-
-        barRt.anchoredPosition = new Vector2(0f, y);
-        barRt.sizeDelta = new Vector2(0f, height);
+        barRt.anchoredPosition = new Vector2(0f, lineInfo.ascender);
+        barRt.sizeDelta = new Vector2(0f, lineInfo.lineHeight);
 
         Color c = _theme.execBarColor;
         c.a = 0.35f + 0.15f * Mathf.Sin(Time.time * 3f);
@@ -696,7 +722,10 @@ public class CodeEditorController : MonoBehaviour
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(0f, lineInfo.ascender + highlight.rectTransform.anchoredPosition.y - lineInfo.lineHeight + 2f);
+            // squigglesRoot is parented under the highlight overlay (which scrolls
+            // with the code), so the underline sits in highlight-local space — no
+            // separate scroll term needed.
+            rt.anchoredPosition = new Vector2(0f, lineInfo.ascender - lineInfo.lineHeight + 2f);
             rt.sizeDelta = new Vector2(0f, 4f);
             img.color = _theme.errorColor;
             img.gameObject.SetActive(true);

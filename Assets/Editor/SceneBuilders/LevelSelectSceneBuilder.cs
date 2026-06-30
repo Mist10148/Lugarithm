@@ -45,14 +45,13 @@ public static class LevelSelectSceneBuilder
 
         // --- Header -----------------------------------------------------------------
 
-        var header = UIFactory.CreateText(canvas.transform, "Header", "SELECT A LEG", 52f, Gold);
+        var header = UIFactory.CreateLocalizedText(canvas.transform, "Header", "levelselect.title", 52f, Gold);
         UIFactory.Place(header, new Vector2(0.5f, 1f), new Vector2(0f, -42f), new Vector2(900f, 72f));
         header.fontStyle = FontStyles.Bold;
         header.characterSpacing = 2f;
 
-        var sub = UIFactory.CreateText(canvas.transform, "SubHeader",
-                                       "ILOILO CITY TO SAN JOAQUIN  -  RECOVER THE JOURNAL PAGES",
-                                       17f, TextMuted);
+        var sub = UIFactory.CreateLocalizedText(canvas.transform, "SubHeader",
+                                                "levelselect.subtitle", 17f, TextMuted);
         UIFactory.Place(sub, new Vector2(0.5f, 1f), new Vector2(0f, -96f), new Vector2(1040f, 34f));
 
         // Wallet total (top-right of header area)

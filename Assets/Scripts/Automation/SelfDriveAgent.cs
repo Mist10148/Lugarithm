@@ -11,43 +11,96 @@ public static class SelfDrivePlanner
 {
     public static readonly string[] NavBlocks =
     {
-        "moveForward", "turnLeft", "turnRight", "pickUp", "dropOff", "collectFare",
-        "driveToNextStop", "driveToDestination", "while", "if", "ifElse",
+        "moveForward", "turnLeft", "turnRight", "pickUp", "dropOff", "collectFare", "giveChange",
+        "driveToNextStop", "driveToTerminal", "driveToDropoff", "keepDriving",
+        "while", "if", "ifElse",
+        "functionDef", "callFunction",
     };
 
     public static readonly string[] NavQueries =
     {
-        "frontIsClear", "leftIsClear", "rightIsClear", "atStop", "atDestination",
-        "hasPassengerAboard", "atRequestedStop",
+        "frontIsClear", "leftIsClear", "rightIsClear", "atStop", "routeComplete", "moreRoad",
+        "hasPassengerAboard", "atRequestedStop", "passengerWaiting",
+    };
+
+    public static readonly string[] NavReporters =
+    {
+        "fareOwed", "cashTendered", "changeOwed",
+        "seatsLeft", "passengerCount", "distanceToDestination", "distanceTraveled",
     };
 
     public const string ReferenceSolution =
-        "# Self-driving jeepney: visit each stop, tend riders, finish at the terminal.\n" +
-        "driveToNextStop()\n" +
-        "pickUp()\n" +
-        "collectFare()\n" +
-        "while hasPassengerAboard():\n" +
-        "    driveToNextStop()\n" +
+        "# Self-driving jeepney for the endless road: cruise forever, tend every rider, and\n" +
+        "# drop your front-seat story passenger at their marked stop along the way.\n" +
+        "# moreRoad() is always true (the road never ends); driveToDropoff() cruises until the\n" +
+        "# story drop-off is ready, then heads straight for it.\n" +
+        "def drive():\n" +
+        "    while moreRoad():\n" +
+        "        driveToDropoff()\n" +
+        "        handleDropoffs()\n" +
+        "        handlePassengers()\n" +
+        "        handleFares()\n" +
+        "\n" +
+        "def handlePassengers():\n" +
+        "    if passengerWaiting():\n" +
+        "        pickUp()\n" +
+        "\n" +
+        "def handleFares():\n" +
+        "    if hasPassengerAboard():\n" +
+        "        collectFare()\n" +
+        "        giveChange(changeOwed())\n" +
+        "\n" +
+        "def handleDropoffs():\n" +
         "    if atRequestedStop():\n" +
         "        dropOff()\n" +
-        "    if atStop():\n" +
-        "        pickUp()\n" +
-        "        collectFare()\n" +
-        "driveToDestination()\n";
+        "\n" +
+        "drive()\n";
+
+    /// <summary>Synthesizes rides for an authored grid that has only generic 'P'
+    /// stops (no committed per-passenger routes): every stop is a pickup bound for
+    /// the terminal D. Lets the ride-mode autopilot drive authored levels too —
+    /// picking up, collecting fares, and dropping at the destination. Returns an
+    /// empty list when the grid has no stops (a plain start→destination run).</summary>
+    public static List<GridRide> RidesFromGrid(GridModel grid, FareTable fares)
+    {
+        var rides = new List<GridRide>();
+        if (grid == null) return rides;
+        int fare = fares != null ? fares.baseFare : 13;
+        int id = 0;
+        foreach (Vector2Int stop in grid.StopCells)
+            rides.Add(new GridRide
+            {
+                id     = id++,
+                origin = stop,
+                dest   = grid.DestPos,
+                fare   = fare,
+                tender = fare,
+                color  = new Color(0.95f, 0.65f, 0.15f),
+                destLabel = "Stop",   // no per-stop name data on an authored grid
+            });
+        return rides;
+    }
 
     /// <summary>Maps the layout's committed rides onto grid cells (needs a projected layout).</summary>
     public static List<GridRide> RidesFromLayout(TownLayout layout)
     {
         var rides = new List<GridRide>();
         foreach (PassengerRequest req in layout.requests)
+        {
+            TownNode destNode = layout.Node(req.destNodeId);
             rides.Add(new GridRide
             {
                 id     = req.id,
+                originNodeId = req.originNodeId,
+                destNodeId = req.destNodeId,
                 origin = layout.Node(req.originNodeId).gridCell,
-                dest   = layout.Node(req.destNodeId).gridCell,
+                dest   = destNode.gridCell,
                 fare   = req.fare,
+                tender = req.tender,
                 color  = req.color,
+                destLabel = !string.IsNullOrEmpty(destNode.name) ? destNode.name : "Stop",
             });
+        }
         return rides;
     }
 
@@ -70,17 +123,21 @@ public static class SelfDrivePlanner
             startFacing     = startFacing,
             useAuthoredGrid = true,
             requireAllPassengersDelivered = true,
+            endlessRoute    = true,   // procedural street keeps streaming; win = required riders delivered
             allowedBlocks   = NavBlocks,
             allowedQueries  = NavQueries,
+            allowedReporters = NavReporters,
             parSteps        = plan.Count,
             softTimerSeconds = 600f,
-            goalText = "Self-driving run: program the jeepney to pick up every rider, " +
-                       "collect fares, drop each at their stop, then finish at the terminal (D). " +
-                       "Use driveToNextStop() / driveToDestination() to navigate.",
-            codeScaffold = "# Navigation blocks plan a path for you:\n" +
-                           "#   driveToNextStop(), driveToDestination()\n" +
-                           "# Tend riders: pickUp(), collectFare(), dropOff()\n" +
-                           "# Ask: hasPassengerAboard(), atRequestedStop()\n",
+            goalText = "Endless run: the road never ends. Pick up riders, collect fares, give exact " +
+                       "change, and drop your story passenger at their stop (driveToDropoff()). The leg " +
+                       "completes when they're delivered — keepDriving() to cruise on and serve more.",
+            codeScaffold = "# Split the ride into helper functions, then call drive():\n" +
+                           "#   drive(), handlePassengers(), handleFares(), handleDropoffs()\n" +
+                           "# Navigation: driveToNextStop(), driveToDropoff(), keepDriving()\n" +
+                           "# Tend riders: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
+                           "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n" +
+                           "# Cruise forever:  while True:  keepDriving()\n",
             optimalSolutionText = ReferenceSolution,
         };
     }
@@ -116,7 +173,7 @@ public static class SelfDrivePlanner
             foreach (GridRide ride in rides)
                 if (!aboard.Contains(ride.id) && !delivered.Contains(ride.id) && ride.origin == pos)
                 { aboard.Add(ride.id); boarded = true; }
-            if (boarded) { actions.Add("pickUp"); actions.Add("collectFare"); }
+            if (boarded) { actions.Add("pickUp"); actions.Add("collectFare"); actions.Add("giveChange"); }
 
             var dropped = new List<int>();
             foreach (int id in aboard)

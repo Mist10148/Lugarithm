@@ -87,6 +87,12 @@ public static class RouteVisualBuilder
             if (isDest) ctx.DestinationZone = zone;
         }
 
+        // Dress the street: continuous heritage frontage + ambient folk beside the road.
+        var stopPositions = new List<Vector2>(layout.stops.Count);
+        foreach (TownNode n in layout.stops) stopPositions.Add(n.pos);
+        RoadsideDecorator.DecorateSegments(parent, layout.segments, layout.segments,
+                                           stopPositions, roadHalfWidth, seed: 0);
+
         return ctx;
     }
 
@@ -96,16 +102,19 @@ public static class RouteVisualBuilder
     /// destination becomes the terminal-end of the appended trunk.
     /// </summary>
     public static void AppendProcedural(Transform parent, RouteContext ctx,
-                                        ManualLayoutResult delta, float roadHalfWidth)
+                                        ManualLayoutResult delta, float roadHalfWidth,
+                                        Transform chunkRoot = null)
     {
         if (ctx == null || delta == null) return;
+        if (ctx.Segments == null) ctx.Segments = new List<RoadSegment>();
 
+        Transform visualParent = chunkRoot != null ? chunkRoot : parent;
         Sprite roadSprite = Resources.Load<Sprite>("Placeholders/road_tile");
-        Transform roadRoot = parent.Find("Road");
+        Transform roadRoot = visualParent.Find("Road");
         if (roadRoot == null)
         {
             var rr = new GameObject("Road");
-            rr.transform.SetParent(parent, false);
+            rr.transform.SetParent(visualParent, false);
             roadRoot = rr.transform;
         }
 
@@ -119,16 +128,19 @@ public static class RouteVisualBuilder
         var zones = new List<StopZone>(ctx.Zones);
         foreach (TownNode node in delta.stops)
         {
-            if (ctx.ZoneByNode != null && ctx.ZoneByNode.ContainsKey(node.id))
+            if (ctx.ZoneByNode != null && ctx.ZoneByNode.TryGetValue(node.id, out StopZone existingZone))
             {
-                // Demote old destination to ordinary stop.
-                if (ctx.ZoneByNode[node.id] == ctx.DestinationZone)
-                    ctx.DestinationZone.IsDestination = false;
+                // The previous terminal has just gained a new outgoing road.
+                // Its original one-leg orientation may now point down that road,
+                // so recompute its roadside against the complete graph before
+                // passenger peeps are added by the drive controller.
+                bool remainsDestination = node.id == delta.dest.id;
+                RefreshProceduralStop(existingZone, node, remainsDestination, roadHalfWidth, ctx.Segments);
                 continue;
             }
 
             bool isDest = node.id == delta.dest.id;
-            StopZone zone = BuildProceduralStop(parent, node, zones.Count, isDest, roadHalfWidth, delta.segments);
+            StopZone zone = BuildProceduralStop(visualParent, node, zones.Count, isDest, roadHalfWidth, ctx.Segments);
             zones.Add(zone);
             if (ctx.ZoneByNode != null) ctx.ZoneByNode[node.id] = zone;
             if (isDest) ctx.DestinationZone = zone;
@@ -146,6 +158,16 @@ public static class RouteVisualBuilder
             ctx.Waypoints   = SanitizePolyline(delta.trunk);
             ctx.TotalLength = RouteMath.TotalLength(ctx.Waypoints);
         }
+
+        // Dress only this chunk's new trunk, but clear it against the whole graph so
+        // buildings never land on a road the streamed town has wound close by.
+        var stopPositions = new List<Vector2>();
+        if (ctx.ZoneByNode != null)
+            foreach (StopZone z in ctx.ZoneByNode.Values)
+                if (z != null) stopPositions.Add((Vector2)z.transform.position);
+        RoadsideDecorator.DecorateSegments(parent, delta.segments, ctx.Segments,
+                                           stopPositions, roadHalfWidth, seed: 0,
+                                           chunkRoot: visualParent);
     }
 
     /// <summary>
@@ -254,6 +276,50 @@ public static class RouteVisualBuilder
     }
 
     /// <summary>
+    /// Reorients a procedural stop and refreshes the visuals that change when a
+    /// streamed terminal becomes an ordinary stop. Child signs and peeps use
+    /// local coordinates, so rotating the zone moves them together to the new
+    /// roadside without disturbing the stop trigger itself.
+    /// </summary>
+    static void RefreshProceduralStop(StopZone zone, TownNode node, bool isDest,
+                                      float roadHalfWidth, List<RoadSegment> segments)
+    {
+        if (zone == null || node == null) return;
+
+        Vector2 outward = RoadsideOutwardFromSegments(node.pos, segments, roadHalfWidth);
+        zone.transform.rotation = Quaternion.Euler(0f, 0f, Vector2.SignedAngle(Vector2.right, outward));
+        zone.StopName = node.name;
+        zone.IsDestination = isDest;
+
+        Transform sign = zone.transform.Find("Sign");
+        if (sign != null)
+        {
+            sign.localPosition = new Vector3(roadHalfWidth + 1.1f, 0f, 0f);
+            sign.rotation = Quaternion.identity;
+
+            SpriteRenderer signRenderer = sign.GetComponent<SpriteRenderer>();
+            if (signRenderer != null)
+            {
+                signRenderer.color = Color.white;
+                if (isDest)                                signRenderer.color = new Color(0.45f, 1f, 0.5f);
+                else if (node.kind == NodeKind.HeritageSite) signRenderer.color = new Color(1f, 0.85f, 0.4f);
+                else if (node.kind == NodeKind.NpcDrop)      signRenderer.color = new Color(0.6f, 0.8f, 1f);
+            }
+        }
+
+        Transform label = zone.transform.Find("StopLabel");
+        if (label != null)
+        {
+            TMPro.TextMeshPro text = label.GetComponent<TMPro.TextMeshPro>();
+            if (text != null)
+                text.text = isDest
+                    ? $"<color=#7CFC72>{node.name}</color>\n<color=#FFD700>TERMINAL</color>"
+                    : node.name;
+            label.rotation = Quaternion.identity;
+        }
+    }
+
+    /// <summary>
     /// Outward roadside normal at a node (procedural town): a unit vector pointing
     /// into the clearest space beside the road, away from every incident road leg.
     /// Incident roads are found by distance to each segment (robust to streamed
@@ -303,7 +369,11 @@ public static class RouteVisualBuilder
         if (legs.Count == 0)
             legs.Add(nearestDir);
 
-        return RoadsideOutward(legs);
+        // The incident legs give a consistent "preferred" side; refine it against the
+        // whole graph so the sign/peeps never land on a non-incident road that the
+        // streamed town has wound close by.
+        Vector2 preferred = RoadsideOutward(legs);
+        return RouteMath.ClearestRoadside(pos, segments, roadHalfWidth, preferred);
     }
 
     /// <summary>

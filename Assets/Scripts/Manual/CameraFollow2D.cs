@@ -54,11 +54,23 @@ public class CameraFollow2D : MonoBehaviour
             Vector3 p = newTarget.position;
             transform.position = new Vector3(p.x, p.y, transform.position.z);
         }
+
+        ResetVelocity();   // a snap is a teleport — don't carry chase momentum across it
     }
 
     /// <summary>Snaps the camera to a world position.</summary>
     public void SnapToWorld(Vector3 worldPos)
     {
         transform.position = new Vector3(worldPos.x, worldPos.y, transform.position.z);
+    }
+
+    /// <summary>Zeroes the internally tracked chase velocity. Call this right when the
+    /// followed target's motion comes to a hard discrete stop (e.g. Automation's per-step
+    /// agent tween finishing) so SmoothDamp doesn't carry momentum built up while chasing
+    /// a goal that just decelerated sharply — avoids a brief overshoot/snap-back at every
+    /// step boundary. Manual Mode's continuous-physics jeepney never needs this.</summary>
+    public void ResetVelocity()
+    {
+        _velocity = Vector3.zero;
     }
 }

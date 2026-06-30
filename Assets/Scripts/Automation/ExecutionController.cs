@@ -15,7 +15,10 @@ public class ExecutionController : MonoBehaviour
     public enum ExecState { Idle, Running, Paused, Finished }
 
     [Header("Timing")]
-    [SerializeField] private float baseStepSeconds = 0.45f;
+    [SerializeField] private float baseStepSeconds = 1.0f;   // heavier, slower cruise (Manual-like weight)
+    [SerializeField] private float logicStepSeconds = 0.12f; // fast resolve for non-movement "logic" steps
+                                                               // (turns, pickUp, dropOff, collectFare,
+                                                               // giveChange) — movement keeps baseStepSeconds
 
     [Header("Heatmap")]
     [Tooltip("A line that executes this many times in a single frame is considered 'hot'.")]
@@ -53,8 +56,22 @@ public class ExecutionController : MonoBehaviour
     // Heatmap state: hits per line within the current frame, reset each yield.
     Dictionary<int, int> _frameLineHits = new Dictionary<int, int>();
 
+    const int EndlessPathBatchSize = 4;
+
     public AgentSim Sim => _sim;
     public IReadOnlyDictionary<int, int> LineHits => _vm.LineHits;
+
+    /// <summary>Accumulated <c>print()</c> output for the current run. Cleared when
+    /// a new program is loaded; the drive controller drains new lines into the
+    /// terminal as the program steps.</summary>
+    public IReadOnlyList<string> Output => _vm.Output;
+
+    /// <summary>True while the agent is mid-animation (a path or action is playing).
+    /// Procedural streaming only re-rasterizes the grid when this is false, so an
+    /// in-flight animation can never have the world shift under it.</summary>
+    public bool Busy { get; private set; }
+
+    bool EndlessRouteActive => _def != null && _def.endlessRoute;
 
     // -------------------------------------------------------------------------
 
@@ -74,16 +91,63 @@ public class ExecutionController : MonoBehaviour
             _view.Init(_space, _sim.Position, _sim.Facing);
     }
 
+    public void RebindWorld(GridModel grid, IGridSpace space, IStopView stopView,
+                            AutomationPuzzleDefinition def, int startFacing)
+    {
+        Stop();
+
+        _grid        = grid;
+        _space       = space;
+        _stopView    = stopView;
+        _def         = def;
+        _startFacing = startFacing;
+        State        = ExecState.Idle;
+        _singleStep  = false;
+        _frameLineHits.Clear();
+
+        if (_view != null && _sim != null)
+            _view.Init(_space, _sim.Position, _sim.Facing);
+
+        OnWorldReset?.Invoke();
+    }
+
+    /// <summary>
+    /// Swaps the world references for a streamed chunk WITHOUT stopping the program,
+    /// resetting state, or restarting the execution coroutine — so a mid-run autopilot
+    /// keeps driving straight into the freshly appended stretch. Only safe to call when
+    /// <see cref="Busy"/> is false and the move queue is empty (a static-world boundary);
+    /// the caller (AutomationDriveController) enforces that. The agent view is re-pinned
+    /// to its current cell under the new grid mapping (a no-op visually while idle).
+    /// </summary>
+    public void RebindStreamingWorld(GridModel grid, IGridSpace space, IStopView stopView,
+                                     AutomationPuzzleDefinition def, int startFacing)
+    {
+        _grid        = grid;
+        _space       = space;
+        _stopView    = stopView;
+        _def         = def;
+        _startFacing = startFacing;
+
+        if (_view != null && _sim != null)
+            _view.Init(_space, _sim.Position, _sim.Facing);
+    }
+
     // -------------------------------------------------------------------------
     // Controls
 
     /// <summary>Starts (or restarts) execution of a compiled program.</summary>
-    public void Run(ProgramNode program)
+    public void Run(ProgramNode program, bool resetWorld = true)
     {
         Stop();
-        ResetWorld();
+        if (resetWorld)
+            ResetWorld();
 
         _vm.Load(program);
+        // Endless procedural legs allow an intended forever-cruise (while True: keepDriving());
+        // execution is paced one action per step, so lift the runaway-loop guards for them.
+        bool endless = _def != null && _def.endlessRoute;
+        _vm.ActionBudget = endless ? int.MaxValue : Interpreter.MaxActions;
+        _vm.EvalBudget   = endless ? int.MaxValue : Interpreter.MaxEvaluations;
         _frameLineHits.Clear();
         State = ExecState.Running;
         _loop = StartCoroutine(ExecutionLoop());
@@ -133,6 +197,16 @@ public class ExecutionController : MonoBehaviour
         Speed = Mathf.Clamp(speed, 0.2f, 8f);
     }
 
+    /// <summary>True for the locomotion primitive — the only action type that keeps the
+    /// slow, Manual-matching cadence. Every other action (turns, pickUp, dropOff,
+    /// collectFare, giveChange, wait, and any future non-movement action) resolves at
+    /// logicStepSeconds instead, so logic steps don't carry a perceptible wait.</summary>
+    static bool IsMovementAction(string action) =>
+        action == "moveForward" || action == "moveLeft" || action == "moveRight";
+
+    float DurationFor(string action) =>
+        IsMovementAction(action) ? baseStepSeconds / Speed : logicStepSeconds / Speed;
+
     void Stop()
     {
         if (_loop != null)
@@ -140,6 +214,7 @@ public class ExecutionController : MonoBehaviour
             StopCoroutine(_loop);
             _loop = null;
         }
+        Busy = false;
     }
 
     // -------------------------------------------------------------------------
@@ -156,21 +231,69 @@ public class ExecutionController : MonoBehaviour
             // the self-driving jeepney animates like real driving.
             if (_sim != null && _sim.HasPendingMoves)
             {
-                AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
-                OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
+                if (_singleStep)
+                {
+                    AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
+                    OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
 
-                float moveDuration = baseStepSeconds / Speed;
-                if (_view != null)
-                    yield return _view.PlayAction(moveResult, moveDuration);
+                    float moveDuration = DurationFor(moveResult.Action);
+                    Busy = true;
+                    if (_view != null)
+                        yield return _view.PlayAction(moveResult, moveDuration);
+                    else
+                        yield return new WaitForSeconds(moveDuration);
+                    Busy = false;
+
+                    _singleStep = false;
+                    State = ExecState.Paused;
+
+                    if (_sim.IsWin(_def))
+                    {
+                        State = ExecState.Finished;
+                        OnFinished?.Invoke(true);
+                        yield break;
+                    }
+                    continue;
+                }
+
+                var moves = new List<AgentActionResult>();
+                bool wonDuringPath = false;
+                int batchLimit = EndlessRouteActive
+                    ? EndlessPathBatchSize
+                    : int.MaxValue;
+                while (_sim.HasPendingMoves && moves.Count < batchLimit)
+                {
+                    AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
+                    moves.Add(moveResult);
+                    OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
+                    if (_sim.IsWin(_def)) { wonDuringPath = true; break; }
+                }
+
+                // A single duration applies to the whole batch passed to PlayPath; pick
+                // movement pacing if any move in the batch is a moveForward (movement
+                // dominates the visual feel), else the fast logic pace for an all-turns batch.
+                bool batchHasMovement = false;
+                foreach (AgentActionResult m in moves)
+                    if (IsMovementAction(m.Action)) { batchHasMovement = true; break; }
+                float pathMoveDuration = batchHasMovement ? baseStepSeconds / Speed : logicStepSeconds / Speed;
+
+                Busy = true;
+                if (_view is IPathAgentView pathView)
+                    yield return pathView.PlayPath(moves, pathMoveDuration);
+                else if (_view != null)
+                    foreach (AgentActionResult move in moves)
+                        yield return _view.PlayAction(move, DurationFor(move.Action));
                 else
-                    yield return new WaitForSeconds(moveDuration);
+                    yield return new WaitForSeconds(pathMoveDuration * moves.Count);
+                Busy = false;
 
-                if (_sim.IsWin(_def))
+                if (wonDuringPath && !EndlessRouteActive)
                 {
                     State = ExecState.Finished;
                     OnFinished?.Invoke(true);
                     yield break;
                 }
+                yield return null;
                 continue;
             }
 
@@ -191,7 +314,7 @@ public class ExecutionController : MonoBehaviour
                 yield break;
             }
 
-            AgentActionResult result = _sim.Apply(step.ActionName);
+            AgentActionResult result = _sim.Apply(step.ActionName, step.ActionArgs);
             if (!string.IsNullOrEmpty(step.BindResultTo))
                 _vm.DeliverActionResult(result.ReturnValue);
 
@@ -207,11 +330,13 @@ public class ExecutionController : MonoBehaviour
                     OnHotLine?.Invoke(line);
             }
 
-            float duration = baseStepSeconds / Speed;
+            float duration = DurationFor(result.Action);
+            Busy = true;
             if (_view != null)
                 yield return _view.PlayAction(result, duration);
             else
                 yield return new WaitForSeconds(duration);
+            Busy = false;
 
             _frameLineHits.Clear();
 
@@ -221,12 +346,16 @@ public class ExecutionController : MonoBehaviour
                 State = ExecState.Paused;
             }
 
-            // Goal reached mid-program still counts — stop right away.
+            // Goal reached mid-program still counts. Endless procedural story legs keep
+            // the VM alive after the one-time completion signal so free-roam remains smooth.
             if (_sim.IsWin(_def))
             {
-                State = ExecState.Finished;
-                OnFinished?.Invoke(true);
-                yield break;
+                if (!EndlessRouteActive)
+                {
+                    State = ExecState.Finished;
+                    OnFinished?.Invoke(true);
+                    yield break;
+                }
             }
         }
     }

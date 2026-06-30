@@ -247,6 +247,25 @@ public class DialogueController : MonoBehaviour
         if (dialogBox != null) dialogBox.Advance();
     }
 
+    /// <summary>
+    /// Clears any active story/reveal UI without invoking completion callbacks.
+    /// Used when a completed leg enters free-roam; story dialogue must not restart
+    /// or finish a second time while the road keeps streaming.
+    /// </summary>
+    public void StopAndHide()
+    {
+        _dialogueCancellation?.Cancel();
+        _awaitingRephrase = false;
+        _runtime = null;
+        _conversation = null;
+        _onFinished = null;
+        _onRevealDone = null;
+        _waitingForRevealAdvance = false;
+        _revealingJournalCard = false;
+        HideAll();
+        if (revealRoot != null) revealRoot.SetActive(false);
+    }
+
     // -------------------------------------------------------------------------
 
     void ShowDialogueRoot(bool show)
@@ -276,8 +295,11 @@ public class DialogueController : MonoBehaviour
         dialogBox.CharsPerSecond = cps;
         dialogBox.UseTypewriter = cps > 0f;
 
-        // Bar visibility is driven by ShowDialogueRoot, not by the Subtitles
-        // setting, so the Next/Skip buttons are always available.
+        // Subtitles gates the line text only — the bar, speaker, and Next/Skip stay
+        // up (driven by ShowDialogueRoot) so the player can always advance even with
+        // captions off. Defaults on when no SettingsManager is present.
+        bool subtitlesOn = SettingsManager.Instance == null || SettingsManager.Instance.Subtitles;
+        dialogBox.BodyVisible = subtitlesOn;
     }
 
     void RefreshView()
@@ -504,9 +526,21 @@ public class DialogueController : MonoBehaviour
         if (_runtime == null) return;
         _choiceClickedThisFrame = true;
 
-        // Discussing a hub topic surfaces the next heritage fun-fact into the Almanac.
-        if (_conversation != null && _runtime.CurrentNodeId == _conversation.hubNode)
+        // Record what the player just learned into the Almanac. A choice that names a
+        // specific fact (town NPCs do this) jots down that exact entry; otherwise the
+        // main-passenger flow surfaces the next heritage fact in order at the hub.
+        if (!string.IsNullOrEmpty(choice.discoversFactKey))
+        {
+            if (SaveSystem.Current != null)
+            {
+                SaveSystem.Current.UnlockFact(choice.discoversFactKey);
+                SaveSystem.AutoSave();
+            }
+        }
+        else if (_conversation != null && _runtime.CurrentNodeId == _conversation.hubNode)
+        {
             DiscoverNextFact();
+        }
 
         _runtime.Choose(choice.target);
         RefreshView();

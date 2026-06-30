@@ -53,6 +53,7 @@ public static class ManualDriveSceneBuilder
         jeepneySr.sortingOrder = 10;
 
         var jeepney = jeepneyGo.AddComponent<JeepneyController>();
+        SceneBuilderUtil.Wire(jeepney, "fuelDrainPerSecond", RefuelMath.FuelDrainPerSecond);
 
         SceneBuilderUtil.Wire(follow, "target",   jeepneyGo.transform);
         SceneBuilderUtil.Wire(follow, "leadBody", rb);
@@ -70,11 +71,18 @@ public static class ManualDriveSceneBuilder
         ToastNotification toast = BuildToast(canvas);
         FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
-        DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(canvas.transform);
+        // Compact dialogue card pinned bottom-right so it clears the bottom-center
+        // dashboard (speedometer + fuel) and the right-side choice pills. The wide
+        // default card overlaps the dashboard in ManualDrive only.
+        DialogueController  dialogue    = DialogueOverlayBuilder.BuildDriveDialogue(
+                                              canvas.transform,
+                                              boxSize: new Vector2(680f, 200f),
+                                              boxAnchoredPos: new Vector2(-24f, 24f));
         LegCompletionController legCompletion = LegCompletionOverlayBuilder.Build(canvas.transform);
 
         // Exit (top-right, under currency)
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(130f, 44f));
+        UIFactory.LocalizeButton(exit, "hud.exit");
         UIFactory.Place(exit, new Vector2(1f, 1f), new Vector2(-24f, -84f), new Vector2(130f, 44f));
         var link = exit.gameObject.AddComponent<SceneLink>();
         SceneBuilderUtil.Wire(link, "button",    exit);
@@ -83,6 +91,7 @@ public static class ManualDriveSceneBuilder
         // Journal toggle (below Exit)
         Button journalToggle = UIFactory.CreateButton(canvas.transform, "JournalToggle",
                                                       "Journal", new Vector2(130f, 44f), 20f);
+        UIFactory.LocalizeButton(journalToggle, "hud.journal");
         UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-24f, -136f),
                         new Vector2(130f, 44f));
         journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
@@ -104,6 +113,7 @@ public static class ManualDriveSceneBuilder
         var controller = controllerGo.AddComponent<ManualDriveController>();
         var passengerMgr = controllerGo.AddComponent<PassengerManager>();
         controllerGo.AddComponent<BreakdownController>();
+        controllerGo.AddComponent<ProgressionGateController>();
 
         // Dulog highlighting (color-coded markers + edge-of-screen arrows).
         var edgeParent = UIFactory.CreateRect(canvas.transform, "DulogEdgeLayer",
@@ -162,12 +172,12 @@ public static class ManualDriveSceneBuilder
         needleRt.sizeDelta = new Vector2(6f, 56f);
         UIFactory.AddImage(needle, new Color(0.95f, 0.25f, 0.2f), SceneBuilderUtil.LoadPlaceholder("white_box"));
 
-        var speedCaption = UIFactory.CreateText(dash, "SpeedCaption", "SPEED", 16f, UIFactory.TextDim);
+        var speedCaption = UIFactory.CreateLocalizedText(dash, "SpeedCaption", "hud.speed", 16f, UIFactory.TextDim);
         UIFactory.Place(speedCaption, new Vector2(0f, 0f), new Vector2(40f, 6f), new Vector2(90f, 22f));
 
         // Fuel bar
-        var fuelCaption = UIFactory.CreateText(dash, "FuelCaption", "FUEL", 18f, UIFactory.TextDim,
-                                               TextAlignmentOptions.MidlineLeft);
+        var fuelCaption = UIFactory.CreateLocalizedText(dash, "FuelCaption", "hud.fuel", 18f, UIFactory.TextDim,
+                                                        TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(fuelCaption, new Vector2(0f, 1f), new Vector2(170f, -28f), new Vector2(70f, 30f));
 
         var fuelBg = UIFactory.CreatePanel(dash, "FuelBg",
@@ -176,7 +186,7 @@ public static class ManualDriveSceneBuilder
 
         Image fuelFill = MakeFillBar(fuelBg, new Color(0.95f, 0.65f, 0.15f));
 
-        var hint = UIFactory.CreateText(dash, "Hint", "A / D change lanes - Space brakes", 16f, UIFactory.TextDim);
+        var hint = UIFactory.CreateLocalizedText(dash, "Hint", "hud.manualhint", 16f, UIFactory.TextDim);
         UIFactory.Place(hint, new Vector2(0.5f, 0f), new Vector2(60f, 34f), new Vector2(290f, 40f));
 
         // Currency (top right)
@@ -204,7 +214,7 @@ public static class ManualDriveSceneBuilder
         return hud;
     }
 
-    static PassengerChip BuildChip(RectTransform parent, int index)
+    internal static PassengerChip BuildChip(RectTransform parent, int index)
     {
         var chip = UIFactory.CreateRect(parent, $"Chip_{index}",
                                         new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
@@ -347,10 +357,12 @@ public static class ManualDriveSceneBuilder
         score.rectTransform.offsetMax = Vector2.zero;
 
         Button cont = UIFactory.CreateButton(window, "ContinueButton", "Continue", new Vector2(240f, 60f));
+        UIFactory.LocalizeButton(cont, "common.continue");
         UIFactory.Place(cont, new Vector2(0.5f, 0f), new Vector2(130f, 28f), new Vector2(240f, 60f));
         cont.image.color = new Color(0.85f, 0.55f, 0.12f);
 
         Button replay = UIFactory.CreateButton(window, "ReplayButton", "Replay Leg", new Vector2(240f, 60f));
+        UIFactory.LocalizeButton(replay, "results.replay");
         UIFactory.Place(replay, new Vector2(0.5f, 0f), new Vector2(-130f, 28f), new Vector2(240f, 60f));
 
         var panel = overlay.gameObject.AddComponent<DriveResultsPanel>();

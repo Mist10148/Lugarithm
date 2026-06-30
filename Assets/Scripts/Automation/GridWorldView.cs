@@ -89,14 +89,49 @@ public class GridWorldView : MonoBehaviour, IGridSpace, IStopView
     /// <summary>Shows/hides the waiting peep on a stop (picked up / reset).</summary>
     public void SetStopOccupied(Vector2Int cell, bool occupied)
     {
+        if (!occupied)
+        {
+            RemoveWaitingPeeps(cell, 1);
+            return;
+        }
+
         if (_stopMarkers.TryGetValue(cell, out SpriteRenderer marker) && marker != null)
-            marker.enabled = occupied;
+            marker.enabled = true;
+    }
+
+    public void RemoveWaitingPeeps(Vector2Int cell, int count)
+    {
+        if (count <= 0) return;
+        if (_stopMarkers.TryGetValue(cell, out SpriteRenderer marker) && marker != null)
+            marker.enabled = false;
     }
 
     public void ResetStops()
     {
         foreach (var pair in _stopMarkers)
             if (pair.Value != null) pair.Value.enabled = true;
+    }
+
+    public void SpawnAlightingPeeps(Vector2Int cell,
+                                    System.Collections.Generic.IReadOnlyList<Color> colors)
+    {
+        if (colors == null || colors.Count == 0) return;
+
+        Sprite peep = Resources.Load<Sprite>("Placeholders/peep");
+        Vector3 world = CellToWorld(cell);
+
+        for (int i = 0; i < colors.Count; i++)
+        {
+            var go = new GameObject("AlightingPeep");
+            go.transform.position = world + new Vector3(0f, 0.22f + 0.18f * i, 0f);
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = peep;
+            sr.sortingOrder = SortOrder(cell) + 2;
+            sr.color = colors[i];
+
+            Destroy(go, 6f);
+        }
     }
 
     // -------------------------------------------------------------------------

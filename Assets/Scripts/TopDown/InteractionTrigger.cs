@@ -24,6 +24,9 @@ public class InteractionTrigger : MonoBehaviour
     [Tooltip("The prompt text shown near the player when in range.")]
     [SerializeField] private string promptText = "Press E to interact";
 
+    [Tooltip("For NPCs: the conversation id resolved against TownNpcDialogueLibrary.")]
+    [SerializeField] private string npcId = "";
+
     [Header("Visual")]
     [Tooltip("Indicator sprite rendered above the entity (e.g. exclamation mark).")]
     [SerializeField] private SpriteRenderer indicatorSprite;
@@ -54,6 +57,9 @@ public class InteractionTrigger : MonoBehaviour
     public string PromptLabel => promptLabel;
     public string PromptText => promptText;
 
+    /// <summary>For NPC triggers: the conversation id (see TownNpcDialogueLibrary).</summary>
+    public string NpcId => npcId;
+
     /// <summary>True while the player's collider overlaps this trigger.</summary>
     public bool PlayerInRange => _playerInRange;
 
@@ -65,6 +71,15 @@ public class InteractionTrigger : MonoBehaviour
         entityType  = type;
         promptLabel = label;
         promptText  = prompt;
+    }
+
+    /// <summary>Initializes an NPC trigger, carrying the conversation id.</summary>
+    public void Init(EntityType type, string label, string prompt, string conversationId)
+    {
+        entityType  = type;
+        promptLabel = label;
+        promptText  = prompt;
+        npcId       = conversationId;
     }
 
     // -------------------------------------------------------------------------

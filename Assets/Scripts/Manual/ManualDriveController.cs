@@ -61,9 +61,12 @@ public class ManualDriveController : MonoBehaviour
     DriveScoreTracker _tracker;
     PassengerManager  _passengers;
     BreakdownController _breakdown;
+    ProgressionGateController _progression;
     StreamingTown     _streaming;
     int               _maxChunks;        // int.MaxValue = endless streaming for free-roam
     int               _chunksAppended;
+    int               _chunkGenerationId;
+    readonly List<StreamedChunkView> _streamedChunkViews = new List<StreamedChunkView>();
     float _startTime;
     float _legElapsed;
     bool  _finished;
@@ -71,10 +74,22 @@ public class ManualDriveController : MonoBehaviour
     bool  _revealPlayed;    // the heritage reveal plays once, on delivery (not after the gate)
     bool  _tutorialComplete; // tutorial is dialogue-driven: ending the story completes the leg
     bool  _conversationDone; // story passenger's chat finished — a completion gate (with arrival)
+    bool  _destinationFinalized; // chat ended → capped streaming so a real drop-off terminal exists
     bool  _arrivedNudged;    // showed the "finish your chat" nudge once on early arrival
+    bool  _boardingPlayed;   // boarding/story dialogue has played this leg (never replays)
+    bool  _freeRoamStoryConsumed; // story/reveal finished; free-roam must never restart dialogue
+    bool    _storyDropoffArmed;   // a drop-off marker has been placed (dialogue ended)
+    Vector2 _storyDropoffWorld;   // fixed world position of the story drop-off
+    GameObject _storyMarker;      // distinct on-road marker at the drop-off
     string _storyPassengerName = "Your passenger";
 
+    const float StoryDropoffBufferUnits   = 14f;   // how far ahead the drop-off is placed
+    const float StoryDropoffRadius        = 3.5f;  // how close counts as "arrived" at it
+    const float StoryDropoffBufferSeconds = 2.5f;  // beat of driving after the chat before it shows
+
     const float StreamLookAhead = 45f;
+    const int ActiveChunksBehind = 2;
+    const int ActiveChunksAhead = 6;
 
     void Start()
     {
@@ -102,8 +117,13 @@ public class ManualDriveController : MonoBehaviour
                 ? proceduralSeed
                 : (System.Guid.NewGuid().GetHashCode() & 0x7fffffff);
             _streaming = StreamingTownGenerator.Begin(_def.procedural, _def.fares, seed);
-            _maxChunks = int.MaxValue;   // endless streaming: finite STORY spine + optional free-roam tail
+            _streaming.EndlessNoTerminal = true;   // no "Destination" end sign — the road never ends
+            _maxChunks = int.MaxValue;   // endless streaming; the leg ends at the story drop-off, not a terminal
             TownLayout layout = _streaming.Layout;
+            // Demote the authored terminal so no end-sign shows; the story passenger is dropped
+            // at a marked stop along the way instead (armed when the dialogue ends).
+            TownNode initialDest = layout.Node(layout.destNodeId);
+            if (initialDest != null) initialDest.kind = NodeKind.Junction;
             ManualLayoutResult projected = ManualLayoutProjector.Project(layout);
 
             _ctx       = RouteVisualBuilder.BuildProcedural(root, projected, _def.manual.roadHalfWidth);
@@ -148,6 +168,13 @@ public class ManualDriveController : MonoBehaviour
             _breakdown.Init(jeepney, engineRepairMinigame, refuelMinigame, mazeRepairMinigame,
                             toast, _tracker,
                             _ctx.TotalLength, _def.manual.breakdownAtRouteFraction);
+
+        // Progression mini-game (town gate) now pops mid-drive at a random point,
+        // not after arrival. Only levels with a town puzzle arm it.
+        _progression = GetComponent<ProgressionGateController>();
+        if (_progression != null)
+            _progression.Init(_def.townPuzzle, flowPuzzle, cratePuzzle, jeepney, toast, _tracker,
+                              _ctx.TotalLength);
 
         _startTime = Time.time;
 
@@ -264,6 +291,15 @@ public class ManualDriveController : MonoBehaviour
 
     void PlayBoardingDialogue()
     {
+        // Play the story conversation exactly once per leg — free-roam and streaming must
+        // never replay it.
+        if (_boardingPlayed || _freeRoamStoryConsumed)
+        {
+            Debug.LogWarning("[Manual] PlayBoardingDialogue re-entry blocked (dialogue already played).");
+            return;
+        }
+        _boardingPlayed = true;
+
         // No conversation for this leg → nothing to finish talking about; let arrival
         // alone complete the leg (don't deadlock the conversation gate).
         if (dialogue == null) { _conversationDone = true; return; }
@@ -286,9 +322,15 @@ public class ManualDriveController : MonoBehaviour
             // is delivering the passenger (ArrivedAtDestination), checked in Update().
             _conversationDone = true;
 
-            // The tutorial is a guided story with no destination to drive to, so
-            // finishing the dialogue IS finishing the leg.
-            if (_tutorialComplete && !_storyComplete)
+            // Now the chat's over, lock in a concrete drop-off terminal so the
+            // endless procedural stream stops receding and the leg can actually end.
+            FinalizeStoryDestination();
+
+            // On the endless procedural road (every level + tutorial) the leg ends only
+            // after driving the story passenger to their drop-off (handled by the
+            // arrival gate in Update) — finishing the chat alone must not end it. Only a
+            // non-procedural tutorial (legacy/safety) completes on its chat alone.
+            if (_tutorialComplete && !_proceduralActive && !_storyComplete)
             {
                 _storyComplete = true;
                 OnStoryComplete();
@@ -347,6 +389,7 @@ public class ManualDriveController : MonoBehaviour
 
         System.Action<MinigameResult> onDone = _ =>
         {
+            if (!repair && jeepney != null) jeepney.Refuel();
             if (jeepney != null) jeepney.InputLocked = false;
             if (dialogue != null) dialogue.ResumeAfterEvent();
         };
@@ -397,28 +440,33 @@ public class ManualDriveController : MonoBehaviour
         if (_breakdown != null)
             _breakdown.Tick(along);
 
-        // Leg ends when the player presses "Finish leg" after the destination
-        // has been serviced and every fare is settled.
+        // Hold the progression gate while a breakdown is mid-sequence so the two
+        // overlays never stack; it stays armed and fires once the road's clear.
+        if (_progression != null && (_breakdown == null || !_breakdown.InProgress))
+            _progression.Tick(along);
+
+        // The story passenger alights at their marked drop-off (placed when the chat ended),
+        // like a normal NPC: once the jeepney reaches the marker AND the chat is finished, the
+        // front-seat card disappears and the leg completes. The road keeps streaming endlessly.
         bool drawerBusy = coinDrawer != null && coinDrawer.Busy;
         bool servicing  = _passengers != null && _passengers.IsServicing;
-        bool arrived    = _passengers != null && _passengers.ArrivedAtDestination;
-
-        // The leg ends only when BOTH gates are met: the story passenger is delivered
-        // (arrived + settled) AND their conversation has finished. Either order is fine
-        // — whichever happens last triggers it. Latched so streaming's
-        // AppendChunk()->ResetDestinationArrival() can't re-hide the button afterwards.
-        bool deliverable = arrived && !drawerBusy && !servicing;
-        if (deliverable && _conversationDone && !_storyComplete)
+        if (_storyDropoffArmed && !_storyComplete && !drawerBusy && !servicing)
         {
-            _storyComplete = true;
-            OnStoryComplete();
-        }
-        else if (deliverable && !_conversationDone && !_storyComplete && !_arrivedNudged)
-        {
-            // Arrived but still mid-conversation — nudge once; completion waits for the chat.
-            _arrivedNudged = true;
-            if (toast != null)
-                toast.Show($"{_storyPassengerName} still has more to say — finish your chat.");
+            bool atDrop = Vector2.Distance((Vector2)jeepney.transform.position, _storyDropoffWorld)
+                          <= StoryDropoffRadius;
+            if (atDrop && _conversationDone)
+            {
+                _storyComplete = true;
+                ShowFrontSeatCard(null);                                  // passenger has alighted
+                if (_storyMarker != null) _storyMarker.SetActive(false);
+                OnStoryComplete();
+            }
+            else if (atDrop && !_conversationDone && !_arrivedNudged)
+            {
+                _arrivedNudged = true;
+                if (toast != null)
+                    toast.Show($"{_storyPassengerName} still has more to say — finish your chat.");
+            }
         }
 
         // Once the story is complete the Finish button stays up permanently,
@@ -426,13 +474,19 @@ public class ManualDriveController : MonoBehaviour
         if (_storyComplete && _revealPlayed && legCompletion != null && !legCompletion.IsVisible)
             legCompletion.Show();
 
-        // Stream more road ahead when the jeepney approaches the current frontier.
-        if (_proceduralActive && _streaming != null && !_finished)
+        // Stream more road ahead when the jeepney approaches the current frontier — but not
+        // while a minigame is up (the whole drive freezes behind the modal, jeepney included).
+        bool minigameActive = (_breakdown != null && _breakdown.InProgress) ||
+                              (_progression != null && _progression.InProgress);
+        if (_proceduralActive && _streaming != null && !_finished && !minigameActive)
         {
             float distToEnd = Vector2.Distance(jeepney.transform.position, _streaming.TrunkEndPos);
             if (distToEnd < StreamLookAhead)
                 AppendChunk();
         }
+
+        if (_proceduralActive)
+            RefreshChunkWindow();
     }
 
     void AppendChunk()
@@ -443,10 +497,17 @@ public class ManualDriveController : MonoBehaviour
 
         TownChunk chunk = StreamingTownGenerator.AppendChunk(_streaming);
         if (chunk == null || chunk.nodes.Count == 0) return;
+        StreamedChunkView chunkView = CreateChunkView(chunk);
 
         Transform root = worldRoot != null ? worldRoot : transform;
         ManualLayoutResult delta = ManualLayoutProjector.ProjectChunk(_streaming.Layout, chunk);
-        RouteVisualBuilder.AppendProcedural(root, _ctx, delta, _def.manual.roadHalfWidth);
+        RouteVisualBuilder.AppendProcedural(root, _ctx, delta, _def.manual.roadHalfWidth,
+                                            chunkView != null ? chunkView.root : null);
+        if (chunkView != null)
+        {
+            chunkView.SetActive(true);
+            _streamedChunkViews.Add(chunkView);
+        }
         _segments = _ctx.Segments;
         if (jeepney != null)
             jeepney.SetDriveLine(_ctx.Waypoints, preserveLane: true);
@@ -459,6 +520,136 @@ public class ManualDriveController : MonoBehaviour
 
         if (toast != null && _ctx.DestinationZone != null)
             toast.Show($"Keep driving to {_ctx.DestinationZone.StopName}");
+        RefreshChunkWindow();
+    }
+
+    StreamedChunkView CreateChunkView(TownChunk chunk)
+    {
+        if (chunk == null) return null;
+        Transform rootParent = worldRoot != null ? worldRoot : transform;
+        var root = new GameObject($"StreamedChunk_{chunk.chunkIndex:000}");
+        root.transform.SetParent(rootParent, false);
+
+        var view = new StreamedChunkView
+        {
+            chunkIndex = chunk.chunkIndex,
+            generationId = ++_chunkGenerationId,
+            root = root.transform,
+            minAlong = float.PositiveInfinity,
+            maxAlong = float.NegativeInfinity,
+        };
+
+        foreach (TownNode node in chunk.nodes)
+        {
+            if (node == null) continue;
+            view.nodeIds.Add(node.id);
+            view.minAlong = Mathf.Min(view.minAlong, node.alongTrunk);
+            view.maxAlong = Mathf.Max(view.maxAlong, node.alongTrunk);
+        }
+
+        if (float.IsInfinity(view.minAlong))
+        {
+            view.minAlong = 0f;
+            view.maxAlong = 0f;
+        }
+        return view;
+    }
+
+    void RefreshChunkWindow()
+    {
+        if (_streamedChunkViews.Count == 0 || jeepney == null || _ctx == null || _ctx.Waypoints == null)
+            return;
+
+        float currentAlong = RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out _);
+        int currentChunkIndex = _streamedChunkViews[0].chunkIndex;
+        foreach (StreamedChunkView view in _streamedChunkViews)
+        {
+            if (currentAlong >= view.minAlong)
+                currentChunkIndex = view.chunkIndex;
+            if (currentAlong <= view.maxAlong)
+                break;
+        }
+
+        int minChunk = currentChunkIndex - ActiveChunksBehind;
+        int maxChunk = currentChunkIndex + ActiveChunksAhead;
+        foreach (StreamedChunkView view in _streamedChunkViews)
+        {
+            bool inWindow = view.chunkIndex >= minChunk && view.chunkIndex <= maxChunk;
+            if (!inWindow && HasPendingRideInChunk(view))
+                inWindow = true;
+            if (view.active != inWindow)
+                view.SetActive(inWindow);
+        }
+    }
+
+    bool HasPendingRideInChunk(StreamedChunkView view)
+    {
+        if (view == null || _pendingBoarding == null || _ctx == null || _ctx.ZoneByNode == null)
+            return false;
+        foreach (KeyValuePair<int, StopZone> pair in _ctx.ZoneByNode)
+        {
+            if (!view.nodeIds.Contains(pair.Key)) continue;
+            StopZone zone = pair.Value;
+            if (zone != null && _pendingBoarding.TryGetValue(zone.StopIndex, out List<PassengerManager.PendingBoard> pending) &&
+                pending != null && pending.Count > 0)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Called once the front-seat character's chat ends. Marks the story passenger's drop-off
+    /// a short distance ahead on the road and pins it to a fixed world position — the road keeps
+    /// streaming forever (no cap, no end terminal). The passenger alights there like any NPC
+    /// (Update's proximity check), which hides the front-seat card and completes the leg.
+    /// </summary>
+    void FinalizeStoryDestination()
+    {
+        if (_destinationFinalized) return;
+        _destinationFinalized = true;
+
+        if (_proceduralActive && _ctx != null && _ctx.Waypoints != null && jeepney != null)
+        {
+            // Buffer: keep driving a beat after the chat, THEN show the drop-off ahead.
+            if (toast != null)
+                toast.Show($"“Para!”  {_storyPassengerName}'s stop is coming up…");
+            StartCoroutine(ArmStoryDropoffAfterBuffer());
+        }
+    }
+
+    /// <summary>Waits a short buffer after the dialogue, then places the story drop-off marker
+    /// ahead of the jeepney's CURRENT position (so it's always ahead) and shows it.</summary>
+    System.Collections.IEnumerator ArmStoryDropoffAfterBuffer()
+    {
+        yield return new WaitForSeconds(StoryDropoffBufferSeconds);
+        if (_storyComplete || _ctx == null || _ctx.Waypoints == null || jeepney == null) yield break;
+
+        float along = RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out _);
+        _storyDropoffWorld = RouteMath.PointAt(_ctx.Waypoints, along + StoryDropoffBufferUnits);
+        _storyDropoffArmed = true;
+        SpawnStoryMarker(_storyDropoffWorld);
+        if (toast != null)
+            toast.Show($"Drop {_storyPassengerName} at the marked stop ahead.");
+    }
+
+    /// <summary>Spawns (or repositions) the distinct on-road marker at the story drop-off.</summary>
+    void SpawnStoryMarker(Vector2 world)
+    {
+        Transform root = worldRoot != null ? worldRoot : transform;
+        if (_storyMarker == null)
+        {
+            _storyMarker = new GameObject("StoryDropoffMarker");
+            _storyMarker.transform.SetParent(root, false);
+            var sr = _storyMarker.AddComponent<SpriteRenderer>();
+            var tex = Texture2D.whiteTexture;
+            sr.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
+                                      new Vector2(0.5f, 0.5f), tex.width);
+            sr.color = new Color(0.30f, 0.85f, 0.95f, 1f);   // bright cyan beacon
+            sr.sortingOrder = 8;
+            _storyMarker.transform.localScale = new Vector3(2f, 2f, 1f);
+        }
+        _storyMarker.transform.position = new Vector3(world.x, world.y, 0f);
+        _storyMarker.SetActive(true);
     }
 
     /// <summary>
@@ -468,9 +659,16 @@ public class ManualDriveController : MonoBehaviour
     /// </summary>
     void OnStoryComplete()
     {
+        if (_progression != null && !_progression.AllDone)
+        {
+            _progression.RunRemaining(OnStoryComplete);
+            return;
+        }
+
         System.Action onDone = () =>
         {
             _revealPlayed = true;
+            _freeRoamStoryConsumed = true;
             // Congratulate, then let the player choose: keep free-roaming the
             // endless procedural town, or finish the leg. Input stays locked under
             // the card (PassengerManager locks it at the destination) and is only
@@ -503,6 +701,14 @@ public class ManualDriveController : MonoBehaviour
     void OnKeepExploring()
     {
         if (jeepney != null) jeepney.InputLocked = false;
+        _freeRoamStoryConsumed = true;
+        if (dialogue != null) dialogue.StopAndHide();
+
+        // Resume endless streaming for free-roam (the story drop-off capped it). Junction
+        // frontiers from here on, so no fresh "Destination" terminals appear past the drop-off.
+        _maxChunks = int.MaxValue;
+        if (_streaming != null) _streaming.EndlessNoTerminal = true;
+
         if (toast != null)
             toast.Show("Keep exploring — press Finish leg whenever you're ready.");
     }
@@ -513,24 +719,15 @@ public class ManualDriveController : MonoBehaviour
         _finished = true;
         jeepney.InputLocked = true;
         if (legCompletion != null) legCompletion.Hide();
-        _legElapsed = Time.time - _startTime;   // freeze drive time before the gate
+        _legElapsed = Time.time - _startTime;   // freeze drive time
 
-        // The town gate (non-code Mini-Game 2) must be solved before results.
-        bool shown = ShowTownGate(2000 + _levelIndex, result =>
+        if (_progression != null && !_progression.AllDone)
         {
-            _tracker.AddSatisfaction(result.Score);   // fold the gate score into the leg
-            PlayRevealThenResults();
-        });
+            _progression.RunRemaining(PlayRevealThenResults);
+            return;
+        }
 
-        if (shown)
-        {
-            if (toast != null)
-                toast.Show($"Arrived at {_def.displayName} — clear the gate to finish the leg.");
-        }
-        else
-        {
-            PlayRevealThenResults();
-        }
+        PlayRevealThenResults();
     }
 
     void PlayRevealThenResults()
@@ -555,19 +752,13 @@ public class ManualDriveController : MonoBehaviour
         dialogue.PlayReveal(convo, page, ShowResults);
     }
 
-    /// <summary>Runs BOTH town-gate puzzles (random order) before finishing the leg.</summary>
-    bool ShowTownGate(int seed, System.Action<MinigameResult> onDone)
-    {
-        return TownGateRunner.RunBoth(flowPuzzle, cratePuzzle, seed, onDone);
-    }
-
     void ShowResults()
     {
         int score = _tracker.ComputeScore(_legElapsed, _def.manual.parTimeSeconds);
         int bonus = ScoreCalculator.CurrencyFor(score);
 
         if (GameManager.Instance != null)
-            GameManager.Instance.PendingCurrency += bonus;
+            GameManager.Instance.EarnCurrency(bonus);
 
         int earnedTotal = GameManager.Instance != null
             ? GameManager.Instance.PendingCurrency
@@ -582,6 +773,7 @@ public class ManualDriveController : MonoBehaviour
                 onContinue: () =>
                 {
                     MarkComplete(score);
+                    if (resultsPanel != null) resultsPanel.Hide();
                     if (BadgeUnlockManager.Instance != null)
                         BadgeUnlockManager.Instance.Show(_levelIndex, () => LoadScene("LevelSelect"));
                     else

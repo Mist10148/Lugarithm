@@ -22,6 +22,14 @@ public class DialogBox : MonoBehaviour
     public bool UseTypewriter { get => useTypewriter; set => useTypewriter = value; }
     public float CharsPerSecond { get => charsPerSecond; set => charsPerSecond = value; }
 
+    /// <summary>When false (Subtitles OFF) the line text is hidden while the bar,
+    /// speaker name, and Next/Skip stay usable. The reveal still runs underneath, so
+    /// turning subtitles back on mid-line shows the rest.</summary>
+    public bool BodyVisible
+    {
+        set { if (bodyLabel != null) bodyLabel.enabled = value; }
+    }
+
     private Coroutine _revealRoutine;
     private string    _fullText = "";
     private bool      _isRevealing;

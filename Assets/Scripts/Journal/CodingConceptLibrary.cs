@@ -32,21 +32,31 @@ public static class CodingConceptLibrary
                     "You write it as a name followed by a pair of parentheses <b>()</b> — the " +
                     "parentheses are how the computer knows you mean \"do this action now.\"\n\n" +
                     "Driving commands: <b>moveForward()</b> drives one tile ahead, <b>turnLeft()</b> " +
-                    "and <b>turnRight()</b> rotate the jeepney without moving. Passenger commands: " +
-                    "<b>pickUp()</b>, <b>dropOff()</b>, and <b>collectFare()</b>. To pause for a beat, " +
+                    "and <b>turnRight()</b> rotate the jeepney to take the side of the road without " +
+                    "moving. To ride the lanes, <b>moveLeft()</b> and <b>moveRight()</b> slide the " +
+                    "jeepney one lane sideways while it keeps facing ahead — like changing lanes in " +
+                    "Manual mode. Route helpers " +
+                    "<b>driveToNextStop()</b>, <b>driveToDropoff()</b> and <b>keepDriving()</b> plan smooth " +
+                    "road paths for you — see <b>Endless Driving</b> for the never-ending road. " +
+                    "Passenger commands: <b>pickUp()</b>, <b>dropOff()</b>, <b>collectFare()</b>, and " +
+                    "<b>giveChange(amount)</b>. To pause for a beat, " +
                     "use <b>wait()</b>.\n\n" +
-                    "<b>Watch out:</b> the jeepney only turns — it never moves sideways. After a turn " +
-                    "you still need a <b>moveForward()</b> to actually go that way. Forgetting it is " +
-                    "the most common beginner slip.",
+                    "<b>Watch out:</b> <b>turnLeft()</b>/<b>turnRight()</b> rotate but don't move — after " +
+                    "a turn you still need a <b>moveForward()</b> to actually go that way. To shift lanes " +
+                    "without turning, use <b>moveLeft()</b>/<b>moveRight()</b> instead.",
                 codeExample =
                     "<mspace=0.6em># Pull up to a waiting rider, then carry them one tile on:\n" +
                     "moveForward()\n" +
                     "pickUp()        # rider boards\n" +
-                    "collectFare()   # they pay\n" +
+                    "collectFare()   # they hand over cash\n" +
+                    "giveChange(changeOwed())\n" +
                     "moveForward()\n" +
                     "dropOff()       # rider gets off\n\n" +
                     "# Turning needs a move afterwards to go that way:\n" +
                     "turnLeft()\n" +
+                    "moveForward()\n\n" +
+                    "# Change lane without turning — slide over, then carry on:\n" +
+                    "moveLeft()\n" +
                     "moveForward()</mspace>"
             },
 
@@ -57,7 +67,9 @@ public static class CodingConceptLibrary
                     "A <b>query</b> lets the jeepney <i>look around</i> and report back either " +
                     "<b>True</b> or <b>False</b>. Think of them as yes/no questions about the world: " +
                     "<b>frontIsClear()</b> asks \"is the tile ahead open?\", <b>atStop()</b> asks " +
-                    "\"am I on a passenger stop?\", and <b>atDestination()</b> asks \"have I arrived?\"\n\n" +
+                    "\"am I on a passenger stop?\", and <b>routeComplete()</b> asks whether every required " +
+                    "rider is delivered and the jeepney is at the current terminal. <b>atDestination()</b> " +
+                    "still exists for maze-style puzzles.\n\n" +
                     "Other handy queries: <b>leftIsClear()</b>, <b>rightIsClear()</b>, " +
                     "<b>passengerWaiting()</b>, <b>isFull()</b>, and <b>hasPassengerAboard()</b>.\n\n" +
                     "<b>Watch out:</b> a query only <i>answers</i> a question — it doesn't <i>do</i> " +
@@ -87,10 +99,11 @@ public static class CodingConceptLibrary
                     "If the jeepney does things in a strange order, re-read your lines top to bottom " +
                     "and check the sequence first.",
                 codeExample =
-                    "<mspace=0.6em># Correct order: arrive, board, pay, then drive on.\n" +
+                    "<mspace=0.6em># Correct order: arrive, board, collect, give change, then drive on.\n" +
                     "moveForward()\n" +
                     "pickUp()\n" +
                     "collectFare()\n" +
+                    "giveChange(changeOwed())\n" +
                     "moveForward()\n" +
                     "dropOff()\n\n" +
                     "# Wrong order: dropping off before anyone boarded does nothing.\n" +
@@ -186,11 +199,14 @@ public static class CodingConceptLibrary
                     "jeepney keeps moving toward the goal each time around.",
                 codeExample =
                     "<mspace=0.6em># Repeat until you arrive — the classic driving loop:\n" +
-                    "while not atDestination():\n" +
-                    "    if frontIsClear():\n" +
-                    "        moveForward()\n" +
-                    "    else:\n" +
-                    "        turnLeft()\n\n" +
+                    "while not routeComplete():\n" +
+                    "    driveToNextStop()\n" +
+                    "    if passengerWaiting():\n" +
+                    "        pickUp()\n" +
+                    "        collectFare()\n" +
+                    "        giveChange(changeOwed())\n" +
+                    "    if atRequestedStop():\n" +
+                    "        dropOff()\n\n" +
                     "# Do something an exact number of times:\n" +
                     "for i in range(3):\n" +
                     "    moveForward()</mspace>"
@@ -264,6 +280,198 @@ public static class CodingConceptLibrary
                     "# The same idea, flattened with 'and':\n" +
                     "if atStop() and not isFull():\n" +
                     "    pickUp()</mspace>"
+            },
+
+            new CodingConceptEntry
+            {
+                title = "Comments & Readability",
+                body =
+                    "A <b>comment</b> is a note to yourself that the computer ignores. Anything after a " +
+                    "<b>#</b> on a line is a comment. Use them to explain <i>why</i> a piece of code is " +
+                    "there, label a section, or temporarily switch a line off without deleting it.\n\n" +
+                    "Good names and short comments turn a wall of commands into something you can re-read " +
+                    "next week and still understand.\n\n" +
+                    "<b>Watch out:</b> a comment can't make wrong code right — it only explains. Keep " +
+                    "comments honest; a comment that disagrees with the code is worse than none.",
+                codeExample =
+                    "<mspace=0.6em># Pick up the rider, then settle the fare:\n" +
+                    "pickUp()\n" +
+                    "collectFare()        # they pay\n" +
+                    "giveChange(changeOwed())   # hand back the difference\n\n" +
+                    "# Switch a line off by commenting it out:\n" +
+                    "# honk()</mspace>"
+            },
+
+            new CodingConceptEntry
+            {
+                title = "Indentation & Whitespace",
+                body =
+                    "<b>Indentation</b> — the spaces at the start of a line — is how the language knows " +
+                    "which lines belong <i>inside</i> an <b>if</b>, <b>while</b>, <b>for</b>, or <b>def</b>. " +
+                    "Every line in the same block lines up at the same depth; going one step deeper means " +
+                    "you're inside the block above.\n\n" +
+                    "Pick one step size (4 spaces is standard) and keep it consistent. The colon <b>:</b> " +
+                    "at the end of a header line always introduces an indented block beneath it.\n\n" +
+                    "<b>Watch out:</b> mixing indent sizes (some lines 2 spaces, some 4) is the most common " +
+                    "\"this line's indentation doesn't line up\" error. Blank lines and spacing around " +
+                    "<b>=</b> are free — use them to group related steps.",
+                codeExample =
+                    "<mspace=0.6em>while not routeComplete():\n" +
+                    "    driveToNextStop()      # inside the while\n" +
+                    "    if passengerWaiting(): # inside the while\n" +
+                    "        pickUp()           # inside the if\n" +
+                    "moveForward()              # back outside the while</mspace>"
+            },
+
+            new CodingConceptEntry
+            {
+                title = "Booleans, True / False & None",
+                body =
+                    "A <b>boolean</b> is a value that is either <b>True</b> or <b>False</b> — the answer to a " +
+                    "yes/no question. Every query (like <b>frontIsClear()</b>) hands back a boolean, and " +
+                    "every condition in an <b>if</b>/<b>while</b> boils down to one.\n\n" +
+                    "You can store a boolean in a variable and combine booleans with <b>and</b>, <b>or</b>, " +
+                    "<b>not</b>. <b>None</b> is a special \"nothing here\" value — what a function gives back " +
+                    "when it doesn't <b>return</b> anything.\n\n" +
+                    "<b>Watch out:</b> <b>while True:</b> loops forever on purpose (see Endless Driving); make " +
+                    "sure that's what you want. And a bare query line like <b>isFull()</b> just produces " +
+                    "True/False and throws it away — put it in a condition or a variable.",
+                codeExample =
+                    "<mspace=0.6em>full = isFull()        # store a True/False\n" +
+                    "if not full and passengerWaiting():\n" +
+                    "    pickUp()\n\n" +
+                    "# True is a literal boolean — this loop runs until you stop it:\n" +
+                    "# while True:\n" +
+                    "#     keepDriving()</mspace>"
+            },
+
+            new CodingConceptEntry
+            {
+                title = "Stopping a Loop (break / continue)",
+                body =
+                    "Inside a loop, <b>break</b> jumps out of it immediately, and <b>continue</b> skips the " +
+                    "rest of this turn and goes straight to the next one. They give you finer control than " +
+                    "the loop's condition alone.\n\n" +
+                    "<b>break</b> is handy with <b>while True:</b> — loop forever, then leave the moment some " +
+                    "situation comes up. <b>continue</b> is handy to bail out early on a tile where there's " +
+                    "nothing to do.\n\n" +
+                    "<b>Watch out:</b> <b>break</b> and <b>continue</b> only affect the <i>innermost</i> loop " +
+                    "they sit in. Overusing them can make a loop hard to follow — often a clearer condition " +
+                    "does the same job.",
+                codeExample =
+                    "<mspace=0.6em>while True:\n" +
+                    "    keepDriving()\n" +
+                    "    if routeComplete():\n" +
+                    "        break              # delivered everyone — leave the loop\n" +
+                    "    if not passengerWaiting():\n" +
+                    "        continue           # nothing to board here; carry on\n" +
+                    "    pickUp()</mspace>"
+            },
+
+            new CodingConceptEntry
+            {
+                title = "Endless Driving (the never-ending road)",
+                body =
+                    "Automation roads never end — the town keeps generating ahead of you. Three commands " +
+                    "make driving them easy:\n\n" +
+                    "<b>driveToNextStop()</b> rolls to the nearest stop that has someone waiting or aboard. " +
+                    "<b>driveToDropoff()</b> heads straight for your <i>story</i> passenger's drop-off — " +
+                    "delivering them is what <b>completes the leg</b>. <b>keepDriving()</b> cruises on along " +
+                    "the endless road, serving anyone nearby, so the jeepney never has to stop.\n\n" +
+                    "The leg finishes the moment your story rider is dropped off (<b>routeComplete()</b> turns " +
+                    "True), but the road carries on — you can <b>keepDriving()</b> as long as you like to " +
+                    "pick up more riders.\n\n" +
+                    "<b>Watch out:</b> after a turn you still owe a move; the drive-helpers handle that for " +
+                    "you, but hand-stepping with moveForward()/turnLeft() does not.",
+                codeExample =
+                    "<mspace=0.6em># Deliver the story rider, then the leg is done:\n" +
+                    "while not routeComplete():\n" +
+                    "    driveToNextStop()\n" +
+                    "    if passengerWaiting():\n" +
+                    "        pickUp()\n" +
+                    "        collectFare()\n" +
+                    "        giveChange(changeOwed())\n" +
+                    "    if atRequestedStop():\n" +
+                    "        dropOff()\n\n" +
+                    "# Or cruise the endless road forever:\n" +
+                    "while True:\n" +
+                    "    keepDriving()</mspace>"
+            },
+
+            new CodingConceptEntry
+            {
+                title = "Full Command Catalog",
+                body =
+                    "Every name the jeepney understands, in one place. <b>Actions</b> <i>do</i> something " +
+                    "(one tick each), <b>queries</b> answer True/False, and <b>reporters</b> hand back a " +
+                    "number or word you can use in a calculation.\n\n" +
+                    "<b>Actions:</b> moveForward(), turnLeft(), turnRight(), moveLeft(), moveRight(), wait(), " +
+                    "driveToNextStop(), driveToDropoff(), driveToTerminal(), driveToDestination(), " +
+                    "keepDriving(), openDoor(), closeDoor(), pickUp() / board(), dropOff() / alight(), " +
+                    "collectFare(), giveChange(amount), announceStop(), honk(). " +
+                    "Maze drills add markCell(), unmark().\n\n" +
+                    "<b>Queries (yes/no):</b> frontIsClear(), leftIsClear(), rightIsClear(), atStop(), " +
+                    "atRequestedStop(), passengerWaiting(), hasPassengerAboard(), isFull(), " +
+                    "routeComplete(), atDestination(). Maze drills add atGoal(), isMarked().\n\n" +
+                    "<b>Reporters (a value):</b> seatsLeft(), passengerCount(), passengerType(), fareOwed(), " +
+                    "cashTendered(), changeOwed(), distanceTraveled(), distanceToDestination(), " +
+                    "currentStop(), nextStop(). Maze drills add position().\n\n" +
+                    "<b>Watch out:</b> only some commands are unlocked per level — the palette and " +
+                    "autocomplete show what's available right now.",
+                codeExample =
+                    "<mspace=0.6em># Reporters feed calculations and arguments:\n" +
+                    "owed = changeOwed()\n" +
+                    "giveChange(owed)\n\n" +
+                    "# Queries belong in conditions:\n" +
+                    "if seatsLeft() > 0 and passengerWaiting():\n" +
+                    "    pickUp()</mspace>"
+            },
+
+            new CodingConceptEntry
+            {
+                title = "Common Errors & How to Read Them",
+                body =
+                    "When a program won't run, the message tells you the <b>line</b> and a plain-English " +
+                    "reason — no jargon. Read it literally, then look at that line and the one above it.\n\n" +
+                    "Frequent ones: <i>\"expected ':' at the end…\"</i> — an if/while/for/def header needs a " +
+                    "colon. <i>\"this line's indentation doesn't line up…\"</i> — a block's lines aren't at " +
+                    "the same depth (see Indentation). <i>\"…needs N inputs but got M\"</i> — a command got " +
+                    "the wrong number of values in its (). <i>\"did you mean …?\"</i> — a name is misspelled.\n\n" +
+                    "If it runs but doesn't win, the co-pilot describes the <b>gap</b> (e.g. a rider still " +
+                    "needs dropping). Fix one thing, RUN again, repeat.\n\n" +
+                    "<b>Watch out:</b> the computer does exactly what you wrote. If behaviour looks wrong, " +
+                    "re-read top to bottom and check the <b>order</b> of your lines first.",
+                codeExample =
+                    "<mspace=0.6em># Missing colon  →  \"expected ':' at the end of the if-line\"\n" +
+                    "# if atStop()\n" +
+                    "#     pickUp()\n\n" +
+                    "# Fixed:\n" +
+                    "if atStop():\n" +
+                    "    pickUp()</mspace>"
+            },
+
+            new CodingConceptEntry
+            {
+                title = "Autopilot (Testing)",
+                body =
+                    "Some screens have an <b>Autopilot</b> button. It drops a known-good solution into your " +
+                    "editor (or snaps it together on the block canvas) and presses RUN for you, so you can " +
+                    "watch a correct program drive the route or solve the maze end-to-end.\n\n" +
+                    "It's a <i>testing and learning</i> aid — a worked example you can read, tweak, and learn " +
+                    "from, not a substitute for writing your own. On the endless road the autopilot delivers " +
+                    "the required rider to complete the leg.\n\n" +
+                    "<b>Watch out:</b> autopilot overwrites what's currently in the editor/canvas. Copy " +
+                    "anything you want to keep before pressing it.",
+                codeExample =
+                    "<mspace=0.6em># A maze solver autopilot loads the wall-follower:\n" +
+                    "while not atDestination():\n" +
+                    "    if rightIsClear():\n" +
+                    "        turnRight()\n" +
+                    "        moveForward()\n" +
+                    "    elif frontIsClear():\n" +
+                    "        moveForward()\n" +
+                    "    else:\n" +
+                    "        turnLeft()</mspace>"
             },
         };
     }

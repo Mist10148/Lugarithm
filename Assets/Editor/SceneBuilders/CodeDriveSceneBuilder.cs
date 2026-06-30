@@ -86,24 +86,14 @@ public static class CodeDriveSceneBuilder
         Button reset  = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "ResetButton", "Reset",  76f);
         Button step   = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "StepButton",  "Step",    68f);
 
-        Slider speedSlider = UIFactory.CreateSlider(controlBar, "SpeedSlider", new Vector2(160f, 34f));
-        speedSlider.minValue = 0.2f;
-        speedSlider.maxValue = 8f;
-        speedSlider.value = 1f;
-        var sliderLe = speedSlider.gameObject.GetComponent<LayoutElement>();
-        if (sliderLe == null) sliderLe = speedSlider.gameObject.AddComponent<LayoutElement>();
-        sliderLe.preferredWidth = 160f;
-        sliderLe.preferredHeight = 34f;
-
-        TMP_Text speedLabel = UIFactory.CreateText(controlBar, "SpeedLabel", "×1.0", 20f, UIFactory.TextBright);
-        var labelLe = speedLabel.gameObject.GetComponent<LayoutElement>();
-        if (labelLe == null) labelLe = speedLabel.gameObject.AddComponent<LayoutElement>();
-        labelLe.preferredWidth = 56f;
-        labelLe.preferredHeight = 36f;
+        // Speed is a single cycle button (tap to step ×0.5 → ×1 → ×2 → ×4 → …); its
+        // own face is the readout, so speedLabel points at the button's child label.
+        Button speedButton = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "SpeedButton", "×1.0", 96f);
+        TMP_Text speedLabel = speedButton.GetComponentInChildren<TMP_Text>();
 
         // Top-right buttons: Exit, workspace toggle, Commands.
         Button exit = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit", new Vector2(110f, 42f));
-        UIFactory.Place(exit, new Vector2(1f, 1f), new Vector2(-10f, -8f), new Vector2(110f, 42f));
+        UIFactory.Place(exit, new Vector2(1f, 1f), new Vector2(-24f, -84f), new Vector2(130f, 44f));
         var link = exit.gameObject.AddComponent<SceneLink>();
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
@@ -113,16 +103,16 @@ public static class CodeDriveSceneBuilder
         // instead of stacked under the goal banner on the left.
         Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
                                                          "Editor: Blocks", new Vector2(170f, 42f), 18f);
-        UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-10f, -158f), new Vector2(170f, 42f));
+        UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-24f, -240f), new Vector2(170f, 42f));
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         Button workspaceToggle = UIFactory.CreateButton(canvas.transform, "WorkspaceToggle",
                                                         "▤ Workspace", new Vector2(170f, 42f), 20f);
-        UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-10f, -58f), new Vector2(170f, 42f));
+        UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-24f, -136f), new Vector2(170f, 42f));
 
         Button journalToggle = UIFactory.CreateButton(canvas.transform, "JournalToggle",
                                                       "Journal", new Vector2(170f, 42f), 20f);
-        UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-10f, -108f), new Vector2(170f, 42f));
+        UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-24f, -188f), new Vector2(170f, 42f));
         journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
 
         // Front-seat story-passenger card (top-center): who you're coding for + talking to.
@@ -136,37 +126,45 @@ public static class CodeDriveSceneBuilder
         frontSeatLabel.rectTransform.offsetMax = new Vector2(-12f, 0f);
         frontSeat.gameObject.SetActive(false);
 
+        RectTransform runStatus = AutomationDriveSceneBuilder.BuildRunStatusHud(
+            canvas.transform, out TMP_Text walletLabel, out Image autoFuelFill);
+        UIFactory.Place(runStatus, new Vector2(1f, 1f), new Vector2(-24f, -22f), new Vector2(260f, 50f));
+
+        RectTransform gaugePanel = AutomationDriveSceneBuilder.BuildAutomationGaugePanel(
+            canvas.transform, out Image gaugeFuelFill, out TMP_Text gaugeSpeedLabel,
+            out RectTransform gaugeSpeedNeedle);
+        UIFactory.Place(gaugePanel, new Vector2(0f, 0f), new Vector2(18f, 12f), new Vector2(470f, 150f));
+
         Button commands = UIFactory.CreateButton(canvas.transform, "CommandsButton",
                                                  "Commands ?", new Vector2(160f, 42f), 20f);
-        UIFactory.Place(commands, new Vector2(1f, 1f), new Vector2(-190f, -58f), new Vector2(160f, 42f));
+        UIFactory.Place(commands, new Vector2(1f, 1f), new Vector2(-204f, -136f), new Vector2(160f, 42f));
 
         // --- Workspace overlay (compact left dock, toggleable) ----------------------
 
-        var workspace = UIFactory.CreatePanel(canvas.transform, "Workspace",
-                                              new Vector2(0f, 0f), new Vector2(0.365f, 1f),
-                                              UIFactory.PanelDarker);
-        workspace.offsetMin = new Vector2(16f, 16f);
-        workspace.offsetMax = new Vector2(-4f, -204f);
+        var workspace = UIFactory.CreateRect(canvas.transform, "Workspace",
+                                             Vector2.zero, Vector2.one,
+                                             Vector2.zero, Vector2.zero);
 
         // Editor windows: Block and Code each in their own titled floating panel,
         // stacked in the same area. The active editor is chosen by the Block/Code
         // setting (the controller shows exactly one), so Code mode shows no blocks.
         var editorArea = UIFactory.CreateRect(workspace, "EditorArea",
-                                              new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(8f, 8f), new Vector2(-8f, -8f));
+                                              Vector2.zero, Vector2.one,
+                                              Vector2.zero, Vector2.zero);
+        // This scene has its own standalone controlBar (above) for Run/Pause/Reset/Step/
+        // Speed, so the windows' embedded toolbar (used by AutomationDrive) is skipped here.
         RectTransform blockPanel = AutomationDriveSceneBuilder.BuildBlockWindow(
-            editorArea, canvasRoot, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas);
-        blockPanel.anchorMin = Vector2.zero;
-        blockPanel.anchorMax = Vector2.one;
-        blockPanel.offsetMin = Vector2.zero;
-        blockPanel.offsetMax = Vector2.zero;
+            editorArea, canvasRoot, out BlockPaletteController paletteCtrl, out BlockCanvasController blockCanvas,
+            out _, out _, out _, out _, out _, out _, out _, embedToolbar: false);
+        AutomationDriveSceneBuilder.PlaceFloatingEditorWindow(
+            blockPanel, new Vector2(520f, -170f), new Vector2(760f, 780f));
 
         RectTransform codePanel = AutomationDriveSceneBuilder.BuildCodeWindow(
-            editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl);
-        codePanel.anchorMin = Vector2.zero;
-        codePanel.anchorMax = Vector2.one;
-        codePanel.offsetMin = Vector2.zero;
-        codePanel.offsetMax = Vector2.zero;
+            editorArea, out CodeEditorController codeEditor, out VibeCodingController vibeCtrl,
+            out _, out _, out _, out _, out _, out _, out _,
+            out ConsoleController console, out TerminalPanelController terminal, embedToolbar: false);
+        AutomationDriveSceneBuilder.PlaceFloatingEditorWindow(
+            codePanel, new Vector2(520f, -170f), new Vector2(760f, 780f));
 
         // (The old bottom "terminal" band — a state-monitor line + console log — was
         // removed; the editor now fills that reclaimed space and the in-window AI
@@ -208,6 +206,8 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "blockCanvas",    blockCanvas);
         SceneBuilderUtil.Wire(controller, "palette",        paletteCtrl);
         SceneBuilderUtil.Wire(controller, "codeEditor",     codeEditor);
+        SceneBuilderUtil.Wire(controller, "console",        console);
+        SceneBuilderUtil.Wire(controller, "terminal",       terminal);
         SceneBuilderUtil.Wire(controller, "vibeCtrl",       vibeCtrl);
         SceneBuilderUtil.Wire(controller, "deriveGridFromRoute",   true);
         SceneBuilderUtil.Wire(controller, "workspaceToggleButton", workspaceToggle);
@@ -218,11 +218,27 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "runButton",    run);
         SceneBuilderUtil.Wire(controller, "pauseButton",  pause);
         SceneBuilderUtil.Wire(controller, "resetButton",  reset);
-        SceneBuilderUtil.Wire(controller, "speedSlider",  speedSlider);
+        SceneBuilderUtil.Wire(controller, "speedButton",  speedButton);
         SceneBuilderUtil.Wire(controller, "speedLabel",   speedLabel);
         SceneBuilderUtil.Wire(controller, "stepButton",   step);
         SceneBuilderUtil.Wire(controller, "editorModeToggle", editorModeToggle);
         SceneBuilderUtil.Wire(controller, "results",      results);
+        SceneBuilderUtil.Wire(controller, "walletLabel",  walletLabel);
+        SceneBuilderUtil.Wire(controller, "automationFuelFill", autoFuelFill);
+        SceneBuilderUtil.Wire(controller, "gaugeFuelFill",  gaugeFuelFill);
+        SceneBuilderUtil.Wire(controller, "gaugeSpeedLabel", gaugeSpeedLabel);
+        SceneBuilderUtil.Wire(controller, "gaugeSpeedNeedle", gaugeSpeedNeedle);
+
+        // Drop-off dulog markers (world pin per onboard passenger + off-screen compass arrow).
+        var dulogEdgeLayer = UIFactory.CreateRect(canvas.transform, "DulogEdgeLayer",
+                                                  Vector2.zero, Vector2.one);
+        dulogEdgeLayer.offsetMin = Vector2.zero;
+        dulogEdgeLayer.offsetMax = Vector2.zero;
+        var dulogGo = new GameObject("DulogMarkers");
+        var dulogMarkers = dulogGo.AddComponent<AutomationDulogMarkerController>();
+        SceneBuilderUtil.Wire(dulogMarkers, "edgeArrowParent", dulogEdgeLayer);
+        SceneBuilderUtil.Wire(controller, "dulogMarkers", dulogMarkers);
+
         SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);
@@ -277,28 +293,41 @@ Settings), then press ▶ RUN. One action runs per tick.
 <b>ACTIONS</b>  (do something; one tick each)
   moveForward()   move one tile in the way you're facing (bumps on a wall)
   turnLeft()      rotate 90° left      turnRight()  rotate 90° right
+  driveToNextStop()  path to the next rider stop or terminal
+  driveToTerminal()  path to the current route terminal
   pickUp()        board the passenger on this stop
-  dropOff()       let passengers off at the destination
-  collectFare()   collect fare from everyone aboard
+  collectFare()   collect fare and record tender
+  giveChange(amount)  give exact sukli; use giveChange(changeOwed())
+  dropOff()       let settled passengers off at their requested stop
 
 <b>CONDITIONS</b>  (ask a yes/no question; used by if / while)
   frontIsClear()   leftIsClear()   rightIsClear()
-  atStop()         atDestination()
+  atStop()         passengerWaiting()   atRequestedStop()
+  routeComplete()  hasPassengerAboard()
+
+<b>REPORTERS</b>  (return values)
+  fareOwed()       cashTendered()       changeOwed()
+  seatsLeft()      passengerCount()
 
 <b>CONTROL FLOW</b>
   if CONDITION:           run the indented block once if true
   if CONDITION: else:     ... otherwise run the else block
   while CONDITION:        repeat the block while true
-  not CONDITION           flip a condition (e.g. while not atDestination():)
+  not CONDITION           flip a condition (e.g. while not routeComplete():)
 
 In the Code Editor end if/else/while with a colon ':' and indent the body 4
 spaces; '#' starts a comment. In Blocks, drop blocks inside the C-shaped
 if/while and click the condition chip to choose the question.
 
 <b>EXAMPLE</b> — follow the road to the destination:
-  while not atDestination():
-      if frontIsClear():
-          moveForward()
-      else:
-          turnLeft()";
+  while not routeComplete():
+      driveToNextStop()
+      if passengerWaiting():
+          pickUp()
+          collectFare()
+          giveChange(changeOwed())
+      if atRequestedStop():
+          dropOff()
+
+atDestination() remains for maze/minigame content; procedural routes use routeComplete().";
 }
