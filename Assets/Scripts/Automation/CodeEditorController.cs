@@ -55,6 +55,7 @@ public class CodeEditorController : MonoBehaviour
     // Auto-closing pairs state.
     const string Openers  = "([{\"";
     const string Closers  = ")]}\"";
+    char _pendingOpener;
     char _pendingCloser;
     int  _pendingInsertAt = -1;
 
@@ -306,6 +307,7 @@ public class CodeEditorController : MonoBehaviour
             // Let TMP_InputField insert the opener normally, then append the matching
             // closer in LateUpdate. Doing it in two steps keeps TMP's caret/mesh state
             // consistent and avoids the opener flickering or disappearing.
+            _pendingOpener = addedChar;
             _pendingCloser = Closers[opener];
             _pendingInsertAt = charIndex + 1;
             return addedChar;
@@ -316,11 +318,13 @@ public class CodeEditorController : MonoBehaviour
         {
             // The closing character is already where the caret is — just step over it.
             input.stringPosition = charIndex + 1;
+            _pendingOpener = '\0';
             _pendingCloser = '\0';
             _pendingInsertAt = -1;
             return '\0';
         }
 
+        _pendingOpener = '\0';
         _pendingCloser = '\0';
         _pendingInsertAt = -1;
         return addedChar;
@@ -330,28 +334,30 @@ public class CodeEditorController : MonoBehaviour
     {
         if (_pendingCloser == '\0' || input == null) return;
 
-        int pos = input.stringPosition;
-        if (pos != _pendingInsertAt)
+        string text = input.text;
+        int insertAt = _pendingInsertAt;
+
+        // Verify the opener is still exactly where we expect it and that the caret
+        // has not moved away. If anything looks off, cancel so we don't insert the
+        // closer in the wrong place.
+        bool openerOk = insertAt > 0 && insertAt <= text.Length && text[insertAt - 1] == _pendingOpener;
+        bool caretOk = input.stringPosition == insertAt;
+        bool alreadyClosed = insertAt < text.Length && text[insertAt] == _pendingCloser;
+
+        if (openerOk && caretOk && !alreadyClosed)
         {
-            _pendingCloser = '\0';
-            _pendingInsertAt = -1;
-            return;
+            input.SetTextWithoutNotify(text.Insert(insertAt, _pendingCloser.ToString()));
+            input.stringPosition = insertAt;
+
+            _meshDirty = true;
+            _dirty = true;
+            _lintTimer = lintDelaySeconds;
+            RefreshLineNumbers();
+            RefreshHighlight();
+            RequestAutocomplete();
         }
 
-        string text = input.text;
-        if (pos < 0) pos = 0;
-        if (pos > text.Length) pos = text.Length;
-
-        input.SetTextWithoutNotify(text.Insert(pos, _pendingCloser.ToString()));
-        input.stringPosition = pos;
-
-        _meshDirty = true;
-        _dirty = true;
-        _lintTimer = lintDelaySeconds;
-        RefreshLineNumbers();
-        RefreshHighlight();
-        RequestAutocomplete();
-
+        _pendingOpener = '\0';
         _pendingCloser = '\0';
         _pendingInsertAt = -1;
     }

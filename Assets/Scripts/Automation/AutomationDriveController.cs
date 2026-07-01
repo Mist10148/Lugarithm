@@ -963,15 +963,18 @@ public class AutomationDriveController : MonoBehaviour
     public void OnHintRequested()
     {
         DialogueConversation conv = DialogueLibrary.Get(_levelIndex);
-        if (conv == null || conv.assistHints.Length == 0) return;
+        int authoredCount = conv != null && conv.assistHints != null ? conv.assistHints.Length : 0;
 
-        int idx  = Mathf.Min(_hintTier, conv.assistHints.Length - 1);
-        var hint = conv.assistHints[idx];
-        var pax  = PassengerLibrary.Get(conv.passengerId);
-        if (pax == null) return;
+        int idx  = Mathf.Min(_hintTier, Mathf.Max(0, authoredCount - 1));
+        string authored = authoredCount > 0
+            ? conv.assistHints[idx].text
+            : "You're stuck — that's normal. Look at where the jeepney stops and compare it to what your code says.";
 
-        _hintTier = Mathf.Min(_hintTier + 1, conv.assistHints.Length - 1);
-        StartCoroutine(FetchHint(hint.text, pax, idx));
+        var pax = conv != null ? PassengerLibrary.Get(conv.passengerId) : null;
+        if (pax == null) pax = PassengerLibrary.Get("gemma");
+
+        _hintTier = Mathf.Min(_hintTier + 1, Mathf.Max(0, authoredCount - 1));
+        StartCoroutine(FetchHint(authored, pax, idx));
     }
 
     IEnumerator FetchHint(string authoredText, PassengerDefinition pax, int tier)
