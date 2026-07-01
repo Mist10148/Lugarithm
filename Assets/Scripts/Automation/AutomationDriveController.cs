@@ -990,14 +990,24 @@ public class AutomationDriveController : MonoBehaviour
         AiRequest request = CopilotHintFlow.BuildRequest(source, sim, _def, authoredText, pax, tier, concept);
         AiResult result = null;
         string streamed = "";
+
+        // Open the AI chat and show a pending hint bubble there too.
+        TMP_Text vibeHintBubble = vibeCtrl != null && pax != null
+            ? vibeCtrl.AddHintBubble(pax.speakerName, pax.role)
+            : null;
+
         yield return GeminiClient.Stream(request, delta =>
         {
             streamed += delta;
             if (hintLabel != null) hintLabel.text = streamed;
+            if (vibeHintBubble != null && pax != null)
+                vibeCtrl.SetHintBubbleText(vibeHintBubble, streamed, pax.speakerName, pax.role);
         }, completed => result = completed);
 
-        if (hintLabel != null)
-            hintLabel.text = result != null && result.Success ? result.Text : authoredText;
+        string final = result != null && result.Success ? result.Text : authoredText;
+        if (hintLabel != null) hintLabel.text = final;
+        if (vibeHintBubble != null && pax != null)
+            vibeCtrl.SetHintBubbleText(vibeHintBubble, final, pax.speakerName, pax.role);
     }
 
     // -------------------------------------------------------------------------

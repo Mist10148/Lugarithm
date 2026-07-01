@@ -396,14 +396,29 @@ public class MazeRepairMinigame : MonoBehaviour
 
         AiResult result = null;
         string streamed = "";
+
+        // Open the AI chat and show a pending hint bubble there too.
+        TMP_Text vibeHintBubble = vibeCtrl != null
+            ? vibeCtrl.AddHintBubble(MinigameHintLibrary.Mechanic.speakerName,
+                                     MinigameHintLibrary.Mechanic.role)
+            : null;
+
         yield return GeminiClient.Stream(request, delta =>
         {
             streamed += delta;
             if (hintLabel != null) hintLabel.text = streamed;
+            if (vibeHintBubble != null)
+                vibeCtrl.SetHintBubbleText(vibeHintBubble, streamed,
+                    MinigameHintLibrary.Mechanic.speakerName,
+                    MinigameHintLibrary.Mechanic.role);
         }, completed => result = completed);
 
-        if (hintLabel != null)
-            hintLabel.text = result != null && result.Success ? result.Text : authored;
+        string final = result != null && result.Success ? result.Text : authored;
+        if (hintLabel != null) hintLabel.text = final;
+        if (vibeHintBubble != null)
+            vibeCtrl.SetHintBubbleText(vibeHintBubble, final,
+                MinigameHintLibrary.Mechanic.speakerName,
+                MinigameHintLibrary.Mechanic.role);
     }
 
     // -------------------------------------------------------------------------
