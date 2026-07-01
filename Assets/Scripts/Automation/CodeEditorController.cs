@@ -107,6 +107,7 @@ public class CodeEditorController : MonoBehaviour
             Color c = input.textComponent.color;
             input.textComponent.color = new Color(c.r, c.g, c.b, 0f);
             input.textComponent.richText = false;
+            input.characterValidation = TMP_InputField.CharacterValidation.CustomValidator;
             input.onValidateInput += OnValidateInput;
         }
 
@@ -365,6 +366,7 @@ public class CodeEditorController : MonoBehaviour
     bool IsInStringOrComment(string text, int upTo)
     {
         bool inString = false;
+        bool inComment = false;
         char quote = '\0';
         for (int i = 0; i < upTo && i < text.Length; i++)
         {
@@ -374,6 +376,10 @@ public class CodeEditorController : MonoBehaviour
                 if (c == '\\' && i + 1 < text.Length) { i++; continue; }
                 if (c == quote) { inString = false; quote = '\0'; }
             }
+            else if (inComment)
+            {
+                if (c == '\n' || c == '\r') inComment = false;
+            }
             else if (c == '"' || c == '\'')
             {
                 inString = true;
@@ -381,10 +387,10 @@ public class CodeEditorController : MonoBehaviour
             }
             else if (c == '#')
             {
-                return true; // comment runs to end of line; everything after is comment
+                inComment = true; // comment runs to end of line
             }
         }
-        return inString;
+        return inString || inComment;
     }
 
     // -------------------------------------------------------------------------
