@@ -133,6 +133,7 @@ public class VibeCodingController : MonoBehaviour
         if (chatBody   != null) chatBody.SetActive(true);
         if (editorBody != null) editorBody.SetActive(false);
         if (chatInput  != null) { chatInput.Select(); chatInput.ActivateInputField(); }
+        Canvas.ForceUpdateCanvases();
     }
 
     public void ShowEditor()
@@ -161,7 +162,10 @@ public class VibeCodingController : MonoBehaviour
     public TMP_Text AddHintBubble(string fromName, string fromRole)
     {
         ShowChat();
-        return AddBubble(FormatHintHeader(fromName, fromRole) + "…", player: false);
+        TMP_Text bubble = AddBubble(FormatHintHeader(fromName, fromRole) + "…", player: false);
+        if (bubble == null)
+            Debug.LogWarning("[VibeCoding] AddHintBubble produced no bubble — check chatContent/bubbleTemplate wiring.");
+        return bubble;
     }
 
     /// <summary>Updates a hint bubble returned by <see cref="AddHintBubble"/>.</summary>
@@ -169,6 +173,7 @@ public class VibeCodingController : MonoBehaviour
     {
         if (bubble == null) return;
         UpdateBubble(bubble, FormatHintHeader(fromName, fromRole) + hintText);
+        Canvas.ForceUpdateCanvases();
     }
 
     static string FormatHintHeader(string fromName, string fromRole)

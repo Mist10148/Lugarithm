@@ -385,7 +385,9 @@ public class MazeRepairMinigame : MonoBehaviour
 
     IEnumerator FetchHint(int tier)
     {
-        if (hintLabel != null) hintLabel.text = "…";
+        // The hint now lives exclusively in the AI vibe-coding chat; clear any legacy
+        // fallback label so the same text doesn't show in two places.
+        if (hintLabel != null) hintLabel.text = "";
 
         string source = _codeActive
             ? (codeEditor  != null ? codeEditor.Source : "")
@@ -406,7 +408,6 @@ public class MazeRepairMinigame : MonoBehaviour
         yield return GeminiClient.Stream(request, delta =>
         {
             streamed += delta;
-            if (hintLabel != null) hintLabel.text = streamed;
             if (vibeHintBubble != null)
                 vibeCtrl.SetHintBubbleText(vibeHintBubble, streamed,
                     MinigameHintLibrary.Mechanic.speakerName,
@@ -414,7 +415,6 @@ public class MazeRepairMinigame : MonoBehaviour
         }, completed => result = completed);
 
         string final = result != null && result.Success ? result.Text : authored;
-        if (hintLabel != null) hintLabel.text = final;
         if (vibeHintBubble != null)
             vibeCtrl.SetHintBubbleText(vibeHintBubble, final,
                 MinigameHintLibrary.Mechanic.speakerName,

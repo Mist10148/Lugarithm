@@ -55,6 +55,8 @@ public class CodeEditorController : MonoBehaviour
     // Auto-closing pairs state.
     const string Openers  = "([{\"";
     const string Closers  = ")]}\"";
+    char _pendingCloser;
+    int  _pendingInsertAt = -1;
 
     // Squiggle pool.
     readonly List<Image> _squiggleImages = new List<Image>();
@@ -179,6 +181,7 @@ public class CodeEditorController : MonoBehaviour
 
     void LateUpdate()
     {
+        ApplyPendingAutoClose();
         SyncHighlightToInput();
     }
 
@@ -300,18 +303,12 @@ public class CodeEditorController : MonoBehaviour
         {
             if (IsInStringOrComment(text, charIndex)) return addedChar;
 
-            // Insert the opener + closer atomically so the visible overlay updates
-            // in one frame and no character flickers.
-            string pair = addedChar + Closers[opener].ToString();
-            input.SetTextWithoutNotify(text.Insert(charIndex, pair));
-            input.stringPosition = charIndex + 1;
-            _meshDirty = true;
-            _dirty = true;
-            _lintTimer = lintDelaySeconds;
-            RefreshLineNumbers();
-            RefreshHighlight();
-            RequestAutocomplete();
-            return '\0';
+            // Let TMP_InputField insert the opener normally, then append the matching
+            // closer in LateUpdate. Doing it in two steps keeps TMP's caret/mesh state
+            // consistent and avoids the opener flickering or disappearing.
+            _pendingCloser = Closers[opener];
+            _pendingInsertAt = charIndex + 1;
+            return addedChar;
         }
 
         int closer = Closers.IndexOf(addedChar);
@@ -319,10 +316,44 @@ public class CodeEditorController : MonoBehaviour
         {
             // The closing character is already where the caret is — just step over it.
             input.stringPosition = charIndex + 1;
+            _pendingCloser = '\0';
+            _pendingInsertAt = -1;
             return '\0';
         }
 
+        _pendingCloser = '\0';
+        _pendingInsertAt = -1;
         return addedChar;
+    }
+
+    void ApplyPendingAutoClose()
+    {
+        if (_pendingCloser == '\0' || input == null) return;
+
+        int pos = input.stringPosition;
+        if (pos != _pendingInsertAt)
+        {
+            _pendingCloser = '\0';
+            _pendingInsertAt = -1;
+            return;
+        }
+
+        string text = input.text;
+        if (pos < 0) pos = 0;
+        if (pos > text.Length) pos = text.Length;
+
+        input.SetTextWithoutNotify(text.Insert(pos, _pendingCloser.ToString()));
+        input.stringPosition = pos;
+
+        _meshDirty = true;
+        _dirty = true;
+        _lintTimer = lintDelaySeconds;
+        RefreshLineNumbers();
+        RefreshHighlight();
+        RequestAutocomplete();
+
+        _pendingCloser = '\0';
+        _pendingInsertAt = -1;
     }
 
     bool IsInStringOrComment(string text, int upTo)

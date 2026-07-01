@@ -976,7 +976,14 @@ public class AutomationDriveController : MonoBehaviour
 
     IEnumerator FetchHint(string authoredText, PassengerDefinition pax, int tier)
     {
-        if (hintLabel != null) hintLabel.text = "...";
+        // The hint now lives exclusively in the AI vibe-coding chat; clear the legacy
+        // fallback label so the same text doesn't appear in two places.
+        if (hintLabel != null) hintLabel.text = "";
+
+        if (vibeCtrl == null)
+            Debug.LogWarning("[AutomationDrive] Hint requested but vibeCtrl is not wired — hint will not appear in chat.");
+        if (pax == null)
+            Debug.LogWarning("[AutomationDrive] Hint requested but passenger definition is null — hint will not appear in chat.");
 
         string source = _codeTabActive && codeEditor != null
             ? codeEditor.Source
@@ -999,13 +1006,11 @@ public class AutomationDriveController : MonoBehaviour
         yield return GeminiClient.Stream(request, delta =>
         {
             streamed += delta;
-            if (hintLabel != null) hintLabel.text = streamed;
             if (vibeHintBubble != null && pax != null)
                 vibeCtrl.SetHintBubbleText(vibeHintBubble, streamed, pax.speakerName, pax.role);
         }, completed => result = completed);
 
         string final = result != null && result.Success ? result.Text : authoredText;
-        if (hintLabel != null) hintLabel.text = final;
         if (vibeHintBubble != null && pax != null)
             vibeCtrl.SetHintBubbleText(vibeHintBubble, final, pax.speakerName, pax.role);
     }

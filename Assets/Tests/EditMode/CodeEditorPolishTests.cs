@@ -210,7 +210,7 @@ public class CodeEditorPolishTests
 
             input.text = "print";
             input.stringPosition = 5;
-            InvokePrivate(editor, "OnValidateInput", "print", 5, '(');
+            TypeChar(editor, input, '(');
 
             Assert.AreEqual("print()", input.text);
             Assert.AreEqual(6, input.stringPosition);
@@ -306,6 +306,7 @@ public class CodeEditorPolishTests
             input.text = before.Insert(pos, validated.ToString());
             input.stringPosition = pos + 1;
         }
+        InvokePrivate(editor, "ApplyPendingAutoClose");
     }
 
     [Test]
