@@ -81,6 +81,7 @@ public class MazeRepairMinigame : MonoBehaviour
     // Co-pilot hint state (mirrors AutomationDriveController's tiered, struggle-aware flow).
     int  _hintTier;
     int  _failCount;
+    int  _runAttempts;
     bool _struggleNudged;
     int  _bestDelivered;
 
@@ -94,6 +95,7 @@ public class MazeRepairMinigame : MonoBehaviour
             hintButton.gameObject.SetActive(false);
             hintButton.onClick.AddListener(OnHintRequested);
         }
+        else Debug.LogWarning("[MazeRepairMinigame] hintButton is not wired — hint UI will never appear.");
 
         if (exec != null)
         {
@@ -137,6 +139,7 @@ public class MazeRepairMinigame : MonoBehaviour
 
         _hintTier = 0;
         _failCount = 0;
+        _runAttempts = 0;
         _struggleNudged = false;
         _bestDelivered = 0;
         if (hintButton != null) hintButton.gameObject.SetActive(false);
@@ -249,9 +252,12 @@ public class MazeRepairMinigame : MonoBehaviour
         }
 
         _attempts++;
+        _runAttempts++;
+        Debug.Log($"[MazeRepairMinigame] RUN pressed — attempts={_attempts}, runAttempts={_runAttempts}, failCount={_failCount}");
         if (feedbackLabel != null) feedbackLabel.text = "Driving…";
         exec.SetSpeed(runSpeed);   // re-assert in case a reset left it stale
         exec.Run(program);
+        RevealHintAfterStruggle();
     }
 
     void OnReset()
@@ -349,20 +355,26 @@ public class MazeRepairMinigame : MonoBehaviour
             _bestDelivered = delivered;
             _hintTier = Mathf.Max(0, _hintTier - 1);
         }
-        if (_failCount >= 2 && hintButton != null)
-        {
-            hintButton.gameObject.SetActive(true);
-            if (!_struggleNudged)
-            {
-                _struggleNudged = true;
-                if (hintLabel != null)
-                    hintLabel.text = "Stuck? Tap Hint — I'll look at your code and nudge you, no spoilers.";
-            }
-        }
+        RevealHintAfterStruggle();
     }
 
     // -------------------------------------------------------------------------
     // Co-Pilot hint (shared flow, minigame fallback voice)
+
+    void RevealHintAfterStruggle()
+    {
+        Debug.Log($"[MazeRepairMinigame] RevealHintAfterStruggle — runAttempts={_runAttempts}, failCount={_failCount}, hintButton={(hintButton != null ? "wired" : "NULL")}");
+        if (hintButton == null) return;
+        if (_failCount < 2 && _runAttempts < 3) return;
+
+        hintButton.gameObject.SetActive(true);
+        if (!_struggleNudged)
+        {
+            _struggleNudged = true;
+            if (hintLabel != null)
+                hintLabel.text = "Stuck? Tap Hint — I'll look at your code and nudge you, no spoilers.";
+        }
+    }
 
     public void OnHintRequested()
     {
@@ -399,6 +411,14 @@ public class MazeRepairMinigame : MonoBehaviour
     void Finish(bool timedOut)
     {
         if (!_active) return;
+
+        if (timedOut)
+        {
+            _failCount++;
+            Debug.Log($"[MazeRepairMinigame] timed out — failCount={_failCount}");
+            RevealHintAfterStruggle();
+        }
+
         _active = false;
 
         if (exec != null) exec.ResetWorld();

@@ -60,6 +60,7 @@ public class CodeOrderMinigame : MonoBehaviour
         if (runButton  != null) runButton.onClick.AddListener(OnRun);
         if (quitButton != null) quitButton.onClick.AddListener(QuitOut);
         if (hintButton != null) hintButton.onClick.AddListener(OnHintRequested);
+        else Debug.LogWarning("[CodeOrderMinigame] hintButton is not wired — hint UI will never appear.");
         if (root != null) root.SetActive(false);
     }
 
@@ -127,6 +128,7 @@ public class CodeOrderMinigame : MonoBehaviour
 
     void RevealHintAfterStruggle()
     {
+        Debug.Log($"[CodeOrderMinigame] RevealHintAfterStruggle called — mistakes={_mistakes}, hintButton={(hintButton != null ? "wired" : "NULL")}");
         if (_mistakes < 2 || hintButton == null) return;
         hintButton.gameObject.SetActive(true);
         if (hintLabel != null && string.IsNullOrWhiteSpace(hintLabel.text))
