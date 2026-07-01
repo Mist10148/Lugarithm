@@ -56,9 +56,6 @@ public class CodeEditorController : MonoBehaviour
     const string Openers  = "([{\"";
     const string Closers  = ")]}\"";
 
-    struct PendingPair { public int Caret; public char Closer; }
-    PendingPair? _pendingPair;
-
     // Squiggle pool.
     readonly List<Image> _squiggleImages = new List<Image>();
 
@@ -182,23 +179,7 @@ public class CodeEditorController : MonoBehaviour
 
     void LateUpdate()
     {
-        ApplyPendingAutoClose();
         SyncHighlightToInput();
-    }
-
-    void ApplyPendingAutoClose()
-    {
-        if (!_pendingPair.HasValue || input == null) return;
-
-        var pp = _pendingPair.Value;
-        string t = input.text;
-        int caret = Mathf.Clamp(pp.Caret, 0, t.Length);
-        input.SetTextWithoutNotify(t.Insert(caret, pp.Closer.ToString()));
-        input.stringPosition = caret;
-        _pendingPair = null;
-
-        RefreshLineNumbers();
-        RefreshHighlight();
     }
 
     void SyncHighlightToInput()
@@ -319,16 +300,24 @@ public class CodeEditorController : MonoBehaviour
         {
             if (IsInStringOrComment(text, charIndex)) return addedChar;
 
-            // Defer the closer insertion until LateUpdate so TMP_InputField has
-            // finished applying the opener and placed the caret; inserting inside
-            // the callback caused the caret to be overwritten and the pair to fail.
-            _pendingPair = new PendingPair { Caret = charIndex + 1, Closer = Closers[opener] };
-            return addedChar;
+            // Insert the opener + closer atomically so the visible overlay updates
+            // in one frame and no character flickers.
+            string pair = addedChar + Closers[opener].ToString();
+            input.SetTextWithoutNotify(text.Insert(charIndex, pair));
+            input.stringPosition = charIndex + 1;
+            _meshDirty = true;
+            _dirty = true;
+            _lintTimer = lintDelaySeconds;
+            RefreshLineNumbers();
+            RefreshHighlight();
+            RequestAutocomplete();
+            return '\0';
         }
 
         int closer = Closers.IndexOf(addedChar);
         if (closer >= 0 && charIndex < text.Length && text[charIndex] == addedChar)
         {
+            // The closing character is already where the caret is — just step over it.
             input.stringPosition = charIndex + 1;
             return '\0';
         }

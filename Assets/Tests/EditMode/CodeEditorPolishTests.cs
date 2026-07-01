@@ -198,6 +198,117 @@ public class CodeEditorPolishTests
     }
 
     [Test]
+    public void CodeEditor_AutoClose_InsertsPairAndPositionsCaret()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        try
+        {
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = CreateInput(inputGo);
+            editor.input = input;
+
+            input.text = "print";
+            input.stringPosition = 5;
+            InvokePrivate(editor, "OnValidateInput", "print", 5, '(');
+
+            Assert.AreEqual("print()", input.text);
+            Assert.AreEqual(6, input.stringPosition);
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
+    [Test]
+    public void CodeEditor_AutoClose_TypingFullPrintHelloWorldKeepsParentheses()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        try
+        {
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = CreateInput(inputGo);
+            editor.input = input;
+
+            // Type print(helloworld) one character at a time through OnValidateInput.
+            input.text = "";
+            TypeChar(editor, input, 'p');
+            TypeChar(editor, input, 'r');
+            TypeChar(editor, input, 'i');
+            TypeChar(editor, input, 'n');
+            TypeChar(editor, input, 't');
+            TypeChar(editor, input, '(');
+            TypeChar(editor, input, 'h');
+            TypeChar(editor, input, 'e');
+            TypeChar(editor, input, 'l');
+            TypeChar(editor, input, 'l');
+            TypeChar(editor, input, 'o');
+            TypeChar(editor, input, 'w');
+            TypeChar(editor, input, 'o');
+            TypeChar(editor, input, 'r');
+            TypeChar(editor, input, 'l');
+            TypeChar(editor, input, 'd');
+            TypeChar(editor, input, ')');
+
+            Assert.AreEqual("print(helloworld)", input.text);
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
+    [Test]
+    public void CodeEditor_AutoClose_OverTypeSkipsExistingCloser()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        try
+        {
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = CreateInput(inputGo);
+            editor.input = input;
+
+            input.text = "print()";
+            input.stringPosition = 6;
+            InvokePrivate(editor, "OnValidateInput", "print()", 6, ')');
+
+            Assert.AreEqual("print()", input.text);
+            Assert.AreEqual(7, input.stringPosition);
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
+    TMP_InputField CreateInput(GameObject inputGo)
+    {
+        var input = inputGo.AddComponent<TMP_InputField>();
+        var textGo = new GameObject("Text");
+        textGo.transform.SetParent(inputGo.transform, false);
+        input.textComponent = textGo.AddComponent<TextMeshProUGUI>();
+        return input;
+    }
+
+    void TypeChar(CodeEditorController editor, TMP_InputField input, char c)
+    {
+        int pos = input.stringPosition;
+        string before = input.text;
+        char validated = (char)InvokePrivate(editor, "OnValidateInput", before, pos, c);
+        if (validated != '\0')
+        {
+            input.text = before.Insert(pos, validated.ToString());
+            input.stringPosition = pos + 1;
+        }
+    }
+
+    [Test]
     public void ConsoleRows_UseReadableFixedHeights()
     {
         var consoleGo = new GameObject("Console", typeof(RectTransform));
@@ -257,10 +368,10 @@ public class CodeEditorPolishTests
         field.SetValue(target, value);
     }
 
-    static void InvokePrivate(object target, string methodName)
+    static object InvokePrivate(object target, string methodName, params object[] args)
     {
         MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(method, methodName);
-        method.Invoke(target, null);
+        Assert.IsNotNull(method, methodName);
+        return method.Invoke(target, args);
     }
 }
