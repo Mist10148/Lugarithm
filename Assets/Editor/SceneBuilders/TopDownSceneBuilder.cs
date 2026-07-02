@@ -146,6 +146,7 @@ public static class TopDownSceneBuilder
         CodeOrderMinigame  codeOrder  = MinigameOverlayBuilder.BuildCodeOrder(canvas.transform);
         FlowConnectMinigame flowPuzzle = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
+        MazeRepairMinigame  codingMaze = MinigameOverlayBuilder.BuildMazeRepair(canvas.transform);
 
         // Exit button (top-right)
         Button exitButton = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit",
@@ -180,6 +181,7 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(controller, "codeOrder",     codeOrder);
         SceneBuilderUtil.Wire(controller, "flowPuzzle",    flowPuzzle);
         SceneBuilderUtil.Wire(controller, "cratePuzzle",   cratePuzzle);
+        SceneBuilderUtil.Wire(controller, "codingMaze",    codingMaze);
         SceneBuilderUtil.Wire(controller, "grassTile",     tGrass);
         SceneBuilderUtil.Wire(controller, "pathTile",      tPath);
         SceneBuilderUtil.Wire(controller, "wallTile",      tWall);

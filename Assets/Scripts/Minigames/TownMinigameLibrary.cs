@@ -12,7 +12,7 @@ public enum MinigameStationType { Puzzle, Coding }
 /// art/logic seeds for (maze, flow/color-connect, block-fill, pattern-match);
 /// <see cref="Coding"/> is the lesson-tied programming challenge.
 /// </summary>
-public enum MinigamePuzzleKind { Maze, ColorConnect, BlockFill, PatternMatch, FlowConnect, CrateStack, Coding }
+public enum MinigamePuzzleKind { Maze, ColorConnect, BlockFill, PatternMatch, FlowConnect, CrateStack, Coding, CodingMaze }
 
 /// <summary>
 /// Placeholder definition for one interactable town minigame station. Carries the
@@ -99,6 +99,15 @@ public static class TownMinigameLibrary
             markerColor = CodingGreen,
         };
 
+    static MinigameStationDef CodingMaze(string id, string title, string concept,
+                                         string description)
+        => new MinigameStationDef
+        {
+            id = id, title = title, description = description, concept = concept,
+            type = MinigameStationType.Coding, kind = MinigamePuzzleKind.CodingMaze,
+            markerColor = CodingGreen,
+        };
+
     // -------------------------------------------------------------------------
     // Level 0 — Tutorial (sequencing)
 
@@ -118,6 +127,8 @@ public static class TownMinigameLibrary
             "Balance the jeepney before departure."),
         Coding("tut_code", "First Route", "Sequencing",
             "Order the driving steps so the jeepney leaves the garage and reaches the first stop — your first taste of writing a program in order."),
+        CodingMaze("tut_coding_maze", "Straight Road", "Sequencing",
+            "Write the shortest route to drive straight from the start marker to the destination."),
     };
 
     // -------------------------------------------------------------------------
@@ -139,6 +150,8 @@ public static class TownMinigameLibrary
             "Safe loading before the road south."),
         Coding("molo_code", "If It Rains", "Conditionals",
             "Teach the jeepney to decide: IF a passenger is waiting, pick them up; ELSE drive on. The town's first conditional logic."),
+        CodingMaze("molo_coding_maze", "Alley Route", "Conditionals",
+            "Use code to drive through a small route maze and reach the destination marker."),
     };
 
     // -------------------------------------------------------------------------
@@ -160,6 +173,8 @@ public static class TownMinigameLibrary
             "Careful loading for river travel."),
         Coding("oton_code", "Passenger Manifest", "Lists & indexing",
             "Use a list of stops and index into it to drop passengers in the right order along the river road."),
+        CodingMaze("oton_coding_maze", "Market Maze", "Lists & indexing",
+            "Navigate a tighter market route by writing a reusable maze-driving program."),
     };
 
     // -------------------------------------------------------------------------
@@ -181,6 +196,8 @@ public static class TownMinigameLibrary
             "Prepare the tools before the pattern repeats."),
         Coding("tig_code", "Weave Routine", "Functions + loops",
             "Write a reusable function and loop it to repeat the weave pattern — and to service a run of identical stops."),
+        CodingMaze("tig_coding_maze", "Thread Maze", "Functions + loops",
+            "Use loops and helper logic to trace a path through the woven route."),
     };
 
     // -------------------------------------------------------------------------
@@ -202,6 +219,8 @@ public static class TownMinigameLibrary
             "Careful preparation before repair."),
         Coding("miag_code", "Watchman's Rules", "Nested conditionals",
             "Nest conditions: IF it's a stop, THEN if a passenger wants off, drop them; else keep their seat. Decisions inside decisions."),
+        CodingMaze("miag_coding_maze", "Fort Route", "Nested conditionals",
+            "Navigate a harder route where checking side paths and blocked roads matters."),
     };
 
     // -------------------------------------------------------------------------
@@ -223,5 +242,7 @@ public static class TownMinigameLibrary
             "A balanced load for the final road."),
         Coding("sj_code", "Full Service Run", "Multi-variable constraints",
             "Balance seats, fares, and fuel at once to complete a full route — many variables, all constrained together."),
+        CodingMaze("sj_coding_maze", "Final Maze", "Multi-variable constraints",
+            "Solve the hardest town maze before the last road south."),
     };
 }

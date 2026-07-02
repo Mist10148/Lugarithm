@@ -77,6 +77,8 @@ public class MazeRepairMinigame : MonoBehaviour
     bool  _codeActive;
     int   _attempts;
     float _timeLeft;
+    float _timeLimitSeconds;
+    string _resultTitle = "MAZE REPAIR";
 
     // Co-pilot hint state (mirrors AutomationDriveController's tiered, struggle-aware flow).
     int  _hintTier;
@@ -136,6 +138,8 @@ public class MazeRepairMinigame : MonoBehaviour
         _onDone   = onDone;
         _attempts = 0;
         _timeLeft = softTimerSeconds;
+        _timeLimitSeconds = softTimerSeconds;
+        _resultTitle = "MAZE REPAIR";
 
         _hintTier = 0;
         _failCount = 0;
@@ -190,6 +194,70 @@ public class MazeRepairMinigame : MonoBehaviour
             feedbackLabel.text = _codeActive
                 ? "Write an algorithm, then press RUN to drive the route."
                 : "Snap blocks together, then press RUN to drive the route.";
+
+        _active = true;
+        if (root != null) root.SetActive(true);
+    }
+
+    /// <summary>Opens the same coding maze as a town-hub objective instead of a repair.</summary>
+    public void ShowTownChallenge(MinigameStationDef station, int levelIndex, Action<MinigameResult> onDone)
+    {
+        _onDone = onDone;
+        _attempts = 0;
+
+        _hintTier = 0;
+        _failCount = 0;
+        _runAttempts = 0;
+        _struggleNudged = false;
+        _bestDelivered = 0;
+        if (hintButton != null) hintButton.gameObject.SetActive(false);
+        if (hintLabel != null) hintLabel.text = "";
+
+        _def = TownCodingMazeLibrary.ForLevel(levelIndex);
+        _timeLimitSeconds = _def != null && _def.softTimerSeconds > 0f
+            ? _def.softTimerSeconds
+            : softTimerSeconds;
+        _timeLeft = _timeLimitSeconds;
+        _resultTitle = "TOWN ROUTE";
+
+        GridModel grid = GridModel.Parse(_def.gridMap, out _);
+        _sim = new AgentSim(grid, new FareTable(), _def.startFacing);
+
+        if (worldView != null) worldView.Build(grid);
+        if (exec != null)
+        {
+            exec.Init(grid, _sim, agentView, worldView, worldView, _def, _def.startFacing);
+            exec.SetSpeed(runSpeed);
+        }
+        EnsureRenderTexture();
+        if (worldView != null) worldView.FrameCamera(mazeCamera);
+        if (mazeCamera != null) mazeCamera.enabled = true;
+
+        if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, null);
+        if (palette != null) palette.Init(_def.allowedBlocks, blockCanvas);
+        if (codeEditor != null) codeEditor.SetScaffold(_def.codeScaffold);
+
+        if (vibeCtrl != null)
+        {
+            vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor, blockCanvas);
+            vibeCtrl.SetWorldContext(grid, _sim, _def);
+        }
+        if (ghost != null) ghost.Bind(_def);
+
+        bool blockMode = SaveSystem.Current != null && SaveSystem.Current.settings.blockMode;
+        _codeActive = !blockMode;
+        if (blockPanel != null) blockPanel.SetActive(blockMode);
+        if (codePanel != null) codePanel.SetActive(_codeActive);
+
+        string stationTitle = station != null && !string.IsNullOrEmpty(station.title)
+            ? station.title
+            : "Coding Maze";
+        if (titleLabel != null) titleLabel.text = $"CODING MAZE - {stationTitle}";
+        if (goalLabel != null) goalLabel.text = _def.goalText;
+        if (feedbackLabel != null)
+            feedbackLabel.text = _codeActive
+                ? "Write an algorithm, then press RUN to reach the destination."
+                : "Snap blocks together, then press RUN to reach the destination.";
 
         _active = true;
         if (root != null) root.SetActive(true);
@@ -459,13 +527,13 @@ public class MazeRepairMinigame : MonoBehaviour
             string playerSource = _codeActive
                 ? (codeEditor  != null ? codeEditor.Source : "")
                 : (blockCanvas != null ? blockCanvas.ToSourceText() : "");
-            float elapsed = Mathf.Max(0f, softTimerSeconds - _timeLeft);
+            float elapsed = Mathf.Max(0f, _timeLimitSeconds - _timeLeft);
             CodeAnalysis analysis = CodeAnalyticsService.Analyze(
                 playerSource, _def != null ? _def.optimalSolutionText : "",
                 _sim != null ? _sim.StepsUsed : 0, _def != null ? _def.parSteps : 1,
-                retries, elapsed, softTimerSeconds, exec != null ? exec.LineHits : null);
+                retries, elapsed, _timeLimitSeconds, exec != null ? exec.LineHits : null);
 
-            resultsPanel.Show("MINIGAME · Code", "MAZE REPAIR", result, analysis, () => cb?.Invoke(result));
+            resultsPanel.Show("MINIGAME · Code", _resultTitle, result, analysis, () => cb?.Invoke(result));
         }
         else
         {
@@ -473,3 +541,4 @@ public class MazeRepairMinigame : MonoBehaviour
         }
     }
 }
+

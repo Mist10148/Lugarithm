@@ -44,6 +44,7 @@ public class TopDownLevelController : MonoBehaviour
     [SerializeField] private CodeOrderMinigame  codeOrder;    // coding challenge
     [SerializeField] private FlowConnectMinigame flowPuzzle;   // transferred progression gate
     [SerializeField] private CrateStackMinigame  cratePuzzle;  // transferred progression gate
+    [SerializeField] private MazeRepairMinigame codingMaze;    // town coding maze challenge
     [SerializeField] private Sprite puzzleStationSprite;
     [SerializeField] private Sprite codeStationSprite;
 
@@ -77,7 +78,7 @@ public class TopDownLevelController : MonoBehaviour
         = new Dictionary<InteractionTrigger, SpriteRenderer>();
     private readonly HashSet<string> _solvedStations = new HashSet<string>();
     private int _stationCount;
-    private string _codingStationId;
+    private readonly HashSet<string> _codingStationIds = new HashSet<string>();
     private bool _panelActive;
 
     // -------------------------------------------------------------------------
@@ -171,16 +172,17 @@ public class TopDownLevelController : MonoBehaviour
     void SpawnEntities()
     {
         // Bind the town's authored minigame defs to the map's Q/C stations in
-        // row-major order, per station kind (two puzzles + one coding challenge).
+        // row-major order, per station kind.
         MinigameStationDef[] defs = TownMinigameLibrary.ForLevel(_levelIndex);
         var puzzleDefs = new List<MinigameStationDef>();
-        MinigameStationDef codingDef = null;
+        var codingDefs = new List<MinigameStationDef>();
         foreach (var d in defs)
         {
-            if (d.IsCoding) codingDef ??= d;
+            if (d.IsCoding) codingDefs.Add(d);
             else puzzleDefs.Add(d);
         }
         int puzzleIndex = 0;
+        int codingIndex = 0;
 
         foreach (var entity in _mapData.entities)
         {
@@ -207,7 +209,9 @@ public class TopDownLevelController : MonoBehaviour
                         puzzleStationSprite);
                     break;
                 case EntityType.CodeChallenge:
-                    SpawnStation(entity, worldPos, codingDef, codeStationSprite);
+                    SpawnStation(entity, worldPos,
+                        codingIndex < codingDefs.Count ? codingDefs[codingIndex++] : null,
+                        codeStationSprite);
                     break;
                 case EntityType.PlayerStart:
                     // Handled by PositionPlayer
@@ -271,7 +275,7 @@ public class TopDownLevelController : MonoBehaviour
             _stationDefs[trigger] = def;
             if (body != null) _stationBodies[trigger] = body;
             _stationCount++;
-            if (def.IsCoding) _codingStationId = def.id;
+            if (def.IsCoding) _codingStationIds.Add(def.id);
         }
 
         trigger.OnInteracted += HandleInteraction;
@@ -491,9 +495,14 @@ public class TopDownLevelController : MonoBehaviour
         // Pick the game for this station kind; fall back to the placeholder card
         // for kinds we haven't built a game for yet (e.g. ColorConnect).
         bool launched = false;
-        if (def.IsCoding && codeOrder != null)
+        if (def.kind == MinigamePuzzleKind.Coding && codeOrder != null)
         {
             codeOrder.Begin(def, onSolved, onQuit);
+            launched = true;
+        }
+        else if (def.kind == MinigamePuzzleKind.CodingMaze && codingMaze != null)
+        {
+            codingMaze.ShowTownChallenge(def, _levelIndex, _ => onSolved());
             launched = true;
         }
         else if (gridPuzzle != null &&
@@ -622,10 +631,13 @@ public class TopDownLevelController : MonoBehaviour
     void HandleExitInteraction(InteractionTrigger trigger)
     {
         // The main coding challenge gates moving on — clear it before leaving.
-        if (!string.IsNullOrEmpty(_codingStationId) && !_solvedStations.Contains(_codingStationId))
+        foreach (string stationId in _codingStationIds)
         {
-            UpdatePrompt("Finish the coding challenge before you move on.");
-            return;
+            if (!_solvedStations.Contains(stationId))
+            {
+                UpdatePrompt("Finish the coding challenges before you move on.");
+                return;
+            }
         }
 
         // Complete the level and return to LevelSelect
