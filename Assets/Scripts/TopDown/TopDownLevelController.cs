@@ -42,6 +42,8 @@ public class TopDownLevelController : MonoBehaviour
     [SerializeField] private MinigamePlaceholderPanel minigamePanel;
     [SerializeField] private GridPuzzleMinigame gridPuzzle;   // maze / block-fill / pattern
     [SerializeField] private CodeOrderMinigame  codeOrder;    // coding challenge
+    [SerializeField] private FlowConnectMinigame flowPuzzle;   // transferred progression gate
+    [SerializeField] private CrateStackMinigame  cratePuzzle;  // transferred progression gate
     [SerializeField] private Sprite puzzleStationSprite;
     [SerializeField] private Sprite codeStationSprite;
 
@@ -502,6 +504,16 @@ public class TopDownLevelController : MonoBehaviour
             gridPuzzle.Begin(def, onSolved, onQuit);
             launched = true;
         }
+        else if (def.kind == MinigamePuzzleKind.FlowConnect && flowPuzzle != null)
+        {
+            flowPuzzle.Show(StationSeed(def), _ => onSolved());
+            launched = true;
+        }
+        else if (def.kind == MinigamePuzzleKind.CrateStack && cratePuzzle != null)
+        {
+            cratePuzzle.Show(StationSeed(def), _ => onSolved());
+            launched = true;
+        }
         else if (minigamePanel != null)
         {
             bool alreadySolved = _solvedStations.Contains(def.id);
@@ -541,6 +553,18 @@ public class TopDownLevelController : MonoBehaviour
         }
 
         if (isNew) UpdateObjectives();
+    }
+
+    int StationSeed(MinigameStationDef def)
+    {
+        unchecked
+        {
+            int seed = 7000 + (_levelIndex * 397);
+            if (def != null && !string.IsNullOrEmpty(def.id))
+                for (int i = 0; i < def.id.Length; i++)
+                    seed = (seed * 31) + def.id[i];
+            return seed & 0x7fffffff;
+        }
     }
 
     void HandleNpcInteraction(InteractionTrigger trigger)

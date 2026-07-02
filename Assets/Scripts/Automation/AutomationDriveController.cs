@@ -77,10 +77,6 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private AutomationDulogMarkerController dulogMarkers;
     [SerializeField] private AutomationResultsPanel results;
 
-    [Header("Town gate (non-code, required to advance)")]
-    [SerializeField] private FlowConnectMinigame flowPuzzle;
-    [SerializeField] private CrateStackMinigame  cratePuzzle;
-
     [Header("Tutorial repair drills")]
     [SerializeField] private MazeRepairMinigame mazeRepairMinigame;  // code · repair (escape a maze)
     [SerializeField] private RefuelMinigame     refuelMinigame;      // non-code · fuel
@@ -141,7 +137,6 @@ public class AutomationDriveController : MonoBehaviour
     int  _bestDelivered;   // best passengers-delivered across runs; eases the hint tier on progress
     int  _lastExecutedLine;
     int  _outputCursor;   // how many print() lines we've already pushed to the terminal this run
-    int  _townPuzzleBonus;
     float _startTime;
     bool  _won;
     bool  _revealPlayed;   // heritage reveal plays once, on reaching the goal (not after the gate)
@@ -1071,12 +1066,9 @@ public class AutomationDriveController : MonoBehaviour
     int   _autoRefuelSpent;
     bool  _autoBreakdownActive;
 
-    // Progression gate (town puzzle) now pops mid-run, not after the win.
-    bool  _progressionGateActive;
-
     void AutoFuelTick()
     {
-        if (_autoBreakdownActive || _progressionGateActive) return;
+        if (_autoBreakdownActive) return;
         if (refuelMinigame == null && mazeRepairMinigame == null) return;
         if (_interruptionScheduler == null)
             _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
@@ -1128,45 +1120,6 @@ public class AutomationDriveController : MonoBehaviour
         if (exec != null) exec.SetPaused(false);
         _autoBreakdownActive = false;
         RefreshAutomationHud();
-    }
-
-    // Mid-run progression gate: at a random step during execution, the level's
-    // town puzzle pops and must be solved before the run continues — same "during
-    // gameplay" feel as a breakdown, but mandatory. BeginResults() is the fallback
-    // if a short run never triggered it.
-    void MaybeTriggerProgressionGate()
-    {
-        if (_progressionGateActive || _autoBreakdownActive) return;
-        if (_interruptionScheduler == null)
-            _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
-        if (_interruptionScheduler.TryStartProgression(AutomationProgress01(), out TownPuzzleKind kind))
-            StartCoroutine(ProgressionGateRoutine(kind));
-    }
-
-    IEnumerator ProgressionGateRoutine(TownPuzzleKind kind)
-    {
-        _progressionGateActive = true;
-        if (exec != null) exec.SetPaused(true);
-
-        bool done = false;
-        bool shown = ShowSingleTownGate(kind, 3000 + _levelIndex + _interruptionScheduler.CompletedProgressionGates, result =>
-        {
-            _townPuzzleBonus += result != null ? result.Score : 0;
-            done = true;
-        });
-
-        if (!shown)
-        {
-            if (exec != null) exec.SetPaused(false);
-            _progressionGateActive = false;
-            yield break;
-        }
-
-        if (console != null) console.Info("a town task popped up — clear it to keep driving.");
-        yield return new WaitUntil(() => done);
-
-        if (exec != null) exec.SetPaused(false);
-        _progressionGateActive = false;
     }
 
     float AutomationProgress01()
@@ -1272,7 +1225,6 @@ public class AutomationDriveController : MonoBehaviour
             codeEditor.SetHeat(exec.LineHits);
 
         AutoFuelTick();
-        MaybeTriggerProgressionGate();
     }
 
     void HandleHotLine(int line)
@@ -1641,28 +1593,8 @@ public class AutomationDriveController : MonoBehaviour
     // -------------------------------------------------------------------------
     // Results
 
-    /// <summary>The town gate now pops mid-run; this is the fallback for a short run
-    /// that never triggered it, keeping the gate mandatory before results.</summary>
     void BeginResults()
     {
-        if (_interruptionScheduler == null)
-            _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
-
-        if (_interruptionScheduler.TryForceNextProgression(out TownPuzzleKind kind))
-        {
-            bool shown = ShowSingleTownGate(kind, 2000 + _levelIndex + _interruptionScheduler.CompletedProgressionGates, result =>
-            {
-                _townPuzzleBonus += result != null ? result.Score : 0;
-                BeginResults();
-            });
-
-            if (shown)
-            {
-                if (console != null) console.Info("clear the town gate to finish the leg.");
-                return;
-            }
-        }
-
         PlayRevealThenResults();
     }
 
@@ -1704,22 +1636,6 @@ public class AutomationDriveController : MonoBehaviour
         dialogue.PlayReveal(convo, page, ShowResults);
     }
 
-    /// <summary>Shows a scheduled town puzzle. False when its panel is not wired.</summary>
-    bool ShowSingleTownGate(TownPuzzleKind kind, int seed, System.Action<MinigameResult> onDone)
-    {
-        if (kind == TownPuzzleKind.FlowConnect && flowPuzzle != null)
-        {
-            flowPuzzle.Show(seed, onDone);
-            return true;
-        }
-        if (kind == TownPuzzleKind.CrateStack && cratePuzzle != null)
-        {
-            cratePuzzle.Show(seed, onDone);
-            return true;
-        }
-        return false;
-    }
-
     void ShowResults()
     {
         AgentSim sim = exec.Sim;
@@ -1727,8 +1643,7 @@ public class AutomationDriveController : MonoBehaviour
         int retries = Mathf.Max(0, _runCount - 1);
 
         int score = ScoreCalculator.AutomationScore(
-            sim.StepsUsed, _def.parSteps, elapsed, _def.softTimerSeconds, retries, _lastRunWasCode)
-            + _townPuzzleBonus;
+            sim.StepsUsed, _def.parSteps, elapsed, _def.softTimerSeconds, retries, _lastRunWasCode);
 
         int bonus = ScoreCalculator.CurrencyFor(score);
         if (GameManager.Instance != null)

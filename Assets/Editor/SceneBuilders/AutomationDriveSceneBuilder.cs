@@ -181,9 +181,6 @@ public static class AutomationDriveSceneBuilder
         // Results overlay (full screen)
         AutomationResultsPanel results = BuildResults(canvas);
 
-        // Town gates (non-code, required to advance) — the level picks one.
-        FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
-        CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
         // Tutorial repair drills: code-based maze escape + non-code refuel.
         MazeRepairMinigame  mazeRepair  = MinigameOverlayBuilder.BuildMazeRepair(canvas.transform);
         RefuelMinigame      refuel      = MinigameOverlayBuilder.BuildRefuel(canvas.transform);
@@ -242,8 +239,6 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(dulogMarkers, "edgeArrowParent", dulogEdgeLayer);
         SceneBuilderUtil.Wire(controller, "dulogMarkers",   dulogMarkers);
 
-        SceneBuilderUtil.Wire(controller, "flowPuzzle",     flowPuzzle);
-        SceneBuilderUtil.Wire(controller, "cratePuzzle",    cratePuzzle);
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);
         SceneBuilderUtil.Wire(controller, "refuelMinigame",     refuel);
         SceneBuilderUtil.Wire(controller, "dialogue",       dialogue);
