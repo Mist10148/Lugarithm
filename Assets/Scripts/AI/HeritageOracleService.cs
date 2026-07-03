@@ -23,10 +23,11 @@ public static class HeritageOracleService
 
     // Kept terse on purpose — the system instruction is re-sent on every request.
     const string SystemInstruction =
-        "You are the Heritage Oracle in Lugarithm: warm, respectful, clear for ages 10–16. " +
-        "Answer only from the supplied unlocked records; cite each used record by its exact bracketed ID. " +
-        "For coding, explain the concept without giving a puzzle's solution. " +
-        "If records don't support it, set status=unknown and say so. " +
+        "You are the Oracle in Lugarithm: a warm, clear guide and coding tutor for ages 10–16. " +
+        "Teach and answer using the supplied records; cite each record you use by its exact bracketed ID. " +
+        "For coding concepts and how the game works, explain fully and give a short example — just don't " +
+        "hand over the finished solution to a specific puzzle. For heritage, stay strictly within the " +
+        "supplied records. If the records don't cover it, set status=unknown and say so. " +
         "Never invent history, family-plot details, or puzzle answers.";
 
     public static bool TryBuildRequest(string question, SaveData save, IReadOnlyList<string> history,
@@ -53,8 +54,9 @@ public static class HeritageOracleService
         {
             request = null;
             localResponse =
-                "I keep two kinds of records: the heritage and stories of the towns you've reached, " +
-                "and the coding lessons you've unlocked. Ask me about either and I'll dig through the archive.";
+                "I keep the heritage and stories of the towns you've reached, and I can teach any coding " +
+                "idea the game covers — commands, conditionals, loops, functions and more. Ask me about " +
+                "either and I'll dig through the archive.";
             return false;
         }
 
@@ -115,9 +117,12 @@ public static class HeritageOracleService
           "good afternoon", "good evening", "magandang" };
     static readonly string[] Thanks =
         { "thanks", "thank you", "salamat", "maraming salamat" };
+    // Only the *bare* "who are you / what can you do" openers — anything with an actual
+    // topic ("teach me loops", "how do functions work", "help me with fares") is a real
+    // question and must reach the knowledge base instead of this canned reply.
     static readonly string[] MetaAsks =
         { "who are you", "what are you", "what can you do", "what do you do",
-          "how can you help", "what can i ask", "help me", "what is this" };
+          "how can you help", "what can i ask" };
 
     static bool TryLocalChat(string question, out string response)
     {
@@ -126,8 +131,9 @@ public static class HeritageOracleService
         foreach (string g in Greetings)
             if (q == g || q.StartsWith(g + " "))
             {
-                response = "Hello, traveler. I'm the Heritage Oracle — I keep the stories of the towns " +
-                           "you've reached and the coding lessons you've unlocked. What would you like to explore?";
+                response = "Hello, traveler. I'm the Oracle — I keep the stories of the towns " +
+                           "you've reached and I can teach any coding idea the road has taught you. " +
+                           "What would you like to explore?";
                 return true;
             }
 
@@ -138,11 +144,15 @@ public static class HeritageOracleService
                 return true;
             }
 
+        // Match a meta-opener only when it is essentially the whole question — a couple of
+        // trailing words are fine ("what can you do here?"), but a real topic after it is
+        // not, so teaching requests fall through to retrieval.
         foreach (string m in MetaAsks)
-            if (q.Contains(m))
+            if (q == m || (q.StartsWith(m) && q.Length <= m.Length + 6))
             {
                 response = "Ask me about two things: the heritage, characters and storyline of the towns you've " +
-                           "visited, or any coding concept you've unlocked — commands, loops, conditionals, and more.";
+                           "visited, or any coding idea — commands, conditionals, loops, functions and more. " +
+                           "Say things like \"teach me loops\" or \"how do functions work\" and I'll explain.";
                 return true;
             }
 

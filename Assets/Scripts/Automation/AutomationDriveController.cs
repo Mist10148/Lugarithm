@@ -557,7 +557,8 @@ public class AutomationDriveController : MonoBehaviour
         // complete the leg (don't deadlock the conversation gate).
         if (dialogue == null) { _conversationDone = true; FinalizeStoryDestination(); return; }
 
-        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false,
+            blockMode: SaveSystem.Current.settings.blockMode);
         if (convo == null) { _conversationDone = true; FinalizeStoryDestination(); return; }
 
         PassengerDefinition pax = PassengerLibrary.Get(convo.passengerId);
@@ -828,7 +829,11 @@ public class AutomationDriveController : MonoBehaviour
             console.Info($"run #{_runCount} started…");
         }
 
-        exec.Run(program, resetWorld: !_optionalFreeRoam);
+        // RUN never snaps the world back to the start — the jeepney keeps its
+        // current cell, passengers and fares, and only the program is re-loaded and
+        // run from the top. This is what lets a short routine be run again and again
+        // to service the route step by step. Use the RESET button to start over.
+        exec.Run(program, resetWorld: false);
     }
 
     void OnPause()
@@ -1603,7 +1608,8 @@ public class AutomationDriveController : MonoBehaviour
     {
         if (_revealPlayed || dialogue == null) { _revealPlayed = true; onDone(); return; }
 
-        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false,
+            blockMode: SaveSystem.Current.settings.blockMode);
         if (convo == null || convo.journalPageId < 0 || convo.journalPageId >= JournalPageLibrary.Pages.Count)
         {
             _revealPlayed = true;
@@ -1625,7 +1631,8 @@ public class AutomationDriveController : MonoBehaviour
             return;
         }
 
-        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false,
+            blockMode: SaveSystem.Current.settings.blockMode);
         if (convo == null || convo.journalPageId < 0 || convo.journalPageId >= JournalPageLibrary.Pages.Count)
         {
             ShowResults();

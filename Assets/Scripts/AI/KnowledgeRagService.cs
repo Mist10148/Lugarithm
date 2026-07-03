@@ -37,6 +37,36 @@ public sealed class KnowledgeHit
 public static class KnowledgeRagService
 {
     static readonly Regex Words = new Regex(@"[\p{L}\p{N}][\p{L}\p{N}'-]*", RegexOptions.Compiled);
+
+    // Declared before Chunks: BuildChunks() reads GameGuide, and static fields
+    // initialize in textual order, so this must exist first.
+    static readonly (string id, string title, string body, string[] aliases)[] GameGuide =
+    {
+        ("guide:modes", "Automation vs Manual mode",
+            "Lugarithm has two ways to drive. In Manual mode you steer the jeepney yourself. " +
+            "In Automation mode you write a little program — in Blocks (drag-and-snap) or Code " +
+            "(typed) — and press Run to let it drive. Switch the editor with the Editor: Code / " +
+            "Editor: Blocks button.",
+            new[] { "automation", "manual", "blocks", "code", "editor mode" }),
+        ("guide:run", "Run, Pause, Step, Reset and running again",
+            "Run starts your program; Pause and Run resume where it stopped; Step runs one action " +
+            "at a time; the speed button (x1.0) changes how fast she drives. Pressing Run again does " +
+            "NOT send the jeepney back to the start — she keeps her place, her riders and her fares, " +
+            "so you can run a short routine again and again to serve the route. Only Reset returns " +
+            "her to the garage.",
+            new[] { "run", "pause", "step", "reset", "run again", "autopilot" }),
+        ("guide:passengers-fares", "Passengers, fares and change (sukli)",
+            "Stop where a passenger waits and pickUp() them, but only if there's room (seatsLeft, " +
+            "isFull). collectFare() takes their payment; giveChange(changeOwed()) returns the exact " +
+            "sukli; dropOff() lets them down at their stop. Deliver every rider to finish a leg.",
+            new[] { "passenger", "fare", "sukli", "change", "collectFare" }),
+        ("guide:fuel-repair", "Fuel and breakdowns",
+            "The jeepney burns fuel and can break down. Refueling is a by-hand mini-game — tap to " +
+            "pump and stop in the green band. A breakdown pauses the drive for a quick repair drill; " +
+            "code can't fix her, your hands do.",
+            new[] { "fuel", "gas", "refuel", "breakdown", "repair" }),
+    };
+
     static readonly IReadOnlyList<KnowledgeChunk> Chunks = BuildChunks();
     static readonly Dictionary<string, string[]> SemanticAliases = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
     {
@@ -244,6 +274,45 @@ public static class KnowledgeRagService
                 sourceLabel = $"Story Records — {p.displayName}",
                 aliases = new[] { p.displayName, p.speakerName, p.town, p.role },
                 concepts = new[] { "story", "character", p.town }
+            });
+        }
+
+        // The full Coding Reference — every concept the game teaches (commands, sensing,
+        // conditionals, loops, functions, indentation, errors…). Always eligible
+        // (levelIndex < 0): coding lessons aren't spoilers, so the Oracle can genuinely
+        // teach them on request instead of deferring to the tutorial.
+        for (int i = 0; i < CodingConceptLibrary.Concepts.Count; i++)
+        {
+            CodingConceptEntry entry = CodingConceptLibrary.Concepts[i];
+            chunks.Add(new KnowledgeChunk
+            {
+                id = $"concept:{i}",
+                domain = KnowledgeDomain.Coding,
+                levelIndex = -1,
+                gate = KnowledgeGate.UnlockedLevel,
+                title = entry.title,
+                body = StripRichText(entry.body + "\n" + entry.codeExample),
+                sourceLabel = $"Coding Reference — {entry.title}",
+                aliases = new[] { entry.title },
+                concepts = Tokenize(entry.title).ToArray()
+            });
+        }
+
+        // A small "how the game works" guide so the Oracle can answer plain gameplay
+        // questions (also always eligible).
+        foreach ((string id, string title, string body, string[] aliases) in GameGuide)
+        {
+            chunks.Add(new KnowledgeChunk
+            {
+                id = id,
+                domain = KnowledgeDomain.Coding,
+                levelIndex = -1,
+                gate = KnowledgeGate.UnlockedLevel,
+                title = title,
+                body = body,
+                sourceLabel = "Driver's Guide",
+                aliases = aliases,
+                concepts = new[] { "game", "how to play", "controls" }
             });
         }
         return chunks;

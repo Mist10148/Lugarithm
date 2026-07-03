@@ -287,6 +287,126 @@ public class CodeEditorPolishTests
         }
     }
 
+    [Test]
+    public void CodeEditor_Tab_InsertsIndentUnitAtCaret()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        try
+        {
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = CreateInput(inputGo);
+            editor.input = input;
+
+            input.text = "pickUp()";
+            input.stringPosition = 0;
+            input.selectionStringAnchorPosition = 0;
+            InvokePrivate(editor, "IndentSelection");
+
+            Assert.AreEqual("    pickUp()", input.text);
+            Assert.AreEqual(4, input.stringPosition);
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
+    [Test]
+    public void CodeEditor_ShiftTab_RemovesOneIndentLevel()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        try
+        {
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = CreateInput(inputGo);
+            editor.input = input;
+
+            input.text = "        pickUp()"; // two indent levels
+            input.stringPosition = 16;
+            input.selectionStringAnchorPosition = 16;
+            InvokePrivate(editor, "DedentSelection");
+
+            Assert.AreEqual("    pickUp()", input.text);
+            Assert.AreEqual(12, input.stringPosition);
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
+    [Test]
+    public void CodeEditor_AutoIndent_DeepensAfterColonHeaderAndKeepsBodyIndent()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        try
+        {
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = CreateInput(inputGo);
+            editor.input = input;
+
+            // Return at the end of a header line indents one level deeper.
+            string afterHeader = (string)InvokePrivate(
+                editor, "ComputeAutoIndent", "if frontIsClear():", 18);
+            Assert.AreEqual("    ", afterHeader);
+
+            // Return at the end of an ordinary body line keeps the same indent.
+            string afterBody = (string)InvokePrivate(
+                editor, "ComputeAutoIndent", "    moveForward()", 17);
+            Assert.AreEqual("    ", afterBody);
+
+            // A nested header stacks another level on top of its own indent.
+            string afterNested = (string)InvokePrivate(
+                editor, "ComputeAutoIndent", "    if atStop():", 16);
+            Assert.AreEqual("        ", afterNested);
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
+    [Test]
+    public void CodeEditor_FoldRange_ExcludesTrailingBlankLines()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        try
+        {
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = inputGo.AddComponent<TMP_InputField>();
+            editor.input = input;
+
+            // A blank line separates the def body from the dedented call below it.
+            editor.SetSource(
+                "def drive():\n" +
+                "    moveForward()\n" +
+                "    pickUp()\n" +
+                "\n" +
+                "drive()");
+
+            Assert.AreEqual(1, editor.FoldRangeCount);
+            editor.ToggleFold(1);
+
+            // The blank line (4) and the call (5) stay visible in the gutter — the
+            // fold stops at the last indented body line, not the trailing blank.
+            string lineNumbers = editor.BuildLineNumberText(5);
+            StringAssert.Contains(">4</color>", lineNumbers);
+            StringAssert.Contains(">5</color>", lineNumbers);
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
     TMP_InputField CreateInput(GameObject inputGo)
     {
         var input = inputGo.AddComponent<TMP_InputField>();

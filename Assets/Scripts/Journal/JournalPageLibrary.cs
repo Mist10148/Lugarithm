@@ -23,15 +23,18 @@ public static class JournalPageLibrary
                     "were away. Listen to Ate Gemma. She knew your father better than most.",
                 artifactCardDescription =
                     "A grease-stamped dispatcher's note tucked behind the sun visor — the first clue that the route was never just about driving.",
-                codingConceptName = "Linear Sequencing",
+                codingConceptName = "Conditionals (if / else)",
                 codingReferenceBody =
-                    "A program is just a list of instructions the jeepney follows in order. " +
-                    "Put one command after another, and the jeepney does them one at a time.",
+                    "An <b>if</b> lets the jeepney decide: the command underneath runs only when the " +
+                    "question after 'if' is true. Add an <b>else</b> for what to do otherwise. Because " +
+                    "she keeps her place each time you press Run, a short if-routine can serve the " +
+                    "whole route one Run at a time.",
                 codeExample =
-                    "<mspace=0.6em>moveForward()\n" +
-                    "moveForward()\n" +
-                    "pickUp()\n" +
-                    "dropOff()</mspace>"
+                    "<mspace=0.6em>if passengerWaiting():\n" +
+                    "    pickUp()\n" +
+                    "    collectFare()\n" +
+                    "else:\n" +
+                    "    moveForward()</mspace>"
             },
 
             new JournalPageDefinition
@@ -46,11 +49,12 @@ public static class JournalPageLibrary
                     "The plaza looked closer on the map, but the alleys turn back on themselves. You have to ask the road questions.",
                 artifactCardDescription =
                     "A torn embroidery sampler from Molo — the motif matches the floral side panel Lola Caring once stitched for the jeepney.",
-                codingConceptName = "Conditionals (if / while)",
+                codingConceptName = "Loops (while / for)",
                 codingReferenceBody =
-                    "Conditionals let the jeepney make decisions. Use <b>if</b> to do something " +
-                    "once when a condition is true, and <b>while</b> to keep doing it as long as " +
-                    "the condition stays true.",
+                    "A loop repeats steps so you never have to count the road. <b>while</b> keeps going " +
+                    "as long as its question is true; <b>for</b> repeats a set number of times. The same " +
+                    "shape drives an endless street — <b>while</b> moreRoad(): — so one small loop can " +
+                    "run the route forever.",
                 codeExample =
                     "<mspace=0.6em>while not routeComplete():\n" +
                     "    driveToNextStop()\n" +
@@ -74,13 +78,20 @@ public static class JournalPageLibrary
                     "was not just treasure; it was a belief made bright. Metal, like family, only stays true if someone keeps hammering it.",
                 artifactCardDescription =
                     "A small brass anchor charm from the Oton shipyards — the same shape Lolo Nicro still carries in his pocket.",
-                codingConceptName = "List Indexing",
+                codingConceptName = "Functions",
                 codingReferenceBody =
-                    "A list keeps items in order. Each item has an index, starting from 0. " +
-                    "Use the index to read or change a specific item in the list.",
+                    "A <b>def</b> names a routine so you can write it once and reuse it. Define the steps " +
+                    "under 'def name():', then call name() whenever you need them — a loop that calls a " +
+                    "well-named helper reads like a plan, not a pile of commands.",
                 codeExample =
-                    "<mspace=0.6em>stops = [\"Garage\", \"Market\", \"Terminal\"]\n" +
-                    "next_stop = stops[1]   # Market</mspace>"
+                    "<mspace=0.6em>def followWall():\n" +
+                    "    if rightIsClear():\n" +
+                    "        turnRight()\n" +
+                    "        moveForward()\n" +
+                    "    else:\n" +
+                    "        moveForward()\n\n" +
+                    "while not atDestination():\n" +
+                    "    followWall()</mspace>"
             },
 
             new JournalPageDefinition
