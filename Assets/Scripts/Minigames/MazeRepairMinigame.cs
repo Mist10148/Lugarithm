@@ -86,6 +86,8 @@ public class MazeRepairMinigame : MonoBehaviour
     int  _runAttempts;
     bool _struggleNudged;
     int  _bestDelivered;
+    readonly CodeRunHistory _runHistory = new CodeRunHistory();
+    CodeRunAttempt _activeRunAttempt;
 
     void Awake()
     {
@@ -146,6 +148,8 @@ public class MazeRepairMinigame : MonoBehaviour
         _runAttempts = 0;
         _struggleNudged = false;
         _bestDelivered = 0;
+        _runHistory.Clear();
+        _activeRunAttempt = null;
         if (hintButton != null) hintButton.gameObject.SetActive(false);
         if (hintLabel  != null) hintLabel.text = "";
 
@@ -210,6 +214,8 @@ public class MazeRepairMinigame : MonoBehaviour
         _runAttempts = 0;
         _struggleNudged = false;
         _bestDelivered = 0;
+        _runHistory.Clear();
+        _activeRunAttempt = null;
         if (hintButton != null) hintButton.gameObject.SetActive(false);
         if (hintLabel != null) hintLabel.text = "";
 
@@ -321,10 +327,12 @@ public class MazeRepairMinigame : MonoBehaviour
 
         _attempts++;
         _runAttempts++;
+        string runSource = CurrentSourceText();
+        _activeRunAttempt = _runHistory.RecordStarted(runSource, _codeActive ? "Maze code" : "Maze blocks");
         Debug.Log($"[MazeRepairMinigame] RUN pressed — attempts={_attempts}, runAttempts={_runAttempts}, failCount={_failCount}");
         if (feedbackLabel != null) feedbackLabel.text = "Driving…";
         exec.SetSpeed(runSpeed);   // re-assert in case a reset left it stale
-        exec.Run(program);
+        exec.Run(program, resetWorld: false);
         RevealHintAfterStruggle();
     }
 
@@ -405,6 +413,20 @@ public class MazeRepairMinigame : MonoBehaviour
     void HandleFinished(bool win)
     {
         if (!_active) return;
+        string gap = null;
+        if (!win && _sim != null)
+            gap = _sim.DescribeGoalGap(_def);
+        if (_activeRunAttempt != null)
+        {
+            int steps = _sim != null ? _sim.StepsUsed : 0;
+            _runHistory.Complete(
+                _activeRunAttempt,
+                win,
+                win ? "Solved" : "Stopped",
+                steps,
+                win ? $"Solved in {steps} steps." : (gap ?? "The program ended before reaching the exit."));
+            _activeRunAttempt = null;
+        }
 
         if (win)
         {
@@ -498,6 +520,13 @@ public class MazeRepairMinigame : MonoBehaviour
         if (timedOut)
         {
             _failCount++;
+            if (_activeRunAttempt != null)
+            {
+                int steps = _sim != null ? _sim.StepsUsed : 0;
+                _runHistory.Complete(_activeRunAttempt, false, "Timed out", steps,
+                    $"Timed out after {steps} step(s).");
+                _activeRunAttempt = null;
+            }
             Debug.Log($"[MazeRepairMinigame] timed out — failCount={_failCount}");
             RevealHintAfterStruggle();
         }
@@ -509,7 +538,8 @@ public class MazeRepairMinigame : MonoBehaviour
         if (root != null) root.SetActive(false);
 
         int penalty = timedOut ? 40 : 0;
-        int retries = Mathf.Max(0, _attempts - 1);
+        int attemptCount = Mathf.Max(1, _runHistory.Count);
+        int retries = Mathf.Max(0, attemptCount - 1);
         var result = new MinigameResult
         {
             TimedOut = timedOut,
@@ -523,22 +553,52 @@ public class MazeRepairMinigame : MonoBehaviour
         if (resultsPanel != null)
         {
             // Code-based drill → show the same kind of code analysis as the main
-            // Automation panel (deterministic; no per-drill AI call).
-            string playerSource = _codeActive
-                ? (codeEditor  != null ? codeEditor.Source : "")
-                : (blockCanvas != null ? blockCanvas.ToSourceText() : "");
+            // Automation panel; Gemini fills in the mentor review when available.
+            string playerSource = _runHistory.Last != null ? _runHistory.Last.source : CurrentSourceText();
+            string referenceSource = _def != null ? _def.optimalSolutionText : "";
             float elapsed = Mathf.Max(0f, _timeLimitSeconds - _timeLeft);
             CodeAnalysis analysis = CodeAnalyticsService.Analyze(
-                playerSource, _def != null ? _def.optimalSolutionText : "",
+                playerSource, referenceSource,
                 _sim != null ? _sim.StepsUsed : 0, _def != null ? _def.parSteps : 1,
-                retries, elapsed, _timeLimitSeconds, exec != null ? exec.LineHits : null);
+                retries, elapsed, _timeLimitSeconds, exec != null ? exec.LineHits : null,
+                attemptCount);
 
-            resultsPanel.Show("MINIGAME · Code", _resultTitle, result, analysis, () => cb?.Invoke(result));
+            resultsPanel.Show("MINIGAME · Code", _resultTitle, result, analysis,
+                () => cb?.Invoke(result), playerSource, referenceSource, _runHistory.Attempts);
+            resultsPanel.StartCoroutine(FetchMentorFeedback(playerSource, referenceSource, analysis));
         }
         else
         {
             cb?.Invoke(result);
         }
+    }
+
+    string CurrentSourceText()
+    {
+        return _codeActive
+            ? (codeEditor != null ? codeEditor.Source : "")
+            : (blockCanvas != null ? blockCanvas.ToSourceText() : "");
+    }
+
+    IEnumerator FetchMentorFeedback(string playerSource, string referenceSource, CodeAnalysis analysis)
+    {
+        AiRequest request = CodingMentorService.BuildRequest(
+            _resultTitle, MinigameHintLibrary.MazeConcept, analysis, playerSource, referenceSource,
+            _def != null ? _def.allowedBlocks : Array.Empty<string>(),
+            _def != null ? _def.allowedQueries : Array.Empty<string>(),
+            _runHistory.Attempts);
+        AiResult response = null;
+        yield return GeminiClient.Stream(request, null, completed => response = completed);
+
+        MentorReview review = null;
+        int lineCount = string.IsNullOrEmpty(playerSource) ? 0 : playerSource.Replace("\r", "").Split('\n').Length;
+        if (response == null || !response.Success ||
+            !CodingMentorService.TryParseAndValidate(response.Text, referenceSource,
+                _def != null ? _def.allowedBlocks : Array.Empty<string>(),
+                _def != null ? _def.allowedQueries : Array.Empty<string>(),
+                lineCount, out review))
+            review = CodingMentorService.Fallback(referenceSource, analysis);
+        if (resultsPanel != null) resultsPanel.SetMentorReview(review);
     }
 }
 

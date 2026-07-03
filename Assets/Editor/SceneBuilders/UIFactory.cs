@@ -172,6 +172,81 @@ public static class UIFactory
         return button;
     }
 
+    public static TMP_Dropdown CreateDropdown(Transform parent, string name,
+                                              Vector2 size, float fontSize = 17f)
+    {
+        var rt = CreateRect(parent, name, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+        rt.sizeDelta = size;
+
+        var image = rt.gameObject.AddComponent<Image>();
+        image.sprite = BuiltinSprite("InputFieldBackground.psd");
+        image.type = Image.Type.Sliced;
+        image.color = ButtonFace;
+
+        var dropdown = rt.gameObject.AddComponent<TMP_Dropdown>();
+        dropdown.targetGraphic = image;
+
+        TMP_Text caption = CreateText(rt, "Label", "", fontSize, TextBright,
+                                      TextAlignmentOptions.MidlineLeft);
+        caption.rectTransform.offsetMin = new Vector2(12f, 3f);
+        caption.rectTransform.offsetMax = new Vector2(-34f, -3f);
+        caption.textWrappingMode = TextWrappingModes.NoWrap;
+        caption.overflowMode = TextOverflowModes.Ellipsis;
+        dropdown.captionText = caption;
+
+        TMP_Text arrow = CreateText(rt, "Arrow", "▼", fontSize, TextDim,
+                                    TextAlignmentOptions.Center);
+        Place(arrow, new Vector2(1f, 0.5f), new Vector2(-17f, 0f), new Vector2(28f, size.y - 6f));
+
+        RectTransform template = CreatePanel(rt, "Template", Vector2.zero, Vector2.one, PanelDarker);
+        Place(template, new Vector2(0.5f, 0f), new Vector2(0f, -4f), new Vector2(size.x, 160f));
+        template.pivot = new Vector2(0.5f, 1f);
+        var templateImage = template.GetComponent<Image>();
+        templateImage.sprite = BuiltinSprite("UISprite.psd");
+        templateImage.type = Image.Type.Sliced;
+
+        var scroll = template.gameObject.AddComponent<ScrollRect>();
+        scroll.horizontal = false;
+
+        RectTransform viewport = CreatePanel(template, "Viewport", Vector2.zero, Vector2.one,
+                                             new Color(0f, 0f, 0f, 0.01f));
+        viewport.offsetMin = new Vector2(4f, 4f);
+        viewport.offsetMax = new Vector2(-4f, -4f);
+        var mask = viewport.gameObject.AddComponent<Mask>();
+        mask.showMaskGraphic = false;
+        scroll.viewport = viewport;
+
+        RectTransform content = CreateRect(viewport, "Content", new Vector2(0f, 1f), new Vector2(1f, 1f));
+        content.pivot = new Vector2(0.5f, 1f);
+        content.anchoredPosition = Vector2.zero;
+        content.sizeDelta = new Vector2(0f, 32f);
+        scroll.content = content;
+        AddVerticalLayout(content, 0f, align: TextAnchor.UpperCenter);
+        var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        RectTransform item = CreateRect(content, "Item", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
+        item.sizeDelta = new Vector2(size.x - 8f, 32f);
+        SetLayoutSize(item, size.x - 8f, 32f);
+        var itemBg = item.gameObject.AddComponent<Image>();
+        itemBg.sprite = BuiltinSprite("UISprite.psd");
+        itemBg.type = Image.Type.Sliced;
+        itemBg.color = ButtonFace;
+        var toggle = item.gameObject.AddComponent<Toggle>();
+        toggle.targetGraphic = itemBg;
+        TMP_Text itemText = CreateText(item, "Item Label", "Option", fontSize, TextBright,
+                                       TextAlignmentOptions.MidlineLeft);
+        itemText.rectTransform.offsetMin = new Vector2(10f, 2f);
+        itemText.rectTransform.offsetMax = new Vector2(-10f, -2f);
+        itemText.textWrappingMode = TextWrappingModes.NoWrap;
+        itemText.overflowMode = TextOverflowModes.Ellipsis;
+        dropdown.itemText = itemText;
+        dropdown.template = template;
+        template.gameObject.SetActive(false);
+
+        return dropdown;
+    }
+
     /// <summary>
     /// Button built from a custom sprite atlas/sheet slice. Keeps the same TMP
     /// label structure as <see cref="CreateButton"/> so menu builders can swap

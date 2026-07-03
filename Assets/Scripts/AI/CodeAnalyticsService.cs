@@ -15,6 +15,7 @@ public sealed class CodeAnalysis
     public int MaxNesting;
     public int LoopDepth;
     public int HotLine;
+    public int AttemptCount;
     public string ComplexityClass;
     public string Summary;
 }
@@ -24,7 +25,8 @@ public static class CodeAnalyticsService
     public static CodeAnalysis Analyze(string playerSource, string optimalSource,
                                        int steps, int parSteps, int retries,
                                        float elapsed, float softTimer,
-                                       IReadOnlyDictionary<int, int> lineHits = null)
+                                       IReadOnlyDictionary<int, int> lineHits = null,
+                                       int attemptCount = 1)
     {
         AstMetrics player = Measure(playerSource);
         AstMetrics optimal = Measure(optimalSource);
@@ -53,9 +55,10 @@ public static class CodeAnalyticsService
             MaxNesting = player.MaxNesting,
             LoopDepth = player.MaxLoopDepth,
             HotLine = hotLine,
+            AttemptCount = Math.Max(1, attemptCount),
             ComplexityClass = player.MaxLoopDepth == 0 ? "O(1)" :
                               player.MaxLoopDepth == 1 ? "O(n)" : $"O(n^{player.MaxLoopDepth})",
-            Summary = $"Steps {stepScore}/50 · reliability {retryScore}/20 · time {timeScore}/15 · structure {structureScore}/15"
+            Summary = $"Steps {stepScore}/50 · reliability {retryScore}/20 · time {timeScore}/15 · structure {structureScore}/15 · runs {Math.Max(1, attemptCount)}"
         };
     }
 

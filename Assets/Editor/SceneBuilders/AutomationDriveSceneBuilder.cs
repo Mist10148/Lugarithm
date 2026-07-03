@@ -1124,6 +1124,12 @@ public static class AutomationDriveSceneBuilder
         var optimalFit = optimalText.gameObject.AddComponent<ContentSizeFitter>();
         optimalFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
+        TMP_Dropdown attempts = UIFactory.CreateDropdown(window, "AttemptDropdown", new Vector2(320f, 34f), 16f);
+        UIFactory.Place(attempts, new Vector2(0.5f, 0f), new Vector2(-410f, 212f), new Vector2(320f, 34f));
+        var attemptStatus = UIFactory.CreateText(window, "AttemptStatus", "", 17f,
+                                                 UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(attemptStatus, new Vector2(0.5f, 0f), new Vector2(105f, 212f), new Vector2(680f, 34f));
+
         var stats = UIFactory.CreateText(window, "Stats", "", 24f, UIFactory.Accent);
         UIFactory.Place(stats, new Vector2(0.5f, 0f), new Vector2(0f, 174f), new Vector2(1160f, 34f));
 
@@ -1172,6 +1178,8 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(panel, "statsLabel",           stats);
         SceneBuilderUtil.Wire(panel, "mentorLabel",          mentor);
         SceneBuilderUtil.Wire(panel, "efficiencyLabel",      efficiency);
+        SceneBuilderUtil.Wire(panel, "attemptDropdown",      attempts);
+        SceneBuilderUtil.Wire(panel, "attemptStatusLabel",   attemptStatus);
         SceneBuilderUtil.Wire(panel, "annotationContainer",  annotations);
         SceneBuilderUtil.Wire(panel, "annotationTemplate",   annotationTemplate);
         SceneBuilderUtil.Wire(panel, "tooltipRoot",          tooltip.gameObject);

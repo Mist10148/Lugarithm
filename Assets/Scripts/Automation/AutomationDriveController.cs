@@ -132,6 +132,8 @@ public class AutomationDriveController : MonoBehaviour
     bool _lastRunWasCode;
     int  _runCount;
     int  _failCount;
+    readonly CodeRunHistory _runHistory = new CodeRunHistory();
+    CodeRunAttempt _activeRunAttempt;
     bool _struggleNudged;
     int  _hintTier;
     int  _bestDelivered;   // best passengers-delivered across runs; eases the hint tier on progress
@@ -815,6 +817,12 @@ public class AutomationDriveController : MonoBehaviour
         _lastRunWasCode = _codeTabActive;
         _runCount++;
         _lastExecutedLine = 0;
+        string runSource = _lastRunWasCode
+            ? (codeEditor != null ? codeEditor.Source : "")
+            : (blockCanvas != null ? blockCanvas.ToSourceText() : "");
+        _activeRunAttempt = _runHistory.RecordStarted(
+            runSource,
+            _lastRunWasCode ? "Automation (Code)" : "Automation (Blocks)");
 
         if (_runCount >= 3 && hintButton != null)
             hintButton.gameObject.SetActive(true);
@@ -1262,6 +1270,20 @@ public class AutomationDriveController : MonoBehaviour
     {
         FlushOutput();   // a print()-only program never hits HandleStepDone, so flush here
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
+        string gapForAttempt = null;
+        if (!win && exec != null && exec.Sim != null)
+            gapForAttempt = exec.Sim.DescribeGoalGap(_def);
+        if (_activeRunAttempt != null)
+        {
+            int steps = exec != null && exec.Sim != null ? exec.Sim.StepsUsed : 0;
+            _runHistory.Complete(
+                _activeRunAttempt,
+                win,
+                win ? "Solved" : "Stopped",
+                steps,
+                win ? $"Solved in {steps} steps." : (gapForAttempt ?? "The program ended without reaching the goal."));
+            _activeRunAttempt = null;
+        }
 
         if (win)
         {
@@ -1290,7 +1312,7 @@ public class AutomationDriveController : MonoBehaviour
 
         if (console != null && exec != null)
         {
-            string gap = exec.Sim.DescribeGoalGap(_def);
+            string gap = gapForAttempt ?? exec.Sim.DescribeGoalGap(_def);
             console.Warn(gap ?? "the program ended without reaching the goal.");
             console.Info("edit your program and press RUN to try again.");
         }
@@ -1647,7 +1669,8 @@ public class AutomationDriveController : MonoBehaviour
     {
         AgentSim sim = exec.Sim;
         float elapsed = Time.time - _startTime;
-        int retries = Mathf.Max(0, _runCount - 1);
+        int attemptCount = Mathf.Max(1, _runHistory.Count);
+        int retries = Mathf.Max(0, attemptCount - 1);
 
         int score = ScoreCalculator.AutomationScore(
             sim.StepsUsed, _def.parSteps, elapsed, _def.softTimerSeconds, retries, _lastRunWasCode);
@@ -1666,7 +1689,7 @@ public class AutomationDriveController : MonoBehaviour
         int minutes = (int)(elapsed / 60f);
         int seconds = (int)(elapsed % 60f);
         string stats = $"SCORE {score}   ·   steps {sim.StepsUsed} (par {_def.parSteps})   ·   " +
-                       $"time {minutes:0}:{seconds:00}   ·   retries {retries}   ·   earned ₱{earned}" +
+                       $"time {minutes:0}:{seconds:00}   ·   runs {attemptCount}   ·   retries {retries}   ·   earned ₱{earned}" +
                        (_lastRunWasCode ? "   ·   CODE ×1.5" : "");
 
         if (console != null) console.Info("goal complete!");
@@ -1675,7 +1698,7 @@ public class AutomationDriveController : MonoBehaviour
         {
             CodeAnalysis analysis = CodeAnalyticsService.Analyze(
                 playerSolution, _def.optimalSolutionText, sim.StepsUsed, _def.parSteps,
-                retries, elapsed, _def.softTimerSeconds, exec.LineHits);
+                retries, elapsed, _def.softTimerSeconds, exec.LineHits, attemptCount);
             results.Show(
                 $"LEG COMPLETE  —  {_level.displayName}",
                 playerSolution, _def.optimalSolutionText, stats,
@@ -1692,7 +1715,8 @@ public class AutomationDriveController : MonoBehaviour
                 onReplay: () => LoadScene(SceneManager.GetActiveScene().name),
                 analysis: analysis,
                 category: _lastRunWasCode ? "MAIN GAMEPLAY · Automation (Code)"
-                                          : "MAIN GAMEPLAY · Automation (Blocks)");
+                                          : "MAIN GAMEPLAY · Automation (Blocks)",
+                attempts: _runHistory.Attempts);
 
             StartCoroutine(FetchMentorFeedback(playerSolution, analysis));
         }
@@ -1711,7 +1735,7 @@ public class AutomationDriveController : MonoBehaviour
         string concept = JournalPageLibrary.Pages[_levelIndex].codingConceptName;
         AiRequest request = CodingMentorService.BuildRequest(
             _level.displayName, concept, analysis, playerSol, _def.optimalSolutionText,
-            _def.allowedBlocks, _def.allowedQueries);
+            _def.allowedBlocks, _def.allowedQueries, _runHistory.Attempts);
         AiResult response = null;
         yield return GeminiClient.Stream(request, null, completed => response = completed);
 

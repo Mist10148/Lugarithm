@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -20,6 +21,7 @@ public class CodeOrderMinigame : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private GameObject root;
+    [SerializeField] private MinigameResultsPanel resultsPanel;
     [SerializeField] private TMP_Text   titleLabel;
     [SerializeField] private TMP_Text   goalLabel;
     [SerializeField] private TMP_Text   feedbackLabel;
@@ -45,6 +47,8 @@ public class CodeOrderMinigame : MonoBehaviour
     int _mistakes;
     int _hintTier;
     int _lastWrongIndex = -1;
+    string _title = "Code Order";
+    readonly CodeRunHistory _runHistory = new CodeRunHistory();
 
     void Awake()
     {
@@ -78,6 +82,8 @@ public class CodeOrderMinigame : MonoBehaviour
         _mistakes = 0;
         _hintTier = 0;
         _lastWrongIndex = -1;
+        _title = def != null && !string.IsNullOrWhiteSpace(def.title) ? def.title : "Code Order";
+        _runHistory.Clear();
         if (hintButton != null) hintButton.gameObject.SetActive(false);
         if (hintLabel != null) hintLabel.text = "";
 
@@ -90,7 +96,7 @@ public class CodeOrderMinigame : MonoBehaviour
         var rng = new System.Random();
         do { Shuffle(_order, rng); } while (_count > 1 && IsCorrect());
 
-        if (titleLabel != null) titleLabel.text = def.title;
+        if (titleLabel != null) titleLabel.text = _title;
         if (goalLabel  != null) goalLabel.text  = puzzle.goal;
         if (feedbackLabel != null) { feedbackLabel.text = "Use ↑ ↓ to order the program, then press RUN."; feedbackLabel.color = Neutral; }
 
@@ -109,17 +115,20 @@ public class CodeOrderMinigame : MonoBehaviour
 
     void OnRun()
     {
+        CodeRunAttempt attempt = _runHistory.RecordStarted(CurrentSourceText(), "Code order");
         int wrong = FirstWrongIndex();
         if (wrong < 0)
         {
             if (feedbackLabel != null) { feedbackLabel.text = "Program runs — well done!"; feedbackLabel.color = Good; }
+            _runHistory.Complete(attempt, true, "Solved", _count, $"Solved in {_runHistory.Count} run(s).");
             Action cb = _onSolved;
             Cleanup();
-            cb?.Invoke();
+            ShowCodeResults(cb);
             return;
         }
 
         if (feedbackLabel != null) { feedbackLabel.text = $"Line {wrong + 1} is out of order — keep arranging."; feedbackLabel.color = Bad; }
+        _runHistory.Complete(attempt, false, "Wrong order", wrong + 1, $"Line {wrong + 1} was out of order.");
         _mistakes++;
         _lastWrongIndex = wrong;
         Refresh(wrong);
@@ -186,6 +195,61 @@ public class CodeOrderMinigame : MonoBehaviour
         if (hintButton != null) hintButton.gameObject.SetActive(false);
         if (hintLabel != null) hintLabel.text = "";
         if (root != null) root.SetActive(false);
+    }
+
+    string CurrentSourceText()
+    {
+        return CodeRunHistory.SourceFromLines(_order);
+    }
+
+    string ReferenceSourceText()
+    {
+        return CodeRunHistory.SourceFromLines(_correct);
+    }
+
+    void ShowCodeResults(Action onSolved)
+    {
+        if (resultsPanel == null)
+        {
+            onSolved?.Invoke();
+            return;
+        }
+
+        string playerSource = CurrentSourceText();
+        string referenceSource = ReferenceSourceText();
+        int attemptCount = Mathf.Max(1, _runHistory.Count);
+        var result = new MinigameResult
+        {
+            TimedOut = false,
+            Mistakes = _mistakes,
+            Score = Mathf.Max(10, 100 - 12 * _mistakes),
+        };
+        CodeAnalysis analysis = CodeAnalyticsService.Analyze(
+            playerSource, referenceSource, _count, Mathf.Max(1, _count),
+            Mathf.Max(0, attemptCount - 1), 0f, 0f, null, attemptCount);
+
+        resultsPanel.Show("MINIGAME · Code", _title, result, analysis,
+            onSolved, playerSource, referenceSource, _runHistory.Attempts);
+        resultsPanel.StartCoroutine(FetchMentorFeedback(playerSource, referenceSource, analysis));
+    }
+
+    IEnumerator FetchMentorFeedback(string playerSource, string referenceSource, CodeAnalysis analysis)
+    {
+        AiRequest request = CodingMentorService.BuildRequest(
+            "Town hub code order", "program ordering", analysis, playerSource, referenceSource,
+            Array.Empty<string>(), Array.Empty<string>(), _runHistory.Attempts,
+            preserveAuthoredOptimal: true);
+        AiResult response = null;
+        yield return GeminiClient.Stream(request, null, completed => response = completed);
+
+        MentorReview review = null;
+        int lineCount = string.IsNullOrEmpty(playerSource) ? 0 : playerSource.Replace("\r", "").Split('\n').Length;
+        if (response == null || !response.Success ||
+            !CodingMentorService.TryParseAndValidate(response.Text, referenceSource,
+                Array.Empty<string>(), Array.Empty<string>(), lineCount, out review,
+                preserveAuthoredOptimal: true))
+            review = CodingMentorService.Fallback(referenceSource, analysis);
+        if (resultsPanel != null) resultsPanel.SetMentorReview(review);
     }
 
     static void Shuffle(List<string> list, System.Random rng)
