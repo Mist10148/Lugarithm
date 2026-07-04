@@ -1095,17 +1095,17 @@ public static class AutomationDriveSceneBuilder
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -42f), new Vector2(1100f, 48f));
 
         var playerHeader = UIFactory.CreateText(window, "PlayerHeader", "YOUR SOLUTION", 22f, UIFactory.TextDim);
-        UIFactory.Place(playerHeader, new Vector2(0.5f, 1f), new Vector2(-285f, -94f), new Vector2(520f, 30f));
+        UIFactory.Place(playerHeader, new Vector2(0.5f, 1f), new Vector2(-285f, -124f), new Vector2(520f, 30f));
 
         var optimalHeader = UIFactory.CreateText(window, "OptimalHeader", "AI'S BETTER VERSION", 22f,
                                                  new Color(0.55f, 0.78f, 1f), TextAlignmentOptions.Center);
-        UIFactory.Place(optimalHeader, new Vector2(0.5f, 1f), new Vector2(285f, -94f), new Vector2(520f, 30f));
+        UIFactory.Place(optimalHeader, new Vector2(0.5f, 1f), new Vector2(285f, -124f), new Vector2(520f, 30f));
 
         // Player + AI code panels scroll, so long solutions/AI versions never clip.
         ScrollRect playerScroll = UIFactory.CreateScrollView(window, "PlayerScroll",
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform playerContent);
         UIFactory.Place((RectTransform)playerScroll.transform, new Vector2(0.5f, 1f),
-                        new Vector2(-295f, -116f), new Vector2(560f, 440f));
+                        new Vector2(-295f, -148f), new Vector2(560f, 400f));
         UIFactory.AddVerticalScrollbar(playerScroll, permanent: true);
         var playerText = UIFactory.CreateText(playerContent, "Text", "", 19f,
                                               UIFactory.TextBright, TextAlignmentOptions.TopLeft);
@@ -1116,7 +1116,7 @@ public static class AutomationDriveSceneBuilder
         ScrollRect optimalScroll = UIFactory.CreateScrollView(window, "OptimalScroll",
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform optimalContent);
         UIFactory.Place((RectTransform)optimalScroll.transform, new Vector2(0.5f, 1f),
-                        new Vector2(295f, -116f), new Vector2(560f, 440f));
+                        new Vector2(295f, -148f), new Vector2(560f, 400f));
         UIFactory.AddVerticalScrollbar(optimalScroll, permanent: true);
         var optimalText = UIFactory.CreateText(optimalContent, "Text", "", 19f,
                                                UIFactory.TextBright, TextAlignmentOptions.TopLeft);
@@ -1125,10 +1125,10 @@ public static class AutomationDriveSceneBuilder
         optimalFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
         TMP_Dropdown attempts = UIFactory.CreateDropdown(window, "AttemptDropdown", new Vector2(320f, 34f), 16f);
-        UIFactory.Place(attempts, new Vector2(0.5f, 0f), new Vector2(-410f, 212f), new Vector2(320f, 34f));
+        UIFactory.Place(attempts, new Vector2(0.5f, 1f), new Vector2(-390f, -92f), new Vector2(320f, 34f));
         var attemptStatus = UIFactory.CreateText(window, "AttemptStatus", "", 17f,
                                                  UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(attemptStatus, new Vector2(0.5f, 0f), new Vector2(105f, 212f), new Vector2(680f, 34f));
+        UIFactory.Place(attemptStatus, new Vector2(0.5f, 1f), new Vector2(120f, -92f), new Vector2(660f, 34f));
 
         var stats = UIFactory.CreateText(window, "Stats", "", 24f, UIFactory.Accent);
         UIFactory.Place(stats, new Vector2(0.5f, 0f), new Vector2(0f, 174f), new Vector2(1160f, 34f));

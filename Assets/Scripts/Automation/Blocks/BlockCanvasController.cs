@@ -131,6 +131,13 @@ public class BlockCanvasController : MonoBehaviour
         }
     }
 
+    public void ClearExecutionHighlight()
+    {
+        foreach (BlockRowView row in _rowMap.Values)
+            if (row != null)
+                row.ClearPulse();
+    }
+
     public void ClearAll()
     {
         _roots.Clear();

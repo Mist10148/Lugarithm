@@ -1249,6 +1249,8 @@ public class AutomationDriveController : MonoBehaviour
     void HandleRuntimeError(LangError error)
     {
         FlushOutput();   // show any print() output that preceded the error
+        if (codeEditor != null) codeEditor.ClearExecutionHighlight();
+        if (blockCanvas != null) blockCanvas.ClearExecutionHighlight();
         if (terminal != null) terminal.Open();
         if (console != null) console.Error(error.ToString());
     }
@@ -1259,6 +1261,7 @@ public class AutomationDriveController : MonoBehaviour
         if (monitor != null) monitor.ShowIdle();
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
         if (codeEditor != null) codeEditor.ClearHeat();
+        if (blockCanvas != null) blockCanvas.ClearExecutionHighlight();
         if (passengerRibbon != null) passengerRibbon.ReleaseAll();
         if (dulogMarkers != null) dulogMarkers.ClearAll();
         _autoFuel = 1f;
@@ -1270,6 +1273,7 @@ public class AutomationDriveController : MonoBehaviour
     {
         FlushOutput();   // a print()-only program never hits HandleStepDone, so flush here
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
+        if (blockCanvas != null) blockCanvas.ClearExecutionHighlight();
         string gapForAttempt = null;
         if (!win && exec != null && exec.Sim != null)
             gapForAttempt = exec.Sim.DescribeGoalGap(_def);

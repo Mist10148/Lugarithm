@@ -103,6 +103,7 @@ public class MazeRepairMinigame : MonoBehaviour
 
         if (exec != null)
         {
+            exec.OnStepDone     += HandleStepDone;
             exec.OnFinished     += HandleFinished;
             exec.OnRuntimeError += HandleRuntimeError;
         }
@@ -124,9 +125,11 @@ public class MazeRepairMinigame : MonoBehaviour
 
         if (exec != null)
         {
+            exec.OnStepDone     -= HandleStepDone;
             exec.OnFinished     -= HandleFinished;
             exec.OnRuntimeError -= HandleRuntimeError;
         }
+        ClearExecutionHighlights();
 
         if (mazeCamera != null) mazeCamera.targetTexture = null;
         if (_rt != null) { _rt.Release(); Destroy(_rt); _rt = null; }
@@ -150,6 +153,7 @@ public class MazeRepairMinigame : MonoBehaviour
         _bestDelivered = 0;
         _runHistory.Clear();
         _activeRunAttempt = null;
+        ClearExecutionHighlights();
         if (hintButton != null) hintButton.gameObject.SetActive(false);
         if (hintLabel  != null) hintLabel.text = "";
 
@@ -216,6 +220,7 @@ public class MazeRepairMinigame : MonoBehaviour
         _bestDelivered = 0;
         _runHistory.Clear();
         _activeRunAttempt = null;
+        ClearExecutionHighlights();
         if (hintButton != null) hintButton.gameObject.SetActive(false);
         if (hintLabel != null) hintLabel.text = "";
 
@@ -340,6 +345,7 @@ public class MazeRepairMinigame : MonoBehaviour
     {
         if (!_active || exec == null) return;
         exec.ResetWorld();   // snaps the agent view back to the start
+        ClearExecutionHighlights();
         if (feedbackLabel != null) feedbackLabel.text = "World reset — edit and RUN again.";
     }
 
@@ -405,14 +411,41 @@ public class MazeRepairMinigame : MonoBehaviour
     // -------------------------------------------------------------------------
     // Execution events
 
+    void HandleStepDone(AgentActionResult result, StepResult step)
+    {
+        if (!_active || step == null) return;
+
+        if (_codeActive && codeEditor != null && step.Node != null)
+            codeEditor.HighlightExecutingLine(step.Node.Line);
+
+        if (!_codeActive && blockCanvas != null && step.Node != null)
+            blockCanvas.HighlightExecuting(step.Node.SourceRef);
+
+        if (codeEditor != null && exec != null)
+            codeEditor.SetHeat(exec.LineHits);
+    }
+
+    void ClearExecutionHighlights()
+    {
+        if (codeEditor != null)
+        {
+            codeEditor.ClearExecutionHighlight();
+            codeEditor.ClearHeat();
+        }
+        if (blockCanvas != null)
+            blockCanvas.ClearExecutionHighlight();
+    }
+
     void HandleRuntimeError(LangError error)
     {
+        ClearExecutionHighlights();
         if (feedbackLabel != null) feedbackLabel.text = error.ToString();
     }
 
     void HandleFinished(bool win)
     {
         if (!_active) return;
+        ClearExecutionHighlights();
         string gap = null;
         if (!win && _sim != null)
             gap = _sim.DescribeGoalGap(_def);
@@ -532,6 +565,7 @@ public class MazeRepairMinigame : MonoBehaviour
         }
 
         _active = false;
+        ClearExecutionHighlights();
 
         if (exec != null) exec.ResetWorld();
         if (mazeCamera != null) mazeCamera.enabled = false;   // stop rendering the RT

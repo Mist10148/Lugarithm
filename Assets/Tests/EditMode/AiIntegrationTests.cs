@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using NUnit.Framework;
+using UnityEngine;
 
 public class AiIntegrationTests
 {
@@ -136,6 +138,36 @@ public class AiIntegrationTests
             Array.Empty<string>(), Array.Empty<string>(), 2, out MentorReview review,
             preserveAuthoredOptimal: true));
         Assert.AreEqual(authored, review.optimizedCode);
+    }
+
+    [Test]
+    public void ExecutionController_PendingMacroMoveKeepsSourceNodeForHighlighting()
+    {
+        ProgramNode program = Parser.Compile("driveToNextStop()", out List<LangError> errors);
+        Assert.IsEmpty(errors);
+
+        var go = new GameObject("ExecutionController_PendingMoveHighlight_Test");
+        try
+        {
+            var exec = go.AddComponent<ExecutionController>();
+            StmtNode sourceNode = program.Statements[0];
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+
+            typeof(ExecutionController).GetField("_pendingMoveNode", flags).SetValue(exec, sourceNode);
+            typeof(ExecutionController).GetField("_pendingMoveSourceAction", flags).SetValue(exec, "driveToNextStop");
+
+            var moveResult = new AgentActionResult { Action = "moveForward" };
+            var step = (StepResult)typeof(ExecutionController)
+                .GetMethod("PendingMoveStep", flags)
+                .Invoke(exec, new object[] { moveResult });
+
+            Assert.AreSame(sourceNode, step.Node);
+            Assert.AreEqual("driveToNextStop", step.ActionName);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
     }
 
     [Test]
