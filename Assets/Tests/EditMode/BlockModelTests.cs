@@ -191,27 +191,16 @@ public class BlockModelTests
     }
 
     [Test]
-    public void ReferenceSolution_Compiles_AndUsesNavigationSensors()
+    public void ReferenceSolution_RoundTripsThroughBlocks_WithGiveChange()
     {
         ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
         CollectionAssert.IsEmpty(errors);
 
-        string source = AstPrinter.Print(program);
-        StringAssert.Contains("def driveToDropoff():", source);
-        StringAssert.Contains("directionTo(", source);
-        StringAssert.Contains("facing()", source);
-        StringAssert.Contains("giveChange(changeOwed())", source);
-    }
+        List<BlockNode> roots = BlockProgram.FromAst(program, out bool fullyRepresentable);
+        Assert.IsTrue(fullyRepresentable);
 
-    [Test]
-    public void ReferenceSolution_IsNotFullyBlockRepresentable_DueToTupleIndexingAndArgReporters()
-    {
-        ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
-        CollectionAssert.IsEmpty(errors);
-
-        BlockProgram.FromAst(program, out bool fullyRepresentable);
-        Assert.IsFalse(fullyRepresentable,
-            "the user-defined autopilot uses tuple indexing and argument-taking reporters; " +
-            "it should load in Code mode instead of blocks");
+        ProgramNode fromBlocks = BlockProgram.ToAst(roots, out var blockErrors, out _);
+        CollectionAssert.IsEmpty(blockErrors);
+        StringAssert.Contains("giveChange(changeOwed())", AstPrinter.Print(fromBlocks));
     }
 }

@@ -66,15 +66,6 @@ public static class AgentApi
         new ApiEntry("isMarked",           ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("position",           ApiKind.Reporter,minArity: 0, maxArity: 0),
 
-        // Navigation sensors for player-built pathing algorithms
-        new ApiEntry("storyDropoffArmed",  ApiKind.Query,   minArity: 0, maxArity: 0),
-        new ApiEntry("storyDropoffPosition",ApiKind.Reporter,minArity: 0, maxArity: 0),
-        new ApiEntry("nearestStopPosition",ApiKind.Reporter,minArity: 0, maxArity: 0),
-        new ApiEntry("destinationPosition",ApiKind.Reporter,minArity: 0, maxArity: 0),
-        new ApiEntry("facing",             ApiKind.Reporter,minArity: 0, maxArity: 0),
-        new ApiEntry("directionTo",        ApiKind.Reporter,minArity: 2, maxArity: 2),
-        new ApiEntry("distanceTo",         ApiKind.Reporter,minArity: 2, maxArity: 2),
-
         // Automation-exclusive actions
         new ApiEntry("driveToNextStop",    ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("driveToDestination", ApiKind.Action,  minArity: 0, maxArity: 0),

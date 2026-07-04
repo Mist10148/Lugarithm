@@ -1097,7 +1097,7 @@ public static class AutomationDriveSceneBuilder
         var playerHeader = UIFactory.CreateText(window, "PlayerHeader", "YOUR SOLUTION", 22f, UIFactory.TextDim);
         UIFactory.Place(playerHeader, new Vector2(0.5f, 1f), new Vector2(-285f, -124f), new Vector2(520f, 30f));
 
-        var optimalHeader = UIFactory.CreateText(window, "OptimalHeader", "AI'S BETTER VERSION", 22f,
+        var optimalHeader = UIFactory.CreateText(window, "OptimalHeader", "INTENDED SOLUTION", 22f,
                                                  new Color(0.55f, 0.78f, 1f), TextAlignmentOptions.Center);
         UIFactory.Place(optimalHeader, new Vector2(0.5f, 1f), new Vector2(285f, -124f), new Vector2(520f, 30f));
 
@@ -1109,9 +1109,7 @@ public static class AutomationDriveSceneBuilder
         UIFactory.AddVerticalScrollbar(playerScroll, permanent: true);
         var playerText = UIFactory.CreateText(playerContent, "Text", "", 19f,
                                               UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        playerText.enableWordWrapping = true;
-        var playerFit = playerText.gameObject.AddComponent<ContentSizeFitter>();
-        playerFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        UIFactory.EnableHorizontalCodeScroll(playerScroll, playerContent, playerText);
 
         ScrollRect optimalScroll = UIFactory.CreateScrollView(window, "OptimalScroll",
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform optimalContent);
@@ -1120,9 +1118,7 @@ public static class AutomationDriveSceneBuilder
         UIFactory.AddVerticalScrollbar(optimalScroll, permanent: true);
         var optimalText = UIFactory.CreateText(optimalContent, "Text", "", 19f,
                                                UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        optimalText.enableWordWrapping = true;
-        var optimalFit = optimalText.gameObject.AddComponent<ContentSizeFitter>();
-        optimalFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        UIFactory.EnableHorizontalCodeScroll(optimalScroll, optimalContent, optimalText);
 
         TMP_Dropdown attempts = UIFactory.CreateDropdown(window, "AttemptDropdown", new Vector2(320f, 34f), 16f);
         UIFactory.Place(attempts, new Vector2(0.5f, 1f), new Vector2(-390f, -92f), new Vector2(320f, 34f));

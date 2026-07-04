@@ -99,7 +99,6 @@ expressible at all. Gated via `LevelDefinition.allowedBlocks` / `allowedQueries`
 | Action | `markCell()` / `unmark()` | — | breadcrumb (optional levels) |
 | Query | `isMarked()` | bool | breadcrumb here? |
 | Reporter | `position()` | tuple `(x,y)` | current coordinate (advanced levels) |
-| Reporter | `facing()` | int `0..3` | current heading: 0=N, 1=E, 2=S, 3=W |
 
 ### 4.3 Automation-exclusive (jeepney driving)
 | Kind | Name | Returns | Purpose |
@@ -123,12 +122,6 @@ expressible at all. Gated via `LevelDefinition.allowedBlocks` / `allowedQueries`
 | Reporter | `distanceTraveled()` | int | cells/km since start |
 | Reporter | `distanceToDestination()` | int | remaining distance |
 | Reporter | `currentStop()` / `nextStop()` | string | stop names |
-| Query | `storyDropoffArmed()` | bool | story passenger's drop-off is armed and undelivered |
-| Reporter | `storyDropoffPosition()` | tuple `(x,y)` or `None` | story drop-off cell if armed |
-| Reporter | `nearestStopPosition()` | tuple `(x,y)` or `None` | nearest useful pickup/drop-off cell |
-| Reporter | `destinationPosition()` | tuple `(x,y)` | route terminal/destination cell |
-| Reporter | `directionTo(x, y)` | int `0..3` or `None` | first-step heading along shortest path |
-| Reporter | `distanceTo(x, y)` | int | shortest walkable path length to `(x, y)` |
 
 ---
 

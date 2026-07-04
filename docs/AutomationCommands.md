@@ -44,7 +44,6 @@ Queries return True or False and belong inside `if` or `while`.
 | `isFull()` | No seats are available. |
 | `routeComplete()` | All required riders are delivered, nobody required is waiting/aboard, and the jeepney is at the current terminal. |
 | `atDestination()` | Maze/minigame-style destination check; procedural Automation should use `routeComplete()`. |
-| `storyDropoffArmed()` | The front-seat story passenger's drop-off is armed and still undelivered. |
 
 ## Reporters
 
@@ -59,13 +58,6 @@ Reporters return values that can be assigned, printed, or passed into actions.
 | `passengerCount()` | Riders currently aboard. |
 | `distanceToDestination()` | Grid distance to the terminal/destination. |
 | `distanceTraveled()` | Steps used so far. |
-| `position()` | Current cell as a pair `(x, y)`. |
-| `facing()` | Current heading: `0` = North, `1` = East, `2` = South, `3` = West. |
-| `storyDropoffPosition()` | Story passenger's drop-off cell `(x, y)`, or `None` if not armed. |
-| `nearestStopPosition()` | Nearest useful stop `(x, y)`, or `None` when no rider target remains. |
-| `destinationPosition()` | The route terminal/destination cell `(x, y)`. |
-| `directionTo(x, y)` | Heading of the first step along the shortest path to `(x, y)`, or `None`. |
-| `distanceTo(x, y)` | Shortest walkable distance from the jeepney to `(x, y)`. |
 
 ## Procedural Route Pattern
 
@@ -78,42 +70,6 @@ while not routeComplete():
         giveChange(changeOwed())
     if atRequestedStop():
         dropOff()
-```
-
-## Building your own `driveToDropoff()`
-
-The autopilot demonstrates how the built-in `driveToDropoff()` can be rebuilt from lower-level navigation sensors. The same primitives let you write your own path-following algorithms:
-
-```python
-def driveToDropoff():
-    if storyDropoffArmed():
-        navigateTo(storyDropoffPosition(), 4)
-    else:
-        target = nearestStopPosition()
-        if target == None:
-            target = destinationPosition()
-        navigateTo(target, 4)
-
-def navigateTo(target, limit):
-    steps = 0
-    while distanceTo(target[0], target[1]) > 0 and steps < limit:
-        want = directionTo(target[0], target[1])
-        if want == None:
-            break
-        turnTo(want)
-        moveForward()
-        steps = steps + 1
-
-def turnTo(want):
-    if want == facing():
-        return
-    if (facing() + 1) % 4 == want:
-        turnRight()
-    elif (facing() + 2) % 4 == want:
-        turnRight()
-        turnRight()
-    else:
-        turnLeft()
 ```
 
 ## Notes

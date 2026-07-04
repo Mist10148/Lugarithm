@@ -104,9 +104,7 @@ public static class MinigameOverlayBuilder
         UIFactory.AddVerticalScrollbar(playerScroll, permanent: true);
         var playerText = UIFactory.CreateText(playerContent, "Text", "", 19f,
                                               UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        playerText.enableWordWrapping = true;
-        var playerFit = playerText.gameObject.AddComponent<ContentSizeFitter>();
-        playerFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        UIFactory.EnableHorizontalCodeScroll(playerScroll, playerContent, playerText);
 
         ScrollRect referenceScroll = UIFactory.CreateScrollView(rightColumn, "ReferenceScroll",
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform referenceContent);
@@ -115,9 +113,7 @@ public static class MinigameOverlayBuilder
         UIFactory.AddVerticalScrollbar(referenceScroll, permanent: true);
         var referenceText = UIFactory.CreateText(referenceContent, "Text", "", 19f,
                                                  UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        referenceText.enableWordWrapping = true;
-        var referenceFit = referenceText.gameObject.AddComponent<ContentSizeFitter>();
-        referenceFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        UIFactory.EnableHorizontalCodeScroll(referenceScroll, referenceContent, referenceText);
         codeGroup.gameObject.SetActive(false);
 
         var mentor = UIFactory.CreateText(window, "MentorLabel", "", 18f,
