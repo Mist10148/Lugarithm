@@ -134,7 +134,12 @@ public class ExecutionController : MonoBehaviour
         _startFacing = startFacing;
 
         if (_view != null && _sim != null)
-            _view.Init(_space, _sim.Position, _sim.Facing);
+        {
+            if (_view is IStreamingAgentView streamingView)
+                streamingView.RebindSpacePreservingPose(_space, _stopView, _sim.Position);
+            else
+                _view.Init(_space, _sim.Position, _sim.Facing);
+        }
     }
 
     // -------------------------------------------------------------------------

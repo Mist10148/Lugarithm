@@ -19,6 +19,7 @@ public class MinigameResultsPanel : MonoBehaviour
     [SerializeField] private TMP_Text   categoryLabel;
     [SerializeField] private TMP_Text   titleLabel;
     [SerializeField] private TMP_Text   statsLabel;
+    [SerializeField] private TMP_Text   codeStatsLabel;
     [SerializeField] private GameObject analysisGroup;   // shown only for code-based drills
     [SerializeField] private TMP_Text   analysisLabel;
     [SerializeField] private TMP_Dropdown attemptDropdown;
@@ -68,6 +69,12 @@ public class MinigameResultsPanel : MonoBehaviour
         bool hasAnalysis = analysis != null;
         if (analysisGroup != null) analysisGroup.SetActive(hasAnalysis);
         if (hasAnalysis && analysisLabel != null) analysisLabel.text = BuildAnalysis(analysis);
+        if (statsLabel != null) statsLabel.gameObject.SetActive(!hasAnalysis);
+        if (codeStatsLabel != null)
+        {
+            codeStatsLabel.gameObject.SetActive(hasAnalysis);
+            codeStatsLabel.text = BuildCodeStats(result);
+        }
         if (codeCompareGroup != null) codeCompareGroup.SetActive(hasAnalysis);
         if (referenceSourceLabel != null) referenceSourceLabel.text = EscapeRichText(_referenceSource);
         if (mentorLabel != null) mentorLabel.text = hasAnalysis ? "..." : "";
@@ -97,11 +104,17 @@ public class MinigameResultsPanel : MonoBehaviour
                $"Mistakes   <b>{r.Mistakes}</b>";
     }
 
+    static string BuildCodeStats(MinigameResult r)
+    {
+        if (r == null) return "";
+        string status = r.TimedOut ? "TIMED OUT" : "SOLVED";
+        return $"{status}   ·   SCORE {r.Score}   ·   mistakes {r.Mistakes}";
+    }
+
     static string BuildAnalysis(CodeAnalysis a)
     {
-        return $"<b>Efficiency {a.EfficiencyScore}/100</b>   ·   {a.ComplexityClass}\n" +
-               $"{a.Summary}\n" +
-               $"<color=#9EA0A2>statements {a.StatementCount}  ·  nesting {a.MaxNesting}  ·  loop depth {a.LoopDepth}</color>";
+        return $"EFFICIENCY {a.EfficiencyScore}/100   ·   {a.ComplexityClass}   ·   {a.Summary}   " +
+               $"·   statements {a.StatementCount}   ·   nesting {a.MaxNesting}   ·   loop depth {a.LoopDepth}";
     }
 
     void ConfigureAttempts(IReadOnlyList<CodeRunAttempt> attempts)
