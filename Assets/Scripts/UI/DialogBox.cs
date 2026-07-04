@@ -33,6 +33,7 @@ public class DialogBox : MonoBehaviour
     private Coroutine _revealRoutine;
     private string    _fullText = "";
     private bool      _isRevealing;
+    private int       _shownChars;
 
     /// <summary>True while the line is still being typed out.</summary>
     public bool IsRevealing => _isRevealing;
@@ -61,6 +62,7 @@ public class DialogBox : MonoBehaviour
         if (speakerLabel != null) speakerLabel.text = speaker;
 
         _fullText = text ?? "";
+        _shownChars = 0;
 
         if (useTypewriter && charsPerSecond > 0f)
         {
@@ -79,6 +81,7 @@ public class DialogBox : MonoBehaviour
         _revealRoutine = null;
         _isRevealing = true;
         _fullText = "";
+        _shownChars = 0;
         if (root != null) root.SetActive(true);
         if (speakerLabel != null) speakerLabel.text = speaker;
         if (continueIndicator != null) continueIndicator.SetActive(false);
@@ -88,21 +91,36 @@ public class DialogBox : MonoBehaviour
     public void AppendStreaming(string text)
     {
         _fullText += text ?? "";
+        _shownChars = _fullText.Length;
         SetBody(_fullText);
     }
 
     public void UpdateStreaming(string text)
     {
         _fullText = text ?? "";
-        SetBody(_fullText);
+        _shownChars = Mathf.Min(_shownChars, _fullText.Length);
         _isRevealing = true;
         if (continueIndicator != null) continueIndicator.SetActive(false);
+
+        if (useTypewriter && charsPerSecond > 0f)
+        {
+            if (_revealRoutine != null) StopCoroutine(_revealRoutine);
+            _revealRoutine = StartCoroutine(RevealFrom(_shownChars));
+        }
+        else
+        {
+            SetBody(_fullText);
+            _shownChars = _fullText.Length;
+        }
     }
 
     public void CompleteStreaming(string finalText)
     {
         _fullText = finalText ?? "";
+        if (_revealRoutine != null) StopCoroutine(_revealRoutine);
+        _revealRoutine = null;
         SetBody(_fullText);
+        _shownChars = _fullText.Length;
         _isRevealing = false;
         ShowContinuePrompt();
     }
@@ -127,6 +145,7 @@ public class DialogBox : MonoBehaviour
         if (_revealRoutine != null) StopCoroutine(_revealRoutine);
         _revealRoutine = null;
         _isRevealing = false;
+        _shownChars = 0;
         if (continueIndicator != null) continueIndicator.SetActive(false);
         if (root != null) root.SetActive(false);
     }
@@ -135,15 +154,20 @@ public class DialogBox : MonoBehaviour
 
     IEnumerator Reveal()
     {
+        yield return RevealFrom(0);
+    }
+
+    IEnumerator RevealFrom(int startIndex)
+    {
         _isRevealing = true;
         if (continueIndicator != null) continueIndicator.SetActive(false);
-        SetBody("");
 
-        float shown = 0f;
+        float shown = startIndex;
         while (shown < _fullText.Length)
         {
             shown += charsPerSecond * Time.deltaTime;
             int count = Mathf.Clamp(Mathf.FloorToInt(shown), 0, _fullText.Length);
+            _shownChars = count;
             SetBody(_fullText.Substring(0, count));
             yield return null;
         }
@@ -156,6 +180,7 @@ public class DialogBox : MonoBehaviour
         if (_revealRoutine != null) StopCoroutine(_revealRoutine);
         _revealRoutine = null;
         SetBody(_fullText);
+        _shownChars = _fullText.Length;
         _isRevealing = false;
         ShowContinuePrompt();
     }

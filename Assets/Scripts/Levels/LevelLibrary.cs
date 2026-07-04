@@ -129,26 +129,41 @@ public static class LevelLibrary
                     "########",
                 },
                 startFacing    = 1, // East
-                goalText       = "Drive from the garage (S) to the terminal (D). Pick up the " +
-                                 "waiting passenger (P), collect their fare, and drop them off.",
+                goalText       = "Teach her to decide for herself. Drive from the garage (S) to the " +
+                                 "terminal (D). Use an if to pick up the waiting passenger (P) only " +
+                                 "when someone's there, collect the fare, and drop them off. Press Run " +
+                                 "as many times as you like — she keeps her place between Runs.",
+                // Conditionals arrive in the tutorial: if / else plus the passenger and
+                // fare questions to branch on. Movement/board/fare actions stay too.
                 allowedBlocks  = new[] { "moveForward", "turnLeft", "turnRight",
-                                         "pickUp", "collectFare", "dropOff" },
-                allowedQueries = new string[0],
+                                         "pickUp", "collectFare", "dropOff",
+                                         "if", "ifElse" },
+                allowedQueries = new[] { "passengerWaiting", "atStop", "atRequestedStop",
+                                         "hasPassengerAboard", "frontIsClear" },
                 parSteps       = 17,
                 softTimerSeconds = 300f,
                 requireAllPassengersDelivered = true,
                 codeScaffold =
-                    "# Goal: drive from S to D.\n" +
-                    "# Pick up the passenger at the stop (P), collect the fare,\n" +
-                    "# then drop them off at the terminal.\n" +
+                    "# Goal: drive from S to D and serve the passenger (P).\n" +
+                    "# New idea: an 'if' runs a command only when its question is true —\n" +
+                    "#   if passengerWaiting():\n" +
+                    "#       pickUp()\n" +
+                    "# Press Run again and again: she keeps her place, riders and fares\n" +
+                    "# between Runs. Reset sends her back to the garage.\n" +
+                    "# Questions: passengerWaiting(), atStop(), atRequestedStop(),\n" +
+                    "#            hasPassengerAboard(), frontIsClear()\n" +
                     "# Actions: moveForward(), turnLeft(), turnRight(),\n" +
                     "#          pickUp(), collectFare(), dropOff()\n",
+                // Same 17 physical actions as a flat drive, but the board/fare pair is
+                // guarded by a conditional — control-flow headers cost no steps, so par
+                // stays 17 while the solution now demonstrates 'if'.
                 optimalSolutionText =
                     "moveForward()\n" +
                     "moveForward()\n" +
                     "moveForward()\n" +
-                    "pickUp()\n" +
-                    "collectFare()\n" +
+                    "if passengerWaiting():\n" +
+                    "    pickUp()\n" +
+                    "    collectFare()\n" +
                     "moveForward()\n" +
                     "moveForward()\n" +
                     "turnRight()\n" +
@@ -235,12 +250,15 @@ public static class LevelLibrary
                     "###########",
                 },
                 startFacing    = 1, // East
-                goalText       = "Escape the Molo back-alleys to the plaza (D). The route twists — " +
-                                 "use while and if to feel your way along the walls. Pick up both " +
-                                 "waiting passengers (P) and collect their fares.",
+                goalText       = "Escape the Molo back-alleys to the plaza (D). You can't count these " +
+                                 "twists by hand — wrap your steps in a loop. 'while not atDestination():' " +
+                                 "repeats until you're through; keep one hand on the wall inside it. Pick " +
+                                 "up both waiting passengers (P) and collect their fares.",
+                // Loops become the headline: while / for join the conditionals from the
+                // tutorial. Same maze, but now the point is repetition, not counting.
                 allowedBlocks  = new[] { "moveForward", "turnLeft", "turnRight",
                                          "pickUp", "dropOff", "collectFare",
-                                         "while", "if", "ifElse" },
+                                         "while", "for", "if", "ifElse" },
                 allowedQueries = new[] { "frontIsClear", "leftIsClear", "rightIsClear",
                                          "atStop", "atDestination" },
                 parSteps       = 50,
@@ -248,7 +266,10 @@ public static class LevelLibrary
                 requireAllPassengersDelivered = true,
                 codeScaffold =
                     "# Goal: reach Molo Plaza (D).\n" +
-                    "# Walls block the way - use while / if to follow them.\n" +
+                    "# New idea: a loop repeats steps for you, so you never count the road.\n" +
+                    "#   while not atDestination():\n" +
+                    "#       # feel along the wall in here\n" +
+                    "# (An endless street uses the same shape: while moreRoad(): ...)\n" +
                     "# Queries: frontIsClear(), leftIsClear(), rightIsClear(),\n" +
                     "#          atStop(), atDestination()\n" +
                     "# Actions: moveForward(), turnLeft(), turnRight(),\n" +
@@ -294,8 +315,36 @@ public static class LevelLibrary
         AutomationPuzzleDefinition maze = MazeLibrary.Get(3);
         maze.useAuthoredGrid = true;
         maze.goalText =
-            "Oton back-lanes: program the jeepney out of the maze to the market (D). " +
-            "Keep one hand on the wall — while not atDestination(), feel along it with if / else.";
+            "Oton back-lanes: name the move once, reuse it everywhere. Wrap the wall-follow " +
+            "step in a function — def followWall(): — then let a loop call it out to the market (D). " +
+            "One tidy idea, repeated: that's what a function is for.";
+        // Level 2 teaches defining functions. Add 'def' to the palette and rewrite the
+        // reference so the wall-follower lives in a helper — identical actions to the
+        // inline solver, so it still solves the maze, but now it demonstrates def.
+        maze.allowedBlocks = new[] { "moveForward", "turnLeft", "turnRight",
+                                     "while", "if", "ifElse", "def" };
+        maze.codeScaffold =
+            "# Goal: reach the Oton market (D).\n" +
+            "# New idea: a function names a routine so you can reuse it.\n" +
+            "#   def followWall():\n" +
+            "#       # one wall-follow decision goes here\n" +
+            "#   while not atDestination():\n" +
+            "#       followWall()\n" +
+            "# Queries: frontIsClear(), leftIsClear(), rightIsClear(), atDestination()\n" +
+            "# Actions: moveForward(), turnLeft(), turnRight()\n";
+        maze.optimalSolutionText =
+            "def followWall():\n" +
+            "    if rightIsClear():\n" +
+            "        turnRight()\n" +
+            "        moveForward()\n" +
+            "    else:\n" +
+            "        if frontIsClear():\n" +
+            "            moveForward()\n" +
+            "        else:\n" +
+            "            turnLeft()\n" +
+            "\n" +
+            "while not atDestination():\n" +
+            "    followWall()\n";
 
         return new LevelDefinition
         {

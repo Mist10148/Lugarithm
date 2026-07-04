@@ -13,6 +13,40 @@ public static class Lexer
 
     // -------------------------------------------------------------------------
 
+    /// <summary>
+    /// Returns the index of the first '#' that starts a real comment, i.e. one
+    /// that is not inside a string literal. Handles both single and double quotes
+    /// and simple backslash escapes. Returns -1 when the line has no comment.
+    /// </summary>
+    static int IndexOfCommentStart(string line)
+    {
+        bool inString = false;
+        char quote = '\0';
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+            if (inString)
+            {
+                if (c == '\\' && i + 1 < line.Length)
+                {
+                    i++; // skip escaped character
+                    continue;
+                }
+                if (c == quote) inString = false;
+            }
+            else if (c == '"' || c == '\'')
+            {
+                inString = true;
+                quote = c;
+            }
+            else if (c == '#')
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     /// <summary>Tokenizes source text. Never throws — problems land in errors.</summary>
     public static List<Token> Tokenize(string source, out List<LangError> errors)
     {
@@ -28,8 +62,8 @@ public static class Lexer
             int lineNo = i + 1;
             string line = lines[i];
 
-            // Strip comments.
-            int hash = line.IndexOf('#');
+            // Strip comments (ignore '#' that lives inside a string literal).
+            int hash = IndexOfCommentStart(line);
             if (hash >= 0) line = line.Substring(0, hash);
 
             // Skip blank / comment-only lines entirely (no Newline emitted).

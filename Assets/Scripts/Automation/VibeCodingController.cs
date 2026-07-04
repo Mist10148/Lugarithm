@@ -133,12 +133,55 @@ public class VibeCodingController : MonoBehaviour
         if (chatBody   != null) chatBody.SetActive(true);
         if (editorBody != null) editorBody.SetActive(false);
         if (chatInput  != null) { chatInput.Select(); chatInput.ActivateInputField(); }
+        Canvas.ForceUpdateCanvases();
     }
 
     public void ShowEditor()
     {
         if (chatBody   != null) chatBody.SetActive(false);
         if (editorBody != null) editorBody.SetActive(true);
+    }
+
+    // -------------------------------------------------------------------------
+    // Hint bubble (display Co-Pilot hints in the chat with a tidy header)
+
+    /// <summary>
+    /// Displays a finished hint as a formatted AI bubble and opens the chat.
+    /// </summary>
+    public void ShowHint(string hintText, string fromName, string fromRole)
+    {
+        if (string.IsNullOrWhiteSpace(hintText)) return;
+        ShowChat();
+        AddBubble(FormatHintHeader(fromName, fromRole) + hintText, player: false);
+    }
+
+    /// <summary>
+    /// Adds a pending "…" hint bubble to the chat and returns it so callers can
+    /// stream the final hint text into it. Opens the chat automatically.
+    /// </summary>
+    public TMP_Text AddHintBubble(string fromName, string fromRole)
+    {
+        ShowChat();
+        TMP_Text bubble = AddBubble(FormatHintHeader(fromName, fromRole) + "…", player: false);
+        if (bubble == null)
+            Debug.LogWarning("[VibeCoding] AddHintBubble produced no bubble — check chatContent/bubbleTemplate wiring.");
+        return bubble;
+    }
+
+    /// <summary>Updates a hint bubble returned by <see cref="AddHintBubble"/>.</summary>
+    public void SetHintBubbleText(TMP_Text bubble, string hintText, string fromName, string fromRole)
+    {
+        if (bubble == null) return;
+        UpdateBubble(bubble, FormatHintHeader(fromName, fromRole) + hintText);
+        Canvas.ForceUpdateCanvases();
+    }
+
+    static string FormatHintHeader(string fromName, string fromRole)
+    {
+        string header = $"<b>💡 Hint from {fromName ?? "your co-pilot"}</b>";
+        if (!string.IsNullOrWhiteSpace(fromRole))
+            header += $"\n<size=85%><color=#c0c0b8>{fromRole}</color></size>";
+        return header + "\n\n";
     }
 
     // -------------------------------------------------------------------------

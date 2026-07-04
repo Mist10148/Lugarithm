@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using NUnit.Framework;
+using UnityEngine;
 
 public class AiIntegrationTests
 {
@@ -87,6 +90,84 @@ public class AiIntegrationTests
         CodeAnalysis result = CodeAnalyticsService.Analyze(source, source, 10, 10, 0, 1f, 0f);
         Assert.AreEqual(2, result.LoopDepth);
         Assert.AreEqual("O(n^2)", result.ComplexityClass);
+    }
+
+    [Test]
+    public void Analytics_IncludesAttemptCountWithoutChangingScore()
+    {
+        string source = "moveForward()\nmoveForward()";
+        CodeAnalysis result = CodeAnalyticsService.Analyze(source, source, 10, 10, 0, 20f, 30f,
+            null, attemptCount: 3);
+        Assert.AreEqual(100, result.EfficiencyScore);
+        Assert.AreEqual(3, result.AttemptCount);
+        StringAssert.Contains("runs 3", result.Summary);
+    }
+
+    [Test]
+    public void RunHistory_RecordsStartedRunsAndSnapshots()
+    {
+        var history = new CodeRunHistory();
+        CodeRunAttempt first = history.RecordStarted("moveForward()", "Code");
+        history.Complete(first, false, "Stopped", 1, "Blocked at wall.");
+        CodeRunAttempt second = history.RecordStarted("turnLeft()", "Code");
+
+        Assert.AreEqual(2, history.Count);
+        Assert.AreEqual("moveForward()", history.Attempts[0].source);
+        Assert.AreEqual("Stopped", history.Attempts[0].status);
+        Assert.AreEqual("turnLeft()", history.Last.source);
+        Assert.AreEqual(2, history.Snapshot().Length);
+
+        history.Complete(second, true, "Solved", 2, "Solved in 2 steps.");
+        Assert.IsTrue(history.Last.succeeded);
+    }
+
+    [Test]
+    public void LineOrderSourceText_JoinsLinesDeterministically()
+    {
+        string source = CodeRunHistory.SourceFromLines(new[] { "startEngine()", "driveToNextStop()", "openDoor()" });
+        Assert.AreEqual("startEngine()\ndriveToNextStop()\nopenDoor()", source);
+    }
+
+    [Test]
+    public void MentorReview_CanPreserveAuthoredReferenceForLineOrder()
+    {
+        string authored = "startEngine()\ndriveToNextStop()";
+        string json = "{\"summary\":\"Good ordering work.\",\"optimizedCode\":\"wrong()\",\"annotations\":[]}";
+
+        Assert.IsTrue(CodingMentorService.TryParseAndValidate(json, authored,
+            Array.Empty<string>(), Array.Empty<string>(), 2, out MentorReview review,
+            preserveAuthoredOptimal: true));
+        Assert.AreEqual(authored, review.optimizedCode);
+    }
+
+    [Test]
+    public void ExecutionController_PendingMacroMoveKeepsSourceNodeForHighlighting()
+    {
+        ProgramNode program = Parser.Compile("driveToNextStop()", out List<LangError> errors);
+        Assert.IsEmpty(errors);
+
+        var go = new GameObject("ExecutionController_PendingMoveHighlight_Test");
+        try
+        {
+            var exec = go.AddComponent<ExecutionController>();
+            StmtNode sourceNode = program.Statements[0];
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+
+            typeof(ExecutionController).GetField("_pendingMoveNode", flags).SetValue(exec, sourceNode);
+            typeof(ExecutionController).GetField("_pendingMoveSourceAction", flags).SetValue(exec, "driveToNextStop");
+
+            var moveResult = new AgentActionResult { Action = "moveForward" };
+            var step = (StepResult)typeof(ExecutionController)
+                .GetMethod("PendingMoveStep", flags)
+                .Invoke(exec, new object[] { moveResult });
+
+            Assert.AreSame(sourceNode, step.Node);
+            Assert.AreEqual("driveToNextStop", step.ActionName);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
     }
 
     [Test]

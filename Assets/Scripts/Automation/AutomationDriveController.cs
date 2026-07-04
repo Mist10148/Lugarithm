@@ -77,10 +77,6 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private AutomationDulogMarkerController dulogMarkers;
     [SerializeField] private AutomationResultsPanel results;
 
-    [Header("Town gate (non-code, required to advance)")]
-    [SerializeField] private FlowConnectMinigame flowPuzzle;
-    [SerializeField] private CrateStackMinigame  cratePuzzle;
-
     [Header("Tutorial repair drills")]
     [SerializeField] private MazeRepairMinigame mazeRepairMinigame;  // code · repair (escape a maze)
     [SerializeField] private RefuelMinigame     refuelMinigame;      // non-code · fuel
@@ -110,8 +106,11 @@ public class AutomationDriveController : MonoBehaviour
     // -------------------------------------------------------------------------
 
     // Speed is a single cycle button now: tap to step through these presets.
-    static readonly float[] SpeedPresets = { 0.5f, 1f, 2f, 4f };
+    static readonly float[] SpeedPresets = { 0.25f, 0.5f, 1f, 2f, 4f };
+    public static IReadOnlyList<float> SpeedPresetValues => SpeedPresets;
     int _speedIndex = 1;   // start at ×1.0
+
+    public float CurrentSpeedPreset => SpeedPresets[_speedIndex];
 
     LevelDefinition _level;
     AutomationPuzzleDefinition _def;
@@ -133,12 +132,13 @@ public class AutomationDriveController : MonoBehaviour
     bool _lastRunWasCode;
     int  _runCount;
     int  _failCount;
+    readonly CodeRunHistory _runHistory = new CodeRunHistory();
+    CodeRunAttempt _activeRunAttempt;
     bool _struggleNudged;
     int  _hintTier;
     int  _bestDelivered;   // best passengers-delivered across runs; eases the hint tier on progress
     int  _lastExecutedLine;
     int  _outputCursor;   // how many print() lines we've already pushed to the terminal this run
-    int  _townPuzzleBonus;
     float _startTime;
     bool  _won;
     bool  _revealPlayed;   // heritage reveal plays once, on reaching the goal (not after the gate)
@@ -172,6 +172,8 @@ public class AutomationDriveController : MonoBehaviour
 
     void Start()
     {
+        _speedIndex = 2;
+
         // Resolve level (Tutorial fallback for direct editor play).
         _levelIndex = GameManager.Instance != null ? GameManager.Instance.SelectedLevelIndex : 0;
         _level = LevelLibrary.Get(_levelIndex);
@@ -360,7 +362,11 @@ public class AutomationDriveController : MonoBehaviour
         {
             if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, console);
             if (palette     != null) palette.Init(_def.allowedBlocks, blockCanvas);
-            if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold);
+            if (codeEditor  != null)
+            {
+                codeEditor.ConfigureAutocomplete(_def.allowedBlocks, _def.allowedQueries, _def.allowedReporters);
+                codeEditor.SetScaffold(_def.codeScaffold);
+            }
             if (ghost != null) ghost.Bind(_def);
         }
         catch (System.Exception e)
@@ -407,7 +413,7 @@ public class AutomationDriveController : MonoBehaviour
         // either advances the speed and both faces (plus the gauge) stay in sync.
         if (speedButton != null) speedButton.onClick.AddListener(CycleSpeed);
 
-        if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = "×1.0";
+        if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = "x1.0";
 
         if (stepButton != null)
             stepButton.onClick.AddListener(() => exec?.StepOnce());
@@ -553,7 +559,8 @@ public class AutomationDriveController : MonoBehaviour
         // complete the leg (don't deadlock the conversation gate).
         if (dialogue == null) { _conversationDone = true; FinalizeStoryDestination(); return; }
 
-        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false,
+            blockMode: SaveSystem.Current.settings.blockMode);
         if (convo == null) { _conversationDone = true; FinalizeStoryDestination(); return; }
 
         PassengerDefinition pax = PassengerLibrary.Get(convo.passengerId);
@@ -810,6 +817,12 @@ public class AutomationDriveController : MonoBehaviour
         _lastRunWasCode = _codeTabActive;
         _runCount++;
         _lastExecutedLine = 0;
+        string runSource = _lastRunWasCode
+            ? (codeEditor != null ? codeEditor.Source : "")
+            : (blockCanvas != null ? blockCanvas.ToSourceText() : "");
+        _activeRunAttempt = _runHistory.RecordStarted(
+            runSource,
+            _lastRunWasCode ? "Automation (Code)" : "Automation (Blocks)");
 
         if (_runCount >= 3 && hintButton != null)
             hintButton.gameObject.SetActive(true);
@@ -824,7 +837,11 @@ public class AutomationDriveController : MonoBehaviour
             console.Info($"run #{_runCount} started…");
         }
 
-        exec.Run(program, resetWorld: !_optionalFreeRoam);
+        // RUN never snaps the world back to the start — the jeepney keeps its
+        // current cell, passengers and fares, and only the program is re-loaded and
+        // run from the top. This is what lets a short routine be run again and again
+        // to service the route step by step. Use the RESET button to start over.
+        exec.Run(program, resetWorld: false);
     }
 
     void OnPause()
@@ -854,15 +871,14 @@ public class AutomationDriveController : MonoBehaviour
     const float NeedleFullAngle = -120f;
     float _needleAngle = NeedleRestAngle;
 
-    /// <summary>Drives the bottom-left gauge needle from the jeepney's driving speed: it sweeps up
-    /// with the active speed preset (×0.5–×4) while the program runs and eases back to rest when
-    /// idle or paused, so the dial reflects how fast the automation jeepney is actually moving.</summary>
+    /// <summary>Drives the bottom-left gauge needle from the top-down jeepney's real cruise speed
+    /// (world units/sec). It rises as the agent accelerates, holds while cruising, and falls back to
+    /// rest when stopped or idle — matching Manual mode's speedometer behavior.</summary>
     void UpdateSpeedNeedle()
     {
         if (gaugeSpeedNeedle == null) return;
 
-        bool driving = exec != null && exec.State == ExecutionController.ExecState.Running;
-        float t = driving ? Mathf.InverseLerp(0.5f, 4f, exec.Speed) : 0f;
+        float t = topDownAgentView != null ? topDownAgentView.CurrentSpeed01 : 0f;
         float target = Mathf.Lerp(NeedleRestAngle, NeedleFullAngle, t);
 
         // Frame-rate-independent ease so the needle settles smoothly rather than snapping.
@@ -879,6 +895,7 @@ public class AutomationDriveController : MonoBehaviour
         SetSpeed(v);
 
         string text = $"×{v:0.0}";
+        text = $"x{v:0.##}";
         if (speedLabel != null)      speedLabel.text      = text;
         if (codeSpeedLabel != null)  codeSpeedLabel.text  = text;
         if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = text;
@@ -954,20 +971,30 @@ public class AutomationDriveController : MonoBehaviour
     public void OnHintRequested()
     {
         DialogueConversation conv = DialogueLibrary.Get(_levelIndex);
-        if (conv == null || conv.assistHints.Length == 0) return;
+        int authoredCount = conv != null && conv.assistHints != null ? conv.assistHints.Length : 0;
 
-        int idx  = Mathf.Min(_hintTier, conv.assistHints.Length - 1);
-        var hint = conv.assistHints[idx];
-        var pax  = PassengerLibrary.Get(conv.passengerId);
-        if (pax == null) return;
+        int idx  = Mathf.Min(_hintTier, Mathf.Max(0, authoredCount - 1));
+        string authored = authoredCount > 0
+            ? conv.assistHints[idx].text
+            : "You're stuck — that's normal. Look at where the jeepney stops and compare it to what your code says.";
 
-        _hintTier = Mathf.Min(_hintTier + 1, conv.assistHints.Length - 1);
-        StartCoroutine(FetchHint(hint.text, pax, idx));
+        var pax = conv != null ? PassengerLibrary.Get(conv.passengerId) : null;
+        if (pax == null) pax = PassengerLibrary.Get("gemma");
+
+        _hintTier = Mathf.Min(_hintTier + 1, Mathf.Max(0, authoredCount - 1));
+        StartCoroutine(FetchHint(authored, pax, idx));
     }
 
     IEnumerator FetchHint(string authoredText, PassengerDefinition pax, int tier)
     {
-        if (hintLabel != null) hintLabel.text = "...";
+        // The hint now lives exclusively in the AI vibe-coding chat; clear the legacy
+        // fallback label so the same text doesn't appear in two places.
+        if (hintLabel != null) hintLabel.text = "";
+
+        if (vibeCtrl == null)
+            Debug.LogWarning("[AutomationDrive] Hint requested but vibeCtrl is not wired — hint will not appear in chat.");
+        if (pax == null)
+            Debug.LogWarning("[AutomationDrive] Hint requested but passenger definition is null — hint will not appear in chat.");
 
         string source = _codeTabActive && codeEditor != null
             ? codeEditor.Source
@@ -981,14 +1008,22 @@ public class AutomationDriveController : MonoBehaviour
         AiRequest request = CopilotHintFlow.BuildRequest(source, sim, _def, authoredText, pax, tier, concept);
         AiResult result = null;
         string streamed = "";
+
+        // Open the AI chat and show a pending hint bubble there too.
+        TMP_Text vibeHintBubble = vibeCtrl != null && pax != null
+            ? vibeCtrl.AddHintBubble(pax.speakerName, pax.role)
+            : null;
+
         yield return GeminiClient.Stream(request, delta =>
         {
             streamed += delta;
-            if (hintLabel != null) hintLabel.text = streamed;
+            if (vibeHintBubble != null && pax != null)
+                vibeCtrl.SetHintBubbleText(vibeHintBubble, streamed, pax.speakerName, pax.role);
         }, completed => result = completed);
 
-        if (hintLabel != null)
-            hintLabel.text = result != null && result.Success ? result.Text : authoredText;
+        string final = result != null && result.Success ? result.Text : authoredText;
+        if (vibeHintBubble != null && pax != null)
+            vibeCtrl.SetHintBubbleText(vibeHintBubble, final, pax.speakerName, pax.role);
     }
 
     // -------------------------------------------------------------------------
@@ -1044,12 +1079,9 @@ public class AutomationDriveController : MonoBehaviour
     int   _autoRefuelSpent;
     bool  _autoBreakdownActive;
 
-    // Progression gate (town puzzle) now pops mid-run, not after the win.
-    bool  _progressionGateActive;
-
     void AutoFuelTick()
     {
-        if (_autoBreakdownActive || _progressionGateActive) return;
+        if (_autoBreakdownActive) return;
         if (refuelMinigame == null && mazeRepairMinigame == null) return;
         if (_interruptionScheduler == null)
             _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
@@ -1101,45 +1133,6 @@ public class AutomationDriveController : MonoBehaviour
         if (exec != null) exec.SetPaused(false);
         _autoBreakdownActive = false;
         RefreshAutomationHud();
-    }
-
-    // Mid-run progression gate: at a random step during execution, the level's
-    // town puzzle pops and must be solved before the run continues — same "during
-    // gameplay" feel as a breakdown, but mandatory. BeginResults() is the fallback
-    // if a short run never triggered it.
-    void MaybeTriggerProgressionGate()
-    {
-        if (_progressionGateActive || _autoBreakdownActive) return;
-        if (_interruptionScheduler == null)
-            _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
-        if (_interruptionScheduler.TryStartProgression(AutomationProgress01(), out TownPuzzleKind kind))
-            StartCoroutine(ProgressionGateRoutine(kind));
-    }
-
-    IEnumerator ProgressionGateRoutine(TownPuzzleKind kind)
-    {
-        _progressionGateActive = true;
-        if (exec != null) exec.SetPaused(true);
-
-        bool done = false;
-        bool shown = ShowSingleTownGate(kind, 3000 + _levelIndex + _interruptionScheduler.CompletedProgressionGates, result =>
-        {
-            _townPuzzleBonus += result != null ? result.Score : 0;
-            done = true;
-        });
-
-        if (!shown)
-        {
-            if (exec != null) exec.SetPaused(false);
-            _progressionGateActive = false;
-            yield break;
-        }
-
-        if (console != null) console.Info("a town task popped up — clear it to keep driving.");
-        yield return new WaitUntil(() => done);
-
-        if (exec != null) exec.SetPaused(false);
-        _progressionGateActive = false;
     }
 
     float AutomationProgress01()
@@ -1245,7 +1238,6 @@ public class AutomationDriveController : MonoBehaviour
             codeEditor.SetHeat(exec.LineHits);
 
         AutoFuelTick();
-        MaybeTriggerProgressionGate();
     }
 
     void HandleHotLine(int line)
@@ -1257,6 +1249,8 @@ public class AutomationDriveController : MonoBehaviour
     void HandleRuntimeError(LangError error)
     {
         FlushOutput();   // show any print() output that preceded the error
+        if (codeEditor != null) codeEditor.ClearExecutionHighlight();
+        if (blockCanvas != null) blockCanvas.ClearExecutionHighlight();
         if (terminal != null) terminal.Open();
         if (console != null) console.Error(error.ToString());
     }
@@ -1267,6 +1261,7 @@ public class AutomationDriveController : MonoBehaviour
         if (monitor != null) monitor.ShowIdle();
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
         if (codeEditor != null) codeEditor.ClearHeat();
+        if (blockCanvas != null) blockCanvas.ClearExecutionHighlight();
         if (passengerRibbon != null) passengerRibbon.ReleaseAll();
         if (dulogMarkers != null) dulogMarkers.ClearAll();
         _autoFuel = 1f;
@@ -1278,6 +1273,21 @@ public class AutomationDriveController : MonoBehaviour
     {
         FlushOutput();   // a print()-only program never hits HandleStepDone, so flush here
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
+        if (blockCanvas != null) blockCanvas.ClearExecutionHighlight();
+        string gapForAttempt = null;
+        if (!win && exec != null && exec.Sim != null)
+            gapForAttempt = exec.Sim.DescribeGoalGap(_def);
+        if (_activeRunAttempt != null)
+        {
+            int steps = exec != null && exec.Sim != null ? exec.Sim.StepsUsed : 0;
+            _runHistory.Complete(
+                _activeRunAttempt,
+                win,
+                win ? "Solved" : "Stopped",
+                steps,
+                win ? $"Solved in {steps} steps." : (gapForAttempt ?? "The program ended without reaching the goal."));
+            _activeRunAttempt = null;
+        }
 
         if (win)
         {
@@ -1306,7 +1316,7 @@ public class AutomationDriveController : MonoBehaviour
 
         if (console != null && exec != null)
         {
-            string gap = exec.Sim.DescribeGoalGap(_def);
+            string gap = gapForAttempt ?? exec.Sim.DescribeGoalGap(_def);
             console.Warn(gap ?? "the program ended without reaching the goal.");
             console.Info("edit your program and press RUN to try again.");
         }
@@ -1614,28 +1624,8 @@ public class AutomationDriveController : MonoBehaviour
     // -------------------------------------------------------------------------
     // Results
 
-    /// <summary>The town gate now pops mid-run; this is the fallback for a short run
-    /// that never triggered it, keeping the gate mandatory before results.</summary>
     void BeginResults()
     {
-        if (_interruptionScheduler == null)
-            _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
-
-        if (_interruptionScheduler.TryForceNextProgression(out TownPuzzleKind kind))
-        {
-            bool shown = ShowSingleTownGate(kind, 2000 + _levelIndex + _interruptionScheduler.CompletedProgressionGates, result =>
-            {
-                _townPuzzleBonus += result != null ? result.Score : 0;
-                BeginResults();
-            });
-
-            if (shown)
-            {
-                if (console != null) console.Info("clear the town gate to finish the leg.");
-                return;
-            }
-        }
-
         PlayRevealThenResults();
     }
 
@@ -1644,7 +1634,8 @@ public class AutomationDriveController : MonoBehaviour
     {
         if (_revealPlayed || dialogue == null) { _revealPlayed = true; onDone(); return; }
 
-        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false,
+            blockMode: SaveSystem.Current.settings.blockMode);
         if (convo == null || convo.journalPageId < 0 || convo.journalPageId >= JournalPageLibrary.Pages.Count)
         {
             _revealPlayed = true;
@@ -1666,7 +1657,8 @@ public class AutomationDriveController : MonoBehaviour
             return;
         }
 
-        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false);
+        DialogueConversation convo = DialogueLibrary.ForLevel(_levelIndex, manualMode: false,
+            blockMode: SaveSystem.Current.settings.blockMode);
         if (convo == null || convo.journalPageId < 0 || convo.journalPageId >= JournalPageLibrary.Pages.Count)
         {
             ShowResults();
@@ -1677,31 +1669,15 @@ public class AutomationDriveController : MonoBehaviour
         dialogue.PlayReveal(convo, page, ShowResults);
     }
 
-    /// <summary>Shows a scheduled town puzzle. False when its panel is not wired.</summary>
-    bool ShowSingleTownGate(TownPuzzleKind kind, int seed, System.Action<MinigameResult> onDone)
-    {
-        if (kind == TownPuzzleKind.FlowConnect && flowPuzzle != null)
-        {
-            flowPuzzle.Show(seed, onDone);
-            return true;
-        }
-        if (kind == TownPuzzleKind.CrateStack && cratePuzzle != null)
-        {
-            cratePuzzle.Show(seed, onDone);
-            return true;
-        }
-        return false;
-    }
-
     void ShowResults()
     {
         AgentSim sim = exec.Sim;
         float elapsed = Time.time - _startTime;
-        int retries = Mathf.Max(0, _runCount - 1);
+        int attemptCount = Mathf.Max(1, _runHistory.Count);
+        int retries = Mathf.Max(0, attemptCount - 1);
 
         int score = ScoreCalculator.AutomationScore(
-            sim.StepsUsed, _def.parSteps, elapsed, _def.softTimerSeconds, retries, _lastRunWasCode)
-            + _townPuzzleBonus;
+            sim.StepsUsed, _def.parSteps, elapsed, _def.softTimerSeconds, retries, _lastRunWasCode);
 
         int bonus = ScoreCalculator.CurrencyFor(score);
         if (GameManager.Instance != null)
@@ -1717,7 +1693,7 @@ public class AutomationDriveController : MonoBehaviour
         int minutes = (int)(elapsed / 60f);
         int seconds = (int)(elapsed % 60f);
         string stats = $"SCORE {score}   ·   steps {sim.StepsUsed} (par {_def.parSteps})   ·   " +
-                       $"time {minutes:0}:{seconds:00}   ·   retries {retries}   ·   earned ₱{earned}" +
+                       $"time {minutes:0}:{seconds:00}   ·   runs {attemptCount}   ·   retries {retries}   ·   earned ₱{earned}" +
                        (_lastRunWasCode ? "   ·   CODE ×1.5" : "");
 
         if (console != null) console.Info("goal complete!");
@@ -1726,7 +1702,7 @@ public class AutomationDriveController : MonoBehaviour
         {
             CodeAnalysis analysis = CodeAnalyticsService.Analyze(
                 playerSolution, _def.optimalSolutionText, sim.StepsUsed, _def.parSteps,
-                retries, elapsed, _def.softTimerSeconds, exec.LineHits);
+                retries, elapsed, _def.softTimerSeconds, exec.LineHits, attemptCount);
             results.Show(
                 $"LEG COMPLETE  —  {_level.displayName}",
                 playerSolution, _def.optimalSolutionText, stats,
@@ -1743,7 +1719,8 @@ public class AutomationDriveController : MonoBehaviour
                 onReplay: () => LoadScene(SceneManager.GetActiveScene().name),
                 analysis: analysis,
                 category: _lastRunWasCode ? "MAIN GAMEPLAY · Automation (Code)"
-                                          : "MAIN GAMEPLAY · Automation (Blocks)");
+                                          : "MAIN GAMEPLAY · Automation (Blocks)",
+                attempts: _runHistory.Attempts);
 
             StartCoroutine(FetchMentorFeedback(playerSolution, analysis));
         }
@@ -1762,7 +1739,7 @@ public class AutomationDriveController : MonoBehaviour
         string concept = JournalPageLibrary.Pages[_levelIndex].codingConceptName;
         AiRequest request = CodingMentorService.BuildRequest(
             _level.displayName, concept, analysis, playerSol, _def.optimalSolutionText,
-            _def.allowedBlocks, _def.allowedQueries);
+            _def.allowedBlocks, _def.allowedQueries, _runHistory.Attempts);
         AiResult response = null;
         yield return GeminiClient.Stream(request, null, completed => response = completed);
 

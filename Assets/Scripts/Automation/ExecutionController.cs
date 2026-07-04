@@ -20,6 +20,8 @@ public class ExecutionController : MonoBehaviour
                                                                // (turns, pickUp, dropOff, collectFare,
                                                                // giveChange) — movement keeps baseStepSeconds
 
+    [SerializeField] private float minVisibleStepSeconds = 0.35f;
+
     [Header("Heatmap")]
     [Tooltip("A line that executes this many times in a single frame is considered 'hot'.")]
     [SerializeField] private int hotLineThreshold = 200;
@@ -52,6 +54,8 @@ public class ExecutionController : MonoBehaviour
     Coroutine         _loop;
 
     bool  _singleStep;
+    StmtNode _pendingMoveNode;
+    string _pendingMoveSourceAction;
 
     // Heatmap state: hits per line within the current frame, reset each yield.
     Dictionary<int, int> _frameLineHits = new Dictionary<int, int>();
@@ -104,6 +108,7 @@ public class ExecutionController : MonoBehaviour
         State        = ExecState.Idle;
         _singleStep  = false;
         _frameLineHits.Clear();
+        ClearPendingMoveSource();
 
         if (_view != null && _sim != null)
             _view.Init(_space, _sim.Position, _sim.Facing);
@@ -149,6 +154,7 @@ public class ExecutionController : MonoBehaviour
         _vm.ActionBudget = endless ? int.MaxValue : Interpreter.MaxActions;
         _vm.EvalBudget   = endless ? int.MaxValue : Interpreter.MaxEvaluations;
         _frameLineHits.Clear();
+        ClearPendingMoveSource();
         State = ExecState.Running;
         _loop = StartCoroutine(ExecutionLoop());
     }
@@ -188,6 +194,7 @@ public class ExecutionController : MonoBehaviour
         }
 
         _frameLineHits.Clear();
+        ClearPendingMoveSource();
         State = ExecState.Idle;
         OnWorldReset?.Invoke();
     }
@@ -204,8 +211,11 @@ public class ExecutionController : MonoBehaviour
     static bool IsMovementAction(string action) =>
         action == "moveForward" || action == "moveLeft" || action == "moveRight";
 
-    float DurationFor(string action) =>
-        IsMovementAction(action) ? baseStepSeconds / Speed : logicStepSeconds / Speed;
+    float DurationFor(string action)
+    {
+        float raw = IsMovementAction(action) ? baseStepSeconds / Speed : logicStepSeconds / Speed;
+        return Mathf.Max(minVisibleStepSeconds, raw);
+    }
 
     void Stop()
     {
@@ -215,6 +225,24 @@ public class ExecutionController : MonoBehaviour
             _loop = null;
         }
         Busy = false;
+        ClearPendingMoveSource();
+    }
+
+    void ClearPendingMoveSource()
+    {
+        _pendingMoveNode = null;
+        _pendingMoveSourceAction = null;
+    }
+
+    StepResult PendingMoveStep(AgentActionResult moveResult)
+    {
+        return new StepResult
+        {
+            ActionName = string.IsNullOrEmpty(_pendingMoveSourceAction)
+                ? moveResult.Action
+                : _pendingMoveSourceAction,
+            Node = _pendingMoveNode
+        };
     }
 
     // -------------------------------------------------------------------------
@@ -234,7 +262,7 @@ public class ExecutionController : MonoBehaviour
                 if (_singleStep)
                 {
                     AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
-                    OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
+                    OnStepDone?.Invoke(moveResult, PendingMoveStep(moveResult));
 
                     float moveDuration = DurationFor(moveResult.Action);
                     Busy = true;
@@ -249,10 +277,13 @@ public class ExecutionController : MonoBehaviour
 
                     if (_sim.IsWin(_def))
                     {
+                        ClearPendingMoveSource();
                         State = ExecState.Finished;
                         OnFinished?.Invoke(true);
                         yield break;
                     }
+                    if (!_sim.HasPendingMoves)
+                        ClearPendingMoveSource();
                     continue;
                 }
 
@@ -265,7 +296,7 @@ public class ExecutionController : MonoBehaviour
                 {
                     AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
                     moves.Add(moveResult);
-                    OnStepDone?.Invoke(moveResult, new StepResult { ActionName = moveResult.Action });
+                    OnStepDone?.Invoke(moveResult, PendingMoveStep(moveResult));
                     if (_sim.IsWin(_def)) { wonDuringPath = true; break; }
                 }
 
@@ -275,7 +306,8 @@ public class ExecutionController : MonoBehaviour
                 bool batchHasMovement = false;
                 foreach (AgentActionResult m in moves)
                     if (IsMovementAction(m.Action)) { batchHasMovement = true; break; }
-                float pathMoveDuration = batchHasMovement ? baseStepSeconds / Speed : logicStepSeconds / Speed;
+                float pathMoveDuration = Mathf.Max(minVisibleStepSeconds,
+                    batchHasMovement ? baseStepSeconds / Speed : logicStepSeconds / Speed);
 
                 Busy = true;
                 if (_view is IPathAgentView pathView)
@@ -289,10 +321,13 @@ public class ExecutionController : MonoBehaviour
 
                 if (wonDuringPath && !EndlessRouteActive)
                 {
+                    ClearPendingMoveSource();
                     State = ExecState.Finished;
                     OnFinished?.Invoke(true);
                     yield break;
                 }
+                if (!_sim.HasPendingMoves)
+                    ClearPendingMoveSource();
                 yield return null;
                 continue;
             }
@@ -301,6 +336,7 @@ public class ExecutionController : MonoBehaviour
 
             if (step.RuntimeError != null)
             {
+                ClearPendingMoveSource();
                 State = ExecState.Finished;
                 OnRuntimeError?.Invoke(step.RuntimeError);
                 OnFinished?.Invoke(false);
@@ -309,6 +345,7 @@ public class ExecutionController : MonoBehaviour
 
             if (step.Finished)
             {
+                ClearPendingMoveSource();
                 State = ExecState.Finished;
                 OnFinished?.Invoke(_sim.IsWin(_def));
                 yield break;
@@ -317,6 +354,16 @@ public class ExecutionController : MonoBehaviour
             AgentActionResult result = _sim.Apply(step.ActionName, step.ActionArgs);
             if (!string.IsNullOrEmpty(step.BindResultTo))
                 _vm.DeliverActionResult(result.ReturnValue);
+
+            if (_sim != null && _sim.HasPendingMoves && step.Node != null)
+            {
+                _pendingMoveNode = step.Node;
+                _pendingMoveSourceAction = step.ActionName;
+            }
+            else if (_sim == null || !_sim.HasPendingMoves)
+            {
+                ClearPendingMoveSource();
+            }
 
             OnStepDone?.Invoke(result, step);
 
@@ -352,6 +399,7 @@ public class ExecutionController : MonoBehaviour
             {
                 if (!EndlessRouteActive)
                 {
+                    ClearPendingMoveSource();
                     State = ExecState.Finished;
                     OnFinished?.Invoke(true);
                     yield break;

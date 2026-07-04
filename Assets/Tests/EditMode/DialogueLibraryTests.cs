@@ -100,6 +100,30 @@ public class DialogueLibraryTests
         }
     }
 
+    [Test]
+    public void AutomationTutorial_BothTracks_ValidateAndTeachConditionals()
+    {
+        DialogueConversation code   = DialogueLibrary.Get(0, manualMode: false, blockMode: false);
+        DialogueConversation blocks = DialogueLibrary.Get(0, manualMode: false, blockMode: true);
+
+        Assert.IsNull(code.Validate(),   "Automation tutorial (code) failed validation");
+        Assert.IsNull(blocks.Validate(), "Automation tutorial (blocks) failed validation");
+
+        // Both tracks teach the tutorial's headline concept — the conditional lesson
+        // (TA5) plus the "run again" rhythm.
+        string codeLesson   = string.Join(" ", code.nodes["TA5"].lines.Select(l => l.text));
+        string blocksLesson = string.Join(" ", blocks.nodes["TA5"].lines.Select(l => l.text));
+
+        StringAssert.Contains("if", codeLesson);
+        StringAssert.Contains("Run again", codeLesson);
+        StringAssert.Contains("if", blocksLesson);
+        StringAssert.Contains("Run again", blocksLesson);
+
+        // Mode-tailored wording: code talks about typing syntax; blocks about blocks.
+        StringAssert.Contains("indent", codeLesson.ToLowerInvariant());
+        StringAssert.Contains("block", blocksLesson.ToLowerInvariant());
+    }
+
     static int RouteIndexForLevel(int levelIndex)
     {
         HeritageEntry entry = HeritageLibrary.ForLevel(levelIndex);

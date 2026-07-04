@@ -88,7 +88,7 @@ public static class CodeDriveSceneBuilder
 
         // Speed is a single cycle button (tap to step ×0.5 → ×1 → ×2 → ×4 → …); its
         // own face is the readout, so speedLabel points at the button's child label.
-        Button speedButton = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "SpeedButton", "×1.0", 96f);
+        Button speedButton = AutomationDriveSceneBuilder.MakeBarButton(controlBar, "SpeedButton", "x1.0", 96f);
         TMP_Text speedLabel = speedButton.GetComponentInChildren<TMP_Text>();
 
         // Top-right buttons: Exit, workspace toggle, Commands.
@@ -97,6 +97,17 @@ public static class CodeDriveSceneBuilder
         var link = exit.gameObject.AddComponent<SceneLink>();
         SceneBuilderUtil.Wire(link, "button",    exit);
         SceneBuilderUtil.Wire(link, "sceneName", "LevelSelect");
+
+        Button hintBtn = UIFactory.CreateButton(canvas.transform, "HintButton",
+                                                "AI Hint", new Vector2(150f, 42f), 18f);
+        UIFactory.Place(hintBtn, new Vector2(1f, 1f), new Vector2(-164f, -84f), new Vector2(150f, 42f));
+        hintBtn.image.color = UIFactory.Accent;
+        hintBtn.gameObject.SetActive(false);
+
+        TMP_Text hintLbl = UIFactory.CreateText(canvas.transform, "HintLabel", "", 18f,
+                                                UIFactory.TextDim, TextAlignmentOptions.Top);
+        UIFactory.Place(hintLbl, new Vector2(0.5f, 1f), new Vector2(0f, -78f), new Vector2(600f, 60f));
+        hintLbl.enableWordWrapping = true;
 
         // Editor switch sits with the other global actions instead of over the road.
         // Editor switch grouped with the other top-right actions (below Journal),
@@ -178,9 +189,6 @@ public static class CodeDriveSceneBuilder
 
         AutomationResultsPanel results = AutomationDriveSceneBuilder.BuildResults(canvas);
 
-        // Town gates (non-code, required to advance) — the level picks one.
-        FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
-        CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
         // Tutorial repair drills: code-based maze escape + non-code refuel (dialogue-driven).
         MazeRepairMinigame  mazeRepair  = MinigameOverlayBuilder.BuildMazeRepair(canvas.transform);
         RefuelMinigame      refuel      = MinigameOverlayBuilder.BuildRefuel(canvas.transform);
@@ -239,11 +247,11 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(dulogMarkers, "edgeArrowParent", dulogEdgeLayer);
         SceneBuilderUtil.Wire(controller, "dulogMarkers", dulogMarkers);
 
-        SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
-        SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame", mazeRepair);
         SceneBuilderUtil.Wire(controller, "refuelMinigame",     refuel);
         SceneBuilderUtil.Wire(controller, "dialogue",     dialogue);
+        SceneBuilderUtil.Wire(controller, "hintButton",   hintBtn);
+        SceneBuilderUtil.Wire(controller, "hintLabel",    hintLbl);
         SceneBuilderUtil.Wire(controller, "legCompletion", legCompletion);
         SceneBuilderUtil.Wire(controller, "frontSeatCard",  frontSeat.gameObject);
         SceneBuilderUtil.Wire(controller, "frontSeatLabel", frontSeatLabel);

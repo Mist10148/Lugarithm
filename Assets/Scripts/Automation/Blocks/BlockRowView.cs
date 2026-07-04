@@ -104,6 +104,17 @@ public class BlockRowView : MonoBehaviour,
     /// <summary>Validation-error flash (empty container, etc.).</summary>
     public void PulseError() => StartPulse(new Color(0.90f, 0.25f, 0.20f, 1f), 0.8f);
 
+    public void ClearPulse()
+    {
+        if (_pulse != null)
+        {
+            StopCoroutine(_pulse);
+            _pulse = null;
+        }
+        if (background != null)
+            background.color = _baseColor;
+    }
+
     void StartPulse(Color color, float seconds)
     {
         if (background == null || !isActiveAndEnabled) return;

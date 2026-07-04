@@ -12,24 +12,36 @@ public static class DialogueLibrary
     public static DialogueConversation ForLevel(int levelIndex)
     {
         // Default to the manual-mode tutorial when the caller doesn't specify a mode.
-        return Get(levelIndex, manualMode: true);
+        return Get(levelIndex, manualMode: true, blockMode: true);
     }
 
     public static DialogueConversation ForLevel(int levelIndex, bool manualMode)
     {
-        return Get(levelIndex, manualMode);
+        return Get(levelIndex, manualMode, DefaultBlockMode());
+    }
+
+    public static DialogueConversation ForLevel(int levelIndex, bool manualMode, bool blockMode)
+    {
+        return Get(levelIndex, manualMode, blockMode);
     }
 
     public static DialogueConversation Get(int levelIndex)
     {
-        return Get(levelIndex, manualMode: true);
+        return Get(levelIndex, manualMode: true, blockMode: true);
     }
 
     public static DialogueConversation Get(int levelIndex, bool manualMode)
     {
+        return Get(levelIndex, manualMode, DefaultBlockMode());
+    }
+
+    // The automation tutorial teaches whichever editor the player picked — blocks or
+    // code. Every other conversation ignores blockMode.
+    public static DialogueConversation Get(int levelIndex, bool manualMode, bool blockMode)
+    {
         switch (levelIndex)
         {
-            case 0: return manualMode ? TutorialManual() : TutorialAutomation();
+            case 0: return manualMode ? TutorialManual() : TutorialAutomation(blockMode);
             case 1: return Molo();
             case 2: return Oton();
             case 3: return Tigbauan();
@@ -37,6 +49,14 @@ public static class DialogueLibrary
             case 5: return SanJoaquin();
             default: return null;
         }
+    }
+
+    // Falls back to the player's saved editor preference (blocks is the default),
+    // guarded so EditMode callers without a live save still resolve to blocks.
+    static bool DefaultBlockMode()
+    {
+        SaveData save = SaveSystem.Current;
+        return save?.settings?.blockMode ?? true;
     }
 
     public static DialogueConversation Guimbal()
@@ -191,11 +211,18 @@ public static class DialogueLibrary
     }
 
     // -------------------------------------------------------------------------
-    // Tutorial (Automation Mode) — teaches the code by category: driving commands,
-    // boarding passengers, fare collection, and sensors/queries, plus the two
-    // repair drills. Every lesson and both drills are required before departure.
+    // Tutorial (Automation Mode) — teaches the driving / passenger / fare commands,
+    // then the tutorial's headline concept: conditionals (if / else) and the
+    // "run again and again" rhythm (she keeps her place between Runs, so a short
+    // routine serves the route one Run at a time). Every lesson and both repair
+    // drills are required before departure.
+    //
+    // Two tailored tracks: when the player is in Blocks mode the wording talks
+    // about dragging and snapping blocks; in Code mode it talks about typing the
+    // syntax — the colon after a header and the indent underneath. Same node IDs,
+    // gating and concepts either way.
 
-    static DialogueConversation TutorialAutomation()
+    static DialogueConversation TutorialAutomation(bool blockMode)
     {
         string gemma = "Gemma";
         var convo = new DialogueConversation
@@ -207,22 +234,29 @@ public static class DialogueLibrary
             journalPageId = 0
         };
 
+        // Mode-flavored fragments reused across the lesson lines.
+        string pieces   = blockMode ? "blocks" : "words";
+        string place    = blockMode ? "drag them into place and snap them together in order"
+                                     : "type them in order, one per line";
+        string palette  = blockMode ? "every block's waiting in the palette"
+                                     : "the full list is always in the Commands panel";
+
         convo.nodes["TA-BOARD"] = Node("TA-BOARD", DialogueNodeKind.Line,
             Lines(
                 Line(gemma, "So you'd rather teach the jeep to drive itself than steer her, ha? Your father was the same — he wrote his routes down like little spells and let the engine read them."),
-                Line(gemma, "I'm Gemma, his old dispatcher. I'll give you the words. You write them in order, press Run, and watch her go. Ask me about each kind before you leave — and the full list is always in the Commands panel.")
+                Line(gemma, $"I'm Gemma, his old dispatcher. I'll give you the {pieces}. You {place}, press Run, and watch her go. Ask me about each kind before you leave — and {palette}.")
             ),
             next: "HUB-TA");
 
         convo.nodes["HUB-TA"] = Node("HUB-TA", DialogueNodeKind.Hub,
-            Lines(Line(gemma, "Ate Gemma taps the side of the workspace. \"Which words do you want first?\"")),
+            Lines(Line(gemma, $"Ate Gemma taps the side of the workspace. \"Which {pieces} do you want first?\"")),
             choices: new[]
             {
                 Choice("Who were you to my father?", "TA1", once: true),
                 Choice("How do I tell her to drive?", "TA2", once: true),
                 Choice("How do I pick up passengers?", "TA3", once: true, requires: new[] { "TA2" }),
-                Choice("How do fares work in code?", "TA4", once: true, requires: new[] { "TA3" }),
-                Choice("How does she know where she is?", "TA5", once: true, requires: new[] { "TA4" }),
+                Choice("How do fares work?", "TA4", once: true, requires: new[] { "TA3" }),
+                Choice("How does she decide for herself?", "TA5", once: true, requires: new[] { "TA4" }),
                 Choice("…What if she breaks down mid-route?", "TA6", once: true, requires: new[] { "TA5" }),
                 Choice("And running out of fuel?", "TA7", once: true, requires: new[] { "TA6" }),
                 Choice("I think I've got it. Run the route.", "TA-ADV",
@@ -235,8 +269,10 @@ public static class DialogueLibrary
 
         convo.nodes["TA2"] = Node("TA2", DialogueNodeKind.Branch,
             Lines(
-                Line(gemma, "Driving words first. moveForward() rolls her one step ahead — moveForward(3) goes three. turnLeft() and turnRight() spin her in place. That's the whole alphabet of movement."),
-                Line(gemma, "When you don't want to count every step, the big ones do the thinking: driveToNextStop() drives her to the next stop, driveToTerminal() takes her to the current terminal.")
+                blockMode
+                    ? Line(gemma, "Driving blocks first. The moveForward block rolls her one step ahead — set its number to 3 and she goes three. Stack turnLeft and turnRight to spin her in place. That's the whole alphabet of movement.")
+                    : Line(gemma, "Driving words first. moveForward() rolls her one step ahead — moveForward(3) goes three. turnLeft() and turnRight() spin her in place. That's the whole alphabet of movement."),
+                Line(gemma, "When you don't want to count every step, the big ones do the thinking: driveToNextStop() rolls her to the next stop, and driveToDropoff() takes her to your rider's stop.")
             ),
             choices: new[]
             {
@@ -245,7 +281,7 @@ public static class DialogueLibrary
             });
 
         convo.nodes["TA2a"] = Node("TA2a", DialogueNodeKind.Line,
-            Lines(Line(gemma, "Then you ask before you move. frontIsClear(), leftIsClear(), rightIsClear() — each tells you true or false. Look before you leap, same as any good driver.")),
+            Lines(Line(gemma, "Then you ask before you move. frontIsClear(), leftIsClear(), rightIsClear() — each answers true or false. Those little questions are how she decides; hold onto them, we'll use them in a moment.")),
             returnToHub: true);
 
         convo.nodes["TA2b"] = Node("TA2b", DialogueNodeKind.Line,
@@ -255,21 +291,24 @@ public static class DialogueLibrary
         convo.nodes["TA3"] = Node("TA3", DialogueNodeKind.Line,
             Lines(
                 Line(gemma, "Passengers next. When you're at a stop, pickUp() takes the one waiting aboard — board() means the same thing. dropOff() lets a rider down where they're headed; alight() is its twin."),
-                Line(gemma, "Before you grab someone, you can ask: passengerWaiting() — is anyone there? seatsLeft() — how much room? isFull() — am I packed? No sense stopping for a passenger you can't fit.")
+                Line(gemma, "And she can ask about them too: passengerWaiting() — is anyone there? atRequestedStop() — is this my rider's stop? seatsLeft(), isFull() — how much room? Questions like these, again — remember them.")
             ),
             returnToHub: true);
 
         convo.nodes["TA4"] = Node("TA4", DialogueNodeKind.Line,
             Lines(
                 Line(gemma, "Now the coins. collectFare() takes the rider's fare and records the cash they handed over. Then giveChange(changeOwed()) gives back the exact sukli before they get off."),
-                Line(gemma, "If you want to think before collecting: fareOwed() tells you the fare, cashTendered() tells you what they paid, and changeOwed() tells you the sukli. Whole list's in the Commands panel.")
+                Line(gemma, "If you want to think before collecting: fareOwed() tells you the fare, cashTendered() tells you what they paid, and changeOwed() tells you the sukli.")
             ),
             returnToHub: true);
 
+        // The heart of the tutorial: conditionals + the run-again rhythm.
         convo.nodes["TA5"] = Node("TA5", DialogueNodeKind.Line,
             Lines(
-                Line(gemma, "She's not blind — she can tell you where she is. atStop() is true when she's at a stop; routeComplete() is true only when the riders are delivered and you're at the terminal. atDestination() still belongs to maze-style drills."),
-                Line(gemma, "distanceToDestination() counts how far's left. Wrap any of these in an if to decide, or a while to keep going until something's true — that's how a short routine handles a long road.")
+                blockMode
+                    ? Line(gemma, "Here's the real trick, iho — she can decide for herself. Grab an if block, drop a question like passengerWaiting() into its slot, and snap pickUp() inside it: now she only stops when someone's actually there. Clip on an else branch for what to do otherwise. That's a conditional — a command with a question in front of it.")
+                    : Line(gemma, "Here's the real trick, iho — she can decide for herself. Write if passengerWaiting():, end it with the colon, then indent pickUp() on the line under it: now she only stops when someone's actually there. Add an else: line for what to do otherwise. That's a conditional — a command with a question in front of it."),
+                Line(gemma, "And you don't have to serve the whole route in one breath. Press Run: she does what your steps say and stays right where she stops — keeping her riders and her fares. Add or fix a step, press Run again, and she carries on from there. Run her again and again until everyone's delivered. Only the Reset button sends her back to the garage.")
             ),
             returnToHub: true);
 
@@ -290,7 +329,7 @@ public static class DialogueLibrary
             returnToHub: true);
 
         convo.nodes["TA-ADV"] = Node("TA-ADV", DialogueNodeKind.Event,
-            Lines(Line(gemma, "Drive, board, collect, sense — and you can patch her and feed her too. Now write the routine and press Run. Your first real stop is Molo, just across the district. An old friend of your father's is waiting — and the first page of that journal. Padayon, iho.")),
+            Lines(Line(gemma, $"Drive, board, collect — and now she can decide with an if. {(blockMode ? "Snap your routine together" : "Write your routine")} and press Run as many times as it takes. Your first real stop is Molo, just across the district. An old friend of your father's is waiting — and the first page of that journal. Padayon, iho.")),
             eventKind: DialogueEventKind.TutorialComplete);
 
         convo.revealLines = TutorialRevealLines();

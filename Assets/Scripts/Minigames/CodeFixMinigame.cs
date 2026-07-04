@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -17,6 +18,7 @@ public class CodeFixMinigame : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private GameObject root;
+    [SerializeField] private MinigameResultsPanel resultsPanel;
     [SerializeField] private TMP_Text   titleLabel;
     [SerializeField] private TMP_Text   feedbackLabel;
     [SerializeField] private TMP_Text[] cardLabels;        // up to MaxSteps
@@ -24,6 +26,8 @@ public class CodeFixMinigame : MonoBehaviour
     [SerializeField] private Button[]   upButtons;         // parallel to cardLabels
     [SerializeField] private Button[]   downButtons;       // parallel to cardLabels
     [SerializeField] private Button     runButton;
+    [SerializeField] private Button     hintButton;
+    [SerializeField] private TMP_Text   hintLabel;
     [SerializeField] private Image      timerFill;
 
     [Header("Timing")]
@@ -42,8 +46,11 @@ public class CodeFixMinigame : MonoBehaviour
     readonly List<string> _order = new List<string>();
     int   _count;
     int   _mistakes;
+    int   _hintTier;
+    int   _lastWrongIndex = -1;
     float _timer;
     bool  _running;
+    readonly CodeRunHistory _runHistory = new CodeRunHistory();
 
     // -------------------------------------------------------------------------
 
@@ -59,7 +66,14 @@ public class CodeFixMinigame : MonoBehaviour
                 downButtons[i].onClick.AddListener(() => Move(idx, +1));
         }
         if (runButton != null) runButton.onClick.AddListener(OnRun);
+        if (hintButton != null) hintButton.onClick.AddListener(OnHintRequested);
         if (root != null) root.SetActive(false);
+    }
+
+    void OnDestroy()
+    {
+        if (runButton != null) runButton.onClick.RemoveListener(OnRun);
+        if (hintButton != null) hintButton.onClick.RemoveListener(OnHintRequested);
     }
 
     void Update()
@@ -82,8 +96,13 @@ public class CodeFixMinigame : MonoBehaviour
         _onDone   = onDone;
         _fault    = fault;
         _mistakes = 0;
+        _hintTier = 0;
+        _lastWrongIndex = -1;
         _timer    = softTimerSeconds;
         _running  = true;
+        _runHistory.Clear();
+        if (hintButton != null) hintButton.gameObject.SetActive(false);
+        if (hintLabel != null) hintLabel.text = "";
 
         var rng = new System.Random(seed);
 
@@ -129,21 +148,42 @@ public class CodeFixMinigame : MonoBehaviour
     {
         if (!_running) return;
 
+        CodeRunAttempt attempt = _runHistory.RecordStarted(CurrentSourceText(), "Repair order");
         int wrong = RepairProcedure.FirstWrongIndex(_order, _fault);
         if (wrong < 0)
         {
+            _runHistory.Complete(attempt, true, "Solved", _count, $"Solved in {_runHistory.Count} run(s).");
             if (feedbackLabel != null) { feedbackLabel.text = "Fixed!  Back on the road."; feedbackLabel.color = FeedbackGood; }
             Finish(timedOut: false);
             return;
         }
 
+        _runHistory.Complete(attempt, false, "Wrong order", wrong + 1, $"Step {wrong + 1} was out of order.");
         _mistakes++;
+        _lastWrongIndex = wrong;
         if (feedbackLabel != null)
         {
             feedbackLabel.text  = $"Step {wrong + 1} is out of order — keep arranging.";
             feedbackLabel.color = FeedbackBad;
         }
         RefreshCards(wrongIndex: wrong);
+        RevealHintAfterStruggle();
+    }
+
+    void RevealHintAfterStruggle()
+    {
+        if (_mistakes < 2 || hintButton == null) return;
+        hintButton.gameObject.SetActive(true);
+        if (hintLabel != null && string.IsNullOrWhiteSpace(hintLabel.text))
+            hintLabel.text = "Stuck? Ask for a hint and I will point at the repair order without doing it for you.";
+    }
+
+    public void OnHintRequested()
+    {
+        int tier = MinigameHintLibrary.ClampTier(_hintTier, MinigameHintLibrary.RepairOrderHints.Length);
+        _hintTier = MinigameHintLibrary.ClampTier(_hintTier + 1, MinigameHintLibrary.RepairOrderHints.Length);
+        if (hintLabel != null)
+            hintLabel.text = MinigameHintLibrary.RepairOrderHint(tier, _fault, _lastWrongIndex);
     }
 
     // -------------------------------------------------------------------------
@@ -176,6 +216,8 @@ public class CodeFixMinigame : MonoBehaviour
     void Finish(bool timedOut)
     {
         _running = false;
+        if (hintButton != null) hintButton.gameObject.SetActive(false);
+        if (hintLabel != null) hintLabel.text = "";
         if (root != null) root.SetActive(false);
 
         var result = new MinigameResult
@@ -187,7 +229,55 @@ public class CodeFixMinigame : MonoBehaviour
 
         Action<MinigameResult> done = _onDone;
         _onDone = null;
-        done?.Invoke(result);
+        if (resultsPanel != null && _runHistory.Count > 0)
+            ShowCodeResults(result, done);
+        else
+            done?.Invoke(result);
+    }
+
+    string CurrentSourceText()
+    {
+        return CodeRunHistory.SourceFromLines(_order);
+    }
+
+    string ReferenceSourceText()
+    {
+        return CodeRunHistory.SourceFromLines(RepairProcedure.Steps(_fault));
+    }
+
+    void ShowCodeResults(MinigameResult result, Action<MinigameResult> done)
+    {
+        string playerSource = CurrentSourceText();
+        string referenceSource = ReferenceSourceText();
+        int attemptCount = Mathf.Max(1, _runHistory.Count);
+        float elapsed = Mathf.Max(0f, softTimerSeconds - _timer);
+        CodeAnalysis analysis = CodeAnalyticsService.Analyze(
+            playerSource, referenceSource, _count, Mathf.Max(1, _count),
+            Mathf.Max(0, attemptCount - 1), elapsed, softTimerSeconds,
+            null, attemptCount);
+
+        resultsPanel.Show("MINIGAME · Code", RepairProcedure.Title(_fault), result, analysis,
+            () => done?.Invoke(result), playerSource, referenceSource, _runHistory.Attempts);
+        resultsPanel.StartCoroutine(FetchMentorFeedback(playerSource, referenceSource, analysis));
+    }
+
+    IEnumerator FetchMentorFeedback(string playerSource, string referenceSource, CodeAnalysis analysis)
+    {
+        AiRequest request = CodingMentorService.BuildRequest(
+            "Repair order minigame", "sequencing", analysis, playerSource, referenceSource,
+            Array.Empty<string>(), Array.Empty<string>(), _runHistory.Attempts,
+            preserveAuthoredOptimal: true);
+        AiResult response = null;
+        yield return GeminiClient.Stream(request, null, completed => response = completed);
+
+        MentorReview review = null;
+        int lineCount = string.IsNullOrEmpty(playerSource) ? 0 : playerSource.Replace("\r", "").Split('\n').Length;
+        if (response == null || !response.Success ||
+            !CodingMentorService.TryParseAndValidate(response.Text, referenceSource,
+                Array.Empty<string>(), Array.Empty<string>(), lineCount, out review,
+                preserveAuthoredOptimal: true))
+            review = CodingMentorService.Fallback(referenceSource, analysis);
+        if (resultsPanel != null) resultsPanel.SetMentorReview(review);
     }
 
     static void Shuffle(List<string> list, System.Random rng)

@@ -37,32 +37,78 @@ public static class MinigameOverlayBuilder
 
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), UIFactory.PanelDark);
-        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560f, 470f));
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(940f, 760f));
 
         var category = UIFactory.CreateText(window, "Category", "MINIGAME", 18f,
                                             UIFactory.TextDim, TextAlignmentOptions.Center);
-        UIFactory.Place(category, new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(520f, 22f));
+        UIFactory.Place(category, new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(880f, 22f));
 
         var title = UIFactory.CreateText(window, "Title", "", 32f, UIFactory.Accent, TextAlignmentOptions.Center);
-        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -46f), new Vector2(520f, 44f));
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -46f), new Vector2(880f, 44f));
 
         var stats = UIFactory.CreateText(window, "Stats", "", 24f, UIFactory.TextBright, TextAlignmentOptions.Top);
-        UIFactory.Place(stats, new Vector2(0.5f, 1f), new Vector2(0f, -106f), new Vector2(480f, 120f));
+        UIFactory.Place(stats, new Vector2(0.5f, 1f), new Vector2(0f, -98f), new Vector2(860f, 92f));
         stats.lineSpacing = 8f;
 
         // CODE ANALYSIS block — hidden for non-code drills.
         var analysisGroup = UIFactory.CreatePanel(window, "AnalysisGroup",
                                                   new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                                                   new Color(0.06f, 0.07f, 0.10f, 1f));
-        UIFactory.Place(analysisGroup, new Vector2(0.5f, 0f), new Vector2(0f, 98f), new Vector2(500f, 138f));
+        UIFactory.Place(analysisGroup, new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(860f, 84f));
         var analysisHeader = UIFactory.CreateText(analysisGroup, "Header", "CODE ANALYSIS", 16f,
                                                   UIFactory.TextDim, TextAlignmentOptions.Center);
-        UIFactory.Place(analysisHeader, new Vector2(0.5f, 1f), new Vector2(0f, -8f), new Vector2(480f, 20f));
+        UIFactory.Place(analysisHeader, new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(820f, 20f));
         var analysis = UIFactory.CreateText(analysisGroup, "Body", "", 19f,
                                             UIFactory.TextBright, TextAlignmentOptions.Top);
-        UIFactory.Place(analysis, new Vector2(0.5f, 1f), new Vector2(0f, -32f), new Vector2(470f, 100f));
+        UIFactory.Place(analysis, new Vector2(0.5f, 1f), new Vector2(0f, -28f), new Vector2(820f, 52f));
         analysis.enableWordWrapping = true;
         analysisGroup.gameObject.SetActive(false);
+
+        TMP_Dropdown attempts = UIFactory.CreateDropdown(window, "AttemptDropdown", new Vector2(300f, 34f), 16f);
+        UIFactory.Place(attempts, new Vector2(0.5f, 1f), new Vector2(-280f, -292f), new Vector2(300f, 34f));
+        var attemptStatus = UIFactory.CreateText(window, "AttemptStatus", "", 17f,
+                                                 UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(attemptStatus, new Vector2(0.5f, 1f), new Vector2(190f, -292f), new Vector2(560f, 34f));
+
+        var codeGroup = UIFactory.CreatePanel(window, "CodeCompareGroup",
+                                              new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                              new Color(0f, 0f, 0f, 0f));
+        UIFactory.Place(codeGroup, new Vector2(0.5f, 0.5f), new Vector2(0f, -46f), new Vector2(860f, 270f));
+
+        var playerHeader = UIFactory.CreateText(codeGroup, "PlayerHeader", "YOUR RUN", 16f,
+                                                UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(playerHeader, new Vector2(0.25f, 1f), new Vector2(0f, -8f), new Vector2(400f, 20f));
+        var referenceHeader = UIFactory.CreateText(codeGroup, "ReferenceHeader", "REFERENCE", 16f,
+                                                   UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(referenceHeader, new Vector2(0.75f, 1f), new Vector2(0f, -8f), new Vector2(400f, 20f));
+
+        ScrollRect playerScroll = UIFactory.CreateScrollView(codeGroup, "PlayerScroll",
+            new Vector2(0f, 0f), new Vector2(0f, 0f), out RectTransform playerContent);
+        UIFactory.Place((RectTransform)playerScroll.transform, new Vector2(0.25f, 0.5f),
+                        new Vector2(0f, -18f), new Vector2(410f, 218f));
+        UIFactory.AddVerticalScrollbar(playerScroll, permanent: true);
+        var playerText = UIFactory.CreateText(playerContent, "Text", "", 17f,
+                                              UIFactory.TextBright, TextAlignmentOptions.TopLeft);
+        playerText.enableWordWrapping = true;
+        var playerFit = playerText.gameObject.AddComponent<ContentSizeFitter>();
+        playerFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        ScrollRect referenceScroll = UIFactory.CreateScrollView(codeGroup, "ReferenceScroll",
+            new Vector2(0f, 0f), new Vector2(0f, 0f), out RectTransform referenceContent);
+        UIFactory.Place((RectTransform)referenceScroll.transform, new Vector2(0.75f, 0.5f),
+                        new Vector2(0f, -18f), new Vector2(410f, 218f));
+        UIFactory.AddVerticalScrollbar(referenceScroll, permanent: true);
+        var referenceText = UIFactory.CreateText(referenceContent, "Text", "", 17f,
+                                                 UIFactory.TextBright, TextAlignmentOptions.TopLeft);
+        referenceText.enableWordWrapping = true;
+        var referenceFit = referenceText.gameObject.AddComponent<ContentSizeFitter>();
+        referenceFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        codeGroup.gameObject.SetActive(false);
+
+        var mentor = UIFactory.CreateText(window, "MentorLabel", "", 18f,
+                                          UIFactory.TextDim, TextAlignmentOptions.TopLeft);
+        UIFactory.Place(mentor, new Vector2(0.5f, 0f), new Vector2(0f, 96f), new Vector2(860f, 58f));
+        mentor.enableWordWrapping = true;
 
         Button cont = UIFactory.CreateButton(window, "ContinueButton", "Continue", new Vector2(240f, 56f));
         UIFactory.Place(cont, new Vector2(0.5f, 0f), new Vector2(0f, 26f), new Vector2(240f, 56f));
@@ -75,6 +121,12 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(panel, "statsLabel",     stats);
         SceneBuilderUtil.Wire(panel, "analysisGroup",  analysisGroup.gameObject);
         SceneBuilderUtil.Wire(panel, "analysisLabel",  analysis);
+        SceneBuilderUtil.Wire(panel, "attemptDropdown", attempts);
+        SceneBuilderUtil.Wire(panel, "attemptStatusLabel", attemptStatus);
+        SceneBuilderUtil.Wire(panel, "codeCompareGroup", codeGroup.gameObject);
+        SceneBuilderUtil.Wire(panel, "playerSourceLabel", playerText);
+        SceneBuilderUtil.Wire(panel, "referenceSourceLabel", referenceText);
+        SceneBuilderUtil.Wire(panel, "mentorLabel", mentor);
         SceneBuilderUtil.Wire(panel, "continueButton", cont);
         return panel;
     }
@@ -276,7 +328,17 @@ public static class MinigameOverlayBuilder
         }
 
         var feedback = UIFactory.CreateText(window, "Feedback", "", 22f, UIFactory.TextBright, TextAlignmentOptions.Center);
-        UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 100f), new Vector2(660f, 32f));
+        UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 160f), new Vector2(660f, 32f));
+
+        Button hint = UIFactory.CreateButton(window, "HintButton", "Hint", new Vector2(150f, 46f), 18f);
+        UIFactory.Place(hint, new Vector2(0.5f, 0f), new Vector2(0f, 76f), new Vector2(150f, 46f));
+        hint.image.color = UIFactory.Accent;
+        hint.gameObject.SetActive(false);
+
+        var hintText = UIFactory.CreateText(window, "HintLabel", "", 17f, UIFactory.TextDim,
+                                            TextAlignmentOptions.Center);
+        UIFactory.Place(hintText, new Vector2(0.5f, 0f), new Vector2(0f, 120f), new Vector2(660f, 42f));
+        hintText.enableWordWrapping = true;
 
         Button run = UIFactory.CreateButton(window, "RunButton", "▶ RUN", new Vector2(200f, 56f));
         UIFactory.Place(run, new Vector2(0.5f, 0f), new Vector2(-120f, 28f), new Vector2(200f, 56f));
@@ -286,6 +348,7 @@ public static class MinigameOverlayBuilder
         UIFactory.Place(quit, new Vector2(0.5f, 0f), new Vector2(120f, 28f), new Vector2(200f, 56f));
 
         var game = overlay.gameObject.AddComponent<CodeOrderMinigame>();
+        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "goalLabel",     goal);
@@ -296,6 +359,8 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.WireArray(game, "downButtons",     downs);
         SceneBuilderUtil.Wire(game, "runButton",  run);
         SceneBuilderUtil.Wire(game, "quitButton", quit);
+        SceneBuilderUtil.Wire(game, "hintButton", hint);
+        SceneBuilderUtil.Wire(game, "hintLabel",  hintText);
         return game;
     }
 
@@ -614,6 +679,11 @@ public static class MinigameOverlayBuilder
         var title = UIFactory.CreateText(window, "Title", "", 26f, UIFactory.Accent);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(680f, 44f));
 
+        Button hint = UIFactory.CreateButton(window, "HintButton", "Hint", new Vector2(140f, 38f), 17f);
+        UIFactory.Place(hint, new Vector2(1f, 1f), new Vector2(-92f, -18f), new Vector2(140f, 38f));
+        hint.image.color = UIFactory.Accent;
+        hint.gameObject.SetActive(false);
+
         var list = UIFactory.CreateRect(window, "Cards", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
         UIFactory.Place(list, new Vector2(0.5f, 1f), new Vector2(0f, -68f), new Vector2(620f, 416f));
         UIFactory.AddVerticalLayout(list, 8f, align: TextAnchor.UpperCenter);
@@ -661,7 +731,13 @@ public static class MinigameOverlayBuilder
         var feedback = UIFactory.CreateText(window, "Feedback", "", 22f, UIFactory.TextBright);
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(660f, 32f));
 
+        var hintText = UIFactory.CreateText(window, "HintLabel", "", 17f, UIFactory.TextDim,
+                                            TextAlignmentOptions.Center);
+        UIFactory.Place(hintText, new Vector2(0.5f, 0f), new Vector2(0f, 132f), new Vector2(660f, 48f));
+        hintText.enableWordWrapping = true;
+
         var game = overlay.gameObject.AddComponent<CodeFixMinigame>();
+        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
@@ -670,6 +746,8 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.WireArray(game, "upButtons",       ups);
         SceneBuilderUtil.WireArray(game, "downButtons",     downs);
         SceneBuilderUtil.Wire(game, "runButton", run);
+        SceneBuilderUtil.Wire(game, "hintButton", hint);
+        SceneBuilderUtil.Wire(game, "hintLabel",  hintText);
         SceneBuilderUtil.Wire(game, "timerFill", timerFill);
 
         return game;

@@ -55,7 +55,15 @@ public class CodeEditorController : MonoBehaviour
     // Auto-closing pairs state.
     const string Openers  = "([{\"";
     const string Closers  = ")]}\"";
-    bool _justAutoClosed;
+    char _pendingOpener;
+    char _pendingCloser;
+    int  _pendingInsertAt = -1;
+
+    // Indentation. One indent level = IndentUnit spaces, matching Lexer.TabWidth so
+    // tab-indented and space-indented source measure the same depth.
+    const int IndentUnit = 4;
+    string _pendingNewlineIndent;
+    int    _pendingNewlineAt = -1;
 
     // Squiggle pool.
     readonly List<Image> _squiggleImages = new List<Image>();
@@ -68,6 +76,7 @@ public class CodeEditorController : MonoBehaviour
     readonly HashSet<int> _foldedLines = new HashSet<int>();
     readonly List<FoldRange> _foldRanges = new List<FoldRange>();
     readonly List<Button> _foldButtons = new List<Button>();
+    readonly HashSet<int> _visibleGutterIconLines = new HashSet<int>();
 
     struct FoldRange
     {
@@ -77,6 +86,9 @@ public class CodeEditorController : MonoBehaviour
     }
 
     public string Source => input != null ? input.text : "";
+    public int FoldRangeCount => _foldRanges.Count;
+    public int FoldedHeaderCount => _foldedLines.Count;
+    public int LogicalLineCount => LineCount();
 
     // -------------------------------------------------------------------------
 
@@ -101,6 +113,7 @@ public class CodeEditorController : MonoBehaviour
             Color c = input.textComponent.color;
             input.textComponent.color = new Color(c.r, c.g, c.b, 0f);
             input.textComponent.richText = false;
+            input.characterValidation = TMP_InputField.CharacterValidation.CustomValidator;
             input.onValidateInput += OnValidateInput;
         }
 
@@ -110,12 +123,14 @@ public class CodeEditorController : MonoBehaviour
             {
                 _dirty = true;
                 _lintTimer = lintDelaySeconds;
+                ComputeFoldRanges();
                 RefreshLineNumbers();
                 RefreshHighlight();
                 RequestAutocomplete();
             });
         }
 
+        ComputeFoldRanges();
         RefreshLineNumbers();
         RefreshHighlight();
         SyncHighlightToInput();
@@ -162,7 +177,23 @@ public class CodeEditorController : MonoBehaviour
             }
         }
 
+        HandleIndentKeys();
         PreventCaretInFoldedRegion();
+    }
+
+    // Tab / Shift+Tab drive block indentation instead of moving focus. When the
+    // autocomplete popup is open, Tab belongs to it (accept the suggestion), so we
+    // stay out of its way. The matching '\t' character is suppressed in
+    // OnValidateInput so no literal tab is ever inserted.
+    void HandleIndentKeys()
+    {
+        if (input == null || !input.isFocused) return;
+        if (autocomplete != null && autocomplete.Visible) return;
+        if (!Input.GetKeyDown(KeyCode.Tab)) return;
+
+        bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        if (shift) DedentSelection();
+        else       IndentSelection();
     }
 
     bool IsNavigationKey()
@@ -174,6 +205,8 @@ public class CodeEditorController : MonoBehaviour
 
     void LateUpdate()
     {
+        ApplyPendingAutoClose();
+        ApplyPendingNewlineIndent();
         SyncHighlightToInput();
     }
 
@@ -182,6 +215,10 @@ public class CodeEditorController : MonoBehaviour
         if (highlight == null || input == null || input.textComponent == null) return;
 
         TMP_Text src = input.textComponent;
+        ApplyCodeTextLayout(src);
+        ApplyCodeTextLayout(highlight);
+        ApplyCodeTextLayout(lineNumbers);
+
         RectTransform s = src.rectTransform;
         RectTransform h = highlight.rectTransform;
 
@@ -196,7 +233,8 @@ public class CodeEditorController : MonoBehaviour
         highlight.alignment        = src.alignment;
         highlight.lineSpacing      = src.lineSpacing;
         highlight.characterSpacing = src.characterSpacing;
-        highlight.textWrappingMode  = src.textWrappingMode;
+        highlight.textWrappingMode  = TextWrappingModes.NoWrap;
+        highlight.overflowMode      = TextOverflowModes.Overflow;
         if (src.font != null && highlight.font != src.font) highlight.font = src.font;
 
         // Rebuild the overlay mesh at most once per change — the per-line geometry
@@ -219,10 +257,30 @@ public class CodeEditorController : MonoBehaviour
             gutterContent.anchoredPosition = gp;
         }
 
+        // Keep gutter numbers on the same line metrics as the code so they stay
+        // vertically aligned one-for-one even when font size or line spacing changes.
+        if (lineNumbers != null)
+        {
+            lineNumbers.fontSize         = src.fontSize;
+            lineNumbers.lineSpacing      = src.lineSpacing;
+            lineNumbers.characterSpacing = src.characterSpacing;
+            lineNumbers.textWrappingMode  = TextWrappingModes.NoWrap;
+            lineNumbers.overflowMode      = TextOverflowModes.Overflow;
+            if (src.font != null && lineNumbers.font != src.font)
+                lineNumbers.font = src.font;
+        }
+
         UpdateExecLineBarPosition();
         UpdateSquiggles();
         UpdateGutterIcons();
         UpdateFoldButtons();
+    }
+
+    static void ApplyCodeTextLayout(TMP_Text text)
+    {
+        if (text == null) return;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Overflow;
     }
 
     // -------------------------------------------------------------------------
@@ -265,42 +323,259 @@ public class CodeEditorController : MonoBehaviour
 
     char OnValidateInput(string text, int charIndex, char addedChar)
     {
+        // Tab never lands as a literal tab in the source — HandleIndentKeys() turns
+        // it into indentation. Swallow the character here.
+        if (addedChar == '\t') return '\0';
+
+        // Return keeps (and, after a ':' header, deepens) the current indentation.
+        // Let TMP insert the newline now; top the fresh line up with leading spaces
+        // in LateUpdate, the same deferral the auto-close pairs use.
+        if (addedChar == '\n')
+        {
+            if (autocomplete == null || !autocomplete.Visible)
+            {
+                _pendingNewlineIndent = ComputeAutoIndent(text, charIndex);
+                _pendingNewlineAt = charIndex + 1;
+            }
+            return '\n';
+        }
+
         int opener = Openers.IndexOf(addedChar);
         if (opener >= 0)
         {
             if (IsInStringOrComment(text, charIndex)) return addedChar;
 
-            char close = Closers[opener];
-            _justAutoClosed = true;
-            input.SetTextWithoutNotify(text.Insert(charIndex, addedChar.ToString() + close));
-            input.stringPosition = charIndex + 1;
-            RefreshLineNumbers();
-            RefreshHighlight();
-            return '\0';
+            // Let TMP_InputField insert the opener normally, then append the matching
+            // closer in LateUpdate. Doing it in two steps keeps TMP's caret/mesh state
+            // consistent and avoids the opener flickering or disappearing.
+            _pendingOpener = addedChar;
+            _pendingCloser = Closers[opener];
+            _pendingInsertAt = charIndex + 1;
+            return addedChar;
         }
 
         int closer = Closers.IndexOf(addedChar);
-        if (closer >= 0 && charIndex < text.Length && text[charIndex] == addedChar && _justAutoClosed)
+        if (closer >= 0 && charIndex < text.Length && text[charIndex] == addedChar)
         {
-            _justAutoClosed = false;
+            // The closing character is already where the caret is — just step over it.
             input.stringPosition = charIndex + 1;
+            _pendingOpener = '\0';
+            _pendingCloser = '\0';
+            _pendingInsertAt = -1;
             return '\0';
         }
 
-        _justAutoClosed = false;
+        _pendingOpener = '\0';
+        _pendingCloser = '\0';
+        _pendingInsertAt = -1;
         return addedChar;
+    }
+
+    void ApplyPendingAutoClose()
+    {
+        if (_pendingCloser == '\0' || input == null) return;
+
+        string text = input.text;
+        int insertAt = _pendingInsertAt;
+
+        // Verify the opener is still exactly where we expect it and that the caret
+        // has not moved away. If anything looks off, cancel so we don't insert the
+        // closer in the wrong place.
+        bool openerOk = insertAt > 0 && insertAt <= text.Length && text[insertAt - 1] == _pendingOpener;
+        bool caretOk = input.stringPosition == insertAt;
+        bool alreadyClosed = insertAt < text.Length && text[insertAt] == _pendingCloser;
+
+        if (openerOk && caretOk && !alreadyClosed)
+        {
+            input.SetTextWithoutNotify(text.Insert(insertAt, _pendingCloser.ToString()));
+            input.stringPosition = insertAt;
+
+            _meshDirty = true;
+            _dirty = true;
+            _lintTimer = lintDelaySeconds;
+            RefreshLineNumbers();
+            RefreshHighlight();
+            RequestAutocomplete();
+        }
+
+        _pendingOpener = '\0';
+        _pendingCloser = '\0';
+        _pendingInsertAt = -1;
+    }
+
+    // -------------------------------------------------------------------------
+    // Indentation
+
+    /// <summary>After a Return, tops the freshly created line up with the leading
+    /// spaces computed in OnValidateInput (previous line's indent, plus one level
+    /// after a ':' header).</summary>
+    void ApplyPendingNewlineIndent()
+    {
+        if (_pendingNewlineAt < 0 || input == null) { _pendingNewlineAt = -1; return; }
+
+        int at = _pendingNewlineAt;
+        string indent = _pendingNewlineIndent;
+        _pendingNewlineAt = -1;
+        _pendingNewlineIndent = null;
+        if (string.IsNullOrEmpty(indent)) return;
+
+        string text = input.text;
+        // The newline must have landed exactly where we expected and the caret must
+        // still sit right after it, or we bail rather than indent the wrong spot.
+        if (at <= 0 || at > text.Length || text[at - 1] != '\n') return;
+        if (input.stringPosition != at) return;
+
+        input.SetTextWithoutNotify(text.Insert(at, indent));
+        input.stringPosition = at + indent.Length;
+        input.selectionStringAnchorPosition = at + indent.Length;
+        AfterProgrammaticEdit();
+    }
+
+    /// <summary>Leading whitespace to give the line that follows a Return pressed at
+    /// <paramref name="caret"/>: the current line's own indent, plus one level when
+    /// the code before the caret ends with ':' (an if/while/for/def header).</summary>
+    string ComputeAutoIndent(string text, int caret)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        caret = Mathf.Clamp(caret, 0, text.Length);
+
+        int lineStart = caret;
+        while (lineStart > 0 && text[lineStart - 1] != '\n') lineStart--;
+
+        int indent = 0;
+        while (lineStart + indent < caret && text[lineStart + indent] == ' ') indent++;
+
+        string beforeCaret = text.Substring(lineStart, caret - lineStart);
+        if (StripComment(beforeCaret).TrimEnd().EndsWith(":")) indent += IndentUnit;
+
+        return new string(' ', indent);
+    }
+
+    /// <summary>Tab: insert one indent level at the caret, or indent every line the
+    /// selection touches.</summary>
+    void IndentSelection()
+    {
+        if (input == null) return;
+        string text = input.text;
+        int selA = Mathf.Min(input.stringPosition, input.selectionStringAnchorPosition);
+        int selB = Mathf.Max(input.stringPosition, input.selectionStringAnchorPosition);
+
+        if (selA == selB)
+        {
+            input.SetTextWithoutNotify(text.Insert(selA, new string(' ', IndentUnit)));
+            input.stringPosition = selA + IndentUnit;
+            input.selectionStringAnchorPosition = selA + IndentUnit;
+            AfterProgrammaticEdit();
+            return;
+        }
+
+        int firstLine = CharIndexToLine(selA);
+        int lastLine  = CharIndexToLine(selB);
+        var sb = new StringBuilder(text.Length + IndentUnit * (lastLine - firstLine + 1));
+        int addedBeforeA = 0, addedBeforeB = 0;
+        int lineNo = 1;
+        for (int i = 0; i <= text.Length; i++)
+        {
+            bool atLineStart = i == 0 || (i > 0 && text[i - 1] == '\n');
+            if (atLineStart && lineNo >= firstLine && lineNo <= lastLine)
+            {
+                sb.Append(' ', IndentUnit);
+                if (i <= selA) addedBeforeA += IndentUnit;
+                if (i <= selB) addedBeforeB += IndentUnit;
+            }
+            if (i == text.Length) break;
+            char c = text[i];
+            sb.Append(c);
+            if (c == '\n') lineNo++;
+        }
+        input.SetTextWithoutNotify(sb.ToString());
+        input.selectionStringAnchorPosition = selA + addedBeforeA;
+        input.stringPosition = selB + addedBeforeB;
+        AfterProgrammaticEdit();
+    }
+
+    /// <summary>Shift+Tab: remove up to one indent level from the caret's line, or
+    /// from every line the selection touches.</summary>
+    void DedentSelection()
+    {
+        if (input == null) return;
+        string text = input.text;
+        int selA = Mathf.Min(input.stringPosition, input.selectionStringAnchorPosition);
+        int selB = Mathf.Max(input.stringPosition, input.selectionStringAnchorPosition);
+        int firstLine = CharIndexToLine(selA);
+        int lastLine  = CharIndexToLine(selB);
+
+        var sb = new StringBuilder(text.Length);
+        int removedBeforeA = 0, removedBeforeB = 0;
+        int idx = 0, lineNo = 1;
+        while (idx < text.Length)
+        {
+            if (lineNo >= firstLine && lineNo <= lastLine)
+            {
+                int strip = 0;
+                while (strip < IndentUnit && idx < text.Length && text[idx] == ' ')
+                {
+                    if (idx < selA) removedBeforeA++;
+                    if (idx < selB) removedBeforeB++;
+                    idx++;
+                    strip++;
+                }
+            }
+            while (idx < text.Length)
+            {
+                char c = text[idx++];
+                sb.Append(c);
+                if (c == '\n') { lineNo++; break; }
+            }
+        }
+        input.SetTextWithoutNotify(sb.ToString());
+        input.selectionStringAnchorPosition = selA - removedBeforeA;
+        input.stringPosition = selB - removedBeforeB;
+        AfterProgrammaticEdit();
+    }
+
+    /// <summary>Shared refresh after a programmatic (non-typed) edit — mirrors the
+    /// onValueChanged listener so lint, folding, gutter and overlay stay in sync
+    /// even though SetTextWithoutNotify skipped the change event.</summary>
+    void AfterProgrammaticEdit()
+    {
+        _meshDirty = true;
+        _dirty = true;
+        _lintTimer = lintDelaySeconds;
+        ComputeFoldRanges();
+        RefreshLineNumbers();
+        RefreshHighlight();
+        RequestAutocomplete();
     }
 
     bool IsInStringOrComment(string text, int upTo)
     {
         bool inString = false;
+        bool inComment = false;
+        char quote = '\0';
         for (int i = 0; i < upTo && i < text.Length; i++)
         {
             char c = text[i];
-            if (c == '#' && !inString) return true;
-            if (c == '\"') inString = !inString;
+            if (inString)
+            {
+                if (c == '\\' && i + 1 < text.Length) { i++; continue; }
+                if (c == quote) { inString = false; quote = '\0'; }
+            }
+            else if (inComment)
+            {
+                if (c == '\n' || c == '\r') inComment = false;
+            }
+            else if (c == '"' || c == '\'')
+            {
+                inString = true;
+                quote = c;
+            }
+            else if (c == '#')
+            {
+                inComment = true; // comment runs to end of line
+            }
         }
-        return inString;
+        return inString || inComment;
     }
 
     // -------------------------------------------------------------------------
@@ -310,6 +585,7 @@ public class CodeEditorController : MonoBehaviour
         if (input != null && string.IsNullOrEmpty(input.text))
         {
             input.SetTextWithoutNotify(scaffold ?? "");
+            ComputeFoldRanges();
             RefreshLineNumbers();
             RefreshHighlight();
         }
@@ -319,10 +595,18 @@ public class CodeEditorController : MonoBehaviour
     {
         if (input == null) return;
         input.SetTextWithoutNotify(source ?? "");
-        input.stringPosition = input.text.Length;
+        if (input.textComponent != null)
+            input.stringPosition = input.text.Length;
+        ComputeFoldRanges();
         RefreshLineNumbers();
         RefreshHighlight();
         Lint();
+    }
+
+    public void ConfigureAutocomplete(string[] allowedBlocks, string[] allowedQueries, string[] allowedReporters)
+    {
+        if (autocomplete != null)
+            autocomplete.SetVocabulary(allowedBlocks, allowedQueries, allowedReporters);
     }
 
     public ProgramNode BuildProgram(out List<LangError> errors)
@@ -342,7 +626,7 @@ public class CodeEditorController : MonoBehaviour
         if (lintLabel == null) return;
 
         if (_errors.Count == 0)
-            lintLabel.text = $"<color=#{ColorToHex(_theme.okColor)}>✓  looks good</color>";
+            lintLabel.text = $"<color=#{ColorToHex(_theme.okColor)}>OK  looks good</color>";
         else
             lintLabel.text = $"<color=#{ColorToHex(_theme.errorColor)}>{_errors[0]}</color>";
     }
@@ -353,15 +637,20 @@ public class CodeEditorController : MonoBehaviour
     public void RefreshLineNumbers()
     {
         if (lineNumbers == null || input == null) return;
+        ApplyCodeTextLayout(lineNumbers);
+        lineNumbers.text = BuildLineNumberText(LineCount());
+        lineNumbers.ForceMeshUpdate();   // refresh metrics now so gutter icons line up
+    }
 
+    public string BuildLineNumberText(int count)
+    {
         var sb = new StringBuilder();
-        int count = LineCount();
         for (int i = 1; i <= count; i++)
         {
             if (IsLineFolded(i))
             {
-                sb.Append("<color=#").Append(LineNumberColorHex(i)).Append(">⋯</color>");
-                // Skip folded body lines.
+                sb.Append("<color=#").Append(LineNumberColorHex(i)).Append(">...</color>");
+                // Skip folded body lines so the gutter shows one entry per visible line.
                 int skipEnd = i;
                 foreach (FoldRange fr in _foldRanges)
                 {
@@ -379,9 +668,7 @@ public class CodeEditorController : MonoBehaviour
             }
             sb.Append('\n');
         }
-
-        lineNumbers.text = sb.ToString();
-        lineNumbers.ForceMeshUpdate();   // refresh metrics now so gutter icons line up
+        return sb.ToString();
     }
 
     string LineNumberColorHex(int line)
@@ -407,6 +694,7 @@ public class CodeEditorController : MonoBehaviour
     public void RefreshHighlight()
     {
         if (highlight == null || input == null) return;
+        ApplyCodeTextLayout(highlight);
 
         string src = input.text;
         if (_foldedLines.Count > 0)
@@ -458,7 +746,7 @@ public class CodeEditorController : MonoBehaviour
     {
         if (input == null) return 0;
         int count = 1;
-        string text = input.text;
+        string text = input.text.Replace("\r\n", "\n").Replace('\r', '\n');
         for (int i = 0; i < text.Length; i++)
             if (text[i] == '\n') count++;
         return count;
@@ -467,61 +755,49 @@ public class CodeEditorController : MonoBehaviour
     // -------------------------------------------------------------------------
     // Folding
 
-    void ComputeFoldRanges()
+    public void ComputeFoldRanges()
     {
         _foldRanges.Clear();
-        string text = input.text;
-        var lineIndents = new List<int>();
-        int currentIndent = 0;
-        bool inLine = true;
-        for (int i = 0; i < text.Length; i++)
-        {
-            char c = text[i];
-            if (c == '\n')
-            {
-                lineIndents.Add(currentIndent);
-                currentIndent = 0;
-                inLine = true;
-            }
-            else if (inLine && c == ' ')
-            {
-                currentIndent++;
-            }
-            else if (inLine && c != ' ')
-            {
-                inLine = false;
-            }
-        }
-        lineIndents.Add(currentIndent);
+        string text = input != null ? input.text : "";
+        string[] lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var indents = new int[lines.Length];
+        var nonBlank = new bool[lines.Length];
 
-        // Find headers: lines ending in ':'.
-        int line = 1;
-        for (int i = 0; i < text.Length; i++)
+        for (int i = 0; i < lines.Length; i++)
         {
-            if (text[i] == ':')
+            string lineText = lines[i];
+            int indent = 0;
+            while (indent < lineText.Length && lineText[indent] == ' ') indent++;
+            indents[i] = indent;
+            nonBlank[i] = lineText.Trim().Length > 0;
+        }
+
+        for (int i = 0; i < lines.Length - 1; i++)
+        {
+            string trimmed = StripComment(lines[i]).TrimEnd();
+            if (!trimmed.EndsWith(":")) continue;
+            if (trimmed.StartsWith("#")) continue;
+
+            int body = NextNonBlankLine(lines, nonBlank, i + 1);
+            if (body < 0 || indents[body] <= indents[i]) continue;
+
+            // Extend the range to the last *non-blank* line still indented under the
+            // header. Blank lines never move the boundary, so trailing (and interior
+            // gap) blanks are left outside the fold instead of being swallowed into it.
+            int end = body;
+            for (int j = body + 1; j < lines.Length; j++)
             {
-                int headerIndent = lineIndents[line - 1];
-                if (line < lineIndents.Count)
-                {
-                    int bodyIndent = lineIndents[line];
-                    if (bodyIndent > headerIndent)
-                    {
-                        int end = line;
-                        for (int j = line + 1; j <= lineIndents.Count; j++)
-                        {
-                            if (j > lineIndents.Count) break;
-                            if (lineIndents[j - 1] > 0 && lineIndents[j - 1] < bodyIndent)
-                                break;
-                            if (lineIndents[j - 1] >= bodyIndent || j <= line)
-                                end = j;
-                            else
-                                break;
-                        }
-                        _foldRanges.Add(new FoldRange { HeaderLine = line, StartLine = line + 1, EndLine = end });
-                    }
-                }
+                if (!nonBlank[j]) continue;
+                if (indents[j] <= indents[i]) break;
+                end = j;
             }
-            if (text[i] == '\n') line++;
+
+            _foldRanges.Add(new FoldRange
+            {
+                HeaderLine = i + 1,
+                StartLine = body + 1,
+                EndLine = end + 1,
+            });
         }
 
         // Remove folded lines for ranges that no longer exist.
@@ -538,7 +814,39 @@ public class CodeEditorController : MonoBehaviour
         foreach (int h in toRemove) _foldedLines.Remove(h);
     }
 
-    void ToggleFold(int headerLine)
+    static int NextNonBlankLine(string[] lines, bool[] nonBlank, int start)
+    {
+        for (int i = start; i < lines.Length; i++)
+            if (nonBlank[i]) return i;
+        return -1;
+    }
+
+    static string StripComment(string line)
+    {
+        bool inString = false;
+        char quote = '\0';
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+            if (inString)
+            {
+                if (c == '\\' && i + 1 < line.Length) { i++; continue; }
+                if (c == quote) { inString = false; quote = '\0'; }
+            }
+            else if (c == '"' || c == '\'')
+            {
+                inString = true;
+                quote = c;
+            }
+            else if (c == '#')
+            {
+                return line.Substring(0, i);
+            }
+        }
+        return line;
+    }
+
+    public void ToggleFold(int headerLine)
     {
         if (_foldedLines.Contains(headerLine))
             _foldedLines.Remove(headerLine);
@@ -612,6 +920,8 @@ public class CodeEditorController : MonoBehaviour
                 label.text = _foldedLines.Contains(fr.HeaderLine) ? "▸" : "▾";
 
             int header = fr.HeaderLine;
+            if (label != null)
+                label.text = _foldedLines.Contains(header) ? ">" : "v";
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(() => ToggleFold(header));
             btn.gameObject.SetActive(true);
@@ -655,9 +965,30 @@ public class CodeEditorController : MonoBehaviour
             return;
         }
 
+        ExpandFoldContaining(line);
         execLineBar.gameObject.SetActive(true);
         _executingLine = line;
         UpdateExecLineBarPosition();
+    }
+
+    void ExpandFoldContaining(int line)
+    {
+        int headerToExpand = -1;
+        foreach (FoldRange fr in _foldRanges)
+        {
+            if (_foldedLines.Contains(fr.HeaderLine) && line >= fr.StartLine && line <= fr.EndLine)
+            {
+                headerToExpand = fr.HeaderLine;
+                break;
+            }
+        }
+
+        if (headerToExpand > 0)
+        {
+            _foldedLines.Remove(headerToExpand);
+            RefreshLineNumbers();
+            RefreshHighlight();
+        }
     }
 
     public void ClearExecutionHighlight()
@@ -804,6 +1135,9 @@ public class CodeEditorController : MonoBehaviour
         if (label != null)
             label.text = kind == GutterIconKind.Error ? "⚑" : "▶";
 
+        if (label != null)
+            label.text = kind == GutterIconKind.Error ? "!" : ">";
+
         icon.gameObject.SetActive(true);
         PositionGutterObject((RectTransform)icon.transform, line, 18f);
     }
@@ -830,19 +1164,31 @@ public class CodeEditorController : MonoBehaviour
 
     void UpdateGutterIcons()
     {
-        // Error flags.
+        _visibleGutterIconLines.Clear();
+
         foreach (LangError err in _errors)
         {
             if (err.Line > 0)
+            {
                 SetGutterIcon(err.Line, GutterIconKind.Error);
+                _visibleGutterIconLines.Add(err.Line);
+            }
         }
 
-        // Execution marker.
-        if (_executingMarkerLine > 0 && _executingMarkerLine != _executingLine)
-            SetGutterIcon(_executingMarkerLine, GutterIconKind.None);
         _executingMarkerLine = _executingLine;
         if (_executingMarkerLine > 0)
+        {
             SetGutterIcon(_executingMarkerLine, GutterIconKind.Executing);
+            _visibleGutterIconLines.Add(_executingMarkerLine);
+        }
+
+        var stale = new List<int>();
+        foreach (int line in _gutterIconByLine.Keys)
+            if (!_visibleGutterIconLines.Contains(line))
+                stale.Add(line);
+
+        foreach (int line in stale)
+            SetGutterIcon(line, GutterIconKind.None);
     }
 
     void PositionGutterObject(RectTransform rt, int line, float xOffset)
@@ -891,7 +1237,9 @@ public class CodeEditorController : MonoBehaviour
         {
             var vars = new List<string>();
             CollectVariableNames(text, vars);
-            autocomplete.Show(caret, prefix, vars);
+            var funcs = new List<string>();
+            CollectFunctionNames(text, funcs);
+            autocomplete.Show(caret, prefix, vars, funcs);
         }
         else
         {
@@ -931,6 +1279,26 @@ public class CodeEditorController : MonoBehaviour
         }
     }
 
+    void CollectFunctionNames(string text, List<string> names)
+    {
+        var seen = new HashSet<string>();
+        var lines = text.Split('\n');
+        foreach (string line in lines)
+        {
+            string trimmed = line.TrimStart();
+            if (!trimmed.StartsWith("def ")) continue;
+
+            int start = 4;
+            int end = start;
+            while (end < trimmed.Length && IsWordChar(trimmed[end])) end++;
+            if (end <= start) continue;
+
+            string name = trimmed.Substring(start, end - start);
+            if (seen.Add(name))
+                names.Add(name);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Syntax colouring
 
@@ -940,27 +1308,42 @@ public class CodeEditorController : MonoBehaviour
 
         var sb = new StringBuilder(src.Length + 64);
         int i = 0;
+        bool inString = false;
+        char quote = '\0';
+
         while (i < src.Length)
         {
             char c = src[i];
 
-            if (c == '#')                                   // comment to end of line
+            if (inString)
             {
+                // Consume the rest of the string literal; a '#' here is just text.
                 int j = i;
-                while (j < src.Length && src[j] != '\n') j++;
-                AppendRun(sb, src, i, j - i, ColorToHex(_theme.commentColor));
-                i = j;
-            }
-            else if (c == '"')                              // string literal
-            {
-                int j = i + 1;
-                while (j < src.Length && src[j] != '"' && src[j] != '\n')
+                while (j < src.Length && src[j] != quote && src[j] != '\n')
                 {
                     if (src[j] == '\\' && j + 1 < src.Length) j++;   // skip escaped char
                     j++;
                 }
-                if (j < src.Length && src[j] == '"') j++;            // include closing quote
-                AppendRun(sb, src, i, j - i, ColorToHex(_theme.stringColor));
+                if (j < src.Length && src[j] == quote) j++;            // include closing quote
+                AppendRun(sb, src, i - 1, j - i + 1, ColorToHex(_theme.stringColor));
+                i = j;
+                inString = false;
+                continue;
+            }
+
+            if (c == '"' || c == '\'')                     // string literal start
+            {
+                inString = true;
+                quote = c;
+                i++;
+                continue;
+            }
+
+            if (c == '#')                                   // real comment to end of line
+            {
+                int j = i;
+                while (j < src.Length && src[j] != '\n') j++;
+                AppendRun(sb, src, i, j - i, ColorToHex(_theme.commentColor));
                 i = j;
             }
             else if (char.IsDigit(c))                       // number literal

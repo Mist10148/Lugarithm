@@ -77,12 +77,17 @@ public class MazeRepairMinigame : MonoBehaviour
     bool  _codeActive;
     int   _attempts;
     float _timeLeft;
+    float _timeLimitSeconds;
+    string _resultTitle = "MAZE REPAIR";
 
     // Co-pilot hint state (mirrors AutomationDriveController's tiered, struggle-aware flow).
     int  _hintTier;
     int  _failCount;
+    int  _runAttempts;
     bool _struggleNudged;
     int  _bestDelivered;
+    readonly CodeRunHistory _runHistory = new CodeRunHistory();
+    CodeRunAttempt _activeRunAttempt;
 
     void Awake()
     {
@@ -94,9 +99,11 @@ public class MazeRepairMinigame : MonoBehaviour
             hintButton.gameObject.SetActive(false);
             hintButton.onClick.AddListener(OnHintRequested);
         }
+        else Debug.LogWarning("[MazeRepairMinigame] hintButton is not wired — hint UI will never appear.");
 
         if (exec != null)
         {
+            exec.OnStepDone     += HandleStepDone;
             exec.OnFinished     += HandleFinished;
             exec.OnRuntimeError += HandleRuntimeError;
         }
@@ -118,9 +125,11 @@ public class MazeRepairMinigame : MonoBehaviour
 
         if (exec != null)
         {
+            exec.OnStepDone     -= HandleStepDone;
             exec.OnFinished     -= HandleFinished;
             exec.OnRuntimeError -= HandleRuntimeError;
         }
+        ClearExecutionHighlights();
 
         if (mazeCamera != null) mazeCamera.targetTexture = null;
         if (_rt != null) { _rt.Release(); Destroy(_rt); _rt = null; }
@@ -134,11 +143,17 @@ public class MazeRepairMinigame : MonoBehaviour
         _onDone   = onDone;
         _attempts = 0;
         _timeLeft = softTimerSeconds;
+        _timeLimitSeconds = softTimerSeconds;
+        _resultTitle = "MAZE REPAIR";
 
         _hintTier = 0;
         _failCount = 0;
+        _runAttempts = 0;
         _struggleNudged = false;
         _bestDelivered = 0;
+        _runHistory.Clear();
+        _activeRunAttempt = null;
+        ClearExecutionHighlights();
         if (hintButton != null) hintButton.gameObject.SetActive(false);
         if (hintLabel  != null) hintLabel.text = "";
 
@@ -187,6 +202,73 @@ public class MazeRepairMinigame : MonoBehaviour
             feedbackLabel.text = _codeActive
                 ? "Write an algorithm, then press RUN to drive the route."
                 : "Snap blocks together, then press RUN to drive the route.";
+
+        _active = true;
+        if (root != null) root.SetActive(true);
+    }
+
+    /// <summary>Opens the same coding maze as a town-hub objective instead of a repair.</summary>
+    public void ShowTownChallenge(MinigameStationDef station, int levelIndex, Action<MinigameResult> onDone)
+    {
+        _onDone = onDone;
+        _attempts = 0;
+
+        _hintTier = 0;
+        _failCount = 0;
+        _runAttempts = 0;
+        _struggleNudged = false;
+        _bestDelivered = 0;
+        _runHistory.Clear();
+        _activeRunAttempt = null;
+        ClearExecutionHighlights();
+        if (hintButton != null) hintButton.gameObject.SetActive(false);
+        if (hintLabel != null) hintLabel.text = "";
+
+        _def = TownCodingMazeLibrary.ForLevel(levelIndex);
+        _timeLimitSeconds = _def != null && _def.softTimerSeconds > 0f
+            ? _def.softTimerSeconds
+            : softTimerSeconds;
+        _timeLeft = _timeLimitSeconds;
+        _resultTitle = "TOWN ROUTE";
+
+        GridModel grid = GridModel.Parse(_def.gridMap, out _);
+        _sim = new AgentSim(grid, new FareTable(), _def.startFacing);
+
+        if (worldView != null) worldView.Build(grid);
+        if (exec != null)
+        {
+            exec.Init(grid, _sim, agentView, worldView, worldView, _def, _def.startFacing);
+            exec.SetSpeed(runSpeed);
+        }
+        EnsureRenderTexture();
+        if (worldView != null) worldView.FrameCamera(mazeCamera);
+        if (mazeCamera != null) mazeCamera.enabled = true;
+
+        if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, null);
+        if (palette != null) palette.Init(_def.allowedBlocks, blockCanvas);
+        if (codeEditor != null) codeEditor.SetScaffold(_def.codeScaffold);
+
+        if (vibeCtrl != null)
+        {
+            vibeCtrl.Init(_def.allowedBlocks, _def.allowedQueries, codeEditor, blockCanvas);
+            vibeCtrl.SetWorldContext(grid, _sim, _def);
+        }
+        if (ghost != null) ghost.Bind(_def);
+
+        bool blockMode = SaveSystem.Current != null && SaveSystem.Current.settings.blockMode;
+        _codeActive = !blockMode;
+        if (blockPanel != null) blockPanel.SetActive(blockMode);
+        if (codePanel != null) codePanel.SetActive(_codeActive);
+
+        string stationTitle = station != null && !string.IsNullOrEmpty(station.title)
+            ? station.title
+            : "Coding Maze";
+        if (titleLabel != null) titleLabel.text = $"CODING MAZE - {stationTitle}";
+        if (goalLabel != null) goalLabel.text = _def.goalText;
+        if (feedbackLabel != null)
+            feedbackLabel.text = _codeActive
+                ? "Write an algorithm, then press RUN to reach the destination."
+                : "Snap blocks together, then press RUN to reach the destination.";
 
         _active = true;
         if (root != null) root.SetActive(true);
@@ -249,15 +331,21 @@ public class MazeRepairMinigame : MonoBehaviour
         }
 
         _attempts++;
+        _runAttempts++;
+        string runSource = CurrentSourceText();
+        _activeRunAttempt = _runHistory.RecordStarted(runSource, _codeActive ? "Maze code" : "Maze blocks");
+        Debug.Log($"[MazeRepairMinigame] RUN pressed — attempts={_attempts}, runAttempts={_runAttempts}, failCount={_failCount}");
         if (feedbackLabel != null) feedbackLabel.text = "Driving…";
         exec.SetSpeed(runSpeed);   // re-assert in case a reset left it stale
-        exec.Run(program);
+        exec.Run(program, resetWorld: false);
+        RevealHintAfterStruggle();
     }
 
     void OnReset()
     {
         if (!_active || exec == null) return;
         exec.ResetWorld();   // snaps the agent view back to the start
+        ClearExecutionHighlights();
         if (feedbackLabel != null) feedbackLabel.text = "World reset — edit and RUN again.";
     }
 
@@ -323,14 +411,55 @@ public class MazeRepairMinigame : MonoBehaviour
     // -------------------------------------------------------------------------
     // Execution events
 
+    void HandleStepDone(AgentActionResult result, StepResult step)
+    {
+        if (!_active || step == null) return;
+
+        if (_codeActive && codeEditor != null && step.Node != null)
+            codeEditor.HighlightExecutingLine(step.Node.Line);
+
+        if (!_codeActive && blockCanvas != null && step.Node != null)
+            blockCanvas.HighlightExecuting(step.Node.SourceRef);
+
+        if (codeEditor != null && exec != null)
+            codeEditor.SetHeat(exec.LineHits);
+    }
+
+    void ClearExecutionHighlights()
+    {
+        if (codeEditor != null)
+        {
+            codeEditor.ClearExecutionHighlight();
+            codeEditor.ClearHeat();
+        }
+        if (blockCanvas != null)
+            blockCanvas.ClearExecutionHighlight();
+    }
+
     void HandleRuntimeError(LangError error)
     {
+        ClearExecutionHighlights();
         if (feedbackLabel != null) feedbackLabel.text = error.ToString();
     }
 
     void HandleFinished(bool win)
     {
         if (!_active) return;
+        ClearExecutionHighlights();
+        string gap = null;
+        if (!win && _sim != null)
+            gap = _sim.DescribeGoalGap(_def);
+        if (_activeRunAttempt != null)
+        {
+            int steps = _sim != null ? _sim.StepsUsed : 0;
+            _runHistory.Complete(
+                _activeRunAttempt,
+                win,
+                win ? "Solved" : "Stopped",
+                steps,
+                win ? $"Solved in {steps} steps." : (gap ?? "The program ended before reaching the exit."));
+            _activeRunAttempt = null;
+        }
 
         if (win)
         {
@@ -349,20 +478,26 @@ public class MazeRepairMinigame : MonoBehaviour
             _bestDelivered = delivered;
             _hintTier = Mathf.Max(0, _hintTier - 1);
         }
-        if (_failCount >= 2 && hintButton != null)
-        {
-            hintButton.gameObject.SetActive(true);
-            if (!_struggleNudged)
-            {
-                _struggleNudged = true;
-                if (hintLabel != null)
-                    hintLabel.text = "Stuck? Tap Hint — I'll look at your code and nudge you, no spoilers.";
-            }
-        }
+        RevealHintAfterStruggle();
     }
 
     // -------------------------------------------------------------------------
     // Co-Pilot hint (shared flow, minigame fallback voice)
+
+    void RevealHintAfterStruggle()
+    {
+        Debug.Log($"[MazeRepairMinigame] RevealHintAfterStruggle — runAttempts={_runAttempts}, failCount={_failCount}, hintButton={(hintButton != null ? "wired" : "NULL")}");
+        if (hintButton == null) return;
+        if (_failCount < 2 && _runAttempts < 3) return;
+
+        hintButton.gameObject.SetActive(true);
+        if (!_struggleNudged)
+        {
+            _struggleNudged = true;
+            if (hintLabel != null)
+                hintLabel.text = "Stuck? Tap Hint — I'll look at your code and nudge you, no spoilers.";
+        }
+    }
 
     public void OnHintRequested()
     {
@@ -373,7 +508,9 @@ public class MazeRepairMinigame : MonoBehaviour
 
     IEnumerator FetchHint(int tier)
     {
-        if (hintLabel != null) hintLabel.text = "…";
+        // The hint now lives exclusively in the AI vibe-coding chat; clear any legacy
+        // fallback label so the same text doesn't show in two places.
+        if (hintLabel != null) hintLabel.text = "";
 
         string source = _codeActive
             ? (codeEditor  != null ? codeEditor.Source : "")
@@ -384,14 +521,27 @@ public class MazeRepairMinigame : MonoBehaviour
 
         AiResult result = null;
         string streamed = "";
+
+        // Open the AI chat and show a pending hint bubble there too.
+        TMP_Text vibeHintBubble = vibeCtrl != null
+            ? vibeCtrl.AddHintBubble(MinigameHintLibrary.Mechanic.speakerName,
+                                     MinigameHintLibrary.Mechanic.role)
+            : null;
+
         yield return GeminiClient.Stream(request, delta =>
         {
             streamed += delta;
-            if (hintLabel != null) hintLabel.text = streamed;
+            if (vibeHintBubble != null)
+                vibeCtrl.SetHintBubbleText(vibeHintBubble, streamed,
+                    MinigameHintLibrary.Mechanic.speakerName,
+                    MinigameHintLibrary.Mechanic.role);
         }, completed => result = completed);
 
-        if (hintLabel != null)
-            hintLabel.text = result != null && result.Success ? result.Text : authored;
+        string final = result != null && result.Success ? result.Text : authored;
+        if (vibeHintBubble != null)
+            vibeCtrl.SetHintBubbleText(vibeHintBubble, final,
+                MinigameHintLibrary.Mechanic.speakerName,
+                MinigameHintLibrary.Mechanic.role);
     }
 
     // -------------------------------------------------------------------------
@@ -399,14 +549,31 @@ public class MazeRepairMinigame : MonoBehaviour
     void Finish(bool timedOut)
     {
         if (!_active) return;
+
+        if (timedOut)
+        {
+            _failCount++;
+            if (_activeRunAttempt != null)
+            {
+                int steps = _sim != null ? _sim.StepsUsed : 0;
+                _runHistory.Complete(_activeRunAttempt, false, "Timed out", steps,
+                    $"Timed out after {steps} step(s).");
+                _activeRunAttempt = null;
+            }
+            Debug.Log($"[MazeRepairMinigame] timed out — failCount={_failCount}");
+            RevealHintAfterStruggle();
+        }
+
         _active = false;
+        ClearExecutionHighlights();
 
         if (exec != null) exec.ResetWorld();
         if (mazeCamera != null) mazeCamera.enabled = false;   // stop rendering the RT
         if (root != null) root.SetActive(false);
 
         int penalty = timedOut ? 40 : 0;
-        int retries = Mathf.Max(0, _attempts - 1);
+        int attemptCount = Mathf.Max(1, _runHistory.Count);
+        int retries = Mathf.Max(0, attemptCount - 1);
         var result = new MinigameResult
         {
             TimedOut = timedOut,
@@ -420,21 +587,51 @@ public class MazeRepairMinigame : MonoBehaviour
         if (resultsPanel != null)
         {
             // Code-based drill → show the same kind of code analysis as the main
-            // Automation panel (deterministic; no per-drill AI call).
-            string playerSource = _codeActive
-                ? (codeEditor  != null ? codeEditor.Source : "")
-                : (blockCanvas != null ? blockCanvas.ToSourceText() : "");
-            float elapsed = Mathf.Max(0f, softTimerSeconds - _timeLeft);
+            // Automation panel; Gemini fills in the mentor review when available.
+            string playerSource = _runHistory.Last != null ? _runHistory.Last.source : CurrentSourceText();
+            string referenceSource = _def != null ? _def.optimalSolutionText : "";
+            float elapsed = Mathf.Max(0f, _timeLimitSeconds - _timeLeft);
             CodeAnalysis analysis = CodeAnalyticsService.Analyze(
-                playerSource, _def != null ? _def.optimalSolutionText : "",
+                playerSource, referenceSource,
                 _sim != null ? _sim.StepsUsed : 0, _def != null ? _def.parSteps : 1,
-                retries, elapsed, softTimerSeconds, exec != null ? exec.LineHits : null);
+                retries, elapsed, _timeLimitSeconds, exec != null ? exec.LineHits : null,
+                attemptCount);
 
-            resultsPanel.Show("MINIGAME · Code", "MAZE REPAIR", result, analysis, () => cb?.Invoke(result));
+            resultsPanel.Show("MINIGAME · Code", _resultTitle, result, analysis,
+                () => cb?.Invoke(result), playerSource, referenceSource, _runHistory.Attempts);
+            resultsPanel.StartCoroutine(FetchMentorFeedback(playerSource, referenceSource, analysis));
         }
         else
         {
             cb?.Invoke(result);
         }
+    }
+
+    string CurrentSourceText()
+    {
+        return _codeActive
+            ? (codeEditor != null ? codeEditor.Source : "")
+            : (blockCanvas != null ? blockCanvas.ToSourceText() : "");
+    }
+
+    IEnumerator FetchMentorFeedback(string playerSource, string referenceSource, CodeAnalysis analysis)
+    {
+        AiRequest request = CodingMentorService.BuildRequest(
+            _resultTitle, MinigameHintLibrary.MazeConcept, analysis, playerSource, referenceSource,
+            _def != null ? _def.allowedBlocks : Array.Empty<string>(),
+            _def != null ? _def.allowedQueries : Array.Empty<string>(),
+            _runHistory.Attempts);
+        AiResult response = null;
+        yield return GeminiClient.Stream(request, null, completed => response = completed);
+
+        MentorReview review = null;
+        int lineCount = string.IsNullOrEmpty(playerSource) ? 0 : playerSource.Replace("\r", "").Split('\n').Length;
+        if (response == null || !response.Success ||
+            !CodingMentorService.TryParseAndValidate(response.Text, referenceSource,
+                _def != null ? _def.allowedBlocks : Array.Empty<string>(),
+                _def != null ? _def.allowedQueries : Array.Empty<string>(),
+                lineCount, out review))
+            review = CodingMentorService.Fallback(referenceSource, analysis);
+        if (resultsPanel != null) resultsPanel.SetMentorReview(review);
     }
 }

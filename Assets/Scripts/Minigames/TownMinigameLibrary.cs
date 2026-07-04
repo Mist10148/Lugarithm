@@ -12,7 +12,7 @@ public enum MinigameStationType { Puzzle, Coding }
 /// art/logic seeds for (maze, flow/color-connect, block-fill, pattern-match);
 /// <see cref="Coding"/> is the lesson-tied programming challenge.
 /// </summary>
-public enum MinigamePuzzleKind { Maze, ColorConnect, BlockFill, PatternMatch, Coding }
+public enum MinigamePuzzleKind { Maze, ColorConnect, BlockFill, PatternMatch, FlowConnect, CrateStack, Coding, CodingMaze }
 
 /// <summary>
 /// Placeholder definition for one interactable town minigame station. Carries the
@@ -99,6 +99,15 @@ public static class TownMinigameLibrary
             markerColor = CodingGreen,
         };
 
+    static MinigameStationDef CodingMaze(string id, string title, string concept,
+                                         string description)
+        => new MinigameStationDef
+        {
+            id = id, title = title, description = description, concept = concept,
+            type = MinigameStationType.Coding, kind = MinigamePuzzleKind.CodingMaze,
+            markerColor = CodingGreen,
+        };
+
     // -------------------------------------------------------------------------
     // Level 0 — Tutorial (sequencing)
 
@@ -110,8 +119,16 @@ public static class TownMinigameLibrary
         Puzzle("tut_fill", "Capiz Window", MinigamePuzzleKind.BlockFill, PuzzlePurple,
             "Draw one line from the start square to the end square that fills every tile of the capiz-shell window grid.",
             "Plan a route that covers everything once."),
+        Puzzle("tut_connect", "Route Links", MinigamePuzzleKind.FlowConnect, PuzzleTeal,
+            "Connect each matching stop without crossing routes before the jeepney leaves the garage.",
+            "Plan clear paths before a trip begins."),
+        Puzzle("tut_crates", "Supply Stack", MinigamePuzzleKind.CrateStack, PuzzlePurple,
+            "Sort the garage crates so the heaviest load sits safely at the bottom.",
+            "Balance the jeepney before departure."),
         Coding("tut_code", "First Route", "Sequencing",
             "Order the driving steps so the jeepney leaves the garage and reaches the first stop — your first taste of writing a program in order."),
+        CodingMaze("tut_coding_maze", "Straight Road", "Sequencing",
+            "Write the shortest route to drive straight from the start marker to the destination."),
     };
 
     // -------------------------------------------------------------------------
@@ -125,8 +142,16 @@ public static class TownMinigameLibrary
         Puzzle("molo_maze", "Twin-Spire Path", MinigamePuzzleKind.Maze, PuzzlePurple,
             "Find the way through the plaza around Molo Church's twin spires to the market.",
             "The 'feminist church' of Molo."),
+        Puzzle("molo_gate_connect", "Transit Links", MinigamePuzzleKind.FlowConnect, PuzzleTeal,
+            "Connect matching route markers across the plaza without crossing lines.",
+            "Molo's busy roads and gathering places."),
+        Puzzle("molo_gate_crates", "Market Load", MinigamePuzzleKind.CrateStack, PuzzlePurple,
+            "Restack the market cargo from lightest on top to heaviest below.",
+            "Safe loading before the road south."),
         Coding("molo_code", "If It Rains", "Conditionals",
             "Teach the jeepney to decide: IF a passenger is waiting, pick them up; ELSE drive on. The town's first conditional logic."),
+        CodingMaze("molo_coding_maze", "Alley Route", "Conditionals",
+            "Use code to drive through a small route maze and reach the destination marker."),
     };
 
     // -------------------------------------------------------------------------
@@ -140,8 +165,16 @@ public static class TownMinigameLibrary
         Puzzle("oton_pattern", "River Trade Tally", MinigamePuzzleKind.PatternMatch, PuzzlePurple,
             "Match the sequence of trade goods shown before the Batiano boats cast off.",
             "Batiano River trade routes."),
+        Puzzle("oton_gate_connect", "Harbor Routes", MinigamePuzzleKind.FlowConnect, PuzzleTeal,
+            "Link each matching harbor marker without crossing trade paths.",
+            "Oton's old river and sea routes."),
+        Puzzle("oton_gate_crates", "Cargo Stack", MinigamePuzzleKind.CrateStack, PuzzlePurple,
+            "Stack the trade crates with the heaviest cargo at the bottom.",
+            "Careful loading for river travel."),
         Coding("oton_code", "Passenger Manifest", "Lists & indexing",
             "Use a list of stops and index into it to drop passengers in the right order along the river road."),
+        CodingMaze("oton_coding_maze", "Market Maze", "Lists & indexing",
+            "Navigate a tighter market route by writing a reusable maze-driving program."),
     };
 
     // -------------------------------------------------------------------------
@@ -155,8 +188,16 @@ public static class TownMinigameLibrary
         Puzzle("tig_maze", "Guerrilla Trail", MinigamePuzzleKind.Maze, PuzzlePurple,
             "Slip through the back-trails past the WWII resistance markers to the meeting point.",
             "WWII guerrilla resistance."),
+        Puzzle("tig_gate_connect", "Thread Links", MinigamePuzzleKind.FlowConnect, PuzzleTeal,
+            "Reconnect matching thread ends without crossing the weave.",
+            "Hablon patterns as routes."),
+        Puzzle("tig_gate_crates", "Loom Supplies", MinigamePuzzleKind.CrateStack, PuzzlePurple,
+            "Order the loom supply crates so the weight is stable.",
+            "Prepare the tools before the pattern repeats."),
         Coding("tig_code", "Weave Routine", "Functions + loops",
             "Write a reusable function and loop it to repeat the weave pattern — and to service a run of identical stops."),
+        CodingMaze("tig_coding_maze", "Thread Maze", "Functions + loops",
+            "Use loops and helper logic to trace a path through the woven route."),
     };
 
     // -------------------------------------------------------------------------
@@ -170,8 +211,16 @@ public static class TownMinigameLibrary
         Puzzle("miag_connect", "Fort-Church Watch", MinigamePuzzleKind.ColorConnect, PuzzlePurple,
             "Link each watch-post to its signal fire around the fort-church without crossing lines.",
             "Its fort-church origin."),
+        Puzzle("miag_gate_connect", "Watch Routes", MinigamePuzzleKind.FlowConnect, PuzzleTeal,
+            "Connect each paired watch route without letting paths cross.",
+            "Signals around the fort-church."),
+        Puzzle("miag_gate_crates", "Stonework Stack", MinigamePuzzleKind.CrateStack, PuzzlePurple,
+            "Stack restoration materials from lightest to heaviest.",
+            "Careful preparation before repair."),
         Coding("miag_code", "Watchman's Rules", "Nested conditionals",
             "Nest conditions: IF it's a stop, THEN if a passenger wants off, drop them; else keep their seat. Decisions inside decisions."),
+        CodingMaze("miag_coding_maze", "Fort Route", "Nested conditionals",
+            "Navigate a harder route where checking side paths and blocked roads matters."),
     };
 
     // -------------------------------------------------------------------------
@@ -185,7 +234,15 @@ public static class TownMinigameLibrary
         Puzzle("sj_pattern", "Battle Relief", MinigamePuzzleKind.PatternMatch, PuzzlePurple,
             "Reorder the carved scenes to match the Rendicion de Tetuan bas-relief.",
             "The Rendicion de Tetuan facade."),
+        Puzzle("sj_gate_connect", "Final Road Links", MinigamePuzzleKind.FlowConnect, PuzzleTeal,
+            "Connect each final route marker without crossing dangerous paths.",
+            "Safe routing at the end of the coast."),
+        Puzzle("sj_gate_crates", "Pilgrim Supplies", MinigamePuzzleKind.CrateStack, PuzzlePurple,
+            "Stack the supplies safely before the last stretch.",
+            "A balanced load for the final road."),
         Coding("sj_code", "Full Service Run", "Multi-variable constraints",
             "Balance seats, fares, and fuel at once to complete a full route — many variables, all constrained together."),
+        CodingMaze("sj_coding_maze", "Final Maze", "Multi-variable constraints",
+            "Solve the hardest town maze before the last road south."),
     };
 }

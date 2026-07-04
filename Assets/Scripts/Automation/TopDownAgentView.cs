@@ -27,6 +27,12 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
     // How quickly the cruise speed ramps up from a standstill. Bigger = lazier launch.
     const float AccelSmoothTime = 0.45f;
 
+    // Full needle deflection lines up with Manual's topSpeed (4 world units/sec).
+    const float TopSpeed = 4f;
+
+    public float CurrentSpeed => _cruiseSpeed;
+    public float CurrentSpeed01 => TopSpeed > 0f ? Mathf.Clamp01(_cruiseSpeed / TopSpeed) : 0f;
+
     // -------------------------------------------------------------------------
 
     public void Init(IGridSpace space, Vector2Int cell, int facing)

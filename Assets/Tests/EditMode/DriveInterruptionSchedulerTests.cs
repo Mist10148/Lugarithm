@@ -35,7 +35,7 @@ public class DriveInterruptionSchedulerTests
     }
 
     [Test]
-    public void Repairs_GuaranteeTwoBeforeRareExtras()
+    public void Repairs_FireOnlyTheTwoGuaranteedEvents()
     {
         var scheduler = new DriveInterruptionScheduler(789);
 
@@ -44,10 +44,9 @@ public class DriveInterruptionSchedulerTests
         Assert.AreEqual(2, scheduler.CompletedRepairs);
         Assert.IsTrue(scheduler.GuaranteedRepairsDone);
 
-        Assert.IsFalse(scheduler.TryStartRepair(1.05f, 0f), "extra repairs obey cooldown");
-        Assert.IsFalse(scheduler.TryStartRepair(1.20f, 1f), "extra repairs are rare");
-        Assert.IsTrue(scheduler.TryStartRepair(1.20f, 0f), "a rare roll can add an extra");
-        Assert.AreEqual(3, scheduler.CompletedRepairs);
+        Assert.IsFalse(scheduler.TryStartRepair(1.20f, 0f), "lucky rolls cannot add extra repairs");
+        Assert.IsFalse(scheduler.TryStartRepair(2.00f, 0f), "more progress cannot add extra repairs");
+        Assert.AreEqual(2, scheduler.CompletedRepairs);
     }
 
     [Test]

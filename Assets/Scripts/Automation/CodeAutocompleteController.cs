@@ -28,6 +28,7 @@ public class CodeAutocompleteController : MonoBehaviour
 
     readonly List<Row> _rows = new List<Row>();
     readonly List<Suggestion> _suggestions = new List<Suggestion>();
+    readonly HashSet<string> _allowedApiNames = new HashSet<string>();
 
     int _selectedIndex;
     bool _visible;
@@ -49,6 +50,25 @@ public class CodeAutocompleteController : MonoBehaviour
     }
 
     public bool Visible => _visible;
+    public IReadOnlyList<string> CurrentSuggestionTexts
+    {
+        get
+        {
+            var names = new List<string>();
+            foreach (Suggestion suggestion in _suggestions)
+                names.Add(suggestion.Text);
+            return names;
+        }
+    }
+
+    public List<string> BuildSuggestionTexts(string prefix, List<string> variables = null, List<string> functions = null)
+    {
+        var built = BuildSuggestions(prefix, variables, functions);
+        var names = new List<string>();
+        foreach (Suggestion suggestion in built)
+            names.Add(suggestion.Text);
+        return names;
+    }
 
     void Update()
     {
@@ -72,41 +92,28 @@ public class CodeAutocompleteController : MonoBehaviour
 
     // -------------------------------------------------------------------------
 
-    public void Show(int caret, string prefix, List<string> variables)
+    public void SetVocabulary(string[] allowedBlocks, string[] allowedQueries, string[] allowedReporters)
+    {
+        _allowedApiNames.Clear();
+        AddAllowed(allowedBlocks);
+        AddAllowed(allowedQueries);
+        AddAllowed(allowedReporters);
+    }
+
+    void AddAllowed(string[] names)
+    {
+        if (names == null) return;
+        foreach (string name in names)
+            if (!string.IsNullOrWhiteSpace(name))
+                _allowedApiNames.Add(name.Trim());
+    }
+
+    public void Show(int caret, string prefix, List<string> variables, List<string> functions = null)
     {
         if (root == null || rowTemplate == null || input == null) return;
 
         _suggestions.Clear();
-
-        // Agent entries.
-        foreach (ApiEntry e in AgentApi.Entries)
-        {
-            if (e.Name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
-            {
-                string insert = e.Name == "giveChange"
-                    ? "giveChange(changeOwed())"
-                    : e.Name + "()";
-                _suggestions.Add(new Suggestion { Text = e.Name, Kind = e.Kind.ToString(), Insert = insert });
-            }
-        }
-
-        // Keywords.
-        string[] keywords = { "if", "else", "elif", "while", "for", "in", "def", "return", "break", "continue", "not", "and", "or", "True", "False", "None" };
-        foreach (string kw in keywords)
-        {
-            if (kw.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
-                _suggestions.Add(new Suggestion { Text = kw, Kind = "keyword", Insert = kw });
-        }
-
-        // Variables.
-        if (variables != null)
-        {
-            foreach (string v in variables)
-            {
-                if (v.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
-                    _suggestions.Add(new Suggestion { Text = v, Kind = "var", Insert = v });
-            }
-        }
+        _suggestions.AddRange(BuildSuggestions(prefix, variables, functions));
 
         if (_suggestions.Count == 0)
         {
@@ -124,6 +131,43 @@ public class CodeAutocompleteController : MonoBehaviour
         EnsureRows(_suggestions.Count);
         PopulateRows();
         PositionNearCaret();
+    }
+
+    List<Suggestion> BuildSuggestions(string prefix, List<string> variables, List<string> functions)
+    {
+        var suggestions = new List<Suggestion>();
+        if (string.IsNullOrEmpty(prefix)) return suggestions;
+
+        foreach (ApiEntry e in AgentApi.Entries)
+        {
+            if (_allowedApiNames.Count > 0 && !_allowedApiNames.Contains(e.Name))
+                continue;
+
+            if (e.Name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
+            {
+                string insert = e.Name == "giveChange"
+                    ? "giveChange(changeOwed())"
+                    : e.Name + "()";
+                suggestions.Add(new Suggestion { Text = e.Name, Kind = e.Kind.ToString(), Insert = insert });
+            }
+        }
+
+        string[] keywords = { "if", "else", "elif", "while", "for", "in", "def", "return", "break", "continue", "not", "and", "or", "True", "False", "None" };
+        foreach (string kw in keywords)
+            if (kw.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
+                suggestions.Add(new Suggestion { Text = kw, Kind = "keyword", Insert = kw });
+
+        if (variables != null)
+            foreach (string v in variables)
+                if (v.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
+                    suggestions.Add(new Suggestion { Text = v, Kind = "var", Insert = v });
+
+        if (functions != null)
+            foreach (string fn in functions)
+                if (fn.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
+                    suggestions.Add(new Suggestion { Text = fn, Kind = "function", Insert = fn + "()" });
+
+        return suggestions;
     }
 
     public void Hide()
@@ -226,6 +270,7 @@ public class CodeAutocompleteController : MonoBehaviour
             case "Reporter": return ColorToHex(queryColor);
             case "keyword": return ColorToHex(keywordColor);
             case "var": return ColorToHex(varColor);
+            case "function": return ColorToHex(actionColor);
             default: return "FFFFFF";
         }
     }

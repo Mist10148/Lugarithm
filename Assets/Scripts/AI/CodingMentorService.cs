@@ -38,18 +38,34 @@ public static class CodingMentorService
     public static AiRequest BuildRequest(string levelDisplayName, string conceptName,
                                          CodeAnalysis analysis, string playerSolution,
                                          string authoredOptimal, string[] allowedBlocks,
-                                         string[] allowedQueries)
+                                         string[] allowedQueries,
+                                         IReadOnlyList<CodeRunAttempt> attempts = null,
+                                         bool preserveAuthoredOptimal = false)
     {
         StringBuilder prompt = new StringBuilder();
         prompt.AppendLine($"Level: {levelDisplayName}");
         prompt.AppendLine($"Concept: {conceptName}");
         prompt.AppendLine($"Deterministic efficiency: {analysis.EfficiencyScore}/100 ({analysis.Summary})");
+        prompt.AppendLine($"Runs attempted before completion: {Math.Max(1, analysis.AttemptCount)}");
         prompt.AppendLine($"Measured structure: {analysis.StatementCount} statements, weight {analysis.WeightedComplexity}, {analysis.ComplexityClass}, max nesting {analysis.MaxNesting}.");
         prompt.AppendLine($"Unlocked actions/control blocks: {string.Join(", ", allowedBlocks ?? Array.Empty<string>())}");
         prompt.AppendLine($"Unlocked queries: {string.Join(", ", allowedQueries ?? Array.Empty<string>())}");
         prompt.AppendLine("Current fare flow: collectFare() records payment, changeOwed() reports sukli, giveChange(changeOwed()) settles it before dropOff(). Procedural routes use routeComplete().");
+        if (attempts != null)
+        {
+            prompt.AppendLine("RUN HISTORY:");
+            foreach (CodeRunAttempt attempt in attempts)
+            {
+                if (attempt == null) continue;
+                prompt.AppendLine($"Run {attempt.runNumber}: {attempt.mode} / {attempt.status} / steps {attempt.steps}");
+                if (!string.IsNullOrWhiteSpace(attempt.summary))
+                    prompt.AppendLine($"Summary: {attempt.summary}");
+            }
+        }
         prompt.AppendLine("PLAYER SOLUTION:"); prompt.AppendLine(playerSolution);
         prompt.AppendLine("AUTHORED VALID REFERENCE:"); prompt.AppendLine(authoredOptimal);
+        if (preserveAuthoredOptimal)
+            prompt.AppendLine("This is a line-order minigame: return optimizedCode exactly as the authored valid reference.");
         prompt.AppendLine("Return a concise encouraging review, a valid refactor using only unlocked vocabulary, and accurate line annotations. Do not change the puzzle goal.");
         return new AiRequest
         {
@@ -65,14 +81,17 @@ public static class CodingMentorService
 
     public static bool TryParseAndValidate(string json, string authoredOptimal,
                                            string[] allowedBlocks, string[] allowedQueries,
-                                           int playerLineCount, out MentorReview review)
+                                           int playerLineCount, out MentorReview review,
+                                           bool preserveAuthoredOptimal = false)
     {
         review = null;
         if (string.IsNullOrWhiteSpace(json)) return false;
         try { review = JsonUtility.FromJson<MentorReview>(json); }
         catch { return false; }
         if (review == null || string.IsNullOrWhiteSpace(review.summary)) return false;
-        if (!GeneratedProgramPolicy.Validate(review.optimizedCode, allowedBlocks, allowedQueries, out _))
+        if (preserveAuthoredOptimal)
+            review.optimizedCode = authoredOptimal;
+        else if (!GeneratedProgramPolicy.Validate(review.optimizedCode, allowedBlocks, allowedQueries, out _))
             review.optimizedCode = authoredOptimal;
         int optimizedLines = LineCount(review.optimizedCode);
         List<CodeReviewAnnotation> valid = new List<CodeReviewAnnotation>();

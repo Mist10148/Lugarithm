@@ -30,10 +30,6 @@ public class ManualDriveController : MonoBehaviour
     [SerializeField] private RefuelMinigame       refuelMinigame;       // non-code · fuel
     [SerializeField] private MazeRepairMinigame   mazeRepairMinigame;   // code · either (escape a maze)
 
-    [Header("Town gate (non-code, required to advance)")]
-    [SerializeField] private FlowConnectMinigame  flowPuzzle;
-    [SerializeField] private CrateStackMinigame   cratePuzzle;
-
     [Header("Dialogue")]
     [SerializeField] private DialogueController dialogue;
 
@@ -61,7 +57,6 @@ public class ManualDriveController : MonoBehaviour
     DriveScoreTracker _tracker;
     PassengerManager  _passengers;
     BreakdownController _breakdown;
-    ProgressionGateController _progression;
     StreamingTown     _streaming;
     int               _maxChunks;        // int.MaxValue = endless streaming for free-roam
     int               _chunksAppended;
@@ -168,13 +163,6 @@ public class ManualDriveController : MonoBehaviour
             _breakdown.Init(jeepney, engineRepairMinigame, refuelMinigame, mazeRepairMinigame,
                             toast, _tracker,
                             _ctx.TotalLength, _def.manual.breakdownAtRouteFraction);
-
-        // Progression mini-game (town gate) now pops mid-drive at a random point,
-        // not after arrival. Only levels with a town puzzle arm it.
-        _progression = GetComponent<ProgressionGateController>();
-        if (_progression != null)
-            _progression.Init(_def.townPuzzle, flowPuzzle, cratePuzzle, jeepney, toast, _tracker,
-                              _ctx.TotalLength);
 
         _startTime = Time.time;
 
@@ -440,11 +428,6 @@ public class ManualDriveController : MonoBehaviour
         if (_breakdown != null)
             _breakdown.Tick(along);
 
-        // Hold the progression gate while a breakdown is mid-sequence so the two
-        // overlays never stack; it stays armed and fires once the road's clear.
-        if (_progression != null && (_breakdown == null || !_breakdown.InProgress))
-            _progression.Tick(along);
-
         // The story passenger alights at their marked drop-off (placed when the chat ended),
         // like a normal NPC: once the jeepney reaches the marker AND the chat is finished, the
         // front-seat card disappears and the leg completes. The road keeps streaming endlessly.
@@ -476,8 +459,7 @@ public class ManualDriveController : MonoBehaviour
 
         // Stream more road ahead when the jeepney approaches the current frontier — but not
         // while a minigame is up (the whole drive freezes behind the modal, jeepney included).
-        bool minigameActive = (_breakdown != null && _breakdown.InProgress) ||
-                              (_progression != null && _progression.InProgress);
+        bool minigameActive = _breakdown != null && _breakdown.InProgress;
         if (_proceduralActive && _streaming != null && !_finished && !minigameActive)
         {
             float distToEnd = Vector2.Distance(jeepney.transform.position, _streaming.TrunkEndPos);
@@ -659,12 +641,6 @@ public class ManualDriveController : MonoBehaviour
     /// </summary>
     void OnStoryComplete()
     {
-        if (_progression != null && !_progression.AllDone)
-        {
-            _progression.RunRemaining(OnStoryComplete);
-            return;
-        }
-
         System.Action onDone = () =>
         {
             _revealPlayed = true;
@@ -720,12 +696,6 @@ public class ManualDriveController : MonoBehaviour
         jeepney.InputLocked = true;
         if (legCompletion != null) legCompletion.Hide();
         _legElapsed = Time.time - _startTime;   // freeze drive time
-
-        if (_progression != null && !_progression.AllDone)
-        {
-            _progression.RunRemaining(PlayRevealThenResults);
-            return;
-        }
 
         PlayRevealThenResults();
     }

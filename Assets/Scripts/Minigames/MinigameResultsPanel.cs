@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -20,9 +21,18 @@ public class MinigameResultsPanel : MonoBehaviour
     [SerializeField] private TMP_Text   statsLabel;
     [SerializeField] private GameObject analysisGroup;   // shown only for code-based drills
     [SerializeField] private TMP_Text   analysisLabel;
+    [SerializeField] private TMP_Dropdown attemptDropdown;
+    [SerializeField] private TMP_Text   attemptStatusLabel;
+    [SerializeField] private GameObject codeCompareGroup;
+    [SerializeField] private TMP_Text   playerSourceLabel;
+    [SerializeField] private TMP_Text   referenceSourceLabel;
+    [SerializeField] private TMP_Text   mentorLabel;
     [SerializeField] private Button     continueButton;
 
     Action _onContinue;
+    CodeRunAttempt[] _attempts = Array.Empty<CodeRunAttempt>();
+    string _finalPlayerSource = "";
+    string _referenceSource = "";
 
     void Awake()
     {
@@ -34,6 +44,8 @@ public class MinigameResultsPanel : MonoBehaviour
                 Hide();
                 cb?.Invoke();
             });
+        if (attemptDropdown != null)
+            attemptDropdown.onValueChanged.AddListener(OnAttemptSelected);
 
         if (root != null) root.SetActive(false);
     }
@@ -41,9 +53,13 @@ public class MinigameResultsPanel : MonoBehaviour
     /// <summary>Shows the card. <paramref name="analysis"/> non-null reveals the code
     /// analysis block (code-based drills); pass null for non-code minigames.</summary>
     public void Show(string category, string title, MinigameResult result,
-                     CodeAnalysis analysis, Action onContinue)
+                     CodeAnalysis analysis, Action onContinue,
+                     string playerSource = "", string referenceSource = "",
+                     IReadOnlyList<CodeRunAttempt> attempts = null)
     {
         _onContinue = onContinue;
+        _finalPlayerSource = playerSource ?? "";
+        _referenceSource = referenceSource ?? "";
 
         if (categoryLabel != null) categoryLabel.text = category;
         if (titleLabel    != null) titleLabel.text    = title;
@@ -52,8 +68,22 @@ public class MinigameResultsPanel : MonoBehaviour
         bool hasAnalysis = analysis != null;
         if (analysisGroup != null) analysisGroup.SetActive(hasAnalysis);
         if (hasAnalysis && analysisLabel != null) analysisLabel.text = BuildAnalysis(analysis);
+        if (codeCompareGroup != null) codeCompareGroup.SetActive(hasAnalysis);
+        if (referenceSourceLabel != null) referenceSourceLabel.text = EscapeRichText(_referenceSource);
+        if (mentorLabel != null) mentorLabel.text = hasAnalysis ? "..." : "";
+        ConfigureAttempts(attempts);
 
         if (root != null) root.SetActive(true);
+    }
+
+    public void SetMentorReview(MentorReview review)
+    {
+        if (review == null) return;
+        if (mentorLabel != null) mentorLabel.text = review.summary;
+        _referenceSource = string.IsNullOrWhiteSpace(review.optimizedCode)
+            ? _referenceSource
+            : review.optimizedCode;
+        if (referenceSourceLabel != null) referenceSourceLabel.text = EscapeRichText(_referenceSource);
     }
 
     static string BuildStats(MinigameResult r)
@@ -72,6 +102,54 @@ public class MinigameResultsPanel : MonoBehaviour
         return $"<b>Efficiency {a.EfficiencyScore}/100</b>   ·   {a.ComplexityClass}\n" +
                $"{a.Summary}\n" +
                $"<color=#9EA0A2>statements {a.StatementCount}  ·  nesting {a.MaxNesting}  ·  loop depth {a.LoopDepth}</color>";
+    }
+
+    void ConfigureAttempts(IReadOnlyList<CodeRunAttempt> attempts)
+    {
+        _attempts = attempts != null ? ToArray(attempts) : Array.Empty<CodeRunAttempt>();
+        if (attemptDropdown == null) return;
+
+        attemptDropdown.ClearOptions();
+        if (_attempts.Length == 0)
+        {
+            attemptDropdown.gameObject.SetActive(false);
+            if (attemptStatusLabel != null) attemptStatusLabel.text = "";
+            if (playerSourceLabel != null) playerSourceLabel.text = EscapeRichText(_finalPlayerSource);
+            return;
+        }
+
+        var options = new List<string>();
+        foreach (CodeRunAttempt attempt in _attempts)
+            options.Add(attempt != null ? attempt.DisplayName : "Run");
+        attemptDropdown.AddOptions(options);
+        attemptDropdown.gameObject.SetActive(true);
+        attemptDropdown.value = _attempts.Length - 1;
+        attemptDropdown.RefreshShownValue();
+        OnAttemptSelected(_attempts.Length - 1);
+    }
+
+    static CodeRunAttempt[] ToArray(IReadOnlyList<CodeRunAttempt> attempts)
+    {
+        var copy = new CodeRunAttempt[attempts.Count];
+        for (int i = 0; i < attempts.Count; i++) copy[i] = attempts[i];
+        return copy;
+    }
+
+    void OnAttemptSelected(int index)
+    {
+        if (_attempts == null || index < 0 || index >= _attempts.Length) return;
+        CodeRunAttempt attempt = _attempts[index];
+        if (playerSourceLabel != null)
+            playerSourceLabel.text = EscapeRichText(attempt != null ? attempt.source : _finalPlayerSource);
+        if (attemptStatusLabel != null && attempt != null)
+            attemptStatusLabel.text = string.IsNullOrWhiteSpace(attempt.summary)
+                ? attempt.DisplayName
+                : attempt.summary;
+    }
+
+    static string EscapeRichText(string source)
+    {
+        return (source ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
     public void Hide()

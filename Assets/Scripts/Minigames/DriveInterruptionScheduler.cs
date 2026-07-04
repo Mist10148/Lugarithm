@@ -3,7 +3,7 @@ using System;
 /// <summary>
 /// Deterministic rhythm for drive interruptions shared by Manual and Automation.
 /// Progression gates always run Flow Connect then Crate Stack; repairs guarantee
-/// two spaced engine events before rare extras are allowed. Fuel remains a pure
+/// two spaced engine events. Fuel remains a pure
 /// empty-tank trigger handled by the caller.
 /// </summary>
 public class DriveInterruptionScheduler
@@ -11,15 +11,11 @@ public class DriveInterruptionScheduler
     public const int ProgressionGateCount = 2;
     public const int GuaranteedRepairCount = 2;
 
-    const float ExtraRepairCooldown = 0.12f;
-    const float ExtraRepairChance = 0.012f;
-
     readonly float[] _progressionThresholds;
     readonly float[] _repairThresholds;
 
     int _progressionIndex;
     int _repairIndex;
-    float _lastRepairProgress = -1f;
 
     public int CompletedProgressionGates => _progressionIndex;
     public int CompletedRepairs => _repairIndex;
@@ -64,22 +60,17 @@ public class DriveInterruptionScheduler
 
     public bool TryStartRepair(float progress01, float random01)
     {
+        _ = random01;
         float progress = ClampProgress(progress01);
         if (_repairIndex < GuaranteedRepairCount)
         {
             if (progress < _repairThresholds[_repairIndex]) return false;
 
             _repairIndex++;
-            _lastRepairProgress = progress;
             return true;
         }
 
-        if (progress - _lastRepairProgress < ExtraRepairCooldown) return false;
-        if (random01 > ExtraRepairChance) return false;
-
-        _repairIndex++;
-        _lastRepairProgress = progress;
-        return true;
+        return false;
     }
 
     public bool ShouldRefuel(float fuel01)

@@ -69,8 +69,6 @@ public static class ManualDriveSceneBuilder
         MazeRepairMinigame   mazeRepair   = MinigameOverlayBuilder.BuildMazeRepair(canvas.transform);
         DriveResultsPanel results = BuildResults(canvas);
         ToastNotification toast = BuildToast(canvas);
-        FlowConnectMinigame flowPuzzle  = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
-        CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
         // Compact dialogue card pinned bottom-right so it clears the bottom-center
         // dashboard (speedometer + fuel) and the right-side choice pills. The wide
         // default card overlaps the dashboard in ManualDrive only.
@@ -113,7 +111,6 @@ public static class ManualDriveSceneBuilder
         var controller = controllerGo.AddComponent<ManualDriveController>();
         var passengerMgr = controllerGo.AddComponent<PassengerManager>();
         controllerGo.AddComponent<BreakdownController>();
-        controllerGo.AddComponent<ProgressionGateController>();
 
         // Dulog highlighting (color-coded markers + edge-of-screen arrows).
         var edgeParent = UIFactory.CreateRect(canvas.transform, "DulogEdgeLayer",
@@ -138,8 +135,6 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "mazeRepairMinigame",   mazeRepair);
         SceneBuilderUtil.Wire(controller, "resultsPanel", results);
         SceneBuilderUtil.Wire(controller, "toast",        toast);
-        SceneBuilderUtil.Wire(controller, "flowPuzzle",   flowPuzzle);
-        SceneBuilderUtil.Wire(controller, "cratePuzzle",  cratePuzzle);
         SceneBuilderUtil.Wire(controller, "dialogue",     dialogue);
         SceneBuilderUtil.Wire(controller, "legCompletion", legCompletion);
         SceneBuilderUtil.Wire(controller, "dulogMarkers", dulog);
