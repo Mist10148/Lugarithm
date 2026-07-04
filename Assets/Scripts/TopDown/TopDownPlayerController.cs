@@ -24,6 +24,11 @@ public class TopDownPlayerController : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private SpriteRenderer bodySprite;
+    private Animator _bodyAnimator;
+
+    private static readonly int IdleHash = Animator.StringToHash("Idle");
+    private static readonly int HorizontalHash = Animator.StringToHash("HorizontalDirection");
+    private static readonly int VerticalHash = Animator.StringToHash("VerticallDirection");
 
     // -------------------------------------------------------------------------
     // State
@@ -91,10 +96,9 @@ public class TopDownPlayerController : MonoBehaviour
         // Snap the body to face the cardinal we're moving toward, instantly —
         // never rotate smoothly through in-between angles.
         if (_moveDir.sqrMagnitude > 0.01f)
-        {
             FacingDirection = _moveDir;
-            UpdateSpriteFacing(_moveDir);
-        }
+
+        UpdateBodyVisual();
     }
 
     void FixedUpdate()
@@ -146,6 +150,34 @@ public class TopDownPlayerController : MonoBehaviour
     // -------------------------------------------------------------------------
     // Visual facing
     // -------------------------------------------------------------------------
+
+    public void SetVisualController(RuntimeAnimatorController controller)
+    {
+        if (bodySprite == null || controller == null) return;
+
+        bodySprite.transform.localEulerAngles = Vector3.zero;
+        _bodyAnimator = bodySprite.GetComponent<Animator>();
+        if (_bodyAnimator == null)
+            _bodyAnimator = bodySprite.gameObject.AddComponent<Animator>();
+
+        _bodyAnimator.runtimeAnimatorController = controller;
+        UpdateBodyVisual();
+    }
+
+    void UpdateBodyVisual()
+    {
+        if (_bodyAnimator != null)
+        {
+            bodySprite.transform.localEulerAngles = Vector3.zero;
+            _bodyAnimator.SetBool(IdleHash, !IsMoving);
+            _bodyAnimator.SetFloat(HorizontalHash, FacingDirection.x);
+            _bodyAnimator.SetFloat(VerticalHash, FacingDirection.y);
+            return;
+        }
+
+        if (IsMoving)
+            UpdateSpriteFacing(_moveDir);
+    }
 
     void UpdateSpriteFacing(Vector2 dir)
     {

@@ -208,24 +208,10 @@ public static class TopDownSceneBuilder
 
         var background = new GameObject("HeritagePlazaBackground");
         background.transform.SetParent(root.transform, false);
-        background.transform.position = new Vector3(8f, 6f, 0f);
+        background.transform.position = new Vector3(12f, 18f, 0f);
         var backgroundRenderer = background.AddComponent<SpriteRenderer>();
-        backgroundRenderer.sprite = LoadTutorialSprite("TutorialHeritagePlaza.png", false);
+        backgroundRenderer.sprite = LoadTutorialSprite("TutorialHeritagePlaza.png", false, 16f);
         backgroundRenderer.sortingOrder = -20;
-
-        Sprite treeA = LoadTutorialSprite("TutorialTreeA.png", true);
-        Sprite treeB = LoadTutorialSprite("TutorialTreeB.png", true);
-        Sprite treeC = LoadTutorialSprite("TutorialTreeC.png", true);
-        Sprite treeE = LoadTutorialSprite("TutorialTreeE.png", true);
-
-        CreateTutorialTree(root.transform, "Tree_A_NorthWest", treeA, new Vector2(0.8f, 9f));
-        CreateTutorialTree(root.transform, "Tree_B_NorthInner", treeB, new Vector2(4.5f, 9.2f));
-        CreateTutorialTree(root.transform, "Tree_C_NorthEast", treeC, new Vector2(10f, 10.2f));
-        CreateTutorialTree(root.transform, "Tree_A_EastUpper", treeA, new Vector2(15.2f, 8.5f));
-        CreateTutorialTree(root.transform, "Tree_B_WestLower", treeB, new Vector2(0.7f, 6.2f));
-        CreateTutorialTree(root.transform, "Tree_C_EastLower", treeC, new Vector2(14.8f, 6f));
-        CreateTutorialTree(root.transform, "Tree_E_SouthWest", treeE, new Vector2(4.3f, 0.5f));
-        CreateTutorialTree(root.transform, "Tree_E_SouthEast", treeE, new Vector2(10f, 0.4f));
 
         root.SetActive(false);
         return root;
@@ -235,13 +221,15 @@ public static class TopDownSceneBuilder
         Transform parent,
         string name,
         Sprite sprite,
-        Vector2 position)
+        Vector2 position,
+        float scale)
     {
         if (sprite == null) return;
 
         var tree = new GameObject(name);
         tree.transform.SetParent(parent, false);
         tree.transform.position = new Vector3(position.x, position.y, 0f);
+        tree.transform.localScale = Vector3.one * scale;
 
         var renderer = tree.AddComponent<SpriteRenderer>();
         renderer.sprite = sprite;
@@ -257,7 +245,7 @@ public static class TopDownSceneBuilder
         occluder.Configure(renderer);
     }
 
-    static Sprite LoadTutorialSprite(string fileName, bool bottomPivot)
+    static Sprite LoadTutorialSprite(string fileName, bool bottomPivot, float pixelsPerUnit)
     {
         string path = $"{TutorialArtDir}/{fileName}";
         AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
@@ -267,9 +255,10 @@ public static class TopDownSceneBuilder
         {
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
-            importer.spritePixelsPerUnit = 64f;
+            importer.spritePixelsPerUnit = pixelsPerUnit;
             importer.filterMode = FilterMode.Point;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.maxTextureSize = fileName == "TutorialHeritagePlaza.png" ? 4096 : 2048;
             importer.mipmapEnabled = false;
             importer.alphaIsTransparency = true;
 

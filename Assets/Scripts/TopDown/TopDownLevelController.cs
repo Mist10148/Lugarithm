@@ -96,6 +96,7 @@ public class TopDownLevelController : MonoBehaviour
 
         BuildTilemap();
         ApplyEnvironmentVisualState();
+        ApplyPlayerCharacter();
         SpawnEntities();
         PositionPlayer();
         SetupCamera();
@@ -308,8 +309,10 @@ public class TopDownLevelController : MonoBehaviour
         col.isTrigger = true;
         col.radius = 0.8f;
 
+        RuntimeAnimatorController characterController = ControllerForNpc(entity.npcId);
+
         // NPC body sprite
-        if (npcSprite != null)
+        if (npcSprite != null || characterController != null)
         {
             var bodyGo = new GameObject("NPC_Body");
             bodyGo.transform.SetParent(triggerGo.transform, false);
@@ -317,6 +320,15 @@ public class TopDownLevelController : MonoBehaviour
             var sr = bodyGo.AddComponent<SpriteRenderer>();
             sr.sprite = npcSprite;
             sr.sortingOrder = 5;
+
+            if (characterController != null)
+            {
+                var animator = bodyGo.AddComponent<Animator>();
+                animator.runtimeAnimatorController = characterController;
+                animator.SetBool("Idle", true);
+                animator.SetFloat("HorizontalDirection", 0f);
+                animator.SetFloat("VerticallDirection", -1f);
+            }
         }
 
         // Interaction indicator
@@ -341,6 +353,30 @@ public class TopDownLevelController : MonoBehaviour
         trigger.OnPlayerEntered += HandlePlayerEntered;
         trigger.OnPlayerExited += HandlePlayerExited;
         _triggers.Add(trigger);
+    }
+
+    void ApplyPlayerCharacter()
+    {
+        if (playerController == null) return;
+        playerController.SetVisualController(LoadCharacterController(13));
+    }
+
+    static RuntimeAnimatorController ControllerForNpc(string npcId)
+    {
+        switch (npcId)
+        {
+            case "il_vendor":  return LoadCharacterController(5);
+            case "il_student": return LoadCharacterController(3);
+            case "il_tindera": return LoadCharacterController(15);
+            default:           return null;
+        }
+    }
+
+    static RuntimeAnimatorController LoadCharacterController(int characterIndex)
+    {
+        string name = $"Townspeople_{characterIndex}_NPC_Animator";
+        return Resources.Load<RuntimeAnimatorController>(
+            $"TutorialCharacters/Townspeople_{characterIndex}/{name}");
     }
 
     void SpawnJeepStop(MapEntity entity, Vector3 pos)
