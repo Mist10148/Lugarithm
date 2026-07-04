@@ -77,17 +77,30 @@ public static class MinigameOverlayBuilder
                                              new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
         UIFactory.Place(codeGroup, new Vector2(0.5f, 1f), new Vector2(0f, -124f), new Vector2(1160f, 430f));
 
-        var playerHeader = UIFactory.CreateText(codeGroup, "PlayerHeader", "YOUR SOLUTION", 22f,
-                                                UIFactory.TextDim, TextAlignmentOptions.Center);
-        UIFactory.Place(playerHeader, new Vector2(0.25f, 1f), new Vector2(0f, 0f), new Vector2(520f, 30f));
-        var referenceHeader = UIFactory.CreateText(codeGroup, "ReferenceHeader", "AI'S BETTER VERSION", 22f,
-                                                   new Color(0.55f, 0.78f, 1f), TextAlignmentOptions.Center);
-        UIFactory.Place(referenceHeader, new Vector2(0.75f, 1f), new Vector2(0f, 0f), new Vector2(520f, 30f));
+        var leftColumn = UIFactory.CreateRect(codeGroup, "LeftColumn",
+                                              Vector2.zero, new Vector2(0.5f, 1f),
+                                              Vector2.zero, new Vector2(-12f, 0f));
+        var rightColumn = UIFactory.CreateRect(codeGroup, "RightColumn",
+                                               new Vector2(0.5f, 0f), Vector2.one,
+                                               new Vector2(12f, 0f), Vector2.zero);
+        var divider = UIFactory.CreateRect(codeGroup, "Divider",
+                                           new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
+                                           new Vector2(-2f, 48f), new Vector2(2f, -6f));
+        var dividerImage = divider.gameObject.AddComponent<Image>();
+        dividerImage.color = new Color(0.18f, 0.12f, 0.07f, 0.9f);
+        dividerImage.raycastTarget = false;
 
-        ScrollRect playerScroll = UIFactory.CreateScrollView(codeGroup, "PlayerScroll",
+        var playerHeader = UIFactory.CreateText(leftColumn, "PlayerHeader", "YOUR SOLUTION", 22f,
+                                                UIFactory.TextDim, TextAlignmentOptions.Center);
+        UIFactory.Place(playerHeader, new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(520f, 30f));
+        var referenceHeader = UIFactory.CreateText(rightColumn, "ReferenceHeader", "INTENDED SOLUTION", 22f,
+                                                   new Color(0.55f, 0.78f, 1f), TextAlignmentOptions.Center);
+        UIFactory.Place(referenceHeader, new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(520f, 30f));
+
+        ScrollRect playerScroll = UIFactory.CreateScrollView(leftColumn, "PlayerScroll",
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform playerContent);
-        UIFactory.Place((RectTransform)playerScroll.transform, new Vector2(0.25f, 1f),
-                        new Vector2(0f, -54f), new Vector2(560f, 400f));
+        UIFactory.Place((RectTransform)playerScroll.transform, new Vector2(0.5f, 1f),
+                        new Vector2(0f, -54f), new Vector2(536f, 400f));
         UIFactory.AddVerticalScrollbar(playerScroll, permanent: true);
         var playerText = UIFactory.CreateText(playerContent, "Text", "", 19f,
                                               UIFactory.TextBright, TextAlignmentOptions.TopLeft);
@@ -95,10 +108,10 @@ public static class MinigameOverlayBuilder
         var playerFit = playerText.gameObject.AddComponent<ContentSizeFitter>();
         playerFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        ScrollRect referenceScroll = UIFactory.CreateScrollView(codeGroup, "ReferenceScroll",
+        ScrollRect referenceScroll = UIFactory.CreateScrollView(rightColumn, "ReferenceScroll",
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform referenceContent);
-        UIFactory.Place((RectTransform)referenceScroll.transform, new Vector2(0.75f, 1f),
-                        new Vector2(0f, -54f), new Vector2(560f, 400f));
+        UIFactory.Place((RectTransform)referenceScroll.transform, new Vector2(0.5f, 1f),
+                        new Vector2(0f, -54f), new Vector2(536f, 400f));
         UIFactory.AddVerticalScrollbar(referenceScroll, permanent: true);
         var referenceText = UIFactory.CreateText(referenceContent, "Text", "", 19f,
                                                  UIFactory.TextBright, TextAlignmentOptions.TopLeft);
