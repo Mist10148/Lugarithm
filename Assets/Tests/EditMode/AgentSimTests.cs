@@ -251,4 +251,75 @@ public class AgentSimTests
         Assert.LessOrEqual(sim.PendingMoveCount, 4,
             "story drop-off navigation must not monopolize the execution loop");
     }
+
+    // -------------------------------------------------------------------------
+    // Navigation-sensor reporters
+
+    [Test]
+    public void FacingReporter_MatchesCurrentHeading()
+    {
+        var sim = NewSim(out _);
+        Assert.AreEqual(1, sim.ReadReporter("facing", new List<Value>()).AsInt());
+
+        sim.Apply("turnLeft");
+        Assert.AreEqual(0, sim.ReadReporter("facing", new List<Value>()).AsInt());
+    }
+
+    [Test]
+    public void DestinationPositionReporter_ReturnsDestCell()
+    {
+        var sim = NewSim(out GridModel grid);
+        Value v = sim.ReadReporter("destinationPosition", new List<Value>());
+        Assert.AreEqual(ValueKind.Tuple, v.Kind);
+        var arr = (Value[])v.Obj;
+        Assert.AreEqual(grid.DestPos.x, arr[0].AsInt());
+        Assert.AreEqual(grid.DestPos.y, arr[1].AsInt());
+    }
+
+    [Test]
+    public void DirectionTo_ReturnsFirstStepHeading()
+    {
+        var sim = NewSim(out GridModel grid);
+        // From S(1,1) facing East to D(3,3): path is (1,1)->(2,1)->(3,1)->(3,2)->(3,3)
+        Assert.AreEqual(1, sim.ReadReporter("directionTo",
+            new List<Value> { Value.Int(grid.DestPos.x), Value.Int(grid.DestPos.y) }).AsInt());
+
+        // Same cell returns None.
+        Assert.AreEqual(ValueKind.None, sim.ReadReporter("directionTo",
+            new List<Value> { Value.Int(sim.Position.x), Value.Int(sim.Position.y) }).Kind);
+    }
+
+    [Test]
+    public void DistanceTo_ReturnsShortestPathLength()
+    {
+        var sim = NewSim(out GridModel grid);
+        // From (1,1) to (3,3): 4 cells inclusive, so distance = 4.
+        Assert.AreEqual(4, sim.ReadReporter("distanceTo",
+            new List<Value> { Value.Int(grid.DestPos.x), Value.Int(grid.DestPos.y) }).AsInt());
+    }
+
+    [Test]
+    public void StoryDropoffArmed_QueryAndPositionTrackStoryState()
+    {
+        GridModel grid = GridModel.Parse(new[]
+        {
+            "################",
+            "#S............D#",
+            "################",
+        }, out List<string> errors);
+        CollectionAssert.IsEmpty(errors);
+
+        var sim = new AgentSim(grid, new FareTable(), startFacing: 1);
+        Assert.IsFalse(sim.EvaluateQuery("storyDropoffArmed"));
+        Assert.AreEqual(ValueKind.None, sim.ReadReporter("storyDropoffPosition", new List<Value>()).Kind);
+
+        sim.ArmStoryDropoff(new Vector2Int(12, 1));
+        Assert.IsTrue(sim.EvaluateQuery("storyDropoffArmed"));
+
+        Value pos = sim.ReadReporter("storyDropoffPosition", new List<Value>());
+        Assert.AreEqual(ValueKind.Tuple, pos.Kind);
+        var arr = (Value[])pos.Obj;
+        Assert.AreEqual(12, arr[0].AsInt());
+        Assert.AreEqual(1, arr[1].AsInt());
+    }
 }

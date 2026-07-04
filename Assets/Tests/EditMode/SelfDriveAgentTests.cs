@@ -77,6 +77,18 @@ public class SelfDriveAgentTests
         CollectionAssert.IsEmpty(errors, "the displayed reference solution must compile");
     }
 
+    [Test]
+    public void ReferenceSolution_IsUserDefined_NotABareBuiltInCall()
+    {
+        string source = SelfDrivePlanner.ReferenceSolution;
+        StringAssert.Contains("def driveToDropoff():", source,
+            "the autopilot should define driveToDropoff() as a user function");
+        StringAssert.Contains("directionTo(", source,
+            "the autopilot should use the new directionTo() navigation sensor");
+        StringAssert.Contains("facing()", source,
+            "the autopilot should use the new facing() navigation sensor");
+    }
+
     // The function-structured autopilot (def drive()/handlePassengers()/handleFares()/
     // handleDropoffs()) must actually run to a win — calling helpers as statements lets
     // their actions yield across ticks, so the riding logic executes for real.

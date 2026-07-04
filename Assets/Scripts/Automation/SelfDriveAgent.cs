@@ -21,25 +21,51 @@ public static class SelfDrivePlanner
     {
         "frontIsClear", "leftIsClear", "rightIsClear", "atStop", "routeComplete", "moreRoad",
         "hasPassengerAboard", "atRequestedStop", "passengerWaiting",
+        "storyDropoffArmed",
     };
 
     public static readonly string[] NavReporters =
     {
         "fareOwed", "cashTendered", "changeOwed",
         "seatsLeft", "passengerCount", "distanceToDestination", "distanceTraveled",
+        "position", "facing", "storyDropoffPosition", "nearestStopPosition",
+        "destinationPosition", "directionTo", "distanceTo",
     };
 
     public const string ReferenceSolution =
         "# Self-driving jeepney for the endless road: cruise forever, tend every rider, and\n" +
         "# drop your front-seat story passenger at their marked stop along the way.\n" +
-        "# moreRoad() is always true (the road never ends); driveToDropoff() cruises until the\n" +
-        "# story drop-off is ready, then heads straight for it.\n" +
-        "def drive():\n" +
-        "    while moreRoad():\n" +
-        "        driveToDropoff()\n" +
-        "        handleDropoffs()\n" +
-        "        handlePassengers()\n" +
-        "        handleFares()\n" +
+        "# This autopilot rebuilds the built-in driveToDropoff() as a user-defined function\n" +
+        "# using navigation sensors, loops, and conditionals.\n" +
+        "def driveToDropoff():\n" +
+        "    if storyDropoffArmed():\n" +
+        "        navigateTo(storyDropoffPosition(), 4)\n" +
+        "    else:\n" +
+        "        target = nearestStopPosition()\n" +
+        "        if target == None:\n" +
+        "            target = destinationPosition()\n" +
+        "        navigateTo(target, 4)\n" +
+        "\n" +
+        "def navigateTo(target, limit):\n" +
+        "    steps = 0\n" +
+        "    while distanceTo(target[0], target[1]) > 0 and steps < limit:\n" +
+        "        want = directionTo(target[0], target[1])\n" +
+        "        if want == None:\n" +
+        "            break\n" +
+        "        turnTo(want)\n" +
+        "        moveForward()\n" +
+        "        steps = steps + 1\n" +
+        "\n" +
+        "def turnTo(want):\n" +
+        "    if want == facing():\n" +
+        "        return\n" +
+        "    if (facing() + 1) % 4 == want:\n" +
+        "        turnRight()\n" +
+        "    elif (facing() + 2) % 4 == want:\n" +
+        "        turnRight()\n" +
+        "        turnRight()\n" +
+        "    else:\n" +
+        "        turnLeft()\n" +
         "\n" +
         "def handlePassengers():\n" +
         "    if passengerWaiting():\n" +
@@ -53,6 +79,13 @@ public static class SelfDrivePlanner
         "def handleDropoffs():\n" +
         "    if atRequestedStop():\n" +
         "        dropOff()\n" +
+        "\n" +
+        "def drive():\n" +
+        "    while moreRoad():\n" +
+        "        driveToDropoff()\n" +
+        "        handleDropoffs()\n" +
+        "        handlePassengers()\n" +
+        "        handleFares()\n" +
         "\n" +
         "drive()\n";
 

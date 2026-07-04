@@ -686,6 +686,7 @@ public class AgentSim : IAgentApi
             case "isMarked":           return false;
             case "passengerWaiting":   return PassengerWaitingHere();
             case "isFull":             return PassengersAboard >= SeatCapacity;
+            case "storyDropoffArmed":  return StoryDropoffArmed && !StoryDelivered;
             default:              return false;
         }
     }
@@ -711,8 +712,51 @@ public class AgentSim : IAgentApi
             case "changeOwed":          return Value.Int(ChangeOwed());
             case "currentStop":         return Value.Str("");
             case "nextStop":            return Value.Str("");
+            case "storyDropoffPosition":
+                return StoryDropoffArmed && !StoryDelivered
+                    ? CellTuple(StoryDropoffCell)
+                    : Value.None;
+            case "nearestStopPosition":
+            {
+                Vector2Int? stop = NearestRelevantStop();
+                return stop.HasValue ? CellTuple(stop.Value) : Value.None;
+            }
+            case "destinationPosition":
+                return CellTuple(_grid.DestPos);
+            case "facing":
+                return Value.Int(Facing);
+            case "directionTo":
+                return DirectionTo(args);
+            case "distanceTo":
+                return DistanceTo(args);
             default:                    return Value.None;
         }
+    }
+
+    static Value CellTuple(Vector2Int cell) =>
+        Value.Tuple(new[] { Value.Int(cell.x), Value.Int(cell.y) });
+
+    Value DirectionTo(IReadOnlyList<Value> args)
+    {
+        if (args == null || args.Count < 2) return Value.None;
+        Vector2Int target = new Vector2Int((int)args[0].AsInt(), (int)args[1].AsInt());
+        if (Position == target) return Value.None;
+
+        List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target);
+        if (path == null || path.Count < 2) return Value.None;
+
+        Vector2Int delta = path[1] - path[0];
+        for (int f = 0; f < FacingDeltas.Length; f++)
+            if (FacingDeltas[f] == delta) return Value.Int(f);
+        return Value.None;
+    }
+
+    Value DistanceTo(IReadOnlyList<Value> args)
+    {
+        if (args == null || args.Count < 2) return Value.Int(0);
+        Vector2Int target = new Vector2Int((int)args[0].AsInt(), (int)args[1].AsInt());
+        List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target);
+        return Value.Int(path != null ? path.Count : 0);
     }
 
     bool AtRequestedStop()
