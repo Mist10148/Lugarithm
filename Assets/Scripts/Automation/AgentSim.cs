@@ -640,17 +640,35 @@ public class AgentSim : IAgentApi
     {
         if (_rides == null) return null;
 
+        // On the endless road the jeepney only ever marches forward, so ignore any
+        // stop that sits *behind* us (farther from the receding frontier D than we are).
+        // Otherwise the pathfinder happily routes backward to a passed-by stop and the
+        // jeepney appears to reverse before a stop sign, then resume forward once it's
+        // served — the reported bug. Authored (finite) puzzles may legitimately backtrack,
+        // so this forward-only gate applies to endless legs only.
+        int selfToDest = EndlessRoute ? PathLenToDest(Position) : 0;
+
         Vector2Int? best = null;
         int bestLen = int.MaxValue;
         foreach (GridRide ride in _rides)
         {
             if (ride.delivered) continue;
             Vector2Int target = ride.aboard ? ride.dest : ride.origin;
+            if (EndlessRoute && PathLenToDest(target) > selfToDest) continue;   // behind us — never double back
             List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target);
             if (path == null) continue;
             if (path.Count < bestLen) { bestLen = path.Count; best = target; }
         }
         return best;
+    }
+
+    /// <summary>Path length from <paramref name="from"/> to the frontier D (int.MaxValue if
+    /// unreachable). Smaller means closer to the frontier — i.e. farther "forward" along the
+    /// endless road — so it orders cells by forward progress.</summary>
+    int PathLenToDest(Vector2Int from)
+    {
+        List<Vector2Int> path = GridPathfinder.Path(_grid, from, _grid.DestPos);
+        return path?.Count ?? int.MaxValue;
     }
 
     void EnqueuePathTo(Vector2Int target, AgentActionResult r, int maxSteps = int.MaxValue)
