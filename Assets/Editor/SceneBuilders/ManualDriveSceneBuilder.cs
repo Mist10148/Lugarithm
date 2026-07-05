@@ -110,6 +110,7 @@ public static class ManualDriveSceneBuilder
         var controllerGo = new GameObject("DriveController");
         var controller = controllerGo.AddComponent<ManualDriveController>();
         var passengerMgr = controllerGo.AddComponent<PassengerManager>();
+        var traffic = controllerGo.AddComponent<RoadTrafficController>();
         controllerGo.AddComponent<BreakdownController>();
 
         // Dulog highlighting (color-coded markers + edge-of-screen arrows).
@@ -128,6 +129,7 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "jeepney",      jeepney);
         SceneBuilderUtil.Wire(controller, "cameraFollow", follow);
         SceneBuilderUtil.Wire(controller, "worldRoot",    worldRoot.transform);
+        SceneBuilderUtil.Wire(controller, "traffic",      traffic);
         SceneBuilderUtil.Wire(controller, "hud",          hud);
         SceneBuilderUtil.Wire(controller, "coinDrawer",   drawer);
         SceneBuilderUtil.Wire(controller, "engineRepairMinigame", engineRepair);

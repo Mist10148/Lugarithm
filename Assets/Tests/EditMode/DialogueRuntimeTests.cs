@@ -129,6 +129,7 @@ public class DialogueRuntimeTests
         rt.AdvanceLine(); // back to hub
         Assert.IsFalse(rt.AvailableChoices().Any(c => c.target == "TA-ADV"));
 
+        VisitLineTopic(rt, "TA2C");  // traffic dodge
         VisitLineTopic(rt, "TA3");   // passengers
         VisitLineTopic(rt, "TA4");   // fares
         VisitLineTopic(rt, "TA5");   // sensors

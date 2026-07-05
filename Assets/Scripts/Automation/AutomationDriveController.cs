@@ -25,6 +25,7 @@ public class AutomationDriveController : MonoBehaviour
     [SerializeField] private Transform        topDownWorldRoot;
     [SerializeField] private TopDownAgentView topDownAgentView;
     [SerializeField] private CameraFollow2D   cameraFollow;
+    [SerializeField] private RoadTrafficController traffic;
 
     [Header("Execution")]
     [SerializeField] private ExecutionController exec;
@@ -320,6 +321,11 @@ public class AutomationDriveController : MonoBehaviour
         // the real jeepney position (snapping earlier would frame the empty world origin).
         if (_proceduralTopDown && cameraFollow != null && topDownAgentView != null)
             cameraFollow.SnapTo(topDownAgentView.transform);
+
+        if (_proceduralTopDown && traffic != null && _topDownSpace != null && exec != null)
+            traffic.InitAutomation(_topDownSpace.RouteContext, topDownWorldRoot,
+                                   topDownAgentView != null ? topDownAgentView.transform : null,
+                                   _topDownSpace, exec.Sim);
 
         // Surface each onboard passenger's drop-off target (pulsing pin + off-screen compass).
         if (dulogMarkers != null)
@@ -1506,6 +1512,11 @@ public class AutomationDriveController : MonoBehaviour
         RouteVisualBuilder.AppendProcedural(topDownWorldRoot, _topDownSpace.RouteContext,
                                             delta, roadHalfWidth, chunkRoot);
         _topDownSpace.RefreshFromLayout(_streamingTown.Layout, _rides);
+        if (traffic != null)
+        {
+            traffic.RebindRoute(_topDownSpace.RouteContext);
+            if (exec != null) traffic.RebindAutomation(_topDownSpace, exec.Sim);
+        }
     }
 
     StreamedChunkView CreateChunkView(TownChunk chunk)

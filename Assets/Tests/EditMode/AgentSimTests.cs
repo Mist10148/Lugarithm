@@ -102,6 +102,27 @@ public class AgentSimTests
     }
 
     [Test]
+    public void CarInFront_ReportsTrafficAhead_AndForwardMoveBlocks()
+    {
+        var sim = NewWideSim(); // at (1,1) facing East
+        sim.TrafficEnabled = true;
+        sim.SetTrafficCells(new[] { new Vector2Int(2, 1) });
+
+        Assert.IsTrue(sim.EvaluateQuery("carInFront"));
+        Assert.IsFalse(sim.EvaluateQuery("frontIsClear"));
+
+        AgentActionResult blocked = sim.Apply("moveForward");
+        Assert.IsTrue(blocked.Blocked);
+        StringAssert.Contains("traffic", blocked.Warning);
+        Assert.AreEqual(new Vector2Int(1, 1), sim.Position);
+
+        AgentActionResult dodge = sim.Apply("moveRight");
+        Assert.IsFalse(dodge.Blocked);
+        Assert.AreEqual(new Vector2Int(1, 2), sim.Position);
+        Assert.IsFalse(sim.EvaluateQuery("carInFront"));
+    }
+
+    [Test]
     public void PickUp_OnAStop_BoardsThePassenger_OnceOnly()
     {
         var sim = NewSim(out _);

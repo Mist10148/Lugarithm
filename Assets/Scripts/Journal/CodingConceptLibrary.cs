@@ -62,6 +62,28 @@ public static class CodingConceptLibrary
 
             new CodingConceptEntry
             {
+                title = "Traffic & Lane Changes",
+                body =
+                    "The road is shared. <b>carInFront()</b> is a query that asks whether a moving car is " +
+                    "directly ahead of the jeepney. When it is true, dodge with <b>moveLeft()</b> or " +
+                    "<b>moveRight()</b>; those commands slide one lane sideways without turning the jeepney.\n\n" +
+                    "A clean program names this habit as a helper like <b>avoidTraffic()</b>, then calls it " +
+                    "before the route helper drives on.\n\n" +
+                    "<b>Watch out:</b> <b>carInFront()</b> only answers the question. Put it inside an " +
+                    "<b>if</b> before you move.",
+                codeExample =
+                    "<mspace=0.6em>def avoidTraffic():\n" +
+                    "    if carInFront():\n" +
+                    "        if leftIsClear():\n" +
+                    "            moveLeft()\n" +
+                    "        else:\n" +
+                    "            moveRight()\n\n" +
+                    "avoidTraffic()\n" +
+                    "driveToNextStop()</mspace>"
+            },
+
+            new CodingConceptEntry
+            {
                 title = "Sensing (Queries)",
                 body =
                     "A <b>query</b> lets the jeepney <i>look around</i> and report back either " +
@@ -70,7 +92,7 @@ public static class CodingConceptLibrary
                     "\"am I on a passenger stop?\", and <b>routeComplete()</b> asks whether every required " +
                     "rider is delivered and the jeepney is at the current terminal. <b>atDestination()</b> " +
                     "still exists for maze-style puzzles.\n\n" +
-                    "Other handy queries: <b>leftIsClear()</b>, <b>rightIsClear()</b>, " +
+                    "Other handy queries: <b>leftIsClear()</b>, <b>rightIsClear()</b>, <b>carInFront()</b>, " +
                     "<b>passengerWaiting()</b>, <b>isFull()</b>, and <b>hasPassengerAboard()</b>.\n\n" +
                     "<b>Watch out:</b> a query only <i>answers</i> a question — it doesn't <i>do</i> " +
                     "anything on its own. It belongs inside an <b>if</b> or <b>while</b> condition. " +
@@ -83,7 +105,10 @@ public static class CodingConceptLibrary
                     "    turnRight()\n\n" +
                     "# Only pick up when someone is actually waiting:\n" +
                     "if atStop() and passengerWaiting():\n" +
-                    "    pickUp()</mspace>"
+                    "    pickUp()\n\n" +
+                    "# Dodge a car before driving on:\n" +
+                    "if carInFront():\n" +
+                    "    moveLeft()</mspace>"
             },
 
             new CodingConceptEntry
@@ -410,7 +435,7 @@ public static class CodingConceptLibrary
                     "keepDriving(), openDoor(), closeDoor(), pickUp() / board(), dropOff() / alight(), " +
                     "collectFare(), giveChange(amount), announceStop(), honk(). " +
                     "Maze drills add markCell(), unmark().\n\n" +
-                    "<b>Queries (yes/no):</b> frontIsClear(), leftIsClear(), rightIsClear(), atStop(), " +
+                    "<b>Queries (yes/no):</b> frontIsClear(), leftIsClear(), rightIsClear(), carInFront(), atStop(), " +
                     "atRequestedStop(), passengerWaiting(), hasPassengerAboard(), isFull(), " +
                     "routeComplete(), atDestination(). Maze drills add atGoal(), isMarked().\n\n" +
                     "<b>Reporters (a value):</b> seatsLeft(), passengerCount(), passengerType(), fareOwed(), " +

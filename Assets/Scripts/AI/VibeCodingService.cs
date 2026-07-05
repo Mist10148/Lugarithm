@@ -231,7 +231,7 @@ public static class VibeCodingService
         StringBuilder prompt = new StringBuilder();
         prompt.AppendLine("Unlocked actions/control structures: " + string.Join(", ", allowedBlocks ?? Array.Empty<string>()));
         prompt.AppendLine("Unlocked queries: " + string.Join(", ", allowedQueries ?? Array.Empty<string>()));
-        prompt.AppendLine("Current Automation route pattern uses routeComplete(), driveToNextStop(), collectFare(), and giveChange(changeOwed()).");
+        prompt.AppendLine("Current Automation route pattern uses routeComplete(), carInFront(), moveLeft()/moveRight(), driveToNextStop(), collectFare(), and giveChange(changeOwed()).");
         prompt.AppendLine("If the player explicitly asks to create, automate, write, fix, or change a program, return kind=code and a complete program.");
         prompt.AppendLine("Otherwise return kind=explanation and an empty code field. Keep the message to two or three friendly sentences.");
         prompt.AppendLine("Player request:");

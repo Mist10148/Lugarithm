@@ -135,10 +135,12 @@ public static class LevelLibrary
                 // Conditionals arrive in the tutorial: if / else plus the passenger and
                 // fare questions to branch on. Movement/board/fare actions stay too.
                 allowedBlocks  = new[] { "moveForward", "turnLeft", "turnRight",
+                                         "moveLeft", "moveRight",
                                          "pickUp", "collectFare", "dropOff",
                                          "if", "ifElse" },
                 allowedQueries = new[] { "passengerWaiting", "atStop", "atRequestedStop",
-                                         "hasPassengerAboard", "frontIsClear" },
+                                         "hasPassengerAboard", "frontIsClear", "leftIsClear",
+                                         "rightIsClear", "carInFront" },
                 parSteps       = 17,
                 softTimerSeconds = 300f,
                 requireAllPassengersDelivered = true,
@@ -149,9 +151,10 @@ public static class LevelLibrary
                     "#       pickUp()\n" +
                     "# Press Run again and again: she keeps her place, riders and fares\n" +
                     "# between Runs. Reset sends her back to the garage.\n" +
+                    "# Traffic: if carInFront(), dodge with moveLeft() or moveRight().\n" +
                     "# Questions: passengerWaiting(), atStop(), atRequestedStop(),\n" +
-                    "#            hasPassengerAboard(), frontIsClear()\n" +
-                    "# Actions: moveForward(), turnLeft(), turnRight(),\n" +
+                    "#            hasPassengerAboard(), frontIsClear(), carInFront()\n" +
+                    "# Actions: moveForward(), turnLeft(), turnRight(), moveLeft(), moveRight(),\n" +
                     "#          pickUp(), collectFare(), dropOff()\n",
                 // Same 17 physical actions as a flat drive, but the board/fare pair is
                 // guarded by a conditional — control-flow headers cost no steps, so par

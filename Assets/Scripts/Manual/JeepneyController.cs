@@ -64,6 +64,9 @@ public class JeepneyController : MonoBehaviour
     private bool  _dHeld;
     private bool  _spaceHeld;      // previous-frame Space state (FixedUpdate-safe edge detect)
     private bool  _brakeToggled;   // latched brake state when Brake Mode = Toggle
+    private float _trafficSlowUntil;
+    private float _trafficLaneNudge;
+    private float _trafficNudgeUntil;
 
     // -------------------------------------------------------------------------
     // Public state
@@ -142,6 +145,8 @@ public class JeepneyController : MonoBehaviour
         // Forward speed eases in/out like a heavy vintage jeepney: a sluggish
         // build toward top speed and a long coast when braking or stopping.
         float cap = topSpeed * (OffRoad ? offRoadSpeedFactor : 1f) * fuelFactor;
+        if (Time.time < _trafficSlowUntil)
+            cap *= 0.42f;
         float targetSpeed = driving ? cap : 0f;
         float smoothTime = targetSpeed >= _routeSpeed ? accelSmoothTime : brakeSmoothTime;
         _routeSpeed = Mathf.SmoothDamp(_routeSpeed, targetSpeed, ref _speedVel,
@@ -164,6 +169,8 @@ public class JeepneyController : MonoBehaviour
             ? Mathf.Clamp01(distToCorner / cornerEaseDistance)
             : 1f;
         float laneTarget = _targetLane * laneWidth * cornerFactor;
+        if (Time.time < _trafficNudgeUntil)
+            laneTarget += _trafficLaneNudge * cornerFactor;
         _laneOffset = Mathf.SmoothDamp(_laneOffset, laneTarget, ref _laneVel,
                                        laneSmoothTime, Mathf.Infinity, Time.fixedDeltaTime);
 
@@ -300,5 +307,24 @@ public class JeepneyController : MonoBehaviour
         _brakeToggled = false;
 
         transform.SetPositionAndRotation(position, Quaternion.Euler(0f, 0f, rotationDegrees));
+    }
+
+    /// <summary>
+    /// Manual traffic is a soft obstacle: contact bleeds speed and leans the
+    /// lane assist away for a moment, but it never traps the jeepney.
+    /// </summary>
+    public void ApplySoftTrafficContact(Vector2 vehiclePosition)
+    {
+        _trafficSlowUntil = Time.time + 0.45f;
+        if (_driveLine != null && _driveLine.Length >= 2)
+        {
+            Vector2 dir = RouteMath.DirectionAt(_driveLine, _routeDistance + 0.1f);
+            Vector2 left = new Vector2(-dir.y, dir.x);
+            float side = Vector2.Dot((Vector2)transform.position - vehiclePosition, left);
+            _trafficLaneNudge = Mathf.Sign(Mathf.Abs(side) < 0.01f ? 1f : side) * laneWidth * 0.35f;
+            _trafficNudgeUntil = Time.time + 0.35f;
+        }
+        _routeSpeed *= 0.55f;
+        _speedVel = 0f;
     }
 }

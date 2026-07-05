@@ -21,6 +21,7 @@ Actions do something and take a tick.
 |---|---|
 | `moveForward()` | Move one grid step in the direction the jeepney faces. |
 | `turnLeft()` / `turnRight()` | Rotate without moving. |
+| `moveLeft()` / `moveRight()` | Slide one lane sideways without turning; use these to dodge traffic. |
 | `driveToNextStop()` | Pathfind to the nearest useful pickup/drop-off target, or to the terminal when no rider target remains. |
 | `driveToTerminal()` | Pathfind to the current route terminal. |
 | `driveToDestination()` | Backward-compatible alias for destination/terminal navigation. |
@@ -37,6 +38,7 @@ Queries return True or False and belong inside `if` or `while`.
 | Query | True when... |
 |---|---|
 | `frontIsClear()` / `leftIsClear()` / `rightIsClear()` | That neighboring road cell is open. |
+| `carInFront()` | A moving car is directly ahead; dodge with `moveLeft()` or `moveRight()` before driving on. |
 | `atStop()` | The jeepney is on a passenger stop. |
 | `passengerWaiting()` | A rider is waiting at the current stop. |
 | `hasPassengerAboard()` | At least one rider is aboard. |
@@ -63,6 +65,11 @@ Reporters return values that can be assigned, printed, or passed into actions.
 
 ```python
 while not routeComplete():
+    if carInFront():
+        if leftIsClear():
+            moveLeft()
+        else:
+            moveRight()
     driveToNextStop()
     if passengerWaiting():
         pickUp()

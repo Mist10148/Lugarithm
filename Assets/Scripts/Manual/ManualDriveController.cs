@@ -18,6 +18,7 @@ public class ManualDriveController : MonoBehaviour
     [SerializeField] private JeepneyController jeepney;
     [SerializeField] private CameraFollow2D    cameraFollow;
     [SerializeField] private Transform         worldRoot;
+    [SerializeField] private RoadTrafficController traffic;
 
     [Header("UI")]
     [SerializeField] private ManualHudController  hud;
@@ -138,6 +139,8 @@ public class ManualDriveController : MonoBehaviour
         float angle = Vector2.SignedAngle(Vector2.up, direction);
         jeepney.TeleportTo(start, angle);
         jeepney.SetDriveLine(driveLine);
+        if (traffic != null)
+            traffic.InitManual(_ctx, root, jeepney.transform, jeepney);
 
         if (cameraFollow != null)
             cameraFollow.SnapTo(jeepney.transform);
@@ -493,6 +496,8 @@ public class ManualDriveController : MonoBehaviour
         _segments = _ctx.Segments;
         if (jeepney != null)
             jeepney.SetDriveLine(_ctx.Waypoints, preserveLane: true);
+        if (traffic != null)
+            traffic.RebindRoute(_ctx);
 
         MergeProceduralPassengers(chunk);
 

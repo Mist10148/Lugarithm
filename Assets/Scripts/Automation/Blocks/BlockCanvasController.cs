@@ -508,7 +508,7 @@ public class BlockCanvasController : MonoBehaviour
 
     // The helper vocabulary a player can name a def after (no free text on the canvas).
     static readonly string[] FuncNames =
-        { "drive", "handlePassengers", "handleFares", "handleDropoffs", "ride" };
+        { "drive", "avoidTraffic", "handlePassengers", "handleFares", "handleDropoffs", "ride" };
 
     void CycleFuncDefName(BlockNode node)
     {

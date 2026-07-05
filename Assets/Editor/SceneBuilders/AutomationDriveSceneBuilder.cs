@@ -192,6 +192,7 @@ public static class AutomationDriveSceneBuilder
         var controllerGo = new GameObject("AutomationController");
         var exec = controllerGo.AddComponent<ExecutionController>();
         var selfDrive = controllerGo.AddComponent<SelfDriveAgent>();
+        var traffic = controllerGo.AddComponent<RoadTrafficController>();
         var controller = controllerGo.AddComponent<AutomationDriveController>();
 
         SceneBuilderUtil.Wire(controller, "worldCamera",    worldCam);
@@ -200,6 +201,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "topDownWorldRoot", topDownWorldRoot);
         SceneBuilderUtil.Wire(controller, "topDownAgentView", topDownAgent);
         SceneBuilderUtil.Wire(controller, "cameraFollow",   cameraFollow);
+        SceneBuilderUtil.Wire(controller, "traffic",        traffic);
         SceneBuilderUtil.Wire(controller, "exec",           exec);
         SceneBuilderUtil.Wire(controller, "goalLabel",      goalText);
         SceneBuilderUtil.Wire(controller, "blockPanel",     blockPanel.gameObject);

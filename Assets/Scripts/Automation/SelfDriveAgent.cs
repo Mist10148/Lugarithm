@@ -19,7 +19,7 @@ public static class SelfDrivePlanner
 
     public static readonly string[] NavQueries =
     {
-        "frontIsClear", "leftIsClear", "rightIsClear", "atStop", "routeComplete", "moreRoad",
+        "frontIsClear", "leftIsClear", "rightIsClear", "carInFront", "atStop", "routeComplete", "moreRoad",
         "hasPassengerAboard", "atRequestedStop", "passengerWaiting",
     };
 
@@ -36,10 +36,18 @@ public static class SelfDrivePlanner
         "# story drop-off is ready, then heads straight for it.\n" +
         "def drive():\n" +
         "    while moreRoad():\n" +
+        "        avoidTraffic()\n" +
         "        driveToDropoff()\n" +
         "        handleDropoffs()\n" +
         "        handlePassengers()\n" +
         "        handleFares()\n" +
+        "\n" +
+        "def avoidTraffic():\n" +
+        "    if carInFront():\n" +
+        "        if leftIsClear():\n" +
+        "            moveLeft()\n" +
+        "        else:\n" +
+        "            moveRight()\n" +
         "\n" +
         "def handlePassengers():\n" +
         "    if passengerWaiting():\n" +
@@ -60,8 +68,16 @@ public static class SelfDrivePlanner
         "# Tigbauan pattern: name each repeated move once, then let the loop weave the trip.\n" +
         "def drive():\n" +
         "    while not routeComplete():\n" +
+        "        avoidTraffic()\n" +
         "        driveToDropoff()\n" +
         "        tendStop()\n" +
+        "\n" +
+        "def avoidTraffic():\n" +
+        "    if carInFront():\n" +
+        "        if leftIsClear():\n" +
+        "            moveLeft()\n" +
+        "        else:\n" +
+        "            moveRight()\n" +
         "\n" +
         "def tendStop():\n" +
         "    handleDropoffs()\n" +
@@ -87,6 +103,7 @@ public static class SelfDrivePlanner
         "# Miag-ao facade logic: decisions inside decisions, like layers in the stone.\n" +
         "def drive():\n" +
         "    while not routeComplete():\n" +
+        "        avoidTraffic()\n" +
         "        driveToDropoff()\n" +
         "        if atRequestedStop():\n" +
         "            if hasPassengerAboard():\n" +
@@ -97,6 +114,13 @@ public static class SelfDrivePlanner
         "                if seatsLeft() > 0:\n" +
         "                    pickUp()\n" +
         "                    settleFare()\n" +
+        "\n" +
+        "def avoidTraffic():\n" +
+        "    if carInFront():\n" +
+        "        if leftIsClear():\n" +
+        "            moveLeft()\n" +
+        "        else:\n" +
+        "            moveRight()\n" +
         "\n" +
         "def settleFare():\n" +
         "    if fareOwed() > 0:\n" +
@@ -110,8 +134,16 @@ public static class SelfDrivePlanner
         "# San Joaquin final road: hold seats, fares, change, and drop-offs together.\n" +
         "def drive():\n" +
         "    while not routeComplete():\n" +
+        "        avoidTraffic()\n" +
         "        driveToDropoff()\n" +
         "        serveCurrentStop()\n" +
+        "\n" +
+        "def avoidTraffic():\n" +
+        "    if carInFront():\n" +
+        "        if leftIsClear():\n" +
+        "            moveLeft()\n" +
+        "        else:\n" +
+        "            moveRight()\n" +
         "\n" +
         "def serveCurrentStop():\n" +
         "    if atRequestedStop():\n" +
@@ -235,8 +267,9 @@ public static class SelfDrivePlanner
                                "your story passenger at the marked weaving village stop.",
                     codeScaffold =
                         "# New idea: functions name the pattern; loops repeat it.\n" +
-                        "# Try helpers like drive(), tendStop(), handlePassengers(), handleFares().\n" +
+                        "# Try helpers like drive(), avoidTraffic(), tendStop(), handlePassengers(), handleFares().\n" +
                         "# Navigation: driveToDropoff()\n" +
+                        "# Traffic: if carInFront(), dodge with moveLeft() or moveRight()\n" +
                         "# Service: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
                         "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n",
                     optimalSolutionText = Level3ReferenceSolution,
@@ -256,7 +289,8 @@ public static class SelfDrivePlanner
                                "drop-offs before pickups, settle fare/change, and only board riders when seats remain.",
                     codeScaffold =
                         "# New idea: nested if statements handle layered rules.\n" +
-                        "# Check requested stops, then passengers, then fare/change.\n" +
+                        "# Check traffic, requested stops, then passengers, then fare/change.\n" +
+                        "# Traffic: carInFront(), moveLeft(), moveRight()\n" +
                         "# Reporters: seatsLeft(), fareOwed(), changeOwed()\n" +
                         "# Queries: atRequestedStop(), passengerWaiting(), hasPassengerAboard(), routeComplete()\n",
                     optimalSolutionText = Level4ReferenceSolution,
@@ -276,7 +310,7 @@ public static class SelfDrivePlanner
                                "change, waiting riders, and requested drop-offs until the last passenger reaches Campo Santo.",
                     codeScaffold =
                         "# Final idea: coordinate many values at once.\n" +
-                        "# Use seatsLeft(), fareOwed(), changeOwed(), passengerWaiting(), atRequestedStop().\n" +
+                        "# Use carInFront(), seatsLeft(), fareOwed(), changeOwed(), passengerWaiting(), atRequestedStop().\n" +
                         "# Keep looping until routeComplete(), then the final reveal can land.\n",
                     optimalSolutionText = Level5ReferenceSolution,
                 };
@@ -296,8 +330,9 @@ public static class SelfDrivePlanner
                                "completes when they are delivered - keepDriving() to cruise on and serve more.",
                     codeScaffold =
                         "# Split the ride into helper functions, then call drive():\n" +
-                        "#   drive(), handlePassengers(), handleFares(), handleDropoffs()\n" +
+                        "#   drive(), avoidTraffic(), handlePassengers(), handleFares(), handleDropoffs()\n" +
                         "# Navigation: driveToNextStop(), driveToDropoff(), keepDriving()\n" +
+                        "# Traffic: if carInFront(), dodge with moveLeft() or moveRight()\n" +
                         "# Tend riders: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
                         "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n" +
                         "# Cruise forever:  while True:  keepDriving()\n",

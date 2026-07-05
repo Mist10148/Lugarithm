@@ -19,6 +19,10 @@ public static class GridPathfinder
     /// is included; a from==to query returns a single-cell path.
     /// </summary>
     public static List<Vector2Int> Path(GridModel grid, Vector2Int from, Vector2Int to)
+        => Path(grid, from, to, null);
+
+    public static List<Vector2Int> Path(GridModel grid, Vector2Int from, Vector2Int to,
+                                        IReadOnlyCollection<Vector2Int> blocked)
     {
         if (grid == null || !grid.IsWalkable(from) || !grid.IsWalkable(to)) return null;
         if (from == to) return new List<Vector2Int> { from };
@@ -37,6 +41,7 @@ public static class GridPathfinder
             {
                 Vector2Int next = cur + d;
                 if (came.ContainsKey(next) || !grid.IsWalkable(next)) continue;
+                if (next != to && IsBlocked(blocked, next)) continue;
                 came[next] = cur;
                 queue.Enqueue(next);
             }
@@ -92,6 +97,14 @@ public static class GridPathfinder
         path.Add(from);
         path.Reverse();
         return path;
+    }
+
+    static bool IsBlocked(IReadOnlyCollection<Vector2Int> blocked, Vector2Int cell)
+    {
+        if (blocked == null) return false;
+        foreach (Vector2Int item in blocked)
+            if (item == cell) return true;
+        return false;
     }
 
     static int FacingFromDelta(Vector2Int d)

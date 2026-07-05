@@ -254,13 +254,14 @@ public static class DialogueLibrary
             {
                 Choice("Who were you to my father?", "TA1", once: true),
                 Choice("How do I tell her to drive?", "TA2", once: true),
+                Choice("What about traffic?", "TA2C", once: true, requires: new[] { "TA2" }),
                 Choice("How do I pick up passengers?", "TA3", once: true, requires: new[] { "TA2" }),
                 Choice("How do fares work?", "TA4", once: true, requires: new[] { "TA3" }),
                 Choice("How does she decide for herself?", "TA5", once: true, requires: new[] { "TA4" }),
                 Choice("…What if she breaks down mid-route?", "TA6", once: true, requires: new[] { "TA5" }),
                 Choice("And running out of fuel?", "TA7", once: true, requires: new[] { "TA6" }),
                 Choice("I think I've got it. Run the route.", "TA-ADV",
-                       requires: new[] { "TA2", "TA3", "TA4", "TA5", "TA6", "TA7" })
+                       requires: new[] { "TA2", "TA2C", "TA3", "TA4", "TA5", "TA6", "TA7" })
             });
 
         convo.nodes["TA1"] = Node("TA1", DialogueNodeKind.Line,
@@ -286,6 +287,15 @@ public static class DialogueLibrary
 
         convo.nodes["TA2b"] = Node("TA2b", DialogueNodeKind.Line,
             Lines(Line(gemma, "Good. Forward, turn, or let the big words plan the path. That's driving.", affinity: 1)),
+            returnToHub: true);
+
+        convo.nodes["TA2C"] = Node("TA2C", DialogueNodeKind.Line,
+            Lines(
+                blockMode
+                    ? Line(gemma, "Roads have other drivers too. Use carInFront() as your question. If it says true, slide one lane with moveLeft or moveRight before you keep driving.")
+                    : Line(gemma, "Roads have other drivers too. Ask carInFront() before a move. If it says True, slide one lane with moveLeft() or moveRight(), then keep driving."),
+                Line(gemma, "Name that little habit avoidTraffic(), and call it before your route helper. That's how a self-driving jeepney learns to be polite.")
+            ),
             returnToHub: true);
 
         convo.nodes["TA3"] = Node("TA3", DialogueNodeKind.Line,
@@ -329,7 +339,7 @@ public static class DialogueLibrary
             returnToHub: true);
 
         convo.nodes["TA-ADV"] = Node("TA-ADV", DialogueNodeKind.Event,
-            Lines(Line(gemma, $"Drive, board, collect — and now she can decide with an if. {(blockMode ? "Snap your routine together" : "Write your routine")} and press Run as many times as it takes. Your first real stop is Molo, just across the district. An old friend of your father's is waiting — and the first page of that journal. Padayon, iho.")),
+            Lines(Line(gemma, $"Drive, dodge traffic, board, collect — and now she can decide with an if. {(blockMode ? "Snap your routine together" : "Write your routine")} and press Run as many times as it takes. Your first real stop is Molo, just across the district. An old friend of your father's is waiting — and the first page of that journal. Padayon, iho.")),
             eventKind: DialogueEventKind.TutorialComplete);
 
         convo.revealLines = TutorialRevealLines();

@@ -125,6 +125,7 @@ public class AgentSim : IAgentApi
     // Ride mode (procedural town / self-driving) and the nav-macro move queue.
     List<GridRide> _rides;
     readonly Queue<string> _pending = new Queue<string>();
+    readonly HashSet<Vector2Int> _trafficCells = new HashSet<Vector2Int>();
 
     /// <summary>Per-passenger rides, or null in generic-stop mode.</summary>
     public IReadOnlyList<GridRide> Rides => _rides;
@@ -135,6 +136,10 @@ public class AgentSim : IAgentApi
     public string DequeueMove() => _pending.Dequeue();
 
     public GridModel Grid => _grid;
+
+    /// <summary>When true, sparse road traffic participates in movement queries and bumps.</summary>
+    public bool TrafficEnabled;
+    public IReadOnlyCollection<Vector2Int> TrafficCells => _trafficCells;
 
     /// <summary>Seat capacity; reporters read this as the world state.</summary>
     public int SeatCapacity = 8;
@@ -177,7 +182,8 @@ public class AgentSim : IAgentApi
     /// short buffer ahead so the player/code drives to it before the leg ends.</summary>
     public Vector2Int CellAhead(int steps)
     {
-        List<Vector2Int> path = GridPathfinder.Path(_grid, Position, _grid.DestPos);
+        List<Vector2Int> path = GridPathfinder.Path(_grid, Position, _grid.DestPos,
+            TrafficEnabled ? _trafficCells : null);
         if (path == null || path.Count == 0) return Position;
         int idx = Mathf.Clamp(steps, 0, path.Count - 1);
         return path[idx];
@@ -229,7 +235,14 @@ public class AgentSim : IAgentApi
     /// without disturbing the live sim the player sees.</summary>
     public AgentSim CloneFresh()
     {
-        var copy = new AgentSim(_grid, _fares, _startFacing) { SeatCapacity = SeatCapacity };
+        var copy = new AgentSim(_grid, _fares, _startFacing)
+        {
+            SeatCapacity = SeatCapacity,
+            TrafficEnabled = TrafficEnabled,
+            EndlessRoute = EndlessRoute,
+            StoryLegMode = StoryLegMode,
+        };
+        copy.SetTrafficCells(_trafficCells);
         if (_rides != null)
         {
             // Rides carry mutable run-state (aboard/delivered/paid); clone them so the dry
@@ -272,6 +285,20 @@ public class AgentSim : IAgentApi
         _waiting.Clear();
         foreach (Vector2Int stop in _grid.StopCells)
             _waiting.Add(stop);
+    }
+
+    public void SetTrafficCells(IEnumerable<Vector2Int> cells)
+    {
+        _trafficCells.Clear();
+        if (cells == null) return;
+        foreach (Vector2Int cell in cells)
+            if (_grid != null && _grid.IsWalkable(cell))
+                _trafficCells.Add(cell);
+    }
+
+    public void ClearTraffic()
+    {
+        _trafficCells.Clear();
     }
 
     void ResetRides()
@@ -319,7 +346,12 @@ public class AgentSim : IAgentApi
                 // This is the only locomotion primitive; path targets come from
                 // GridPathfinder, not the node graph.
                 Vector2Int target = Position + FacingDeltas[Facing];
-                if (_grid.IsWalkable(target))
+                if (TrafficBlocks(target))
+                {
+                    r.Blocked = true;
+                    r.Warning = "traffic ahead - use carInFront() and moveLeft()/moveRight() to dodge.";
+                }
+                else if (_grid.IsWalkable(target))
                 {
                     Position = target;
                     r.To = target;
@@ -655,7 +687,8 @@ public class AgentSim : IAgentApi
             if (ride.delivered) continue;
             Vector2Int target = ride.aboard ? ride.dest : ride.origin;
             if (EndlessRoute && PathLenToDest(target) > selfToDest) continue;   // behind us — never double back
-            List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target);
+            List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target,
+                TrafficEnabled ? _trafficCells : null);
             if (path == null) continue;
             if (path.Count < bestLen) { bestLen = path.Count; best = target; }
         }
@@ -667,13 +700,15 @@ public class AgentSim : IAgentApi
     /// endless road — so it orders cells by forward progress.</summary>
     int PathLenToDest(Vector2Int from)
     {
-        List<Vector2Int> path = GridPathfinder.Path(_grid, from, _grid.DestPos);
+        List<Vector2Int> path = GridPathfinder.Path(_grid, from, _grid.DestPos,
+            TrafficEnabled ? _trafficCells : null);
         return path?.Count ?? int.MaxValue;
     }
 
     void EnqueuePathTo(Vector2Int target, AgentActionResult r, int maxSteps = int.MaxValue)
     {
-        List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target);
+        List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target,
+            TrafficEnabled ? _trafficCells : null);
         if (path == null) { r.Warning = "can't find a road to there."; return; }
         int enqueued = 0;
         foreach (string move in GridPathfinder.ToActions(path, Facing))
@@ -691,9 +726,10 @@ public class AgentSim : IAgentApi
     {
         switch (name)
         {
-            case "frontIsClear":  return _grid.IsWalkable(Position + FacingDeltas[Facing]);
-            case "leftIsClear":   return _grid.IsWalkable(Position + FacingDeltas[(Facing + 3) % 4]);
-            case "rightIsClear":  return _grid.IsWalkable(Position + FacingDeltas[(Facing + 1) % 4]);
+            case "frontIsClear":  return IsClear(Position + FacingDeltas[Facing]);
+            case "leftIsClear":   return IsClear(Position + FacingDeltas[(Facing + 3) % 4]);
+            case "rightIsClear":  return IsClear(Position + FacingDeltas[(Facing + 1) % 4]);
+            case "carInFront":    return TrafficBlocks(Position + FacingDeltas[Facing]);
             case "atStop":        return _grid.Get(Position) == GridModel.Cell.Stop;
             case "atDestination": return Position == _grid.DestPos;
             case "routeComplete": return RouteComplete();
@@ -746,6 +782,16 @@ public class AgentSim : IAgentApi
             return false;
         }
         return Position == _grid.DestPos && PassengersAboard > 0;
+    }
+
+    bool IsClear(Vector2Int cell)
+    {
+        return _grid.IsWalkable(cell) && !TrafficBlocks(cell);
+    }
+
+    bool TrafficBlocks(Vector2Int cell)
+    {
+        return TrafficEnabled && _trafficCells.Contains(cell);
     }
 
     bool PassengerWaitingHere()

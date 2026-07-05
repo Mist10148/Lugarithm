@@ -117,6 +117,40 @@ public class SelfDriveAgentTests
     }
 
     [Test]
+    public void ReferenceSolution_DodgesTrafficWhenCarIsInFront()
+    {
+        string[] map =
+        {
+            "#######",
+            "#...D.#",
+            "#S....#",
+            "#.....#",
+            "#######",
+        };
+        GridModel grid = GridModel.Parse(map, out _);
+        var def = new AutomationPuzzleDefinition
+        {
+            endlessRoute = true,
+            requireAllPassengersDelivered = false,
+        };
+        var sim = new AgentSim(grid, new FareTable(), 1)
+        {
+            EndlessRoute = true,
+            TrafficEnabled = true,
+        };
+        sim.LoadRides(new List<GridRide>());
+        sim.SetTrafficCells(new[] { new Vector2Int(2, 2) });
+
+        ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
+        CollectionAssert.IsEmpty(errors);
+
+        Assert.IsTrue(HeadlessProgramRunner.VerifyReport(program, sim, def, out RunReport report), report.GoalGap);
+        Assert.Greater(report.Trace.Count, 0);
+        Assert.AreEqual("moveLeft", report.Trace[0].Action);
+        Assert.IsFalse(report.Trace[0].Blocked);
+    }
+
+    [Test]
     public void ProceduralPalette_UsesRouteComplete_NotAtDestination()
     {
         Run r = Build(5);

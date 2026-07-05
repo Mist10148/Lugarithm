@@ -48,8 +48,8 @@ never drift apart.
 |---|---|
 | Calls | **zero-argument only** — `moveForward()`, never `moveForward(3)` |
 | Values | **none** — no variables, numbers, strings; conditions are bool-only |
-| Actions | `moveForward turnLeft turnRight pickUp dropOff collectFare driveToNextStop driveToDestination` |
-| Queries | `frontIsClear leftIsClear rightIsClear atStop atDestination hasPassengerAboard atRequestedStop` |
+| Actions | `moveForward turnLeft turnRight moveLeft moveRight pickUp dropOff collectFare driveToNextStop driveToDestination` |
+| Queries | `frontIsClear leftIsClear rightIsClear carInFront atStop atDestination hasPassengerAboard atRequestedStop` |
 | Control flow | `if / else`, `while`, `not`, Python-style indentation |
 | Interpreter | stepping VM, one action per `Step()`, frame stack, guard limits |
 
@@ -88,8 +88,10 @@ expressible at all. Gated via `LevelDefinition.allowedBlocks` / `allowedQueries`
 |---|---|---|---|
 | Action | `moveForward(n=1)` | — | advance `n` cells |
 | Action | `turnLeft()` / `turnRight()` | — | rotate 90° |
+| Action | `moveLeft()` / `moveRight()` | — | slide one lane sideways without turning |
 | Action | `wait(n=1)` | — | idle `n` ticks |
 | Query | `frontIsClear()` / `leftIsClear()` / `rightIsClear()` | bool | wall/obstacle sensor |
+| Query | `carInFront()` | bool | moving traffic sensor for the cell ahead |
 | Query | `atDestination()` | bool | reached the goal cell |
 
 ### 4.2 Maze / puzzle add-on

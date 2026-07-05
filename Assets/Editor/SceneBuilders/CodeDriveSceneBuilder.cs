@@ -199,6 +199,7 @@ public static class CodeDriveSceneBuilder
 
         var controllerGo = new GameObject("CodeDriveController");
         var exec = controllerGo.AddComponent<ExecutionController>();
+        var traffic = controllerGo.AddComponent<RoadTrafficController>();
         var controller = controllerGo.AddComponent<AutomationDriveController>();
 
         SceneBuilderUtil.Wire(controller, "worldCamera",    worldCam);
@@ -207,6 +208,7 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "topDownWorldRoot", topDownWorldRoot);
         SceneBuilderUtil.Wire(controller, "topDownAgentView", topDownAgent);
         SceneBuilderUtil.Wire(controller, "cameraFollow",   cameraFollow);
+        SceneBuilderUtil.Wire(controller, "traffic",        traffic);
         SceneBuilderUtil.Wire(controller, "exec",           exec);
         SceneBuilderUtil.Wire(controller, "goalLabel",      goalText);
         SceneBuilderUtil.Wire(controller, "blockPanel",     blockPanel.gameObject);
@@ -301,6 +303,7 @@ Settings), then press ▶ RUN. One action runs per tick.
 <b>ACTIONS</b>  (do something; one tick each)
   moveForward()   move one tile in the way you're facing (bumps on a wall)
   turnLeft()      rotate 90° left      turnRight()  rotate 90° right
+  moveLeft()      slide one lane left   moveRight()  slide one lane right
   driveToNextStop()  path to the next rider stop or terminal
   driveToTerminal()  path to the current route terminal
   pickUp()        board the passenger on this stop
@@ -309,7 +312,7 @@ Settings), then press ▶ RUN. One action runs per tick.
   dropOff()       let settled passengers off at their requested stop
 
 <b>CONDITIONS</b>  (ask a yes/no question; used by if / while)
-  frontIsClear()   leftIsClear()   rightIsClear()
+  frontIsClear()   leftIsClear()   rightIsClear()   carInFront()
   atStop()         passengerWaiting()   atRequestedStop()
   routeComplete()  hasPassengerAboard()
 
@@ -329,6 +332,11 @@ if/while and click the condition chip to choose the question.
 
 <b>EXAMPLE</b> — follow the road to the destination:
   while not routeComplete():
+      if carInFront():
+          if leftIsClear():
+              moveLeft()
+          else:
+              moveRight()
       driveToNextStop()
       if passengerWaiting():
           pickUp()

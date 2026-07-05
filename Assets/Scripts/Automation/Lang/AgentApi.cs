@@ -55,6 +55,7 @@ public static class AgentApi
         new ApiEntry("frontIsClear",       ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("leftIsClear",        ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("rightIsClear",       ApiKind.Query,   minArity: 0, maxArity: 0),
+        new ApiEntry("carInFront",         ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("atDestination",      ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("routeComplete",      ApiKind.Query,   minArity: 0, maxArity: 0),
         new ApiEntry("moreRoad",           ApiKind.Query,   minArity: 0, maxArity: 0),

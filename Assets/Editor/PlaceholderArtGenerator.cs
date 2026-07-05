@@ -95,6 +95,7 @@ public static class PlaceholderArtGenerator
 
         // Manual-mode world
         Make("jeepney_top", 32, 64, 32, JeepneyTop);
+        Make("traffic_car", 28, 52, 32, TrafficCarTop);
         Make("peep", 16, 24, 32, Peep);
         Make("road_tile", 64, 64, 64, RoadTile);
         Make("grass_tile", 64, 64, 64, GrassTile);
@@ -160,6 +161,16 @@ public static class PlaceholderArtGenerator
         if (y > h - 9 && y < h - 3 && x > 3 && x < w - 4) return WindowDark;  // windshield
         if (x > 7 && x < w - 8 && y > 6 && y < h - 12) return JeepneyRoof;    // roof stripe
         return JeepneyRed;
+    }
+
+    static Color TrafficCarTop(int x, int y, int w, int h)
+    {
+        bool border = x == 0 || y == 0 || x == w - 1 || y == h - 1;
+        if (border) return WindowDark;
+        if (y > h - 10 && y < h - 4 && x > 4 && x < w - 5) return WindowDark;
+        if (y > 6 && y < 14 && x > 5 && x < w - 6) return WindowDark;
+        if (x > 6 && x < w - 7 && y > 15 && y < h - 13) return new Color(0.88f, 0.92f, 0.95f);
+        return new Color(0.22f, 0.50f, 0.82f);
     }
 
     static Color Peep(int x, int y, int w, int h)
