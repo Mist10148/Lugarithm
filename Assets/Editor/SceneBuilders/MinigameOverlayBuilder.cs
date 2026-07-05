@@ -38,81 +38,93 @@ public static class MinigameOverlayBuilder
 
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), UIFactory.PanelDark);
-        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(940f, 760f));
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1240f, 850f));
 
         var category = UIFactory.CreateText(window, "Category", "MINIGAME", 18f,
                                             UIFactory.TextDim, TextAlignmentOptions.Center);
-        UIFactory.Place(category, new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(880f, 22f));
+        UIFactory.Place(category, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(1100f, 22f));
 
         var title = UIFactory.CreateText(window, "Title", "", 32f, UIFactory.Accent, TextAlignmentOptions.Center);
-        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -46f), new Vector2(880f, 44f));
+        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -42f), new Vector2(1100f, 48f));
 
         var stats = UIFactory.CreateText(window, "Stats", "", 24f, UIFactory.TextBright, TextAlignmentOptions.Top);
-        UIFactory.Place(stats, new Vector2(0.5f, 1f), new Vector2(0f, -98f), new Vector2(860f, 92f));
+        UIFactory.Place(stats, new Vector2(0.5f, 0.5f), new Vector2(0f, 30f), new Vector2(860f, 120f));
         stats.lineSpacing = 8f;
 
-        // CODE ANALYSIS block — hidden for non-code drills.
-        var analysisGroup = UIFactory.CreatePanel(window, "AnalysisGroup",
-                                                  new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                                                  new Color(0.06f, 0.07f, 0.10f, 1f));
-        UIFactory.Place(analysisGroup, new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(860f, 84f));
-        var analysisHeader = UIFactory.CreateText(analysisGroup, "Header", "CODE ANALYSIS", 16f,
-                                                  UIFactory.TextDim, TextAlignmentOptions.Center);
-        UIFactory.Place(analysisHeader, new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(820f, 20f));
+        var codeStats = UIFactory.CreateText(window, "CodeStats", "", 24f,
+                                             UIFactory.Accent, TextAlignmentOptions.Center);
+        UIFactory.Place(codeStats, new Vector2(0.5f, 0f), new Vector2(0f, 174f), new Vector2(1160f, 34f));
+        codeStats.gameObject.SetActive(false);
+
+        // CODE ANALYSIS row — hidden for non-code drills.
+        var analysisGroup = UIFactory.CreateRect(window, "AnalysisGroup",
+                                                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+        UIFactory.Place(analysisGroup, new Vector2(0.5f, 0f), new Vector2(0f, 142f), new Vector2(1160f, 30f));
         var analysis = UIFactory.CreateText(analysisGroup, "Body", "", 19f,
-                                            UIFactory.TextBright, TextAlignmentOptions.Top);
-        UIFactory.Place(analysis, new Vector2(0.5f, 1f), new Vector2(0f, -28f), new Vector2(820f, 52f));
-        analysis.enableWordWrapping = true;
+                                            UIFactory.Accent, TextAlignmentOptions.Center);
+        analysis.rectTransform.offsetMin = Vector2.zero;
+        analysis.rectTransform.offsetMax = Vector2.zero;
+        analysis.textWrappingMode = TextWrappingModes.NoWrap;
+        analysis.overflowMode = TextOverflowModes.Ellipsis;
         analysisGroup.gameObject.SetActive(false);
 
-        TMP_Dropdown attempts = UIFactory.CreateDropdown(window, "AttemptDropdown", new Vector2(300f, 34f), 16f);
-        UIFactory.Place(attempts, new Vector2(0.5f, 1f), new Vector2(-280f, -292f), new Vector2(300f, 34f));
+        TMP_Dropdown attempts = UIFactory.CreateDropdown(window, "AttemptDropdown", new Vector2(320f, 34f), 16f);
+        UIFactory.Place(attempts, new Vector2(0.5f, 1f), new Vector2(-390f, -92f), new Vector2(320f, 34f));
         var attemptStatus = UIFactory.CreateText(window, "AttemptStatus", "", 17f,
                                                  UIFactory.TextDim, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(attemptStatus, new Vector2(0.5f, 1f), new Vector2(190f, -292f), new Vector2(560f, 34f));
+        UIFactory.Place(attemptStatus, new Vector2(0.5f, 1f), new Vector2(120f, -92f), new Vector2(660f, 34f));
 
-        var codeGroup = UIFactory.CreatePanel(window, "CodeCompareGroup",
-                                              new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                                              new Color(0f, 0f, 0f, 0f));
-        UIFactory.Place(codeGroup, new Vector2(0.5f, 0.5f), new Vector2(0f, -46f), new Vector2(860f, 270f));
+        var codeGroup = UIFactory.CreateRect(window, "CodeCompareGroup",
+                                             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
+        UIFactory.Place(codeGroup, new Vector2(0.5f, 1f), new Vector2(0f, -124f), new Vector2(1160f, 430f));
 
-        var playerHeader = UIFactory.CreateText(codeGroup, "PlayerHeader", "YOUR RUN", 16f,
+        var leftColumn = UIFactory.CreateRect(codeGroup, "LeftColumn",
+                                              Vector2.zero, new Vector2(0.5f, 1f),
+                                              Vector2.zero, new Vector2(-12f, 0f));
+        var rightColumn = UIFactory.CreateRect(codeGroup, "RightColumn",
+                                               new Vector2(0.5f, 0f), Vector2.one,
+                                               new Vector2(12f, 0f), Vector2.zero);
+        var divider = UIFactory.CreateRect(codeGroup, "Divider",
+                                           new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
+                                           new Vector2(-2f, 48f), new Vector2(2f, -6f));
+        var dividerImage = divider.gameObject.AddComponent<Image>();
+        dividerImage.color = new Color(0.18f, 0.12f, 0.07f, 0.9f);
+        dividerImage.raycastTarget = false;
+
+        var playerHeader = UIFactory.CreateText(leftColumn, "PlayerHeader", "YOUR SOLUTION", 22f,
                                                 UIFactory.TextDim, TextAlignmentOptions.Center);
-        UIFactory.Place(playerHeader, new Vector2(0.25f, 1f), new Vector2(0f, -8f), new Vector2(400f, 20f));
-        var referenceHeader = UIFactory.CreateText(codeGroup, "ReferenceHeader", "REFERENCE", 16f,
-                                                   UIFactory.TextDim, TextAlignmentOptions.Center);
-        UIFactory.Place(referenceHeader, new Vector2(0.75f, 1f), new Vector2(0f, -8f), new Vector2(400f, 20f));
+        UIFactory.Place(playerHeader, new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(520f, 30f));
+        var referenceHeader = UIFactory.CreateText(rightColumn, "ReferenceHeader", "INTENDED SOLUTION", 22f,
+                                                   new Color(0.55f, 0.78f, 1f), TextAlignmentOptions.Center);
+        UIFactory.Place(referenceHeader, new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(520f, 30f));
 
-        ScrollRect playerScroll = UIFactory.CreateScrollView(codeGroup, "PlayerScroll",
-            new Vector2(0f, 0f), new Vector2(0f, 0f), out RectTransform playerContent);
-        UIFactory.Place((RectTransform)playerScroll.transform, new Vector2(0.25f, 0.5f),
-                        new Vector2(0f, -18f), new Vector2(410f, 218f));
+        ScrollRect playerScroll = UIFactory.CreateScrollView(leftColumn, "PlayerScroll",
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform playerContent);
+        UIFactory.Place((RectTransform)playerScroll.transform, new Vector2(0.5f, 1f),
+                        new Vector2(0f, -54f), new Vector2(536f, 400f));
         UIFactory.AddVerticalScrollbar(playerScroll, permanent: true);
-        var playerText = UIFactory.CreateText(playerContent, "Text", "", 17f,
+        var playerText = UIFactory.CreateText(playerContent, "Text", "", 19f,
                                               UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        playerText.enableWordWrapping = true;
-        var playerFit = playerText.gameObject.AddComponent<ContentSizeFitter>();
-        playerFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        UIFactory.EnableHorizontalCodeScroll(playerScroll, playerContent, playerText);
 
-        ScrollRect referenceScroll = UIFactory.CreateScrollView(codeGroup, "ReferenceScroll",
-            new Vector2(0f, 0f), new Vector2(0f, 0f), out RectTransform referenceContent);
-        UIFactory.Place((RectTransform)referenceScroll.transform, new Vector2(0.75f, 0.5f),
-                        new Vector2(0f, -18f), new Vector2(410f, 218f));
+        ScrollRect referenceScroll = UIFactory.CreateScrollView(rightColumn, "ReferenceScroll",
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), out RectTransform referenceContent);
+        UIFactory.Place((RectTransform)referenceScroll.transform, new Vector2(0.5f, 1f),
+                        new Vector2(0f, -54f), new Vector2(536f, 400f));
         UIFactory.AddVerticalScrollbar(referenceScroll, permanent: true);
-        var referenceText = UIFactory.CreateText(referenceContent, "Text", "", 17f,
+        var referenceText = UIFactory.CreateText(referenceContent, "Text", "", 19f,
                                                  UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        referenceText.enableWordWrapping = true;
-        var referenceFit = referenceText.gameObject.AddComponent<ContentSizeFitter>();
-        referenceFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        UIFactory.EnableHorizontalCodeScroll(referenceScroll, referenceContent, referenceText);
         codeGroup.gameObject.SetActive(false);
 
         var mentor = UIFactory.CreateText(window, "MentorLabel", "", 18f,
                                           UIFactory.TextDim, TextAlignmentOptions.TopLeft);
-        UIFactory.Place(mentor, new Vector2(0.5f, 0f), new Vector2(0f, 96f), new Vector2(860f, 58f));
+        UIFactory.Place(mentor, new Vector2(0.5f, 0f), new Vector2(0f, 76f), new Vector2(1160f, 52f));
         mentor.enableWordWrapping = true;
 
-        Button cont = UIFactory.CreateButton(window, "ContinueButton", "Continue", new Vector2(240f, 56f));
-        UIFactory.Place(cont, new Vector2(0.5f, 0f), new Vector2(0f, 26f), new Vector2(240f, 56f));
+        Button cont = UIFactory.CreateButton(window, "ContinueButton", "Continue", new Vector2(240f, 58f));
+        UIFactory.LocalizeButton(cont, "common.continue");
+        UIFactory.Place(cont, new Vector2(0.5f, 0f), new Vector2(0f, 30f), new Vector2(240f, 58f));
         cont.image.color = new Color(0.85f, 0.55f, 0.12f);
 
         var panel = overlay.gameObject.AddComponent<MinigameResultsPanel>();
@@ -120,6 +132,7 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(panel, "categoryLabel",  category);
         SceneBuilderUtil.Wire(panel, "titleLabel",     title);
         SceneBuilderUtil.Wire(panel, "statsLabel",     stats);
+        SceneBuilderUtil.Wire(panel, "codeStatsLabel", codeStats);
         SceneBuilderUtil.Wire(panel, "analysisGroup",  analysisGroup.gameObject);
         SceneBuilderUtil.Wire(panel, "analysisLabel",  analysis);
         SceneBuilderUtil.Wire(panel, "attemptDropdown", attempts);

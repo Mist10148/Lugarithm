@@ -24,3 +24,13 @@ public interface IPathAgentView : IAgentView
 {
     IEnumerator PlayPath(IReadOnlyList<AgentActionResult> moves, float secondsPerStep);
 }
+
+/// <summary>
+/// Optional view hook for streamed Automation worlds. The grid-space mapping can
+/// change when the road grows; this preserves the current world pose instead of
+/// snapping the visual agent back through Init/SnapTo.
+/// </summary>
+public interface IStreamingAgentView : IAgentView
+{
+    void RebindSpacePreservingPose(IGridSpace space, IStopView stopView, Vector2Int cell);
+}

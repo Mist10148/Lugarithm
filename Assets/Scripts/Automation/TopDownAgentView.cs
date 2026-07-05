@@ -7,7 +7,7 @@ using UnityEngine;
 /// sprite, moves it along the top-down road, and rotates the body to face the
 /// current grid direction.
 /// </summary>
-public class TopDownAgentView : MonoBehaviour, IPathAgentView
+public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentView
 {
     [Header("References")]
     [SerializeField] public SpriteRenderer body;
@@ -54,6 +54,19 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
         _speedVel    = 0f;
         _bodyRot     = body != null ? body.transform.localRotation : Quaternion.identity;
         _hasBodyRot  = true;
+    }
+
+    public void RebindSpacePreservingPose(IGridSpace space, IStopView stopView, Vector2Int cell)
+    {
+        _space = space;
+        _stopView = stopView;
+        SetSortOrder(cell);
+
+        if (!_hasBodyRot)
+        {
+            _bodyRot = body != null ? body.transform.localRotation : Quaternion.identity;
+            _hasBodyRot = true;
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -290,10 +303,13 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            body.transform.localRotation = Quaternion.Slerp(a, b, Mathf.Clamp01(elapsed / duration));
+            _bodyRot = Quaternion.Slerp(a, b, Mathf.Clamp01(elapsed / duration));
+            body.transform.localRotation = _bodyRot;
             yield return null;
         }
 
+        _bodyRot = b;
+        _hasBodyRot = true;
         body.transform.localRotation = b;
     }
 

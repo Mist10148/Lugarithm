@@ -727,6 +727,90 @@ public static class UIFactory
         return scrollbar;
     }
 
+    /// <summary>
+    /// Adds a draggable horizontal scrollbar pinned to the bottom edge of a
+    /// <see cref="CreateScrollView"/> result, and insets the viewport so content
+    /// never sits under the bar. Mirrors <see cref="AddVerticalScrollbar"/>; use for
+    /// code views where long, no-wrap lines run off the right edge.
+    /// </summary>
+    public static Scrollbar AddHorizontalScrollbar(ScrollRect scroll, float height = 12f,
+                                                   bool permanent = false)
+    {
+        var sbRt = CreateRect(scroll.transform, "Scrollbar Horizontal",
+                              new Vector2(0f, 0f), new Vector2(1f, 0f),
+                              new Vector2(4f, 2f), new Vector2(-2f, height + 2f));
+        var track = sbRt.gameObject.AddComponent<Image>();
+        track.color = new Color(PanelDarker.r, PanelDarker.g, PanelDarker.b, 0.9f);
+
+        var scrollbar = sbRt.gameObject.AddComponent<Scrollbar>();
+        scrollbar.direction = Scrollbar.Direction.LeftToRight;
+
+        var slidingArea = CreateRect(sbRt, "Sliding Area", Vector2.zero, Vector2.one,
+                                     new Vector2(1f, 1f), new Vector2(-1f, -1f));
+        var handle = CreateRect(slidingArea, "Handle", Vector2.zero, Vector2.one);
+        var handleImage = handle.gameObject.AddComponent<Image>();
+        handleImage.sprite = BuiltinSprite("UISprite.psd");
+        handleImage.type   = Image.Type.Sliced;
+        handleImage.color  = Accent;
+
+        scrollbar.handleRect    = handle;
+        scrollbar.targetGraphic = handleImage;
+
+        scroll.horizontalScrollbar = scrollbar;
+        scroll.horizontalScrollbarVisibility = permanent
+            ? ScrollRect.ScrollbarVisibility.Permanent
+            : ScrollRect.ScrollbarVisibility.AutoHide;
+
+        // Keep content clear of the bar.
+        if (scroll.viewport != null)
+            scroll.viewport.offsetMin = new Vector2(scroll.viewport.offsetMin.x,
+                                                    scroll.viewport.offsetMin.y + height + 4f);
+        return scrollbar;
+    }
+
+    /// <summary>
+    /// Turns a <see cref="CreateScrollView"/> result into a code viewer that scrolls on
+    /// both axes: the code label stops wrapping so long lines run off the right edge, the
+    /// content is allowed to grow past the viewport width, and a bottom horizontal
+    /// scrollbar is added alongside the existing vertical one.
+    /// </summary>
+    public static void EnableHorizontalCodeScroll(ScrollRect scroll, RectTransform content,
+                                                  TMP_Text codeText, bool permanent = false)
+    {
+        // Long code lines extend rightward; the player scrolls to read them.
+        if (codeText != null)
+        {
+            codeText.textWrappingMode = TextWrappingModes.NoWrap;
+            var fit = codeText.gameObject.GetComponent<ContentSizeFitter>();
+            if (fit == null) fit = codeText.gameObject.AddComponent<ContentSizeFitter>();
+            fit.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fit.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
+        }
+
+        // Let the content size to its widest line instead of being clamped to the
+        // viewport width, so there is something for the horizontal bar to scroll.
+        if (content != null)
+        {
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(0f, 1f);
+            content.pivot     = new Vector2(0f, 1f);
+
+            var vlg = content.GetComponent<VerticalLayoutGroup>();
+            if (vlg != null)
+            {
+                vlg.childControlWidth     = false;
+                vlg.childForceExpandWidth = false;
+            }
+            var cfit = content.GetComponent<ContentSizeFitter>();
+            if (cfit == null) cfit = content.gameObject.AddComponent<ContentSizeFitter>();
+            cfit.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            cfit.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
+        }
+
+        scroll.horizontal = true;
+        AddHorizontalScrollbar(scroll, permanent: permanent);
+    }
+
     // -------------------------------------------------------------------------
     // Multiline input (code editor)
 
