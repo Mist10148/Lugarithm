@@ -20,7 +20,7 @@ public class SaveData
     //  pushes the frontier to 6 so IsCompleted(5) still reads true.
 
     public bool      hasActiveRun          = false;
-    public int       currentLevelIndex     = 0;
+    public int       currentLevelIndex     = 5;
     public List<int> collectedJournalPages = new List<int>();
     public int       currency              = 0;
     public int       debt                  = 0;

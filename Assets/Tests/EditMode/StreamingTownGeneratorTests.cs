@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class StreamingTownGeneratorTests
 {
+    static readonly int[] ProceduralLevels = { 2, 3, 4, 5 };
+
     static StreamingTown Begin(int levelIndex, int seed)
     {
         LevelDefinition def = LevelLibrary.Get(levelIndex);
@@ -18,10 +20,13 @@ public class StreamingTownGeneratorTests
     [Test]
     public void Begin_ProducesSolvableLayout()
     {
-        StreamingTown s = Begin(2, 123);
-        Assert.IsNotNull(s);
-        Assert.IsNotNull(s.Layout);
-        Assert.IsTrue(TownLayoutGenerator.IsSolvable(s.Layout, s.CellSize));
+        foreach (int level in ProceduralLevels)
+        {
+            StreamingTown s = Begin(level, 123);
+            Assert.IsNotNull(s, $"level {level}");
+            Assert.IsNotNull(s.Layout, $"level {level}");
+            Assert.IsTrue(TownLayoutGenerator.IsSolvable(s.Layout, s.CellSize), $"level {level}");
+        }
     }
 
     [Test]

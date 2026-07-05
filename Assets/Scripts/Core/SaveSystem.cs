@@ -77,7 +77,7 @@ public static class SaveSystem
         Current = new SaveData
         {
             hasActiveRun      = true,
-            currentLevelIndex = 0,
+            currentLevelIndex = 5,
             settings          = keep
         };
 

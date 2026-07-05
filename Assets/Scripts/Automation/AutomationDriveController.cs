@@ -208,7 +208,7 @@ public class AutomationDriveController : MonoBehaviour
 
             proceduralLayout = _streamingTown.Layout;
             _def = SelfDrivePlanner.BuildPuzzle(proceduralLayout, _level.procedural.gen.gridCellSize,
-                                                out _rides, out _);
+                                                _levelIndex, out _rides, out _);
         }
 
         if (GameManager.Instance != null)
@@ -1442,7 +1442,7 @@ public class AutomationDriveController : MonoBehaviour
         StreamedChunkView chunkView = CreateChunkView(chunk);
 
         _def = SelfDrivePlanner.BuildPuzzle(_streamingTown.Layout, _streamingTown.CellSize,
-                                            out List<GridRide> remappedRides, out int newStartFacing);
+                                            _levelIndex, out List<GridRide> remappedRides, out int newStartFacing);
         TransferRideState(oldRides, remappedRides);
         _rides = remappedRides;
         _startFacing = newStartFacing;

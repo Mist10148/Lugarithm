@@ -27,7 +27,10 @@ public static class FlowConnectLayouts
         return All[i];
     }
 
-    public static readonly FlowConnectLayout[] All = { Frame(), Bands(), Columns() };
+    public static readonly FlowConnectLayout[] All =
+    {
+        Frame(), Bands(), Columns(), LoomStripes(), CoastalTurns()
+    };
 
     // -------------------------------------------------------------------------
 
@@ -92,5 +95,59 @@ public static class FlowConnectLayouts
             sol[x]   = new[] { V(x, 0), V(x, 1), V(x, 2), V(x, 3), V(x, 4) };
         }
         return new FlowConnectLayout { Width = 5, Height = 5, Pairs = pairs, Solution = sol };
+    }
+
+    /// <summary>Six thin weave bands: more endpoints, still readable on the 5x5 board.</summary>
+    static FlowConnectLayout LoomStripes()
+    {
+        return new FlowConnectLayout
+        {
+            Width = 5, Height = 5,
+            Pairs = new[]
+            {
+                new FlowPair(V(0,0), V(4,0)),
+                new FlowPair(V(0,1), V(4,1)),
+                new FlowPair(V(0,2), V(4,2)),
+                new FlowPair(V(0,3), V(4,3)),
+                new FlowPair(V(0,4), V(2,4)),
+                new FlowPair(V(3,4), V(4,4)),
+            },
+            Solution = new[]
+            {
+                new[] { V(0,0), V(1,0), V(2,0), V(3,0), V(4,0) },
+                new[] { V(0,1), V(1,1), V(2,1), V(3,1), V(4,1) },
+                new[] { V(0,2), V(1,2), V(2,2), V(3,2), V(4,2) },
+                new[] { V(0,3), V(1,3), V(2,3), V(3,3), V(4,3) },
+                new[] { V(0,4), V(1,4), V(2,4) },
+                new[] { V(3,4), V(4,4) },
+            },
+        };
+    }
+
+    /// <summary>Frame-plus-bands board with a long outside turn and tight inner links.</summary>
+    static FlowConnectLayout CoastalTurns()
+    {
+        return new FlowConnectLayout
+        {
+            Width = 5, Height = 5,
+            Pairs = new[]
+            {
+                new FlowPair(V(0,0), V(4,4)),
+                new FlowPair(V(0,4), V(3,4)),
+                new FlowPair(V(0,1), V(0,3)),
+                new FlowPair(V(1,1), V(3,1)),
+                new FlowPair(V(1,2), V(3,2)),
+                new FlowPair(V(1,3), V(3,3)),
+            },
+            Solution = new[]
+            {
+                new[] { V(0,0), V(1,0), V(2,0), V(3,0), V(4,0), V(4,1), V(4,2), V(4,3), V(4,4) },
+                new[] { V(0,4), V(1,4), V(2,4), V(3,4) },
+                new[] { V(0,1), V(0,2), V(0,3) },
+                new[] { V(1,1), V(2,1), V(3,1) },
+                new[] { V(1,2), V(2,2), V(3,2) },
+                new[] { V(1,3), V(2,3), V(3,3) },
+            },
+        };
     }
 }

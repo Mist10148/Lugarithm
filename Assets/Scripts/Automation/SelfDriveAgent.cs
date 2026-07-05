@@ -56,6 +56,80 @@ public static class SelfDrivePlanner
         "\n" +
         "drive()\n";
 
+    public const string Level3ReferenceSolution =
+        "# Tigbauan pattern: name each repeated move once, then let the loop weave the trip.\n" +
+        "def drive():\n" +
+        "    while not routeComplete():\n" +
+        "        driveToDropoff()\n" +
+        "        tendStop()\n" +
+        "\n" +
+        "def tendStop():\n" +
+        "    handleDropoffs()\n" +
+        "    handlePassengers()\n" +
+        "    handleFares()\n" +
+        "\n" +
+        "def handlePassengers():\n" +
+        "    if passengerWaiting():\n" +
+        "        pickUp()\n" +
+        "\n" +
+        "def handleFares():\n" +
+        "    if hasPassengerAboard():\n" +
+        "        collectFare()\n" +
+        "        giveChange(changeOwed())\n" +
+        "\n" +
+        "def handleDropoffs():\n" +
+        "    if atRequestedStop():\n" +
+        "        dropOff()\n" +
+        "\n" +
+        "drive()\n";
+
+    public const string Level4ReferenceSolution =
+        "# Miag-ao facade logic: decisions inside decisions, like layers in the stone.\n" +
+        "def drive():\n" +
+        "    while not routeComplete():\n" +
+        "        driveToDropoff()\n" +
+        "        if atRequestedStop():\n" +
+        "            if hasPassengerAboard():\n" +
+        "                settleFare()\n" +
+        "                dropOff()\n" +
+        "        else:\n" +
+        "            if passengerWaiting():\n" +
+        "                if seatsLeft() > 0:\n" +
+        "                    pickUp()\n" +
+        "                    settleFare()\n" +
+        "\n" +
+        "def settleFare():\n" +
+        "    if fareOwed() > 0:\n" +
+        "        collectFare()\n" +
+        "        if changeOwed() > 0:\n" +
+        "            giveChange(changeOwed())\n" +
+        "\n" +
+        "drive()\n";
+
+    public const string Level5ReferenceSolution =
+        "# San Joaquin final road: hold seats, fares, change, and drop-offs together.\n" +
+        "def drive():\n" +
+        "    while not routeComplete():\n" +
+        "        driveToDropoff()\n" +
+        "        serveCurrentStop()\n" +
+        "\n" +
+        "def serveCurrentStop():\n" +
+        "    if atRequestedStop():\n" +
+        "        if fareOwed() > 0:\n" +
+        "            collectFare()\n" +
+        "        if changeOwed() > 0:\n" +
+        "            giveChange(changeOwed())\n" +
+        "        dropOff()\n" +
+        "    if passengerWaiting():\n" +
+        "        if seatsLeft() > 0:\n" +
+        "            pickUp()\n" +
+        "            if fareOwed() > 0:\n" +
+        "                collectFare()\n" +
+        "            if changeOwed() > 0:\n" +
+        "                giveChange(changeOwed())\n" +
+        "\n" +
+        "drive()\n";
+
     /// <summary>Synthesizes rides for an authored grid that has only generic 'P'
     /// stops (no committed per-passenger routes): every stop is a pickup bound for
     /// the terminal D. Lets the ride-mode autopilot drive authored levels too —
@@ -110,12 +184,18 @@ public static class SelfDrivePlanner
     /// </summary>
     public static AutomationPuzzleDefinition BuildPuzzle(TownLayout layout, float cellSize,
                                                          out List<GridRide> rides, out int startFacing)
+        => BuildPuzzle(layout, cellSize, levelIndex: 2, out rides, out startFacing);
+
+    public static AutomationPuzzleDefinition BuildPuzzle(TownLayout layout, float cellSize,
+                                                         int levelIndex,
+                                                         out List<GridRide> rides, out int startFacing)
     {
         string[] map = GridLayoutProjector.ToGridMap(layout, cellSize, out startFacing, out _);
         rides = RidesFromLayout(layout);
 
         GridModel grid = GridModel.Parse(map, out _);
         List<string> plan = Plan(grid, rides, startFacing, grid.DestPos);
+        AutomationPuzzleDefinition template = TemplateForLevel(levelIndex);
 
         return new AutomationPuzzleDefinition
         {
@@ -128,18 +208,102 @@ public static class SelfDrivePlanner
             allowedQueries  = NavQueries,
             allowedReporters = NavReporters,
             parSteps        = plan.Count,
-            softTimerSeconds = 600f,
-            goalText = "Endless run: the road never ends. Pick up riders, collect fares, give exact " +
-                       "change, and drop your story passenger at their stop (driveToDropoff()). The leg " +
-                       "completes when they're delivered — keepDriving() to cruise on and serve more.",
-            codeScaffold = "# Split the ride into helper functions, then call drive():\n" +
-                           "#   drive(), handlePassengers(), handleFares(), handleDropoffs()\n" +
-                           "# Navigation: driveToNextStop(), driveToDropoff(), keepDriving()\n" +
-                           "# Tend riders: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
-                           "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n" +
-                           "# Cruise forever:  while True:  keepDriving()\n",
-            optimalSolutionText = ReferenceSolution,
+            softTimerSeconds = template.softTimerSeconds,
+            goalText = template.goalText,
+            codeScaffold = template.codeScaffold,
+            optimalSolutionText = template.optimalSolutionText,
         };
+    }
+
+    public static AutomationPuzzleDefinition TemplateForLevel(int levelIndex)
+    {
+        switch (levelIndex)
+        {
+            case 3:
+                return new AutomationPuzzleDefinition
+                {
+                    gridMap = new[] { "#####", "#S.D#", "#####" },
+                    startFacing = 1,
+                    parSteps = 2,
+                    requireAllPassengersDelivered = false,
+                    allowedBlocks = NavBlocks,
+                    allowedQueries = NavQueries,
+                    allowedReporters = NavReporters,
+                    softTimerSeconds = 600f,
+                    goalText = "Tigbauan weave run: use helper functions and a loop to repeat the safe service pattern. " +
+                               "Drive to each needed stop, pick up riders, collect fares, give exact change, and drop " +
+                               "your story passenger at the marked weaving village stop.",
+                    codeScaffold =
+                        "# New idea: functions name the pattern; loops repeat it.\n" +
+                        "# Try helpers like drive(), tendStop(), handlePassengers(), handleFares().\n" +
+                        "# Navigation: driveToDropoff()\n" +
+                        "# Service: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
+                        "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n",
+                    optimalSolutionText = Level3ReferenceSolution,
+                };
+            case 4:
+                return new AutomationPuzzleDefinition
+                {
+                    gridMap = new[] { "#####", "#S.D#", "#####" },
+                    startFacing = 1,
+                    parSteps = 2,
+                    requireAllPassengersDelivered = false,
+                    allowedBlocks = NavBlocks,
+                    allowedQueries = NavQueries,
+                    allowedReporters = NavReporters,
+                    softTimerSeconds = 600f,
+                    goalText = "Miag-ao fortress run: decisions now sit inside other decisions. At each stop, check " +
+                               "drop-offs before pickups, settle fare/change, and only board riders when seats remain.",
+                    codeScaffold =
+                        "# New idea: nested if statements handle layered rules.\n" +
+                        "# Check requested stops, then passengers, then fare/change.\n" +
+                        "# Reporters: seatsLeft(), fareOwed(), changeOwed()\n" +
+                        "# Queries: atRequestedStop(), passengerWaiting(), hasPassengerAboard(), routeComplete()\n",
+                    optimalSolutionText = Level4ReferenceSolution,
+                };
+            case 5:
+                return new AutomationPuzzleDefinition
+                {
+                    gridMap = new[] { "#####", "#S.D#", "#####" },
+                    startFacing = 1,
+                    parSteps = 2,
+                    requireAllPassengersDelivered = false,
+                    allowedBlocks = NavBlocks,
+                    allowedQueries = NavQueries,
+                    allowedReporters = NavReporters,
+                    softTimerSeconds = 600f,
+                    goalText = "San Joaquin final road: balance several constraints at once. Watch seats, fares, " +
+                               "change, waiting riders, and requested drop-offs until the last passenger reaches Campo Santo.",
+                    codeScaffold =
+                        "# Final idea: coordinate many values at once.\n" +
+                        "# Use seatsLeft(), fareOwed(), changeOwed(), passengerWaiting(), atRequestedStop().\n" +
+                        "# Keep looping until routeComplete(), then the final reveal can land.\n",
+                    optimalSolutionText = Level5ReferenceSolution,
+                };
+            default:
+                return new AutomationPuzzleDefinition
+                {
+                    gridMap = new[] { "#####", "#S.D#", "#####" },
+                    startFacing = 1,
+                    parSteps = 2,
+                    requireAllPassengersDelivered = false,
+                    allowedBlocks = NavBlocks,
+                    allowedQueries = NavQueries,
+                    allowedReporters = NavReporters,
+                    softTimerSeconds = 600f,
+                    goalText = "Endless run: the road never ends. Pick up riders, collect fares, give exact " +
+                               "change, and drop your story passenger at their stop (driveToDropoff()). The leg " +
+                               "completes when they are delivered - keepDriving() to cruise on and serve more.",
+                    codeScaffold =
+                        "# Split the ride into helper functions, then call drive():\n" +
+                        "#   drive(), handlePassengers(), handleFares(), handleDropoffs()\n" +
+                        "# Navigation: driveToNextStop(), driveToDropoff(), keepDriving()\n" +
+                        "# Tend riders: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
+                        "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n" +
+                        "# Cruise forever:  while True:  keepDriving()\n",
+                    optimalSolutionText = ReferenceSolution,
+                };
+        }
     }
 
     /// <summary>

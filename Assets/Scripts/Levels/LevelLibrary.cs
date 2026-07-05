@@ -2,10 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Static source of truth for all level content. Tutorial and Level 1
-/// (Iloilo City / Molo) are fully authored; Levels 2–5 are locked stubs.
-/// The automation maps and their canonical solutions are verified by
-/// EditMode tests (Level1SolutionTests), so authoring mistakes fail CI.
+/// Static source of truth for all level content: Tutorial plus the five coastal
+/// towns. The automation maps and their canonical solutions are verified by
+/// EditMode tests, so authoring mistakes fail CI.
 /// </summary>
 public static class LevelLibrary
 {
@@ -30,9 +29,9 @@ public static class LevelLibrary
         {
             case 1:  return Level1Molo();
             case 2:  return Oton();
-            case 3:  return Stub(3);
-            case 4:  return Stub(4);
-            case 5:  return Stub(5);
+            case 3:  return Tigbauan();
+            case 4:  return Miagao();
+            case 5:  return SanJoaquin();
             default: return Tutorial();
         }
     }
@@ -414,6 +413,229 @@ public static class LevelLibrary
                     passengerCountMin = 2, passengerCountMax = 5,
                     passengerDensity  = 0.8f,
                     gridCellSize      = 6f,
+                },
+            },
+        };
+    }
+
+    // -------------------------------------------------------------------------
+
+    // -------------------------------------------------------------------------
+    // Level 3 - Tigbauan: functions + loops, hablon pattern road
+
+    static LevelDefinition Tigbauan()
+    {
+        var manual = new ManualRouteDefinition
+        {
+            waypoints = new[]
+            {
+                new Vector2(0f, 0f),
+                new Vector2(0f, 34f),
+                new Vector2(20f, 34f),
+                new Vector2(20f, 76f),
+                new Vector2(44f, 76f),
+                new Vector2(44f, 116f),
+                new Vector2(18f, 116f),
+                new Vector2(18f, 154f),
+                new Vector2(34f, 154f),
+                new Vector2(34f, 188f),
+            },
+            roadHalfWidth = 3f,
+            seatCapacity = 9,
+            breakdownAtRouteFraction = 0.48f,
+            parTimeSeconds = 260f,
+            stops = new[]
+            {
+                new ManualStopDefinition { stopName = "Oton Boundary", waypointIndex = 0, waitingPassengers = 0 },
+                new ManualStopDefinition { stopName = "Tigbauan Poblacion", waypointIndex = 1, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "San Juan de Sahagun", waypointIndex = 3, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "Bantayan Road", waypointIndex = 5, waitingPassengers = 3 },
+                new ManualStopDefinition { stopName = "Hablon Looms", waypointIndex = 7, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "Weaving Village", waypointIndex = 9, isDestination = true },
+            },
+        };
+
+        return new LevelDefinition
+        {
+            levelIndex = 3,
+            displayName = Names[3],
+            hasContent = true,
+            fares = new FareTable(),
+            townPuzzle = TownPuzzleKind.FlowConnect,
+            overworldSceneName = "TopDownLevel",
+            manual = manual,
+            auto = SelfDrivePlanner.TemplateForLevel(3),
+            procedural = new ProceduralLayoutDefinition
+            {
+                enabled = true,
+                trunk = manual.waypoints,
+                anchors = new[]
+                {
+                    new AnchorNode { name = "Oton Boundary", kind = AnchorKind.TerminalStart, position = manual.waypoints[0] },
+                    new AnchorNode { name = "Tigbauan Poblacion", kind = AnchorKind.HeritageSite, position = manual.waypoints[1] },
+                    new AnchorNode { name = "San Juan de Sahagun", kind = AnchorKind.HeritageSite, position = manual.waypoints[3] },
+                    new AnchorNode { name = "Bantayan Road", kind = AnchorKind.NpcDrop, position = manual.waypoints[5] },
+                    new AnchorNode { name = "Hablon Looms", kind = AnchorKind.HeritageSite, position = manual.waypoints[7] },
+                    new AnchorNode { name = "Weaving Village", kind = AnchorKind.TerminalEnd, position = manual.waypoints[9] },
+                },
+                gen = new TownGenParams
+                {
+                    branchCountMin = 0, branchCountMax = 0,
+                    branchSpacing = 18f,
+                    branchLenMin = 10f, branchLenMax = 16f,
+                    passengerCountMin = 4, passengerCountMax = 6,
+                    passengerDensity = 0.9f,
+                    gridCellSize = 6f,
+                },
+            },
+        };
+    }
+
+    // -------------------------------------------------------------------------
+    // Level 4 - Miag-ao: nested conditionals, layered facade road
+
+    static LevelDefinition Miagao()
+    {
+        var manual = new ManualRouteDefinition
+        {
+            waypoints = new[]
+            {
+                new Vector2(0f, 0f),
+                new Vector2(0f, 32f),
+                new Vector2(22f, 32f),
+                new Vector2(22f, 70f),
+                new Vector2(48f, 70f),
+                new Vector2(48f, 108f),
+                new Vector2(26f, 108f),
+                new Vector2(26f, 146f),
+                new Vector2(56f, 146f),
+                new Vector2(56f, 188f),
+                new Vector2(36f, 188f),
+                new Vector2(36f, 226f),
+            },
+            roadHalfWidth = 3f,
+            seatCapacity = 10,
+            breakdownAtRouteFraction = 0.52f,
+            parTimeSeconds = 300f,
+            stops = new[]
+            {
+                new ManualStopDefinition { stopName = "Tigbauan South Road", waypointIndex = 0, waitingPassengers = 0 },
+                new ManualStopDefinition { stopName = "Guimbal Crossing", waypointIndex = 2, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "Coastal Watch Road", waypointIndex = 4, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "Miag-ao Poblacion", waypointIndex = 6, waitingPassengers = 3 },
+                new ManualStopDefinition { stopName = "Indag-an Hablon", waypointIndex = 8, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "Miag-ao Church", waypointIndex = 11, isDestination = true },
+            },
+        };
+
+        return new LevelDefinition
+        {
+            levelIndex = 4,
+            displayName = Names[4],
+            hasContent = true,
+            fares = new FareTable(),
+            townPuzzle = TownPuzzleKind.FlowConnect,
+            overworldSceneName = "TopDownLevel",
+            manual = manual,
+            auto = SelfDrivePlanner.TemplateForLevel(4),
+            procedural = new ProceduralLayoutDefinition
+            {
+                enabled = true,
+                trunk = manual.waypoints,
+                anchors = new[]
+                {
+                    new AnchorNode { name = "Tigbauan South Road", kind = AnchorKind.TerminalStart, position = manual.waypoints[0] },
+                    new AnchorNode { name = "Guimbal Crossing", kind = AnchorKind.HeritageSite, position = manual.waypoints[2] },
+                    new AnchorNode { name = "Coastal Watch Road", kind = AnchorKind.NpcDrop, position = manual.waypoints[4] },
+                    new AnchorNode { name = "Miag-ao Poblacion", kind = AnchorKind.HeritageSite, position = manual.waypoints[6] },
+                    new AnchorNode { name = "Indag-an Hablon", kind = AnchorKind.NpcDrop, position = manual.waypoints[8] },
+                    new AnchorNode { name = "Miag-ao Church", kind = AnchorKind.TerminalEnd, position = manual.waypoints[11] },
+                },
+                gen = new TownGenParams
+                {
+                    branchCountMin = 0, branchCountMax = 0,
+                    branchSpacing = 18f,
+                    branchLenMin = 10f, branchLenMax = 16f,
+                    passengerCountMin = 5, passengerCountMax = 7,
+                    passengerDensity = 1f,
+                    gridCellSize = 6f,
+                },
+            },
+        };
+    }
+
+    // -------------------------------------------------------------------------
+    // Level 5 - San Joaquin: multi-variable constraints, final road
+
+    static LevelDefinition SanJoaquin()
+    {
+        var manual = new ManualRouteDefinition
+        {
+            waypoints = new[]
+            {
+                new Vector2(0f, 0f),
+                new Vector2(0f, 36f),
+                new Vector2(24f, 36f),
+                new Vector2(24f, 76f),
+                new Vector2(54f, 76f),
+                new Vector2(54f, 118f),
+                new Vector2(30f, 118f),
+                new Vector2(30f, 158f),
+                new Vector2(66f, 158f),
+                new Vector2(66f, 204f),
+                new Vector2(42f, 204f),
+                new Vector2(42f, 250f),
+                new Vector2(72f, 250f),
+                new Vector2(72f, 294f),
+            },
+            roadHalfWidth = 3f,
+            seatCapacity = 10,
+            breakdownAtRouteFraction = 0.6f,
+            parTimeSeconds = 330f,
+            stops = new[]
+            {
+                new ManualStopDefinition { stopName = "Miag-ao Boundary", waypointIndex = 0, waitingPassengers = 0 },
+                new ManualStopDefinition { stopName = "Southern Coast", waypointIndex = 1, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "San Joaquin Poblacion", waypointIndex = 3, waitingPassengers = 3 },
+                new ManualStopDefinition { stopName = "Battle Facade", waypointIndex = 5, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "Sea Road", waypointIndex = 7, waitingPassengers = 3 },
+                new ManualStopDefinition { stopName = "Campo Santo Road", waypointIndex = 10, waitingPassengers = 2 },
+                new ManualStopDefinition { stopName = "Campo Santo", waypointIndex = 13, isDestination = true },
+            },
+        };
+
+        return new LevelDefinition
+        {
+            levelIndex = 5,
+            displayName = Names[5],
+            hasContent = true,
+            fares = new FareTable(),
+            townPuzzle = TownPuzzleKind.FlowConnect,
+            overworldSceneName = "TopDownLevel",
+            manual = manual,
+            auto = SelfDrivePlanner.TemplateForLevel(5),
+            procedural = new ProceduralLayoutDefinition
+            {
+                enabled = true,
+                trunk = manual.waypoints,
+                anchors = new[]
+                {
+                    new AnchorNode { name = "Miag-ao Boundary", kind = AnchorKind.TerminalStart, position = manual.waypoints[0] },
+                    new AnchorNode { name = "Southern Coast", kind = AnchorKind.NpcDrop, position = manual.waypoints[1] },
+                    new AnchorNode { name = "San Joaquin Poblacion", kind = AnchorKind.HeritageSite, position = manual.waypoints[3] },
+                    new AnchorNode { name = "Battle Facade", kind = AnchorKind.HeritageSite, position = manual.waypoints[5] },
+                    new AnchorNode { name = "Sea Road", kind = AnchorKind.NpcDrop, position = manual.waypoints[7] },
+                    new AnchorNode { name = "Campo Santo Road", kind = AnchorKind.HeritageSite, position = manual.waypoints[10] },
+                    new AnchorNode { name = "Campo Santo", kind = AnchorKind.TerminalEnd, position = manual.waypoints[13] },
+                },
+                gen = new TownGenParams
+                {
+                    branchCountMin = 0, branchCountMax = 0,
+                    branchSpacing = 18f,
+                    branchLenMin = 10f, branchLenMax = 16f,
+                    passengerCountMin = 6, passengerCountMax = 8,
+                    passengerDensity = 1f,
+                    gridCellSize = 6f,
                 },
             },
         };

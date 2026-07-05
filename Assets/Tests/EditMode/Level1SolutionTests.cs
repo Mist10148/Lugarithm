@@ -123,7 +123,7 @@ public class Level1SolutionTests
     // Library shape
 
     [Test]
-    public void Library_HasSixLevels_WithTutorialAndLevel1Playable()
+    public void Library_HasSixPlayableLevels()
     {
         Assert.AreEqual(6, LevelLibrary.Count);
         Assert.AreEqual(ProgressionRules.LevelCount, LevelLibrary.Count);
@@ -133,18 +133,14 @@ public class Level1SolutionTests
             var def = LevelLibrary.Get(i);
             Assert.AreEqual(i, def.levelIndex);
             Assert.IsFalse(string.IsNullOrEmpty(def.displayName));
+            Assert.IsTrue(def.hasContent, $"level {i} should be playable");
         }
-
-        Assert.IsTrue(LevelLibrary.Get(0).hasContent);
-        Assert.IsTrue(LevelLibrary.Get(1).hasContent);
-        Assert.IsTrue(LevelLibrary.Get(2).hasContent);   // Oton is now playable
-        Assert.IsFalse(LevelLibrary.Get(3).hasContent);
     }
 
     [Test]
     public void PlayableLevels_HaveManualRoutesWithOneDestination()
     {
-        foreach (int i in new[] { 0, 1, 2 })
+        for (int i = 0; i < LevelLibrary.Count; i++)
         {
             ManualRouteDefinition route = LevelLibrary.Get(i).manual;
             Assert.IsNotNull(route, $"level {i} needs a manual route");
@@ -159,6 +155,25 @@ public class Level1SolutionTests
             }
 
             Assert.AreEqual(1, destinations, $"level {i} needs exactly one destination stop");
+        }
+    }
+
+    [Test]
+    public void Levels3To5_HaveProceduralTownsEnabled()
+    {
+        for (int i = 3; i <= 5; i++)
+        {
+            LevelDefinition def = LevelLibrary.Get(i);
+            Assert.IsNotNull(def.procedural, $"level {i} needs procedural town data");
+            Assert.IsTrue(def.procedural.enabled, $"level {i} procedural town should be enabled");
+            Assert.GreaterOrEqual(def.procedural.anchors.Length, 4, $"level {i} needs story anchors");
+
+            for (int seed = 0; seed < 10; seed++)
+            {
+                TownLayout layout = TownLayoutGenerator.Generate(def.procedural, def.fares, seed);
+                Assert.IsTrue(TownLayoutGenerator.IsSolvable(layout, def.procedural.gen.gridCellSize),
+                    $"level {i}, seed {seed}: generated town must be solvable");
+            }
         }
     }
 }

@@ -4,23 +4,23 @@ using NUnit.Framework;
 public class ProgressionRulesTests
 {
     [Test]
-    public void FreshSave_OnlyTutorialUnlocked()
+    public void FreshSave_UnlocksAllPlayableLevels()
     {
         var save = new SaveData();
-        Assert.IsTrue(ProgressionRules.IsUnlocked(save, 0));
-        Assert.IsFalse(ProgressionRules.IsUnlocked(save, 1));
-        Assert.IsFalse(ProgressionRules.IsCompleted(save, 0));
+        for (int level = 0; level < ProgressionRules.LevelCount; level++)
+            Assert.IsTrue(ProgressionRules.IsUnlocked(save, level), $"level {level} should be unlocked");
+        Assert.IsFalse(ProgressionRules.IsCompleted(save, 5));
     }
 
     [Test]
-    public void CompletingTutorial_UnlocksLevel1()
+    public void CompletingEarlyLevel_DoesNotRegressFullUnlockFrontier()
     {
         var save = new SaveData();
         ProgressionRules.CompleteLevel(save, 0);
 
         Assert.IsTrue(ProgressionRules.IsCompleted(save, 0));
-        Assert.IsTrue(ProgressionRules.IsUnlocked(save, 1));
-        Assert.IsFalse(ProgressionRules.IsUnlocked(save, 2));
+        Assert.AreEqual(5, save.currentLevelIndex);
+        Assert.IsTrue(ProgressionRules.IsUnlocked(save, 5));
     }
 
     [Test]
@@ -48,7 +48,7 @@ public class ProgressionRulesTests
         ProgressionRules.CompleteLevel(save, 7);   // no-op
         ProgressionRules.CompleteLevel(save, -1);  // no-op
 
-        Assert.AreEqual(0, save.currentLevelIndex);
+        Assert.AreEqual(5, save.currentLevelIndex);
         Assert.IsFalse(ProgressionRules.IsUnlocked(save, -1));
     }
 

@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class TownLayoutGeneratorTests
 {
+    static readonly int[] ProceduralLevels = { 2, 3, 4, 5 };
+
     static ProceduralLayoutDefinition OtonDef() => LevelLibrary.Get(2).procedural;
 
     static TownLayout Gen(int seed) =>
@@ -20,12 +22,16 @@ public class TownLayoutGeneratorTests
     [Test]
     public void EverySeed_ProducesASolvableTown()
     {
-        ProceduralLayoutDefinition def = OtonDef();
-        for (int seed = 0; seed < 50; seed++)
+        foreach (int level in ProceduralLevels)
         {
-            TownLayout layout = TownLayoutGenerator.Generate(def, new FareTable(), seed);
-            Assert.IsTrue(TownLayoutGenerator.IsSolvable(layout, def.gen.gridCellSize),
-                $"seed {seed}: generated town must be solvable in graph and grid");
+            LevelDefinition levelDef = LevelLibrary.Get(level);
+            ProceduralLayoutDefinition def = levelDef.procedural;
+            for (int seed = 0; seed < 50; seed++)
+            {
+                TownLayout layout = TownLayoutGenerator.Generate(def, levelDef.fares, seed);
+                Assert.IsTrue(TownLayoutGenerator.IsSolvable(layout, def.gen.gridCellSize),
+                    $"level {level}, seed {seed}: generated town must be solvable in graph and grid");
+            }
         }
     }
 
@@ -104,14 +110,17 @@ public class TownLayoutGeneratorTests
     [Test]
     public void BranchCount_StaysWithinBounds()
     {
-        ProceduralLayoutDefinition def = OtonDef();
-        for (int seed = 0; seed < 40; seed++)
+        foreach (int level in ProceduralLevels)
         {
-            TownLayout layout = Gen(seed);
-            int branches = 0;
-            foreach (TownEdge e in layout.edges) if (!e.isTrunk) branches++;
-            Assert.LessOrEqual(branches, def.gen.branchCountMax, $"seed {seed}: branch cap");
-            Assert.GreaterOrEqual(branches, 0, $"seed {seed}");
+            ProceduralLayoutDefinition def = LevelLibrary.Get(level).procedural;
+            for (int seed = 0; seed < 40; seed++)
+            {
+                TownLayout layout = TownLayoutGenerator.Generate(def, new FareTable(), seed);
+                int branches = 0;
+                foreach (TownEdge e in layout.edges) if (!e.isTrunk) branches++;
+                Assert.LessOrEqual(branches, def.gen.branchCountMax, $"level {level}, seed {seed}: branch cap");
+                Assert.GreaterOrEqual(branches, 0, $"level {level}, seed {seed}");
+            }
         }
     }
 
@@ -121,27 +130,33 @@ public class TownLayoutGeneratorTests
     [Test]
     public void Requests_BoardEarly_AlightLater_WithMatchingFare()
     {
-        var fares = new FareTable();
-        ProceduralLayoutDefinition def = OtonDef();
-
-        for (int seed = 0; seed < 40; seed++)
+        foreach (int level in ProceduralLevels)
         {
-            TownLayout layout = TownLayoutGenerator.Generate(def, fares, seed);
-
-            Assert.LessOrEqual(layout.requests.Count, def.gen.passengerCountMax, $"seed {seed}: rider cap");
-
-            foreach (PassengerRequest r in layout.requests)
+            LevelDefinition levelDef = LevelLibrary.Get(level);
+            ProceduralLayoutDefinition def = levelDef.procedural;
+            for (int seed = 0; seed < 40; seed++)
             {
-                TownNode origin = layout.Node(r.originNodeId);
-                TownNode dest   = layout.Node(r.destNodeId);
+                TownLayout layout = TownLayoutGenerator.Generate(def, levelDef.fares, seed);
 
-                Assert.AreNotEqual(r.originNodeId, r.destNodeId, $"seed {seed}: rider {r.id} must travel");
-                Assert.GreaterOrEqual(dest.alongTrunk, origin.alongTrunk,
-                    $"seed {seed}: rider {r.id} alights later than they board");
-                Assert.IsTrue(origin.IsStop && dest.IsStop, $"seed {seed}: rider {r.id} uses stop nodes");
-                Assert.AreEqual(FareMath.ComputeFare(r.stopsTraveled, fares), r.fare,
-                    $"seed {seed}: rider {r.id} fare matches FareMath");
-                Assert.GreaterOrEqual(r.tender, r.fare, $"seed {seed}: rider {r.id} tenders enough");
+                Assert.LessOrEqual(layout.requests.Count, def.gen.passengerCountMax,
+                    $"level {level}, seed {seed}: rider cap");
+
+                foreach (PassengerRequest r in layout.requests)
+                {
+                    TownNode origin = layout.Node(r.originNodeId);
+                    TownNode dest   = layout.Node(r.destNodeId);
+
+                    Assert.AreNotEqual(r.originNodeId, r.destNodeId,
+                        $"level {level}, seed {seed}: rider {r.id} must travel");
+                    Assert.GreaterOrEqual(dest.alongTrunk, origin.alongTrunk,
+                        $"level {level}, seed {seed}: rider {r.id} alights later than they board");
+                    Assert.IsTrue(origin.IsStop && dest.IsStop,
+                        $"level {level}, seed {seed}: rider {r.id} uses stop nodes");
+                    Assert.AreEqual(FareMath.ComputeFare(r.stopsTraveled, levelDef.fares), r.fare,
+                        $"level {level}, seed {seed}: rider {r.id} fare matches FareMath");
+                    Assert.GreaterOrEqual(r.tender, r.fare,
+                        $"level {level}, seed {seed}: rider {r.id} tenders enough");
+                }
             }
         }
     }

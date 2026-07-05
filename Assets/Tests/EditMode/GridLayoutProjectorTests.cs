@@ -9,32 +9,36 @@ using UnityEngine;
 /// </summary>
 public class GridLayoutProjectorTests
 {
-    static ProceduralLayoutDefinition OtonDef() => LevelLibrary.Get(2).procedural;
+    static readonly int[] ProceduralLevels = { 2, 3, 4, 5 };
 
     [Test]
     public void Projection_ParsesCleanly_WithOneStartAndDest()
     {
-        ProceduralLayoutDefinition def = OtonDef();
-        for (int seed = 0; seed < 40; seed++)
+        foreach (int level in ProceduralLevels)
         {
-            TownLayout layout = TownLayoutGenerator.Generate(def, new FareTable(), seed);
-            string[] map = GridLayoutProjector.ToGridMap(layout, def.gen.gridCellSize, out int facing, out var projErrors);
+            LevelDefinition levelDef = LevelLibrary.Get(level);
+            ProceduralLayoutDefinition def = levelDef.procedural;
+            for (int seed = 0; seed < 40; seed++)
+            {
+                TownLayout layout = TownLayoutGenerator.Generate(def, levelDef.fares, seed);
+                string[] map = GridLayoutProjector.ToGridMap(layout, def.gen.gridCellSize, out int facing, out var projErrors);
 
-            CollectionAssert.IsEmpty(projErrors, $"seed {seed}: projection errors");
+                CollectionAssert.IsEmpty(projErrors, $"level {level}, seed {seed}: projection errors");
 
-            GridModel grid = GridModel.Parse(map, out var mapErrors);
-            CollectionAssert.IsEmpty(mapErrors, $"seed {seed}: grid parse errors");
+                GridModel grid = GridModel.Parse(map, out var mapErrors);
+                CollectionAssert.IsEmpty(mapErrors, $"level {level}, seed {seed}: grid parse errors");
 
-            Assert.GreaterOrEqual(facing, 0);
-            Assert.Less(facing, 4, $"seed {seed}: valid start facing");
-            Assert.AreNotEqual(grid.StartPos, grid.DestPos, $"seed {seed}: S and D distinct");
+                Assert.GreaterOrEqual(facing, 0);
+                Assert.Less(facing, 4, $"level {level}, seed {seed}: valid start facing");
+                Assert.AreNotEqual(grid.StartPos, grid.DestPos, $"level {level}, seed {seed}: S and D distinct");
+            }
         }
     }
 
     [Test]
     public void Projection_FillsEveryNodeGridCell()
     {
-        ProceduralLayoutDefinition def = OtonDef();
+        ProceduralLayoutDefinition def = LevelLibrary.Get(2).procedural;
         TownLayout layout = TownLayoutGenerator.Generate(def, new FareTable(), 7);
         GridLayoutProjector.ToGridMap(layout, def.gen.gridCellSize, out _, out _);
 
@@ -56,20 +60,24 @@ public class GridLayoutProjectorTests
     [Test]
     public void StopCells_MatchParsedGrid()
     {
-        ProceduralLayoutDefinition def = OtonDef();
-        TownLayout layout = TownLayoutGenerator.Generate(def, new FareTable(), 3);
-        string[] map = GridLayoutProjector.ToGridMap(layout, def.gen.gridCellSize, out _, out _);
-        GridModel grid = GridModel.Parse(map, out _);
-
-        // Every procedural stop node lands on a 'P' cell, reachable from start.
-        foreach (TownNode n in layout.nodes)
+        foreach (int level in ProceduralLevels)
         {
-            if (n.kind == NodeKind.TerminalStart || n.kind == NodeKind.TerminalEnd || !n.IsStop)
-                continue;
-            Assert.AreEqual(GridModel.Cell.Stop, grid.Get(n.gridCell),
-                $"stop '{n.name}' should be a 'P' cell");
-            Assert.IsTrue(GridPathfinder.Reachable(grid, grid.StartPos, n.gridCell),
-                $"stop '{n.name}' must be reachable");
+            LevelDefinition levelDef = LevelLibrary.Get(level);
+            ProceduralLayoutDefinition def = levelDef.procedural;
+            TownLayout layout = TownLayoutGenerator.Generate(def, levelDef.fares, 3);
+            string[] map = GridLayoutProjector.ToGridMap(layout, def.gen.gridCellSize, out _, out _);
+            GridModel grid = GridModel.Parse(map, out _);
+
+            // Every procedural stop node lands on a 'P' cell, reachable from start.
+            foreach (TownNode n in layout.nodes)
+            {
+                if (n.kind == NodeKind.TerminalStart || n.kind == NodeKind.TerminalEnd || !n.IsStop)
+                    continue;
+                Assert.AreEqual(GridModel.Cell.Stop, grid.Get(n.gridCell),
+                    $"level {level}: stop '{n.name}' should be a 'P' cell");
+                Assert.IsTrue(GridPathfinder.Reachable(grid, grid.StartPos, n.gridCell),
+                    $"level {level}: stop '{n.name}' must be reachable");
+            }
         }
     }
 }

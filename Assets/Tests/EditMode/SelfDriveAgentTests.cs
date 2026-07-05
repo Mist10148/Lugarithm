@@ -10,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class SelfDriveAgentTests
 {
+    static readonly int[] ProceduralLevels = { 2, 3, 4, 5 };
+
     class Run
     {
         public GridModel grid;
@@ -18,13 +20,16 @@ public class SelfDriveAgentTests
         public int facing;
     }
 
-    static Run Build(int seed)
+    static Run Build(int seed) => Build(2, seed);
+
+    static Run Build(int level, int seed)
     {
-        ProceduralLayoutDefinition pdef = LevelLibrary.Get(2).procedural;
-        TownLayout layout = TownLayoutGenerator.Generate(pdef, new FareTable(), seed);
+        LevelDefinition levelDef = LevelLibrary.Get(level);
+        ProceduralLayoutDefinition pdef = levelDef.procedural;
+        TownLayout layout = TownLayoutGenerator.Generate(pdef, levelDef.fares, seed);
 
         var run = new Run();
-        run.def  = SelfDrivePlanner.BuildPuzzle(layout, pdef.gen.gridCellSize, out run.rides, out run.facing);
+        run.def  = SelfDrivePlanner.BuildPuzzle(layout, pdef.gen.gridCellSize, level, out run.rides, out run.facing);
         run.grid = GridModel.Parse(run.def.gridMap, out _);
         return run;
     }
@@ -42,19 +47,22 @@ public class SelfDriveAgentTests
     [Test]
     public void EverySeed_DeliversEveryRider_CollectsFares_AndReachesDestination()
     {
-        for (int seed = 0; seed < 40; seed++)
+        foreach (int level in ProceduralLevels)
         {
-            Run r = Build(seed);
-            Assert.Greater(r.rides.Count, 0, $"seed {seed}: should have riders");
+            for (int seed = 0; seed < 25; seed++)
+            {
+                Run r = Build(level, seed);
+                Assert.Greater(r.rides.Count, 0, $"level {level}, seed {seed}: should have riders");
 
-            AgentSim sim = RunAutopilot(r);
+                AgentSim sim = RunAutopilot(r);
 
-            Assert.IsTrue(sim.IsWin(r.def), $"seed {seed}: {sim.DescribeGoalGap(r.def)}");
-            Assert.AreEqual(r.rides.Count, sim.PassengersDelivered, $"seed {seed}: all delivered");
+                Assert.IsTrue(sim.IsWin(r.def), $"level {level}, seed {seed}: {sim.DescribeGoalGap(r.def)}");
+                Assert.AreEqual(r.rides.Count, sim.PassengersDelivered, $"level {level}, seed {seed}: all delivered");
 
-            int expectedFares = 0;
-            foreach (GridRide ride in r.rides) expectedFares += ride.fare;
-            Assert.AreEqual(expectedFares, sim.FaresCollected, $"seed {seed}: every fare collected");
+                int expectedFares = 0;
+                foreach (GridRide ride in r.rides) expectedFares += ride.fare;
+                Assert.AreEqual(expectedFares, sim.FaresCollected, $"level {level}, seed {seed}: every fare collected");
+            }
         }
     }
 
@@ -73,8 +81,11 @@ public class SelfDriveAgentTests
     [Test]
     public void ReferenceSolution_Compiles()
     {
-        Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
-        CollectionAssert.IsEmpty(errors, "the displayed reference solution must compile");
+        foreach (int level in ProceduralLevels)
+        {
+            Parser.Compile(SelfDrivePlanner.TemplateForLevel(level).optimalSolutionText, out var errors);
+            CollectionAssert.IsEmpty(errors, $"level {level} displayed reference solution must compile");
+        }
     }
 
     // The function-structured autopilot (def drive()/handlePassengers()/handleFares()/
@@ -83,21 +94,25 @@ public class SelfDriveAgentTests
     [Test]
     public void ReferenceSolution_FunctionStructured_DrivesEverySeedToAWin()
     {
-        ProceduralLayoutDefinition pdef = LevelLibrary.Get(2).procedural;
-        ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
-        CollectionAssert.IsEmpty(errors);
-
-        for (int seed = 0; seed < 20; seed++)
+        foreach (int level in ProceduralLevels)
         {
-            TownLayout layout = TownLayoutGenerator.Generate(pdef, new FareTable(), seed);
-            AutomationPuzzleDefinition def = SelfDrivePlanner.BuildPuzzle(
-                layout, pdef.gen.gridCellSize, out List<GridRide> rides, out int facing);
-            GridModel grid = GridModel.Parse(def.gridMap, out _);
-            var sim = new AgentSim(grid, new FareTable(), facing);
-            sim.LoadRides(rides);
+            LevelDefinition levelDef = LevelLibrary.Get(level);
+            ProceduralLayoutDefinition pdef = levelDef.procedural;
+            ProgramNode program = Parser.Compile(SelfDrivePlanner.TemplateForLevel(level).optimalSolutionText, out var errors);
+            CollectionAssert.IsEmpty(errors, $"level {level} compile errors");
 
-            Assert.IsTrue(HeadlessProgramRunner.Verify(program, sim, def, out string gap),
-                $"seed {seed}: {gap}");
+            for (int seed = 0; seed < 12; seed++)
+            {
+                TownLayout layout = TownLayoutGenerator.Generate(pdef, levelDef.fares, seed);
+                AutomationPuzzleDefinition def = SelfDrivePlanner.BuildPuzzle(
+                    layout, pdef.gen.gridCellSize, level, out List<GridRide> rides, out int facing);
+                GridModel grid = GridModel.Parse(def.gridMap, out _);
+                var sim = new AgentSim(grid, levelDef.fares, facing);
+                sim.LoadRides(rides);
+
+                Assert.IsTrue(HeadlessProgramRunner.Verify(program, sim, def, out string gap),
+                    $"level {level}, seed {seed}: {gap}");
+            }
         }
     }
 
