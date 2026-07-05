@@ -106,6 +106,10 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
+# Unity auto-recovery / backup scenes
+/[Aa]ssets/_Recovery/
+/[Aa]ssets/_Recovery.meta
+
 # AI config — contains API keys, never commit
 /[Aa]ssets/[Rr]esources/ai_config.json
 /[Aa]ssets/[Rr]esources/ai_config.json.meta
