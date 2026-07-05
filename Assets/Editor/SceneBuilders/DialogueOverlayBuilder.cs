@@ -17,7 +17,8 @@ public static class DialogueOverlayBuilder
     /// </summary>
     public static DialogueController BuildDriveDialogue(Transform parent,
                                                         Vector2? boxSize = null,
-                                                        Vector2? boxAnchoredPos = null)
+                                                        Vector2? boxAnchoredPos = null,
+                                                        bool tutorialPixelTheme = false)
     {
         Vector2 dlgSize = boxSize ?? new Vector2(1160f, 196f);
         Vector2 dlgPos  = boxAnchoredPos ?? new Vector2(-24f, 24f);
@@ -164,6 +165,45 @@ public static class DialogueOverlayBuilder
         SceneBuilderUtil.Wire(controller, "journalCard",           journalCard);
         SceneBuilderUtil.Wire(controller, "speakerPortrait",       portraitImg);
         SceneBuilderUtil.Wire(controller, "speakerInitials",       speakerInitials);
+
+        if (tutorialPixelTheme)
+        {
+            root.anchorMin = new Vector2(0.5f, 0f);
+            root.anchorMax = new Vector2(0.5f, 0f);
+            root.pivot = new Vector2(0.5f, 0f);
+            root.anchoredPosition = new Vector2(0f, 32f);
+            root.sizeDelta = new Vector2(920f, 250f);
+
+            UIFactory.Place(portraitFrame, new Vector2(0f, 1f),
+                            new Vector2(24f, -24f), new Vector2(82f, 82f));
+            portraitImg.color = new Color(0.22f, 0.42f, 0.38f, 1f);
+
+            UIFactory.Place(speakerLabel, new Vector2(0f, 1f),
+                            new Vector2(126f, -24f), new Vector2(570f, 38f));
+            UIFactory.Place(nameUnderline, new Vector2(0f, 1f),
+                            new Vector2(126f, -66f), new Vector2(360f, 3f));
+
+            bodyLabel.rectTransform.offsetMin = new Vector2(126f, 30f);
+            bodyLabel.rectTransform.offsetMax = new Vector2(-184f, -78f);
+            bodyLabel.fontSizeMin = 16f;
+            bodyLabel.fontSizeMax = 21f;
+            bodyLabel.lineSpacing = 2f;
+
+            UIFactory.Place(skipBtn, new Vector2(1f, 1f),
+                            new Vector2(-20f, -24f), new Vector2(140f, 44f));
+            UIFactory.Place(nextBtn, new Vector2(1f, 0f),
+                            new Vector2(-20f, 24f), new Vector2(140f, 46f));
+            UIFactory.Place(continueIndicator, new Vector2(1f, 0f),
+                            new Vector2(-172f, 30f), new Vector2(28f, 32f));
+
+            choiceRoot.offsetMin = new Vector2(-700f, -250f);
+            choiceRoot.offsetMax = new Vector2(-40f, 250f);
+            choiceTemplate.GetComponent<RectTransform>().sizeDelta = new Vector2(620f, 62f);
+
+            UIFactory.ApplyTutorialPixelTheme(revealRoot);
+            UIFactory.ApplyTutorialPixelTheme(choiceRoot);
+            UIFactory.ApplyTutorialPixelTheme(root);
+        }
 
         // Hide by default until a conversation starts.
         root.gameObject.SetActive(false);

@@ -29,7 +29,8 @@ public static class MinigameOverlayBuilder
     /// Non-code drills show outcome + score; code drills also reveal a CODE ANALYSIS
     /// block (hidden by default, toggled on by <see cref="MinigameResultsPanel"/>).
     /// </summary>
-    internal static MinigameResultsPanel BuildResultsCard(Transform parent)
+    internal static MinigameResultsPanel BuildResultsCard(Transform parent,
+                                                          bool tutorialPixelTheme = false)
     {
         var overlay = UIFactory.CreatePanel(parent, "MinigameResultsOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.8f));
@@ -128,6 +129,8 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(panel, "referenceSourceLabel", referenceText);
         SceneBuilderUtil.Wire(panel, "mentorLabel", mentor);
         SceneBuilderUtil.Wire(panel, "continueButton", cont);
+        if (tutorialPixelTheme)
+            UIFactory.ApplyTutorialPixelTheme(overlay);
         return panel;
     }
 
@@ -136,7 +139,8 @@ public static class MinigameOverlayBuilder
     // interacts with a puzzle/code station; describes the (not-yet-wired) game and
     // lets them "start" it (counts it as solved for the three-objectives loop).
 
-    public static MinigamePlaceholderPanel BuildMinigamePlaceholder(Transform parent)
+    public static MinigamePlaceholderPanel BuildMinigamePlaceholder(
+        Transform parent, bool tutorialPixelTheme = false)
     {
         var overlay = UIFactory.CreatePanel(parent, "MinigamePlaceholderOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.78f));
@@ -195,6 +199,8 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(panel, "leaveButton",      leave);
         SceneBuilderUtil.Wire(panel, "startButtonLabel", start.GetComponentInChildren<TMP_Text>(true));
 
+        if (tutorialPixelTheme)
+            UIFactory.ApplyTutorialPixelTheme(overlay);
         return panel;
     }
 
@@ -202,7 +208,8 @@ public static class MinigameOverlayBuilder
     // Overworld grid puzzle (Maze / BlockFill / PatternMatch) — a 6×6 board of
     // clickable cells reused across the three non-code station kinds.
 
-    public static GridPuzzleMinigame BuildGridPuzzle(Transform parent)
+    public static GridPuzzleMinigame BuildGridPuzzle(
+        Transform parent, bool tutorialPixelTheme = false)
     {
         var overlay = UIFactory.CreatePanel(parent, "GridPuzzleOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.82f));
@@ -271,13 +278,39 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.WireArray(game, "cellButtons", buttons);
         SceneBuilderUtil.Wire(game, "resetButton",      reset);
         SceneBuilderUtil.Wire(game, "quitButton",       quit);
+        if (tutorialPixelTheme)
+        {
+            UIFactory.Place(window, new Vector2(0.5f, 0.5f),
+                            Vector2.zero, new Vector2(760f, 820f));
+            UIFactory.Place(title, new Vector2(0.5f, 1f),
+                            new Vector2(0f, -28f), new Vector2(680f, 42f));
+            UIFactory.Place(instruction, new Vector2(0.5f, 1f),
+                            new Vector2(0f, -82f), new Vector2(660f, 56f));
+            UIFactory.Place(grid, new Vector2(0.5f, 0.5f),
+                            new Vector2(0f, -4f), new Vector2(540f, 540f));
+            UIFactory.Place(feedback, new Vector2(0.5f, 0f),
+                            new Vector2(0f, 108f), new Vector2(680f, 34f));
+            UIFactory.Place(reset, new Vector2(0.5f, 0f),
+                            new Vector2(-122f, 34f), new Vector2(210f, 58f));
+            UIFactory.Place(quit, new Vector2(0.5f, 0f),
+                            new Vector2(122f, 34f), new Vector2(210f, 58f));
+
+            foreach (Image cell in images)
+            {
+                cell.sprite = UIFactory.BuiltinSprite("UISprite.psd");
+                cell.type = Image.Type.Sliced;
+                cell.color = UIFactory.TutorialCell;
+            }
+            UIFactory.ApplyTutorialPixelTheme(overlay);
+        }
         return game;
     }
 
     // -------------------------------------------------------------------------
     // Overworld coding challenge — reorder shuffled program lines (concept-tied).
 
-    public static CodeOrderMinigame BuildCodeOrder(Transform parent)
+    public static CodeOrderMinigame BuildCodeOrder(
+        Transform parent, bool tutorialPixelTheme = false)
     {
         var overlay = UIFactory.CreatePanel(parent, "CodeOrderOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.82f));
@@ -348,7 +381,7 @@ public static class MinigameOverlayBuilder
         UIFactory.Place(quit, new Vector2(0.5f, 0f), new Vector2(120f, 28f), new Vector2(200f, 56f));
 
         var game = overlay.gameObject.AddComponent<CodeOrderMinigame>();
-        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent));
+        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent, tutorialPixelTheme));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "goalLabel",     goal);
@@ -361,10 +394,23 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(game, "quitButton", quit);
         SceneBuilderUtil.Wire(game, "hintButton", hint);
         SceneBuilderUtil.Wire(game, "hintLabel",  hintText);
+        if (tutorialPixelTheme)
+        {
+            UIFactory.Place(window, new Vector2(0.5f, 0.5f),
+                            Vector2.zero, new Vector2(800f, 760f));
+            UIFactory.Place(title, new Vector2(0.5f, 1f),
+                            new Vector2(0f, -24f), new Vector2(720f, 42f));
+            UIFactory.Place(goal, new Vector2(0.5f, 1f),
+                            new Vector2(0f, -74f), new Vector2(700f, 52f));
+            UIFactory.Place(list, new Vector2(0.5f, 1f),
+                            new Vector2(0f, -142f), new Vector2(660f, 396f));
+            UIFactory.ApplyTutorialPixelTheme(overlay);
+        }
         return game;
     }
 
-    public static FlowConnectMinigame BuildFlowConnect(Transform parent)
+    public static FlowConnectMinigame BuildFlowConnect(
+        Transform parent, bool tutorialPixelTheme = false)
     {
         var overlay = UIFactory.CreatePanel(parent, "FlowConnectOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.80f));
@@ -437,7 +483,7 @@ public static class MinigameOverlayBuilder
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(660f, 32f));
 
         var game = overlay.gameObject.AddComponent<FlowConnectMinigame>();
-        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent));
+        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent, tutorialPixelTheme));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
@@ -445,13 +491,16 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(game, "resetButton",   reset);
         SceneBuilderUtil.Wire(game, "timerFill",     timerFill);
 
+        if (tutorialPixelTheme)
+            UIFactory.ApplyTutorialPixelTheme(overlay);
         return game;
     }
 
     // -------------------------------------------------------------------------
     // Crate Stack town gate (Oton): reorder crates heaviest-at-bottom.
 
-    public static CrateStackMinigame BuildCrateStack(Transform parent)
+    public static CrateStackMinigame BuildCrateStack(
+        Transform parent, bool tutorialPixelTheme = false)
     {
         var overlay = UIFactory.CreatePanel(parent, "CrateStackOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.80f));
@@ -509,7 +558,7 @@ public static class MinigameOverlayBuilder
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(660f, 32f));
 
         var game = overlay.gameObject.AddComponent<CrateStackMinigame>();
-        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent));
+        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent, tutorialPixelTheme));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
@@ -519,6 +568,8 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.WireArray(game, "downButtons",     downs);
         SceneBuilderUtil.Wire(game, "timerFill", timerFill);
 
+        if (tutorialPixelTheme)
+            UIFactory.ApplyTutorialPixelTheme(overlay);
         return game;
     }
 
@@ -758,7 +809,8 @@ public static class MinigameOverlayBuilder
     // Reuses the Automation block/code editor windows so the player solves it in
     // whichever editor the Block/Code setting selects.
 
-    public static MazeRepairMinigame BuildMazeRepair(Transform parent)
+    public static MazeRepairMinigame BuildMazeRepair(
+        Transform parent, bool tutorialPixelTheme = false)
     {
         var overlay = UIFactory.CreatePanel(parent, "MazeRepairOverlay",
                                             Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.82f));
@@ -848,7 +900,7 @@ public static class MinigameOverlayBuilder
         var exec = overlay.gameObject.AddComponent<ExecutionController>();
 
         var game = overlay.gameObject.AddComponent<MazeRepairMinigame>();
-        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent));
+        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent, tutorialPixelTheme));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "goalLabel",     goal);
@@ -872,6 +924,8 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(game, "hintButton",    hintBtn);
         SceneBuilderUtil.Wire(game, "hintLabel",     hintLbl);
 
+        if (tutorialPixelTheme)
+            UIFactory.ApplyTutorialPixelTheme(overlay);
         return game;
     }
 

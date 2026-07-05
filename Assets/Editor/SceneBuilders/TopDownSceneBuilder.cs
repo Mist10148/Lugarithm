@@ -112,6 +112,14 @@ public static class TopDownSceneBuilder
         // --- HUD --------------------------------------------------------------------
 
         Canvas canvas = UIFactory.CreateCanvas("HudCanvas");
+        TMP_FontAsset previousFont = UIFactory.FontOverride;
+        UIFactory.FontOverride = SproutLandsMenuFont.EnsureFontAsset();
+
+        var statusBackdrop = UIFactory.CreatePanel(canvas.transform, "StatusBackdrop",
+                                                   new Vector2(0f, 1f), new Vector2(0f, 1f),
+                                                   UIFactory.TutorialPlum);
+        UIFactory.Place(statusBackdrop, new Vector2(0f, 1f), new Vector2(16f, -16f), new Vector2(252f, 92f));
+        statusBackdrop.GetComponent<Image>().raycastTarget = false;
 
         // Level name (top-left)
         var levelName = UIFactory.CreateText(canvas.transform, "LevelName", "Tutorial",
@@ -135,21 +143,27 @@ public static class TopDownSceneBuilder
         UIFactory.Place(objectives, new Vector2(0f, 1f), new Vector2(18f, -58f), new Vector2(300f, 30f));
 
         // Controls hint (bottom-left)
+        var hintBackdrop = UIFactory.CreatePanel(canvas.transform, "HintBackdrop",
+                                                 new Vector2(0f, 0f), new Vector2(0f, 0f),
+                                                 UIFactory.TutorialPlum);
+        UIFactory.Place(hintBackdrop, new Vector2(0f, 0f), new Vector2(16f, 14f), new Vector2(500f, 38f));
+        hintBackdrop.GetComponent<Image>().raycastTarget = false;
+
         var hint = UIFactory.CreateText(canvas.transform, "Hint", "WASD / Arrows: Move  |  E: Interact",
                                         16f, UIFactory.TextDim);
         UIFactory.Place(hint, new Vector2(0f, 0f), new Vector2(18f, 18f), new Vector2(460f, 30f));
 
         // Minigame-station access card (placeholder, for kinds with no game yet).
         MinigamePlaceholderPanel minigamePanel =
-            MinigameOverlayBuilder.BuildMinigamePlaceholder(canvas.transform);
+            MinigameOverlayBuilder.BuildMinigamePlaceholder(canvas.transform, true);
 
         // Playable lightweight station games: a shared grid puzzle (maze / block-fill
         // / pattern) and the concept-tied coding line-ordering challenge.
-        GridPuzzleMinigame gridPuzzle = MinigameOverlayBuilder.BuildGridPuzzle(canvas.transform);
-        CodeOrderMinigame  codeOrder  = MinigameOverlayBuilder.BuildCodeOrder(canvas.transform);
-        FlowConnectMinigame flowPuzzle = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform);
-        CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform);
-        MazeRepairMinigame  codingMaze = MinigameOverlayBuilder.BuildMazeRepair(canvas.transform);
+        GridPuzzleMinigame gridPuzzle = MinigameOverlayBuilder.BuildGridPuzzle(canvas.transform, true);
+        CodeOrderMinigame  codeOrder  = MinigameOverlayBuilder.BuildCodeOrder(canvas.transform, true);
+        FlowConnectMinigame flowPuzzle = MinigameOverlayBuilder.BuildFlowConnect(canvas.transform, true);
+        CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform, true);
+        MazeRepairMinigame  codingMaze = MinigameOverlayBuilder.BuildMazeRepair(canvas.transform, true);
 
         // Exit button (top-right)
         Button exitButton = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit",
@@ -161,8 +175,15 @@ public static class TopDownSceneBuilder
         // clears the bottom-center interaction prompt.
         DialogueController dialogue = DialogueOverlayBuilder.BuildDriveDialogue(
                                           canvas.transform,
-                                          boxSize: new Vector2(680f, 200f),
-                                          boxAnchoredPos: new Vector2(-24f, 80f));
+                                          boxSize: new Vector2(920f, 250f),
+                                          boxAnchoredPos: new Vector2(0f, 32f),
+                                          tutorialPixelTheme: true);
+
+        UIFactory.ApplyTutorialPixelTheme(canvas.transform);
+        levelName.color = UIFactory.TutorialGold;
+        objectives.color = UIFactory.TutorialCream;
+        hint.color = UIFactory.TutorialMuted;
+        UIFactory.FontOverride = previousFont;
 
         // --- Orchestrator -----------------------------------------------------------
 

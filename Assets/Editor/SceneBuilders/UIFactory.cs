@@ -18,6 +18,13 @@ public static class UIFactory
     public static readonly Color Accent      = new Color(0.95f, 0.65f, 0.15f, 1f);
     public static readonly Color TextBright  = new Color(0.93f, 0.93f, 0.88f, 1f);
     public static readonly Color TextDim     = new Color(0.62f, 0.64f, 0.66f, 1f);
+    public static readonly Color TutorialPlum = new Color(0.025f, 0.065f, 0.055f, 0.97f);
+    public static readonly Color TutorialCream = new Color(0.93f, 0.94f, 0.82f, 1f);
+    public static readonly Color TutorialMuted = new Color(0.68f, 0.75f, 0.67f, 1f);
+    public static readonly Color TutorialGold = new Color(0.96f, 0.65f, 0.14f, 1f);
+    public static readonly Color TutorialButton = new Color(0.20f, 0.34f, 0.29f, 1f);
+    public static readonly Color TutorialBorder = new Color(0.78f, 0.64f, 0.28f, 1f);
+    public static readonly Color TutorialCell = new Color(0.13f, 0.18f, 0.16f, 1f);
 
     /// <summary>
     /// Optional menu-specific TMP font. Scene builders can set this while
@@ -170,6 +177,99 @@ public static class UIFactory
         text.rectTransform.offsetMax = new Vector2(-8f, -4f);
 
         return button;
+    }
+
+    /// <summary>
+    /// Applies the Main Menu / Level Select pixel treatment to an already-built
+    /// tutorial UI subtree. This changes presentation components only and leaves
+    /// hierarchy, object identity, callbacks, and serialized controller wiring intact.
+    /// </summary>
+    public static void ApplyTutorialPixelTheme(Transform root)
+    {
+        if (root == null) return;
+
+        TMP_FontAsset pixelFont = SproutLandsMenuFont.EnsureFontAsset();
+        foreach (TMP_Text text in root.GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (text.text == "▶ RUN") text.text = "RUN";
+            else if (text.text == "↺ Reset") text.text = "RESET";
+            else if (text.text == "🤖 Autopilot") text.text = "AUTOPILOT";
+            else if (text.text == "💡 Hint") text.text = "HINT";
+            else if (text.text == "▲") text.text = "UP";
+            else if (text.text == "▼") text.text = "V";
+            else if (text.text == "Next ▶") text.text = "NEXT";
+
+            if (pixelFont != null)
+                text.font = pixelFont;
+
+            string name = text.gameObject.name;
+            if (name == "Title" || name == "LevelName" || name == "SpeakerLabel" ||
+                name == "Category" || name == "Timer")
+                text.color = TutorialGold;
+            else if (name == "Instruction" || name == "Goal" || name == "Hint" ||
+                     name == "HintLabel" || name == "PlaceholderNote")
+                text.color = TutorialMuted;
+            else
+                text.color = TutorialCream;
+
+            text.outlineColor = new Color32(42, 18, 24, 220);
+            text.outlineWidth = 0.12f;
+        }
+
+        foreach (Button button in root.GetComponentsInChildren<Button>(true))
+        {
+            string buttonName = button.gameObject.name;
+            if (buttonName.StartsWith("Cell_") || button.GetComponent<FlowCell>() != null)
+                continue;
+
+            Image image = button.targetGraphic as Image ?? button.GetComponent<Image>();
+            if (image != null)
+            {
+                image.sprite = BuiltinSprite("UISprite.psd");
+                image.type = Image.Type.Sliced;
+                image.preserveAspect = false;
+                image.color = TutorialButton;
+                button.targetGraphic = image;
+
+                Outline outline = image.GetComponent<Outline>();
+                if (outline == null)
+                    outline = image.gameObject.AddComponent<Outline>();
+                outline.effectColor = TutorialBorder;
+                outline.effectDistance = new Vector2(2f, -2f);
+                outline.useGraphicAlpha = true;
+            }
+
+            button.transition = Selectable.Transition.ColorTint;
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1.20f, 1.20f, 1.12f, 1f);
+            colors.pressedColor = new Color(0.72f, 0.78f, 0.72f, 1f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.disabledColor = new Color(0.42f, 0.48f, 0.43f, 0.55f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+        }
+
+        foreach (Image image in root.GetComponentsInChildren<Image>(true))
+        {
+            string name = image.gameObject.name;
+            if (name != "Window" && name != "DialogueBar" && name != "JournalCard" &&
+                name != "PromptBg" && name != "AnalysisGroup" && name != "MazePanel")
+                continue;
+
+            image.sprite = BuiltinSprite("UISprite.psd");
+            image.type = Image.Type.Sliced;
+            image.preserveAspect = false;
+            image.color = TutorialPlum;
+
+            Outline outline = image.GetComponent<Outline>();
+            if (outline == null)
+                outline = image.gameObject.AddComponent<Outline>();
+            outline.effectColor = TutorialBorder;
+            outline.effectDistance = new Vector2(2f, -2f);
+            outline.useGraphicAlpha = true;
+        }
     }
 
     public static TMP_Dropdown CreateDropdown(Transform parent, string name,
