@@ -475,7 +475,7 @@ public static class AutomationDriveSceneBuilder
     /// <summary>
     /// "The Farmer Was Replaced"-style code window: gutter + input + lint, with an
     /// in-window AI chat that the title-bar "AI"/"Code" buttons swap to and from.
-    /// The window has no close button (the editor is always available); the chat is
+    /// The window uses the same minimize/close shell as the Blocks editor; the chat is
     /// driven by the returned <see cref="VibeCodingController"/>.
     /// </summary>
     internal static RectTransform BuildCodeWindow(RectTransform parent, out CodeEditorController editor,
@@ -489,7 +489,7 @@ public static class AutomationDriveSceneBuilder
     {
         RectTransform window = BuildWindow(parent, "CodeWindow", "CODE — type to program",
                                            out RectTransform content, out RectTransform titleBar,
-                                           out _, closeable: false);
+                                            out _);
 
         float toolbarHeight = 0f;
         if (embedToolbar)
@@ -580,12 +580,15 @@ public static class AutomationDriveSceneBuilder
         Button aiBtn = null, codeBtn = null;
         if (titleBar != null)
         {
+            if (titleBar.Find("Title") is RectTransform titleRt)
+                titleRt.offsetMax = new Vector2(-230f, 0f);
+
             aiBtn = UIFactory.CreateButton(titleBar, "ChatButton", "AI", new Vector2(48f, 24f), 16f);
-            UIFactory.Place(aiBtn, new Vector2(1f, 0.5f), new Vector2(-118f, 0f), new Vector2(48f, 24f));
+            UIFactory.Place(aiBtn, new Vector2(1f, 0.5f), new Vector2(-176f, 0f), new Vector2(48f, 24f));
             aiBtn.image.color = new Color(0.30f, 0.45f, 0.75f, 1f);
 
             codeBtn = UIFactory.CreateButton(titleBar, "EditorButton", "Code", new Vector2(56f, 24f), 16f);
-            UIFactory.Place(codeBtn, new Vector2(1f, 0.5f), new Vector2(-60f, 0f), new Vector2(56f, 24f));
+            UIFactory.Place(codeBtn, new Vector2(1f, 0.5f), new Vector2(-118f, 0f), new Vector2(56f, 24f));
         }
 
         chat = window.gameObject.AddComponent<VibeCodingController>();
@@ -1264,11 +1267,14 @@ public static class AutomationDriveSceneBuilder
 
     static void WireModerateTrafficDefaults(RoadTrafficController traffic)
     {
-        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 3);
-        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 2.5f);
-        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 4.5f);
+        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 5);
+        SceneBuilderUtil.Wire(traffic, "minActiveVehicles", 3);
+        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 1.25f);
+        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 2.5f);
         SceneBuilderUtil.Wire(traffic, "minCarSpeed", 2.2f);
         SceneBuilderUtil.Wire(traffic, "maxCarSpeed", 3.3f);
+        SceneBuilderUtil.Wire(traffic, "followDistance", 3f);
+        SceneBuilderUtil.Wire(traffic, "followSlowZone", 3.5f);
     }
 
     static Button MakeRowButton(RectTransform row, string name, string label, float width)

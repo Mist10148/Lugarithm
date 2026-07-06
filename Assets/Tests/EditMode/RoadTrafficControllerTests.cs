@@ -23,8 +23,36 @@ public class RoadTrafficControllerTests
             Assert.IsTrue(traffic.ForceSpawnForTests(0f));
             Assert.AreEqual(3, traffic.ActiveVehicleCount);
 
+            Assert.IsTrue(traffic.ForceSpawnForTests(0f));
+            Assert.AreEqual(4, traffic.ActiveVehicleCount);
+
+            Assert.IsTrue(traffic.ForceSpawnForTests(0f));
+            Assert.AreEqual(5, traffic.ActiveVehicleCount);
+
             Assert.IsFalse(traffic.ForceSpawnForTests(0f));
-            Assert.AreEqual(3, traffic.ActiveVehicleCount);
+            Assert.AreEqual(5, traffic.ActiveVehicleCount);
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void Tick_TopsUpToMinimumVisibleTraffic()
+    {
+        GameObject root = new GameObject("TrafficTopUpRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
+            traffic.InitManual(route, root.transform, target.transform, null);
+
+            traffic.Tick(0.1f);
+
+            Assert.GreaterOrEqual(traffic.ActiveVehicleCount, traffic.MinActiveVehiclesForTests);
         }
         finally
         {
@@ -58,6 +86,43 @@ public class RoadTrafficControllerTests
                 anyDifferent |= !Mathf.Approximately(first, speed);
             }
             Assert.IsTrue(anyDifferent, "traffic cars should not all share one fixed speed");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void Cornering_EasesLaneTowardCenter_AndRotatesThroughTurn()
+    {
+        GameObject root = new GameObject("TrafficCornerRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            target.transform.position = Vector3.zero;
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = LRoute();
+            traffic.InitManual(route, root.transform, target.transform, null);
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(37f, 1f, 3f));
+
+            float beforeSide = Mathf.Abs(traffic.VehicleSideOffsetForTests(0));
+            traffic.Tick(0.5f);
+
+            Assert.Less(Mathf.Abs(traffic.VehicleSideOffsetForTests(0)), beforeSide,
+                "traffic cars should tuck toward the centerline near corners like the manual jeepney");
+
+            traffic.Clear();
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(39.8f, 1f, 3f));
+            float beforeAngle = traffic.VehicleRotationForTests(0);
+            traffic.Tick(0.1f);
+            float afterAngle = traffic.VehicleRotationForTests(0);
+
+            Assert.Greater(afterAngle, beforeAngle,
+                "rotation should begin turning toward the new segment instead of staying locked to the old heading");
+            Assert.Less(afterAngle, -5f,
+                "rotation should ease through the turn instead of snapping all the way to the new heading in one tick");
         }
         finally
         {
@@ -159,5 +224,20 @@ public class RoadTrafficControllerTests
             route.Zones[i] = go.AddComponent<StopZone>();
         }
         return route;
+    }
+
+    static RouteContext LRoute()
+    {
+        return new RouteContext
+        {
+            Waypoints = new[]
+            {
+                Vector2.zero,
+                new Vector2(40f, 0f),
+                new Vector2(40f, 40f),
+            },
+            TotalLength = 80f,
+            Zones = new StopZone[0],
+        };
     }
 }

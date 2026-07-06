@@ -9,9 +9,10 @@ using UnityEngine;
 public class RoadTrafficController : MonoBehaviour
 {
     [Header("Traffic")]
-    [SerializeField] private int maxActiveVehicles = 3;
-    [SerializeField] private float minSpawnCooldown = 2.5f;
-    [SerializeField] private float maxSpawnCooldown = 4.5f;
+    [SerializeField] private int maxActiveVehicles = 5;
+    [SerializeField] private int minActiveVehicles = 3;
+    [SerializeField] private float minSpawnCooldown = 1.25f;
+    [SerializeField] private float maxSpawnCooldown = 2.5f;
     [SerializeField] private float minSpawnAhead = 16f;
     [SerializeField] private float maxSpawnAhead = 36f;
     [SerializeField] private float minSpawnBehind = 10f;
@@ -22,9 +23,12 @@ public class RoadTrafficController : MonoBehaviour
     [SerializeField] private float laneOffset = 1.35f;
     [SerializeField] private float stopClearance = 8f;
     [SerializeField] private float minVehicleSpacing = 5f;
-    [SerializeField] private float followDistance = 4.5f;
-    [SerializeField] private float followSlowZone = 5f;
+    [SerializeField] private float followDistance = 3f;
+    [SerializeField] private float followSlowZone = 3.5f;
     [SerializeField] private float speedSmoothTime = 0.35f;
+    [SerializeField] private float laneSmoothTime = 0.28f;
+    [SerializeField] private float cornerEaseDistance = 2.5f;
+    [SerializeField] private float rotationFollowSpeed = 4f;
     [SerializeField] private float softCollisionRadius = 1.4f;
 
     readonly List<TrafficVehicle> _vehicles = new List<TrafficVehicle>();
@@ -58,11 +62,17 @@ public class RoadTrafficController : MonoBehaviour
         public float cruiseSpeed;
         public float currentSpeed;
         public float speedVel;
+        public float visualSide;
+        public float sideVel;
+        public float visualAngle;
+        public Vector2 lastPosition;
+        public bool placed;
     }
 
     public IReadOnlyCollection<Vector2Int> TrafficCells => _trafficCells;
     public int ActiveVehicleCount => _vehicles.Count;
     public float FollowDistanceForTests => followDistance;
+    public int MinActiveVehiclesForTests => Mathf.Clamp(minActiveVehicles, 0, VehicleCap());
 
     public bool ForceSpawnForTests(float targetAlong)
     {
@@ -84,6 +94,8 @@ public class RoadTrafficController : MonoBehaviour
 
     public float VehicleAlongForTests(int index) => _vehicles[index].along;
     public float VehicleCruiseSpeedForTests(int index) => _vehicles[index].cruiseSpeed;
+    public float VehicleRotationForTests(int index) => _vehicles[index].visualAngle;
+    public float VehicleSideOffsetForTests(int index) => _vehicles[index].visualSide;
 
     public void InitManual(RouteContext route, Transform root, Transform target,
                            JeepneyController jeepney)
@@ -158,6 +170,8 @@ public class RoadTrafficController : MonoBehaviour
         UpdateTargetSpeed(targetAlong, dt);
         MoveVehicles(dt, targetAlong);
 
+        TopUpVisibleTraffic(targetAlong);
+
         if (_vehicles.Count < VehicleCap() && Time.time >= _nextSpawnTime)
         {
             TrySpawn(targetAlong);
@@ -214,7 +228,7 @@ public class RoadTrafficController : MonoBehaviour
                 _trafficCellsDirty = true;
                 continue;
             }
-            PlaceVehicle(v);
+            PlaceVehicle(v, safeDt);
         }
     }
 
@@ -236,11 +250,11 @@ public class RoadTrafficController : MonoBehaviour
         return Mathf.Max(0f, limit);
     }
 
-    void TrySpawn(float targetAlong)
+    bool TrySpawn(float targetAlong)
     {
-        if (_vehicles.Count >= VehicleCap()) return;
+        if (_vehicles.Count >= VehicleCap()) return false;
 
-        if (_routeLength < 4f) return;
+        if (_routeLength < 4f) return false;
 
         for (int attempt = 0; attempt < 16; attempt++)
         {
@@ -257,7 +271,19 @@ public class RoadTrafficController : MonoBehaviour
             float side = ((_spawnSerial + attempt) % 2 == 0) ? -1f : 1f;
             SpawnVehicle(along, side, RandomCarSpeed());
             _spawnSerial++;
-            return;
+            return true;
+        }
+        return false;
+    }
+
+    void TopUpVisibleTraffic(float targetAlong)
+    {
+        int floor = Mathf.Clamp(minActiveVehicles, 0, VehicleCap());
+        int guard = floor - _vehicles.Count;
+        while (guard-- > 0 && _vehicles.Count < floor)
+        {
+            if (!TrySpawn(targetAlong))
+                break;
         }
     }
 
@@ -284,19 +310,55 @@ public class RoadTrafficController : MonoBehaviour
         };
         _vehicles.Add(v);
         _trafficCellsDirty = true;
-        PlaceVehicle(v);
+        PlaceVehicle(v, 0f);
     }
 
-    void PlaceVehicle(TrafficVehicle v)
+    void PlaceVehicle(TrafficVehicle v, float dt)
     {
         Vector2 center = RouteMath.PointAt(_line, v.along);
         Vector2 dir = RouteMath.DirectionAt(_line, v.along + 0.1f);
         if (dir.sqrMagnitude < 1e-6f) dir = Vector2.up;
         Vector2 left = new Vector2(-dir.y, dir.x);
-        Vector2 pos = center + left * (laneOffset * v.side);
+        float distToCorner = RouteMath.DistanceToNearestCorner(_line, v.along);
+        float cornerFactor = cornerEaseDistance > 0f
+            ? Mathf.Clamp01(distToCorner / cornerEaseDistance)
+            : 1f;
+        float sideTarget = laneOffset * v.side * cornerFactor;
+        if (!v.placed || dt <= 0f)
+        {
+            v.visualSide = sideTarget;
+        }
+        else
+        {
+            v.visualSide = Mathf.SmoothDamp(v.visualSide, sideTarget, ref v.sideVel,
+                                            Mathf.Max(0.01f, laneSmoothTime),
+                                            Mathf.Infinity, dt);
+        }
+        Vector2 pos = center + left * v.visualSide;
 
         v.go.transform.position = new Vector3(pos.x, pos.y, 0f);
-        v.go.transform.rotation = Quaternion.Euler(0f, 0f, Vector2.SignedAngle(Vector2.up, dir));
+        float rawAngle = Vector2.SignedAngle(Vector2.up, dir);
+        float targetAngle = rawAngle;
+        if (v.placed)
+        {
+            Vector2 motion = pos - v.lastPosition;
+            if (v.currentSpeed > 0.02f && motion.sqrMagnitude > 1e-8f)
+            {
+                Vector2 motionDir = motion.normalized;
+                targetAngle = Vector2.Dot(motionDir, dir) > 0f
+                    ? Vector2.SignedAngle(Vector2.up, motionDir)
+                    : rawAngle;
+            }
+            else
+                targetAngle = v.visualAngle;
+        }
+
+        v.visualAngle = !v.placed || dt <= 0f
+            ? rawAngle
+            : Mathf.LerpAngle(v.visualAngle, targetAngle, rotationFollowSpeed * dt);
+        v.go.transform.rotation = Quaternion.Euler(0f, 0f, v.visualAngle);
+        v.lastPosition = pos;
+        v.placed = true;
         if (v.renderer != null)
             v.renderer.sortingOrder = Mathf.RoundToInt(pos.y * 100f) + 8;
     }

@@ -399,11 +399,14 @@ public static class ManualDriveSceneBuilder
 
     static void WireModerateTrafficDefaults(RoadTrafficController traffic)
     {
-        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 3);
-        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 2.5f);
-        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 4.5f);
+        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 5);
+        SceneBuilderUtil.Wire(traffic, "minActiveVehicles", 3);
+        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 1.25f);
+        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 2.5f);
         SceneBuilderUtil.Wire(traffic, "minCarSpeed", 2.2f);
         SceneBuilderUtil.Wire(traffic, "maxCarSpeed", 3.3f);
+        SceneBuilderUtil.Wire(traffic, "followDistance", 3f);
+        SceneBuilderUtil.Wire(traffic, "followSlowZone", 3.5f);
     }
 
     // -------------------------------------------------------------------------
