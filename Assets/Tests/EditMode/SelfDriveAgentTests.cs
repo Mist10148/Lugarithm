@@ -139,7 +139,7 @@ public class SelfDriveAgentTests
             TrafficEnabled = true,
         };
         sim.LoadRides(new List<GridRide>());
-        sim.SetTrafficCells(new[] { new Vector2Int(2, 2) });
+        sim.SetTrafficCells(new[] { new Vector2Int(2, 2), new Vector2Int(4, 1) });
 
         ProgramNode program = Parser.Compile(SelfDrivePlanner.ReferenceSolution, out var errors);
         CollectionAssert.IsEmpty(errors);

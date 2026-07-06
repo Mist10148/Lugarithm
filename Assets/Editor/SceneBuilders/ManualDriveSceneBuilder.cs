@@ -111,6 +111,7 @@ public static class ManualDriveSceneBuilder
         var controller = controllerGo.AddComponent<ManualDriveController>();
         var passengerMgr = controllerGo.AddComponent<PassengerManager>();
         var traffic = controllerGo.AddComponent<RoadTrafficController>();
+        WireModerateTrafficDefaults(traffic);
         controllerGo.AddComponent<BreakdownController>();
 
         // Dulog highlighting (color-coded markers + edge-of-screen arrows).
@@ -392,6 +393,17 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(toast, "canvasGroup",  group);
 
         return toast;
+    }
+
+    // -------------------------------------------------------------------------
+
+    static void WireModerateTrafficDefaults(RoadTrafficController traffic)
+    {
+        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 3);
+        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 2.5f);
+        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 4.5f);
+        SceneBuilderUtil.Wire(traffic, "minCarSpeed", 2.2f);
+        SceneBuilderUtil.Wire(traffic, "maxCarSpeed", 3.3f);
     }
 
     // -------------------------------------------------------------------------

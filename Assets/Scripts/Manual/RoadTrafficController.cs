@@ -2,39 +2,52 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Sparse moving traffic for the shared procedural road. It is intentionally a
-/// light touch: one active car, clear of stops, and never treated as a hard
-/// fail state in Manual. Automation reads the active cell through AgentSim.
+/// Moderate moving traffic for the shared procedural road. It stays clear of
+/// stops, queues behind the jeepney and other cars, and never becomes a hard
+/// fail state in Manual. Automation reads the active cells through AgentSim.
 /// </summary>
 public class RoadTrafficController : MonoBehaviour
 {
     [Header("Traffic")]
-    [SerializeField] private int maxActiveVehicles = 1;
-    [SerializeField] private float minSpawnCooldown = 5f;
-    [SerializeField] private float maxSpawnCooldown = 9f;
-    [SerializeField] private float minSpawnAhead = 18f;
-    [SerializeField] private float maxSpawnAhead = 34f;
-    [SerializeField] private float despawnBehind = 12f;
-    [SerializeField] private float carSpeed = 2.6f;
+    [SerializeField] private int maxActiveVehicles = 3;
+    [SerializeField] private float minSpawnCooldown = 2.5f;
+    [SerializeField] private float maxSpawnCooldown = 4.5f;
+    [SerializeField] private float minSpawnAhead = 16f;
+    [SerializeField] private float maxSpawnAhead = 36f;
+    [SerializeField] private float minSpawnBehind = 10f;
+    [SerializeField] private float maxSpawnBehind = 24f;
+    [SerializeField] private float despawnBehind = 30f;
+    [SerializeField] private float minCarSpeed = 2.2f;
+    [SerializeField] private float maxCarSpeed = 3.3f;
     [SerializeField] private float laneOffset = 1.35f;
     [SerializeField] private float stopClearance = 8f;
+    [SerializeField] private float minVehicleSpacing = 5f;
+    [SerializeField] private float followDistance = 4.5f;
+    [SerializeField] private float followSlowZone = 5f;
+    [SerializeField] private float speedSmoothTime = 0.35f;
     [SerializeField] private float softCollisionRadius = 1.4f;
 
     readonly List<TrafficVehicle> _vehicles = new List<TrafficVehicle>();
     readonly List<float> _stopAlong = new List<float>();
     readonly HashSet<Vector2Int> _trafficCells = new HashSet<Vector2Int>();
+    readonly HashSet<Vector2Int> _lastSyncedTrafficCells = new HashSet<Vector2Int>();
 
     RouteContext _route;
     Vector2[] _line;
+    float _routeLength;
     Transform _root;
     Transform _target;
     JeepneyController _manualJeepney;
     TopDownGridSpace _automationSpace;
     AgentSim _automationSim;
     float _nextSpawnTime;
+    float _lastTargetAlong;
+    float _targetAlongSpeed;
     int _spawnSerial;
     bool _manualMode;
     bool _automationMode;
+    bool _hasLastTargetAlong;
+    bool _trafficCellsDirty = true;
 
     class TrafficVehicle
     {
@@ -42,10 +55,14 @@ public class RoadTrafficController : MonoBehaviour
         public SpriteRenderer renderer;
         public float along;
         public float side;
+        public float cruiseSpeed;
+        public float currentSpeed;
+        public float speedVel;
     }
 
     public IReadOnlyCollection<Vector2Int> TrafficCells => _trafficCells;
     public int ActiveVehicleCount => _vehicles.Count;
+    public float FollowDistanceForTests => followDistance;
 
     public bool ForceSpawnForTests(float targetAlong)
     {
@@ -54,12 +71,25 @@ public class RoadTrafficController : MonoBehaviour
         return _vehicles.Count > before;
     }
 
+    public bool ForceSpawnAtForTests(float along, float side = 1f, float cruiseSpeed = -1f)
+    {
+        if (_line == null || _line.Length < 2) return false;
+        if (_vehicles.Count >= VehicleCap()) return false;
+        if (along < 2f || along > _routeLength - 2f) return false;
+        if (!FarFromStops(along) || !FarFromVehicles(along)) return false;
+
+        SpawnVehicle(along, side >= 0f ? 1f : -1f, cruiseSpeed > 0f ? cruiseSpeed : RandomCarSpeed());
+        return true;
+    }
+
+    public float VehicleAlongForTests(int index) => _vehicles[index].along;
+    public float VehicleCruiseSpeedForTests(int index) => _vehicles[index].cruiseSpeed;
+
     public void InitManual(RouteContext route, Transform root, Transform target,
                            JeepneyController jeepney)
     {
         Clear();
-        _route = route;
-        _line = route != null ? route.Waypoints : null;
+        BindRoute(route);
         _root = root != null ? root : transform;
         _target = target;
         _manualJeepney = jeepney;
@@ -67,7 +97,7 @@ public class RoadTrafficController : MonoBehaviour
         _automationSim = null;
         _manualMode = true;
         _automationMode = false;
-        CacheStops();
+        _hasLastTargetAlong = false;
         ScheduleNextSpawn(immediate: true);
     }
 
@@ -75,8 +105,7 @@ public class RoadTrafficController : MonoBehaviour
                                TopDownGridSpace space, AgentSim sim)
     {
         Clear();
-        _route = route;
-        _line = route != null ? route.Waypoints : null;
+        BindRoute(route);
         _root = root != null ? root : transform;
         _target = target;
         _manualJeepney = null;
@@ -85,15 +114,13 @@ public class RoadTrafficController : MonoBehaviour
         _manualMode = false;
         _automationMode = true;
         if (_automationSim != null) _automationSim.TrafficEnabled = true;
-        CacheStops();
+        _hasLastTargetAlong = false;
         ScheduleNextSpawn(immediate: true);
     }
 
     public void RebindRoute(RouteContext route)
     {
-        _route = route;
-        _line = route != null ? route.Waypoints : null;
-        CacheStops();
+        BindRoute(route);
     }
 
     public void RebindAutomation(TopDownGridSpace space, AgentSim sim)
@@ -101,6 +128,7 @@ public class RoadTrafficController : MonoBehaviour
         _automationSpace = space;
         _automationSim = sim;
         if (_automationSim != null) _automationSim.TrafficEnabled = true;
+        _trafficCellsDirty = true;
         SyncAutomationCells();
     }
 
@@ -110,6 +138,8 @@ public class RoadTrafficController : MonoBehaviour
             DestroyVehicle(_vehicles[i]);
         _vehicles.Clear();
         _trafficCells.Clear();
+        _lastSyncedTrafficCells.Clear();
+        _trafficCellsDirty = true;
         if (_automationSim != null)
             _automationSim.ClearTraffic();
     }
@@ -125,9 +155,10 @@ public class RoadTrafficController : MonoBehaviour
             return;
 
         float targetAlong = RouteMath.NearestDistanceAlong(_line, _target.position, out _);
+        UpdateTargetSpeed(targetAlong, dt);
         MoveVehicles(dt, targetAlong);
 
-        if (_vehicles.Count < Mathf.Max(1, maxActiveVehicles) && Time.time >= _nextSpawnTime)
+        if (_vehicles.Count < VehicleCap() && Time.time >= _nextSpawnTime)
         {
             TrySpawn(targetAlong);
             ScheduleNextSpawn(immediate: false);
@@ -141,42 +172,96 @@ public class RoadTrafficController : MonoBehaviour
 
     void MoveVehicles(float dt, float targetAlong)
     {
+        float safeDt = Mathf.Max(0f, dt);
         for (int i = _vehicles.Count - 1; i >= 0; i--)
         {
             TrafficVehicle v = _vehicles[i];
-            v.along += carSpeed * Mathf.Max(0f, dt);
-            if (v.along < targetAlong - despawnBehind || v.along > RouteMath.TotalLength(_line) - 1f)
+            float followLimit = FindFollowLimit(v, targetAlong);
+            float desiredSpeed = v.cruiseSpeed;
+            float available = followLimit - v.along;
+            if (available <= 0.05f)
+            {
+                desiredSpeed = 0f;
+            }
+            else if (available < followSlowZone)
+            {
+                desiredSpeed *= Mathf.Clamp01(available / Mathf.Max(0.01f, followSlowZone));
+                desiredSpeed = Mathf.Min(desiredSpeed, Mathf.Max(0f, _targetAlongSpeed));
+            }
+
+            v.currentSpeed = Mathf.SmoothDamp(v.currentSpeed, desiredSpeed, ref v.speedVel,
+                                              Mathf.Max(0.01f, speedSmoothTime),
+                                              Mathf.Infinity, safeDt);
+            float nextAlong = v.along + v.currentSpeed * safeDt;
+            if (followLimit >= v.along && nextAlong > followLimit)
+            {
+                nextAlong = followLimit;
+                v.currentSpeed = 0f;
+                v.speedVel = 0f;
+            }
+            else if (followLimit < v.along)
+            {
+                nextAlong = v.along;
+                v.currentSpeed = 0f;
+                v.speedVel = 0f;
+            }
+
+            v.along = nextAlong;
+            if (v.along < targetAlong - despawnBehind || v.along > _routeLength - 1f)
             {
                 DestroyVehicle(v);
                 _vehicles.RemoveAt(i);
+                _trafficCellsDirty = true;
                 continue;
             }
             PlaceVehicle(v);
         }
     }
 
+    float FindFollowLimit(TrafficVehicle v, float targetAlong)
+    {
+        float limit = Mathf.Max(0f, _routeLength - 1f);
+
+        if (targetAlong > v.along)
+            limit = Mathf.Min(limit, targetAlong - followDistance);
+
+        foreach (TrafficVehicle other in _vehicles)
+        {
+            if (other == v) continue;
+            if (Mathf.Abs(other.side - v.side) > 0.1f) continue;
+            if (other.along <= v.along) continue;
+            limit = Mathf.Min(limit, other.along - followDistance);
+        }
+
+        return Mathf.Max(0f, limit);
+    }
+
     void TrySpawn(float targetAlong)
     {
-        if (_vehicles.Count >= Mathf.Max(1, maxActiveVehicles)) return;
+        if (_vehicles.Count >= VehicleCap()) return;
 
-        float routeLength = RouteMath.TotalLength(_line);
-        if (routeLength < 4f) return;
+        if (_routeLength < 4f) return;
 
-        float span = Mathf.Max(1f, maxSpawnAhead - minSpawnAhead);
-        for (int attempt = 0; attempt < 8; attempt++)
+        for (int attempt = 0; attempt < 16; attempt++)
         {
-            float ahead = minSpawnAhead + Mathf.Repeat(_spawnSerial * 11f + attempt * 7f, span);
-            float along = Mathf.Clamp(targetAlong + ahead, 2f, routeLength - 2f);
-            if (!FarFromStops(along)) continue;
+            bool behind = (_spawnSerial + attempt) % 3 == 1;
+            int slot = (_spawnSerial + attempt) % 5;
+            float slotT = slot / 4f;
+            float offset = behind
+                ? Mathf.Lerp(minSpawnBehind, maxSpawnBehind, slotT)
+                : Mathf.Lerp(minSpawnAhead, maxSpawnAhead, slotT);
+            float along = targetAlong + (behind ? -offset : offset);
+            if (along < 2f || along > _routeLength - 2f) continue;
+            if (!FarFromStops(along) || !FarFromVehicles(along)) continue;
 
             float side = ((_spawnSerial + attempt) % 2 == 0) ? -1f : 1f;
-            SpawnVehicle(along, side);
+            SpawnVehicle(along, side, RandomCarSpeed());
             _spawnSerial++;
             return;
         }
     }
 
-    void SpawnVehicle(float along, float side)
+    void SpawnVehicle(float along, float side, float cruiseSpeed)
     {
         var go = new GameObject("TrafficCar");
         go.transform.SetParent(_root != null ? _root : transform, false);
@@ -188,8 +273,17 @@ public class RoadTrafficController : MonoBehaviour
         sr.sortingOrder = 9;
         sr.color = new Color(0.25f, 0.55f, 0.9f, 1f);
 
-        var v = new TrafficVehicle { go = go, renderer = sr, along = along, side = side };
+        var v = new TrafficVehicle
+        {
+            go = go,
+            renderer = sr,
+            along = along,
+            side = side,
+            cruiseSpeed = Mathf.Max(0.1f, cruiseSpeed),
+            currentSpeed = Mathf.Max(0.1f, cruiseSpeed),
+        };
         _vehicles.Add(v);
+        _trafficCellsDirty = true;
         PlaceVehicle(v);
     }
 
@@ -232,7 +326,15 @@ public class RoadTrafficController : MonoBehaviour
             if (IsSafeAutomationTrafficCell(cell))
                 _trafficCells.Add(cell);
         }
-        _automationSim.SetTrafficCells(_trafficCells);
+
+        if (_trafficCellsDirty || !TrafficSetsEqual(_trafficCells, _lastSyncedTrafficCells))
+        {
+            _automationSim.SetTrafficCells(_trafficCells);
+            _lastSyncedTrafficCells.Clear();
+            foreach (Vector2Int cell in _trafficCells)
+                _lastSyncedTrafficCells.Add(cell);
+            _trafficCellsDirty = false;
+        }
     }
 
     bool IsSafeAutomationTrafficCell(Vector2Int cell)
@@ -268,6 +370,23 @@ public class RoadTrafficController : MonoBehaviour
         return true;
     }
 
+    bool FarFromVehicles(float along)
+    {
+        foreach (TrafficVehicle v in _vehicles)
+            if (Mathf.Abs(v.along - along) < minVehicleSpacing)
+                return false;
+        return true;
+    }
+
+    void BindRoute(RouteContext route)
+    {
+        _route = route;
+        _line = route != null ? route.Waypoints : null;
+        _routeLength = _line != null && _line.Length >= 2 ? RouteMath.TotalLength(_line) : 0f;
+        CacheStops();
+        _trafficCellsDirty = true;
+    }
+
     void CacheStops()
     {
         _stopAlong.Clear();
@@ -284,6 +403,38 @@ public class RoadTrafficController : MonoBehaviour
     {
         float delay = immediate ? 1.5f : Random.Range(minSpawnCooldown, maxSpawnCooldown);
         _nextSpawnTime = Time.time + delay;
+    }
+
+    void UpdateTargetSpeed(float targetAlong, float dt)
+    {
+        if (_hasLastTargetAlong && dt > 0f)
+            _targetAlongSpeed = Mathf.Max(0f, (targetAlong - _lastTargetAlong) / dt);
+        else
+            _targetAlongSpeed = 0f;
+
+        _lastTargetAlong = targetAlong;
+        _hasLastTargetAlong = true;
+    }
+
+    int VehicleCap()
+    {
+        return Mathf.Max(1, maxActiveVehicles);
+    }
+
+    float RandomCarSpeed()
+    {
+        float lo = Mathf.Min(minCarSpeed, maxCarSpeed);
+        float hi = Mathf.Max(minCarSpeed, maxCarSpeed);
+        return Random.Range(lo, hi);
+    }
+
+    static bool TrafficSetsEqual(HashSet<Vector2Int> a, HashSet<Vector2Int> b)
+    {
+        if (a.Count != b.Count) return false;
+        foreach (Vector2Int cell in a)
+            if (!b.Contains(cell))
+                return false;
+        return true;
     }
 
     static void DestroyVehicle(TrafficVehicle v)

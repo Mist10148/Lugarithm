@@ -193,6 +193,7 @@ public static class AutomationDriveSceneBuilder
         var exec = controllerGo.AddComponent<ExecutionController>();
         var selfDrive = controllerGo.AddComponent<SelfDriveAgent>();
         var traffic = controllerGo.AddComponent<RoadTrafficController>();
+        WireModerateTrafficDefaults(traffic);
         var controller = controllerGo.AddComponent<AutomationDriveController>();
 
         SceneBuilderUtil.Wire(controller, "worldCamera",    worldCam);
@@ -1259,6 +1260,15 @@ public static class AutomationDriveSceneBuilder
         UIFactory.Place(speedLabel, new Vector2(0f, 0f), new Vector2(240f, 32f), new Vector2(160f, 30f));
 
         return panel;
+    }
+
+    static void WireModerateTrafficDefaults(RoadTrafficController traffic)
+    {
+        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 3);
+        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 2.5f);
+        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 4.5f);
+        SceneBuilderUtil.Wire(traffic, "minCarSpeed", 2.2f);
+        SceneBuilderUtil.Wire(traffic, "maxCarSpeed", 3.3f);
     }
 
     static Button MakeRowButton(RectTransform row, string name, string label, float width)

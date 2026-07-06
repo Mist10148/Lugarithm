@@ -200,6 +200,7 @@ public static class CodeDriveSceneBuilder
         var controllerGo = new GameObject("CodeDriveController");
         var exec = controllerGo.AddComponent<ExecutionController>();
         var traffic = controllerGo.AddComponent<RoadTrafficController>();
+        WireModerateTrafficDefaults(traffic);
         var controller = controllerGo.AddComponent<AutomationDriveController>();
 
         SceneBuilderUtil.Wire(controller, "worldCamera",    worldCam);
@@ -294,6 +295,15 @@ public static class CodeDriveSceneBuilder
 
         overlay.gameObject.SetActive(false);
         return overlay.gameObject;
+    }
+
+    static void WireModerateTrafficDefaults(RoadTrafficController traffic)
+    {
+        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 3);
+        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 2.5f);
+        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 4.5f);
+        SceneBuilderUtil.Wire(traffic, "minCarSpeed", 2.2f);
+        SceneBuilderUtil.Wire(traffic, "maxCarSpeed", 3.3f);
     }
 
     const string ReadmeText =

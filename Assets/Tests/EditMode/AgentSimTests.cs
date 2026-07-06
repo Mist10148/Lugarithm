@@ -106,10 +106,11 @@ public class AgentSimTests
     {
         var sim = NewWideSim(); // at (1,1) facing East
         sim.TrafficEnabled = true;
-        sim.SetTrafficCells(new[] { new Vector2Int(2, 1) });
+        sim.SetTrafficCells(new[] { new Vector2Int(2, 1), new Vector2Int(3, 2) });
 
         Assert.IsTrue(sim.EvaluateQuery("carInFront"));
         Assert.IsFalse(sim.EvaluateQuery("frontIsClear"));
+        Assert.AreEqual(2, sim.TrafficCells.Count);
 
         AgentActionResult blocked = sim.Apply("moveForward");
         Assert.IsTrue(blocked.Blocked);
