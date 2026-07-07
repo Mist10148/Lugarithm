@@ -30,6 +30,10 @@ public class MinigameStationDef
     public MinigamePuzzleKind  kind;
     public Color markerColor;
 
+    /// <summary>True for the single main quest per level (the CodeOrder coding
+    /// challenge). Main quests are visually distinct from side objectives.</summary>
+    public bool isMainQuest;
+
     public bool IsCoding => type == MinigameStationType.Coding;
 }
 
@@ -51,6 +55,7 @@ public static class TownMinigameLibrary
     static readonly Color PuzzleTeal   = new Color(0.22f, 0.70f, 0.74f);
     static readonly Color PuzzlePurple = new Color(0.60f, 0.42f, 0.82f);
     static readonly Color CodingGreen  = new Color(0.28f, 0.74f, 0.42f);
+    static readonly Color MainQuestGold = new Color(0.96f, 0.72f, 0.15f);
 
     /// <summary>
     /// Returns the three station defs for a level in canonical order:
@@ -96,7 +101,8 @@ public static class TownMinigameLibrary
         {
             id = id, title = title, description = description, concept = concept,
             type = MinigameStationType.Coding, kind = MinigamePuzzleKind.Coding,
-            markerColor = CodingGreen,
+            markerColor = MainQuestGold,
+            isMainQuest = true,
         };
 
     static MinigameStationDef CodingMaze(string id, string title, string concept,

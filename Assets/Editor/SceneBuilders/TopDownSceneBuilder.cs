@@ -137,10 +137,15 @@ public static class TopDownSceneBuilder
                                                22f, UIFactory.TextBright);
         UIFactory.Place(promptText, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(380f, 40f));
 
-        // Objectives counter (top-left, under the level name)
+        // Side-objectives counter (top-left, under the level name)
         var objectives = UIFactory.CreateText(canvas.transform, "Objectives", "",
                                               20f, UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(objectives, new Vector2(0f, 1f), new Vector2(18f, -58f), new Vector2(300f, 30f));
+
+        // Main quest label (top-left, under the side-objectives counter, gold + bigger)
+        var mainQuest = UIFactory.CreateText(canvas.transform, "MainQuest", "",
+                                             22f, UIFactory.TutorialGold, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(mainQuest, new Vector2(0f, 1f), new Vector2(18f, -86f), new Vector2(400f, 30f));
 
         // Controls hint (bottom-left)
         var hintBackdrop = UIFactory.CreatePanel(canvas.transform, "HintBackdrop",
@@ -182,6 +187,7 @@ public static class TopDownSceneBuilder
         UIFactory.ApplyTutorialPixelTheme(canvas.transform);
         levelName.color = UIFactory.TutorialGold;
         objectives.color = UIFactory.TutorialCream;
+        mainQuest.color = UIFactory.TutorialGold;
         hint.color = UIFactory.TutorialMuted;
         UIFactory.FontOverride = previousFont;
 
@@ -199,6 +205,7 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(controller, "levelNameLabel", levelName);
         SceneBuilderUtil.Wire(controller, "promptLabel",   promptText);
         SceneBuilderUtil.Wire(controller, "objectivesLabel", objectives);
+        SceneBuilderUtil.Wire(controller, "mainQuestLabel", mainQuest);
         SceneBuilderUtil.Wire(controller, "exitButton",    exitButton);
         SceneBuilderUtil.Wire(controller, "dialogue",      dialogue);
         SceneBuilderUtil.Wire(controller, "minigamePanel", minigamePanel);

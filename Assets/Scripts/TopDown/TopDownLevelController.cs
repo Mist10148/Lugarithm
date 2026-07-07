@@ -34,6 +34,7 @@ public class TopDownLevelController : MonoBehaviour
     [SerializeField] private TMP_Text levelNameLabel;
     [SerializeField] private TMP_Text promptLabel;
     [SerializeField] private TMP_Text objectivesLabel;
+    [SerializeField] private TMP_Text mainQuestLabel;
     [SerializeField] private Button exitButton;
 
     [Header("Dialogue")]
@@ -80,6 +81,10 @@ public class TopDownLevelController : MonoBehaviour
     private readonly HashSet<string> _solvedStations = new HashSet<string>();
     private int _stationCount;
     private readonly HashSet<string> _codingStationIds = new HashSet<string>();
+    private string _mainQuestId;
+    private string _mainQuestTitle;
+    private bool _mainQuestSolved;
+    private int _sideObjectiveCount;
     private bool _panelActive;
 
     // -------------------------------------------------------------------------
@@ -296,6 +301,23 @@ public class TopDownLevelController : MonoBehaviour
             if (body != null) _stationBodies[trigger] = body;
             _stationCount++;
             if (def.IsCoding) _codingStationIds.Add(def.id);
+
+            if (def.isMainQuest)
+            {
+                _mainQuestId = def.id;
+                _mainQuestTitle = def.title;
+                // Main quest markers are larger and pulse to stand out.
+                if (body != null)
+                {
+                    body.transform.localScale = Vector3.one * 1.4f;
+                    var pulse = body.gameObject.AddComponent<MainQuestPulse>();
+                    pulse.Init(body);
+                }
+            }
+            else
+            {
+                _sideObjectiveCount++;
+            }
         }
 
         trigger.OnInteracted += HandleInteraction;
@@ -736,18 +758,41 @@ public class TopDownLevelController : MonoBehaviour
             playerController.InputLocked = false;
     }
 
-    /// <summary>Refreshes the HUD objective counter (e.g. "Objectives  1/3").</summary>
+    /// <summary>Refreshes the HUD objective counter and main quest label.</summary>
     void UpdateObjectives()
     {
-        if (objectivesLabel == null) return;
-
-        if (_stationCount == 0)
+        // --- Side objectives counter ---
+        if (objectivesLabel != null)
         {
-            objectivesLabel.text = "";
-            return;
+            if (_sideObjectiveCount == 0)
+            {
+                objectivesLabel.text = "";
+            }
+            else
+            {
+                int solvedSide = 0;
+                foreach (string id in _solvedStations)
+                    if (id != _mainQuestId) solvedSide++;
+                objectivesLabel.text = $"Objectives  {solvedSide}/{_sideObjectiveCount}";
+            }
         }
 
-        objectivesLabel.text = $"Objectives  {_solvedStations.Count}/{_stationCount}";
+        // --- Main quest label ---
+        if (mainQuestLabel != null)
+        {
+            if (string.IsNullOrEmpty(_mainQuestId))
+            {
+                mainQuestLabel.text = "";
+            }
+            else
+            {
+                bool solved = _solvedStations.Contains(_mainQuestId);
+                _mainQuestSolved = solved;
+                string check = solved ? "✓" : "★";
+                string title = !string.IsNullOrEmpty(_mainQuestTitle) ? _mainQuestTitle : "Coding";
+                mainQuestLabel.text = $"{check}  MAIN QUEST: {title}";
+            }
+        }
     }
 
     // -------------------------------------------------------------------------

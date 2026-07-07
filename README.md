@@ -192,12 +192,9 @@ Run/Pause/Step/Speed natural and keeps procedural runs reproducible.
 - **User-defined functions:** players can `def` their own functions and call them — and are
   encouraged to, splitting a route into jobs like `drive()`, `handlePassengers()`, and
   `handleFares()`. Autopilot and the reference solutions are written this way as a model.
-- **Domain API:** actions (`driveToNextStop`, `pickUp`, `dropOff`, `collectFare`, `giveChange`),
-  questions (`passengerWaiting`, `atRequestedStop`, `routeComplete`, `frontIsClear`, …), and
-  reporters (`changeOwed`, `fareOwed`, `seatsLeft`, `passengerCount`, …).
+- **Domain API:** actions (`moveForward`, `turnLeft`, `turnRight`, `moveLeft`, `moveRight`, `driveToNextStop`, `driveToTerminal`, `pickUp`, `dropOff`, `collectFare`, `giveChange`, `wait`), questions (`frontIsClear`, `leftIsClear`, `rightIsClear`, `carInFront`, `atStop`, `passengerWaiting`, `hasPassengerAboard`, `atRequestedStop`, `isFull`, `routeComplete`, `atDestination`), and reporters (`fareOwed`, `cashTendered`, `changeOwed`, `seatsLeft`, `passengerCount`, `distanceToDestination`, `distanceTraveled`).
 
-Concepts escalate per town: sequencing → conditionals → lists → functions + loops → nested
-conditionals → multi-variable constraints. Errors are coached in plain language, never raw stack
+Concepts escalate per town: conditionals → loops + conditionals → functions → helper functions + loops → nested conditionals → multi-variable constraints. Errors are coached in plain language, never raw stack
 traces. Full reference: [`docs/AutomationCommands.md`](docs/AutomationCommands.md) and the design in
 [`docs/LANGUAGE_PLAN.md`](docs/LANGUAGE_PLAN.md).
 
@@ -209,10 +206,10 @@ The five-town route is a real stretch of the Iloilo coast, each town a sourced h
 
 | Level | Town | Heritage focus | Coding focus |
 |---|---|---|---|
-| Tutorial | Intro segment | Basic sequencing before the journey begins | Linear sequencing |
-| 1 | **Iloilo City (Molo)** | Molo Church ("feminist church"), American-era architecture, textile trade | Conditionals |
-| 2 | **Oton** | Pre-colonial gold-working & burial customs (the Oton Gold Mask), Batiano River trade | Lists & indexing |
-| 3 | **Tigbauan** | Hablon handloom weaving; WWII guerrilla resistance markers | Functions + loops |
+| Tutorial | Intro segment | Basic sequencing before the journey begins | Conditionals (`if` / `else`) |
+| 1 | **Iloilo City (Molo)** | Molo Church ("feminist church"), American-era architecture, textile trade | Loops (`while` / `for`) + Conditionals |
+| 2 | **Oton** | Pre-colonial gold-working & burial customs (the Oton Gold Mask), Batiano River trade | Functions (`def`) |
+| 3 | **Tigbauan** | Hablon handloom weaving; WWII guerrilla resistance markers | Helper functions + loops |
 | 4 | **Miag-ao** | Miag-ao Church (UNESCO, 1797): coconut tree of life on the facade, fort-church origin | Nested conditionals |
 | 5 | **San Joaquin** | *Rendicion de Tetuan* bas-relief; Campo Santo baroque cemetery | Multi-variable constraints |
 
