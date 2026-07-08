@@ -13,6 +13,7 @@ public class DriveInterruptionScheduler
 
     readonly float[] _progressionThresholds;
     readonly float[] _repairThresholds;
+    readonly int _guaranteedRepairCount;
 
     int _progressionIndex;
     int _repairIndex;
@@ -20,11 +21,13 @@ public class DriveInterruptionScheduler
     public int CompletedProgressionGates => _progressionIndex;
     public int CompletedRepairs => _repairIndex;
     public bool AllProgressionGatesDone => _progressionIndex >= ProgressionGateCount;
-    public bool GuaranteedRepairsDone => _repairIndex >= GuaranteedRepairCount;
+    public bool GuaranteedRepairsDone => _repairIndex >= _guaranteedRepairCount;
+    public int GuaranteedRepairTarget => _guaranteedRepairCount;
 
-    public DriveInterruptionScheduler(int seed)
+    public DriveInterruptionScheduler(int seed, int guaranteedRepairCount = GuaranteedRepairCount)
     {
         var rng = new Random(seed);
+        _guaranteedRepairCount = Math.Max(0, Math.Min(GuaranteedRepairCount, guaranteedRepairCount));
         _progressionThresholds = new[]
         {
             0.26f + (float)rng.NextDouble() * 0.06f,
@@ -62,7 +65,7 @@ public class DriveInterruptionScheduler
     {
         _ = random01;
         float progress = ClampProgress(progress01);
-        if (_repairIndex < GuaranteedRepairCount)
+        if (_repairIndex < _guaranteedRepairCount)
         {
             if (progress < _repairThresholds[_repairIndex]) return false;
 

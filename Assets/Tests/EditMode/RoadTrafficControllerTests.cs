@@ -184,6 +184,59 @@ public class RoadTrafficControllerTests
     }
 
     [Test]
+    public void OncomingCar_MovesTowardAndPastTarget()
+    {
+        GameObject root = new GameObject("TrafficOncomingRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            target.transform.position = new Vector3(20f, 0f, 0f);
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
+            traffic.InitManual(route, root.transform, target.transform, null);
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(40f, 1f, 4f, direction: -1));
+
+            Assert.AreEqual(-1, traffic.VehicleDirectionForTests(0));
+            float before = traffic.VehicleAlongForTests(0);
+            traffic.Tick(1f);
+
+            Assert.Less(traffic.VehicleAlongForTests(0), before,
+                "oncoming traffic should travel opposite the route direction so it visibly passes the jeepney");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void SameDirectionCar_StillMovesForward()
+    {
+        GameObject root = new GameObject("TrafficSameDirectionRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            target.transform.position = Vector3.zero;
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
+            traffic.InitManual(route, root.transform, target.transform, null);
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(20f, -1f, 3f, direction: 1));
+
+            Assert.AreEqual(1, traffic.VehicleDirectionForTests(0));
+            float before = traffic.VehicleAlongForTests(0);
+            traffic.Tick(1f);
+
+            Assert.Greater(traffic.VehicleAlongForTests(0), before);
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
     public void ForceSpawn_SkipsSlotsTooCloseToStops()
     {
         GameObject root = new GameObject("TrafficStopClearanceRoot");

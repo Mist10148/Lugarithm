@@ -165,7 +165,8 @@ public class ManualDriveController : MonoBehaviour
         if (_breakdown != null)
             _breakdown.Init(jeepney, engineRepairMinigame, refuelMinigame, mazeRepairMinigame,
                             toast, _tracker,
-                            _ctx.TotalLength, _def.manual.breakdownAtRouteFraction);
+                            _ctx.TotalLength, _def.manual.breakdownAtRouteFraction,
+                            automaticInterruptionsEnabled: _levelIndex != 0);
 
         _startTime = Time.time;
 
@@ -386,7 +387,7 @@ public class ManualDriveController : MonoBehaviour
         };
 
         if (repair && mazeRepairMinigame != null)
-            mazeRepairMinigame.Show(BreakdownFault.Engine, seed, onDone);
+            mazeRepairMinigame.ShowSimpleRepair(BreakdownFault.Engine, seed, onDone);
         else if (!repair && refuelMinigame != null)
             refuelMinigame.Show(seed, onDone);
         else

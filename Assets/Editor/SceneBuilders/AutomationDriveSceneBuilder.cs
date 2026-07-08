@@ -1267,14 +1267,16 @@ public static class AutomationDriveSceneBuilder
 
     static void WireModerateTrafficDefaults(RoadTrafficController traffic)
     {
-        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 5);
-        SceneBuilderUtil.Wire(traffic, "minActiveVehicles", 3);
-        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 1.25f);
-        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 2.5f);
+        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 7);
+        SceneBuilderUtil.Wire(traffic, "minActiveVehicles", 4);
+        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 0.9f);
+        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 1.8f);
+        SceneBuilderUtil.Wire(traffic, "oncomingTrafficRatio", 0.45f);
         SceneBuilderUtil.Wire(traffic, "minCarSpeed", 2.2f);
-        SceneBuilderUtil.Wire(traffic, "maxCarSpeed", 3.3f);
+        SceneBuilderUtil.Wire(traffic, "maxCarSpeed", 4.2f);
         SceneBuilderUtil.Wire(traffic, "followDistance", 3f);
         SceneBuilderUtil.Wire(traffic, "followSlowZone", 3.5f);
+        SceneBuilderUtil.Wire(traffic, "enableManualSoftContacts", false);
     }
 
     static Button MakeRowButton(RectTransform row, string name, string label, float width)

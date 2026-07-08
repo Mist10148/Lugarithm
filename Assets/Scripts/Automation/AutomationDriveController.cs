@@ -184,7 +184,9 @@ public class AutomationDriveController : MonoBehaviour
             _level = LevelLibrary.Get(0);
         }
         _def = _level.auto;
-        _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
+        _interruptionScheduler = new DriveInterruptionScheduler(
+            5000 + _levelIndex,
+            _levelIndex == 0 ? 0 : DriveInterruptionScheduler.GuaranteedRepairCount);
 
         // Procedural town: build the automation grid + rides from a generated
         // layout so the self-driving agent has real passengers to tend. The
@@ -705,7 +707,7 @@ public class AutomationDriveController : MonoBehaviour
         };
 
         if (repair && mazeRepairMinigame != null)
-            mazeRepairMinigame.Show(BreakdownFault.Engine, seed, onDone);
+            mazeRepairMinigame.ShowSimpleRepair(BreakdownFault.Engine, seed, onDone);
         else if (!repair && refuelMinigame != null)
             refuelMinigame.Show(seed, onDone);
         else
@@ -1088,9 +1090,12 @@ public class AutomationDriveController : MonoBehaviour
     void AutoFuelTick()
     {
         if (_autoBreakdownActive) return;
+        if (_levelIndex == 0) return;
         if (refuelMinigame == null && mazeRepairMinigame == null) return;
         if (_interruptionScheduler == null)
-            _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
+            _interruptionScheduler = new DriveInterruptionScheduler(
+                5000 + _levelIndex,
+                _levelIndex == 0 ? 0 : DriveInterruptionScheduler.GuaranteedRepairCount);
 
         // Assumes ExecutionController.baseStepSeconds == 1.0 (one step == one simulated
         // second), so this drains at the same per-second rate as Manual Mode regardless

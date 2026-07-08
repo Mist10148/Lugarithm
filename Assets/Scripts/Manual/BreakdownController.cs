@@ -23,6 +23,7 @@ public class BreakdownController : MonoBehaviour
     DriveInterruptionScheduler _scheduler;
     float _routeLength = 1f;
     bool  _inProgress;
+    bool  _automaticInterruptionsEnabled = true;
 
     public bool InProgress => _inProgress;
 
@@ -38,7 +39,7 @@ public class BreakdownController : MonoBehaviour
     public void Init(JeepneyController jeepney,
                      PatternMatchMinigame engineRepair, RefuelMinigame refuel, MazeRepairMinigame maze,
                      ToastNotification toast, DriveScoreTracker tracker,
-                     float routeLength, float triggerFraction)
+                     float routeLength, float triggerFraction, bool automaticInterruptionsEnabled = true)
     {
         _jeepney      = jeepney;
         _engineRepair = engineRepair;
@@ -46,16 +47,19 @@ public class BreakdownController : MonoBehaviour
         _maze         = maze;
         _toast        = toast;
         _tracker      = tracker;
+        _automaticInterruptionsEnabled = automaticInterruptionsEnabled;
 
         _routeLength = Mathf.Max(1f, routeLength);
         _scheduler = new DriveInterruptionScheduler(
-            3000 + Mathf.RoundToInt(routeLength * 10f) + Mathf.RoundToInt(triggerFraction * 100f));
+            3000 + Mathf.RoundToInt(routeLength * 10f) + Mathf.RoundToInt(triggerFraction * 100f),
+            automaticInterruptionsEnabled ? DriveInterruptionScheduler.GuaranteedRepairCount : 0);
     }
 
     /// <summary>Called each frame by the drive controller with route progress.</summary>
     public void Tick(float distanceAlongRoute)
     {
         if (_inProgress) return;
+        if (!_automaticInterruptionsEnabled) return;
 
         // Tank ran dry: refuel minigame, independent of the scripted breakdown.
         if (_jeepney != null && _refuel != null && _jeepney.Fuel01 <= 0f)

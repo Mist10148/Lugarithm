@@ -79,6 +79,8 @@ public class MazeRepairMinigame : MonoBehaviour
     float _timeLeft;
     float _timeLimitSeconds;
     string _resultTitle = "MAZE REPAIR";
+    int    _overrideMazeCells;
+    string _overrideResultTitle;
 
     // Co-pilot hint state (mirrors AutomationDriveController's tiered, struggle-aware flow).
     int  _hintTier;
@@ -144,7 +146,9 @@ public class MazeRepairMinigame : MonoBehaviour
         _attempts = 0;
         _timeLeft = softTimerSeconds;
         _timeLimitSeconds = softTimerSeconds;
-        _resultTitle = "MAZE REPAIR";
+        _resultTitle = string.IsNullOrEmpty(_overrideResultTitle)
+            ? "MAZE REPAIR"
+            : _overrideResultTitle;
 
         _hintTier = 0;
         _failCount = 0;
@@ -158,7 +162,10 @@ public class MazeRepairMinigame : MonoBehaviour
         if (hintLabel  != null) hintLabel.text = "";
 
         // Generate a fresh perfect maze; it is always solvable by a wall-follower.
-        _def = MazeGenerator.Generate(mazeCells, mazeCells, seed);
+        int cells = _overrideMazeCells > 0 ? _overrideMazeCells : mazeCells;
+        _overrideMazeCells = 0;
+        _overrideResultTitle = null;
+        _def = MazeGenerator.Generate(cells, cells, seed);
 
         GridModel grid = GridModel.Parse(_def.gridMap, out _);
         _sim = new AgentSim(grid, new FareTable(), _def.startFacing);
@@ -205,6 +212,14 @@ public class MazeRepairMinigame : MonoBehaviour
 
         _active = true;
         if (root != null) root.SetActive(true);
+    }
+
+    /// <summary>Opens the easier one-off Tutorial repair drill.</summary>
+    public void ShowSimpleRepair(BreakdownFault fault, int seed, Action<MinigameResult> onDone)
+    {
+        _overrideMazeCells = 3;
+        _overrideResultTitle = "SIMPLE REPAIR";
+        Show(fault, seed, onDone);
     }
 
     /// <summary>Opens the same coding maze as a town-hub objective instead of a repair.</summary>

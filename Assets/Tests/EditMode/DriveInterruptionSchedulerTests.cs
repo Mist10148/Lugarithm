@@ -50,6 +50,17 @@ public class DriveInterruptionSchedulerTests
     }
 
     [Test]
+    public void Repairs_CanBeDisabledForTutorial()
+    {
+        var scheduler = new DriveInterruptionScheduler(789, guaranteedRepairCount: 0);
+
+        Assert.AreEqual(0, scheduler.GuaranteedRepairTarget);
+        Assert.IsTrue(scheduler.GuaranteedRepairsDone);
+        Assert.IsFalse(scheduler.TryStartRepair(1f, 0f));
+        Assert.AreEqual(0, scheduler.CompletedRepairs);
+    }
+
+    [Test]
     public void Refuel_OnlyFiresAtEmptyTank()
     {
         var scheduler = new DriveInterruptionScheduler(1);

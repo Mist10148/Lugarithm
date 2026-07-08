@@ -124,6 +124,49 @@ public class AgentSimTests
     }
 
     [Test]
+    public void VisualTraffic_StillReportsSensors_ButDoesNotBlockForwardMove()
+    {
+        var sim = NewWideSim(); // at (1,1) facing East
+        sim.TrafficEnabled = true;
+        sim.TrafficBlocksMovement = false;
+        sim.SetTrafficCells(new[] { new Vector2Int(2, 1) });
+
+        Assert.IsTrue(sim.EvaluateQuery("carInFront"));
+        Assert.IsFalse(sim.EvaluateQuery("frontIsClear"));
+
+        AgentActionResult result = sim.Apply("moveForward");
+
+        Assert.IsFalse(result.Blocked);
+        Assert.AreEqual(new Vector2Int(2, 1), sim.Position);
+    }
+
+    [Test]
+    public void VisualTraffic_DoesNotMakeDropoffPathLookUnreachable()
+    {
+        GridModel grid = GridModel.Parse(new[]
+        {
+            "#######",
+            "#S...D#",
+            "#######",
+        }, out List<string> errors);
+        CollectionAssert.IsEmpty(errors);
+
+        var sim = new AgentSim(grid, new FareTable(), startFacing: 1)
+        {
+            EndlessRoute = true,
+            TrafficEnabled = true,
+            TrafficBlocksMovement = false,
+        };
+        sim.SetTrafficCells(new[] { new Vector2Int(2, 1), new Vector2Int(3, 1) });
+        sim.ArmStoryDropoff(new Vector2Int(4, 1));
+
+        AgentActionResult result = sim.Apply("driveToDropoff");
+
+        Assert.IsNull(result.Warning);
+        Assert.Greater(sim.PendingMoveCount, 0);
+    }
+
+    [Test]
     public void PickUp_OnAStop_BoardsThePassenger_OnceOnly()
     {
         var sim = NewSim(out _);
