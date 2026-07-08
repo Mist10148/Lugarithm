@@ -1097,10 +1097,11 @@ public class AutomationDriveController : MonoBehaviour
                 5000 + _levelIndex,
                 _levelIndex == 0 ? 0 : DriveInterruptionScheduler.GuaranteedRepairCount);
 
-        // Assumes ExecutionController.baseStepSeconds == 1.0 (one step == one simulated
-        // second), so this drains at the same per-second rate as Manual Mode regardless
-        // of the playback Speed slider (Speed only stretches real-world animation time).
-        _autoFuel = Mathf.Max(0f, _autoFuel - RefuelMath.FuelDrainPerSecond);
+        // One movement step represents baseStepSeconds of simulated driving, so the
+        // drain is scaled to match Manual Mode's per-second rate regardless of the
+        // playback Speed slider (Speed only stretches real-world animation time).
+        float stepSeconds = exec != null ? exec.BaseStepSeconds : 1f;
+        _autoFuel = Mathf.Max(0f, _autoFuel - RefuelMath.FuelDrainPerSecond * stepSeconds);
         RefreshAutomationHud();
 
         if (_interruptionScheduler.ShouldRefuel(_autoFuel))

@@ -64,22 +64,29 @@ public static class CodingConceptLibrary
             {
                 title = "Traffic & Lane Changes",
                 body =
-                    "The road is shared. <b>carInFront()</b> is a query that asks whether a moving car is " +
-                    "directly ahead of the jeepney. When it is true, dodge with <b>moveLeft()</b> or " +
-                    "<b>moveRight()</b>; those commands slide one lane sideways without turning the jeepney.\n\n" +
-                    "A clean program names this habit as a helper like <b>avoidTraffic()</b>, then calls it " +
-                    "before the route helper drives on.\n\n" +
+                    "The road is shared and traffic keeps to its side: cars going your way stay on the " +
+                    "right, oncoming cars pass on the left. <b>carInFront()</b> is a query that asks " +
+                    "whether a moving car is directly ahead of the jeepney. When it is true, dodge with " +
+                    "<b>moveLeft()</b> or <b>moveRight()</b>; those commands slide one lane sideways " +
+                    "without turning the jeepney.\n\n" +
+                    "<b>avoidTraffic()</b> is a built-in command that does this whole habit in one call: " +
+                    "if a car blocks the cell ahead it slides into a clear lane (left first, then right), " +
+                    "and simply waits when boxed in. You can still write your own <b>def avoidTraffic():</b> " +
+                    "— a function you define wins over the built-in, so the example below shows what the " +
+                    "built-in does under the hood.\n\n" +
                     "<b>Watch out:</b> <b>carInFront()</b> only answers the question. Put it inside an " +
                     "<b>if</b> before you move.",
                 codeExample =
-                    "<mspace=0.6em>def avoidTraffic():\n" +
+                    "<mspace=0.6em># One call dodges the car ahead:\n" +
+                    "avoidTraffic()\n" +
+                    "driveToNextStop()\n\n" +
+                    "# What the built-in does under the hood:\n" +
+                    "def avoidTraffic():\n" +
                     "    if carInFront():\n" +
                     "        if leftIsClear():\n" +
                     "            moveLeft()\n" +
                     "        else:\n" +
-                    "            moveRight()\n\n" +
-                    "avoidTraffic()\n" +
-                    "driveToNextStop()</mspace>"
+                    "            moveRight()</mspace>"
             },
 
             new CodingConceptEntry
@@ -430,7 +437,8 @@ public static class CodingConceptLibrary
                     "Every name the jeepney understands, in one place. <b>Actions</b> <i>do</i> something " +
                     "(one tick each), <b>queries</b> answer True/False, and <b>reporters</b> hand back a " +
                     "number or word you can use in a calculation.\n\n" +
-                    "<b>Actions:</b> moveForward(), turnLeft(), turnRight(), moveLeft(), moveRight(), wait(), " +
+                    "<b>Actions:</b> moveForward(), turnLeft(), turnRight(), moveLeft(), moveRight(), " +
+                    "avoidTraffic(), wait(), " +
                     "driveToNextStop(), driveToDropoff(), driveToTerminal(), driveToDestination(), " +
                     "keepDriving(), openDoor(), closeDoor(), pickUp() / board(), dropOff() / alight(), " +
                     "collectFare(), giveChange(amount), announceStop(), honk(). " +

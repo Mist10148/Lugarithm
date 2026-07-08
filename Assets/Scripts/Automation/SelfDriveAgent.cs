@@ -11,7 +11,8 @@ public static class SelfDrivePlanner
 {
     public static readonly string[] NavBlocks =
     {
-        "moveForward", "turnLeft", "turnRight", "pickUp", "dropOff", "collectFare", "giveChange",
+        "moveForward", "turnLeft", "turnRight", "moveLeft", "moveRight", "avoidTraffic",
+        "pickUp", "dropOff", "collectFare", "giveChange",
         "driveToNextStop", "driveToTerminal", "driveToDropoff", "keepDriving",
         "while", "if", "ifElse",
         "functionDef", "callFunction",

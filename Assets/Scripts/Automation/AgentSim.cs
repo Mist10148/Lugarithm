@@ -387,6 +387,36 @@ public class AgentSim : IAgentApi
                 ApplyLaneChange(r, (Facing + 1) % 4, "right");
                 break;
 
+            case "avoidTraffic":
+                // Built-in dodge: slide into a clear lane when a car blocks the cell
+                // ahead. Rewrites r.Action to the primitive actually performed so the
+                // view/HUD/duration layers need no special handling.
+                if (!TrafficPresent(Position + FacingDeltas[Facing]))
+                {
+                    r.Action = "wait";
+                }
+                else
+                {
+                    Vector2Int leftCell = Position + FacingDeltas[(Facing + 3) % 4];
+                    Vector2Int rightCell = Position + FacingDeltas[(Facing + 1) % 4];
+                    if (_grid.IsWalkable(leftCell) && !TrafficPresent(leftCell))
+                    {
+                        ApplyLaneChange(r, (Facing + 3) % 4, "left");
+                        r.Action = "moveLeft";
+                    }
+                    else if (_grid.IsWalkable(rightCell) && !TrafficPresent(rightCell))
+                    {
+                        ApplyLaneChange(r, (Facing + 1) % 4, "right");
+                        r.Action = "moveRight";
+                    }
+                    else
+                    {
+                        r.Action = "wait";
+                        r.Warning = "boxed in — waiting for traffic to clear.";
+                    }
+                }
+                break;
+
             case "pickUp":
                 if (_rides != null) { PickUpRides(r); break; }
                 if (_waiting.Remove(Position))

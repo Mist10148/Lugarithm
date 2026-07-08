@@ -15,12 +15,12 @@ public class ExecutionController : MonoBehaviour
     public enum ExecState { Idle, Running, Paused, Finished }
 
     [Header("Timing")]
-    [SerializeField] private float baseStepSeconds = 1.0f;   // heavier, slower cruise (Manual-like weight)
+    [SerializeField] private float baseStepSeconds = 0.6f;   // snappier cruise, closer to Manual's pace
     [SerializeField] private float logicStepSeconds = 0.12f; // fast resolve for non-movement "logic" steps
                                                                // (turns, pickUp, dropOff, collectFare,
                                                                // giveChange) — movement keeps baseStepSeconds
 
-    [SerializeField] private float minVisibleStepSeconds = 0.35f;
+    [SerializeField] private float minVisibleStepSeconds = 0.2f;
 
     [Header("Heatmap")]
     [Tooltip("A line that executes this many times in a single frame is considered 'hot'.")]
@@ -63,6 +63,10 @@ public class ExecutionController : MonoBehaviour
     const int EndlessPathBatchSize = 4;
 
     public AgentSim Sim => _sim;
+
+    /// <summary>Simulated seconds represented by one movement step — fuel drain
+    /// and any other per-step real-world rates must scale by this.</summary>
+    public float BaseStepSeconds => baseStepSeconds;
     public IReadOnlyDictionary<int, int> LineHits => _vm.LineHits;
 
     /// <summary>Accumulated <c>print()</c> output for the current run. Cleared when
@@ -333,7 +337,6 @@ public class ExecutionController : MonoBehaviour
                 }
                 if (!_sim.HasPendingMoves)
                     ClearPendingMoveSource();
-                yield return null;
                 continue;
             }
 

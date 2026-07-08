@@ -23,14 +23,8 @@ public class RoadTrafficControllerTests
             Assert.IsTrue(traffic.ForceSpawnForTests(0f));
             Assert.AreEqual(3, traffic.ActiveVehicleCount);
 
-            Assert.IsTrue(traffic.ForceSpawnForTests(0f));
-            Assert.AreEqual(4, traffic.ActiveVehicleCount);
-
-            Assert.IsTrue(traffic.ForceSpawnForTests(0f));
-            Assert.AreEqual(5, traffic.ActiveVehicleCount);
-
             Assert.IsFalse(traffic.ForceSpawnForTests(0f));
-            Assert.AreEqual(5, traffic.ActiveVehicleCount);
+            Assert.AreEqual(3, traffic.ActiveVehicleCount);
         }
         finally
         {
@@ -138,7 +132,9 @@ public class RoadTrafficControllerTests
         GameObject target = new GameObject("Target");
         try
         {
-            target.transform.position = new Vector3(30f, 0f, 0f);
+            // Route runs along +x, so route-left is +y; a side=+1 car sits at y=+1.35.
+            // The jeepney must occupy that lane to count as an obstacle.
+            target.transform.position = new Vector3(30f, 1.35f, 0f);
             RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
             RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
             traffic.InitManual(route, root.transform, target.transform, null);
@@ -163,7 +159,7 @@ public class RoadTrafficControllerTests
         GameObject target = new GameObject("Target");
         try
         {
-            target.transform.position = new Vector3(30f, 0f, 0f);
+            target.transform.position = new Vector3(30f, 1.35f, 0f);
             RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
             RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
             traffic.InitManual(route, root.transform, target.transform, null);
@@ -171,7 +167,7 @@ public class RoadTrafficControllerTests
             traffic.Tick(5f);
             float queuedAlong = traffic.VehicleAlongForTests(0);
 
-            target.transform.position = new Vector3(50f, 0f, 0f);
+            target.transform.position = new Vector3(50f, 1.35f, 0f);
             traffic.Tick(1f);
 
             Assert.Greater(traffic.VehicleAlongForTests(0), queuedAlong);
@@ -252,6 +248,121 @@ public class RoadTrafficControllerTests
 
             Assert.IsFalse(traffic.ForceSpawnForTests(0f));
             Assert.AreEqual(0, traffic.ActiveVehicleCount);
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void DefaultSpawnSides_FollowRightHandDriving()
+    {
+        GameObject root = new GameObject("TrafficLaneRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
+            traffic.InitManual(route, root.transform, target.transform, null);
+
+            // Default side (NaN) resolves from direction: forward keeps route-right
+            // (negative left-offset), oncoming keeps route-left (positive).
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(30f, direction: 1));
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(50f, direction: -1));
+
+            Assert.Less(traffic.VehicleSideOffsetForTests(0), 0f,
+                "forward traffic should keep to the right side of the road");
+            Assert.Greater(traffic.VehicleSideOffsetForTests(1), 0f,
+                "oncoming traffic should keep to the left side of the road");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void OncomingCar_QueuesBehindSlowerOncomingCar()
+    {
+        GameObject root = new GameObject("TrafficOncomingQueueRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            target.transform.position = Vector3.zero;
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
+            traffic.InitManual(route, root.transform, target.transform, null);
+
+            // Oncoming cars travel toward lower along; the trailing car starts higher.
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(30f, 1f, 0.1f, direction: -1));
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(40f, 1f, 4f, direction: -1));
+
+            for (int i = 0; i < 60; i++)
+                traffic.Tick(0.1f);
+
+            float gap = traffic.VehicleAlongForTests(1) - traffic.VehicleAlongForTests(0);
+            Assert.GreaterOrEqual(gap, traffic.FollowDistanceForTests - 0.05f,
+                "a faster oncoming car must queue behind a slower one instead of driving through it");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void ForwardCar_IgnoresJeepneyInAnotherLane()
+    {
+        GameObject root = new GameObject("TrafficOtherLaneRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            // Jeepney parked in the oncoming (route-left, y=+1.35) lane; the forward
+            // car cruises the route-right lane and should pass without queuing.
+            target.transform.position = new Vector3(30f, 1.35f, 0f);
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
+            traffic.InitManual(route, root.transform, target.transform, null);
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(20f, -1f, 3f));
+
+            traffic.Tick(5f);
+
+            Assert.Greater(traffic.VehicleAlongForTests(0),
+                30f - traffic.FollowDistanceForTests + 0.5f,
+                "a forward car should not stop for a jeepney sitting in a different lane");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void OncomingCar_StopsForJeepneyInItsLane()
+    {
+        GameObject root = new GameObject("TrafficHeadOnRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            // Jeepney drives in the oncoming (route-left) lane; the oncoming car
+            // must brake instead of driving through it.
+            target.transform.position = new Vector3(20f, 1.35f, 0f);
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
+            traffic.InitManual(route, root.transform, target.transform, null);
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(40f, 1f, 4f, direction: -1));
+
+            for (int i = 0; i < 100; i++)
+                traffic.Tick(0.1f);
+
+            Assert.GreaterOrEqual(traffic.VehicleAlongForTests(0),
+                20f + traffic.FollowDistanceForTests - 0.05f,
+                "an oncoming car must stop short of a jeepney occupying its lane");
         }
         finally
         {

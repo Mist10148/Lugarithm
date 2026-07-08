@@ -21,6 +21,7 @@ public enum BlockType
     While,
     FunctionDef,    // def name(): … — a no-argument helper definition (container)
     FunctionCall,   // name()         — calls a defined helper
+    AvoidTraffic,   // built-in dodge: slide to a clear lane when a car blocks the way
 }
 
 /// <summary>
@@ -69,6 +70,7 @@ public static class BlockProgram
             case BlockType.TurnRight:   return "turnRight";
             case BlockType.MoveLeft:    return "moveLeft";
             case BlockType.MoveRight:   return "moveRight";
+            case BlockType.AvoidTraffic: return "avoidTraffic";
             case BlockType.DriveToNextStop: return "driveToNextStop";
             case BlockType.DriveToTerminal: return "driveToTerminal";
             case BlockType.KeepDriving:     return "keepDriving";
@@ -91,6 +93,7 @@ public static class BlockProgram
             case "turnRight":   return BlockType.TurnRight;
             case "moveLeft":    return BlockType.MoveLeft;
             case "moveRight":   return BlockType.MoveRight;
+            case "avoidTraffic": return BlockType.AvoidTraffic;
             case "driveToNextStop": return BlockType.DriveToNextStop;
             case "driveToTerminal": return BlockType.DriveToTerminal;
             case "keepDriving":     return BlockType.KeepDriving;

@@ -158,7 +158,7 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
         bool hasForwardMove = false;
         foreach (AgentActionResult result in moves)
-            if (result.Action == "moveForward" && !result.Blocked)
+            if (IsCruiseMove(result))
                 hasForwardMove = true;
 
         if (hasForwardMove)
@@ -178,20 +178,34 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
     // -------------------------------------------------------------------------
 
+    static bool IsCruiseMove(AgentActionResult result)
+    {
+        if (result.Blocked) return false;
+        return result.Action == "moveForward" ||
+               result.Action == "moveLeft" ||
+               result.Action == "moveRight";
+    }
+
     IEnumerator PlayContinuousPath(IReadOnlyList<AgentActionResult> moves, float secondsPerStep)
     {
         // Stitch the forward moves into one world-space polyline so the jeepney drives the
         // whole stretch as a single heavy motion — accelerate, cruise, settle — instead of
         // easing to a near-stop at every cell. Rotation lags the travel direction so corners
-        // feel weighty, like a real loaded jeepney leaning into the turn.
+        // feel weighty, like a real loaded jeepney leaning into the turn. Lane changes ride
+        // the same polyline as lateral drift: the body keeps pointing down the road (the
+        // heading it had when the slide started) instead of swinging 90° sideways.
         var pts     = new List<Vector3>();
         var toCells = new List<Vector2Int>();
+        var rotDirs = new List<Vector3>();   // per-segment body-heading target
         foreach (AgentActionResult result in moves)
         {
-            if (result.Action != "moveForward" || result.Blocked) continue;
+            if (!IsCruiseMove(result)) continue;
             if (pts.Count == 0) pts.Add(_space.CellToWorld(result.From));
             pts.Add(_space.CellToWorld(result.To));
             toCells.Add(result.To);
+            rotDirs.Add(result.Action == "moveForward"
+                ? _space.CellToWorld(result.To) - _space.CellToWorld(result.From)
+                : (Vector3)(_space.FacingDirection(result.FacingBefore)));
         }
         if (pts.Count < 2) yield break;
 
@@ -227,7 +241,7 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
             float u = segLen[s] > 1e-4f ? Mathf.Clamp01(dist / segLen[s]) : 1f;
             transform.position = Vector3.Lerp(pts[s], pts[s + 1], u);
 
-            Vector3 dir = pts[s + 1] - pts[s];
+            Vector3 dir = rotDirs[s];
             if (dir.sqrMagnitude > 1e-5f && body != null)
             {
                 Quaternion target = BodyRotationFromDir(dir);

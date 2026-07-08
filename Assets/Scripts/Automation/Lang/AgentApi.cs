@@ -50,6 +50,10 @@ public static class AgentApi
         // Lane change: slide one lane sideways without turning (rides the road's lanes).
         new ApiEntry("moveLeft",           ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("moveRight",          ApiKind.Action,  minArity: 0, maxArity: 0),
+        // Built-in dodge: if a car blocks the cell ahead, slide into a clear lane
+        // (left first, then right); waits when boxed in. User-defined
+        // `def avoidTraffic():` shadows this built-in.
+        new ApiEntry("avoidTraffic",       ApiKind.Action,  minArity: 0, maxArity: 0),
         new ApiEntry("wait",               ApiKind.Action,  minArity: 0, maxArity: 1),
 
         new ApiEntry("frontIsClear",       ApiKind.Query,   minArity: 0, maxArity: 0),

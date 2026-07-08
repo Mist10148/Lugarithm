@@ -9,21 +9,21 @@ using UnityEngine;
 public class RoadTrafficController : MonoBehaviour
 {
     [Header("Traffic")]
-    [SerializeField] private int maxActiveVehicles = 5;
-    [SerializeField] private int minActiveVehicles = 3;
-    [SerializeField] private float minSpawnCooldown = 1.25f;
-    [SerializeField] private float maxSpawnCooldown = 2.5f;
+    [SerializeField] private int maxActiveVehicles = 3;
+    [SerializeField] private int minActiveVehicles = 1;
+    [SerializeField] private float minSpawnCooldown = 3f;
+    [SerializeField] private float maxSpawnCooldown = 6f;
     [SerializeField] private float minSpawnAhead = 16f;
     [SerializeField] private float maxSpawnAhead = 36f;
     [SerializeField] private float minSpawnBehind = 10f;
     [SerializeField] private float maxSpawnBehind = 24f;
     [SerializeField] private float despawnBehind = 30f;
-    [SerializeField, Range(0f, 1f)] private float oncomingTrafficRatio = 0.45f;
+    [SerializeField, Range(0f, 1f)] private float oncomingTrafficRatio = 0.4f;
     [SerializeField] private float minCarSpeed = 2.2f;
     [SerializeField] private float maxCarSpeed = 3.3f;
     [SerializeField] private float laneOffset = 1.35f;
     [SerializeField] private float stopClearance = 8f;
-    [SerializeField] private float minVehicleSpacing = 5f;
+    [SerializeField] private float minVehicleSpacing = 8f;
     [SerializeField] private float followDistance = 3f;
     [SerializeField] private float followSlowZone = 3.5f;
     [SerializeField] private float speedSmoothTime = 0.35f;
@@ -34,6 +34,8 @@ public class RoadTrafficController : MonoBehaviour
     [SerializeField] private bool enableManualSoftContacts = false;
 
     readonly List<TrafficVehicle> _vehicles = new List<TrafficVehicle>();
+    readonly Stack<TrafficVehicle> _pool = new Stack<TrafficVehicle>();
+    static Sprite _carSprite;
     readonly List<float> _stopAlong = new List<float>();
     readonly HashSet<Vector2Int> _trafficCells = new HashSet<Vector2Int>();
     readonly HashSet<Vector2Int> _lastSyncedTrafficCells = new HashSet<Vector2Int>();
@@ -84,14 +86,19 @@ public class RoadTrafficController : MonoBehaviour
         return _vehicles.Count > before;
     }
 
-    public bool ForceSpawnAtForTests(float along, float side = 1f, float cruiseSpeed = -1f, int direction = 1)
+    public bool ForceSpawnAtForTests(float along, float side = float.NaN, float cruiseSpeed = -1f, int direction = 1)
     {
         if (_line == null || _line.Length < 2) return false;
         if (_vehicles.Count >= VehicleCap()) return false;
         if (along < 2f || along > _routeLength - 2f) return false;
-        if (!FarFromStops(along) || !FarFromVehicles(along)) return false;
 
-        SpawnVehicle(along, side >= 0f ? 1f : -1f,
+        // Default side follows right-hand driving: forward = route-right (-1), oncoming = route-left (+1).
+        float resolvedSide = float.IsNaN(side)
+            ? (direction >= 0 ? -1f : 1f)
+            : (side >= 0f ? 1f : -1f);
+        if (!FarFromStops(along) || !FarFromVehicles(along, resolvedSide)) return false;
+
+        SpawnVehicle(along, resolvedSide,
                      cruiseSpeed > 0f ? cruiseSpeed : RandomCarSpeed(),
                      direction);
         return true;
@@ -161,7 +168,7 @@ public class RoadTrafficController : MonoBehaviour
     public void Clear()
     {
         for (int i = _vehicles.Count - 1; i >= 0; i--)
-            DestroyVehicle(_vehicles[i]);
+            ReleaseVehicle(_vehicles[i]);
         _vehicles.Clear();
         _trafficCells.Clear();
         _lastSyncedTrafficCells.Clear();
@@ -181,8 +188,9 @@ public class RoadTrafficController : MonoBehaviour
             return;
 
         float targetAlong = RouteMath.NearestDistanceAlong(_line, _target.position, out _);
+        float targetLateral = TargetLateralOffset(targetAlong);
         UpdateTargetSpeed(targetAlong, dt);
-        MoveVehicles(dt, targetAlong);
+        MoveVehicles(dt, targetAlong, targetLateral);
 
         TopUpVisibleTraffic(targetAlong);
 
@@ -198,41 +206,44 @@ public class RoadTrafficController : MonoBehaviour
             SyncAutomationCells();
     }
 
-    void MoveVehicles(float dt, float targetAlong)
+    void MoveVehicles(float dt, float targetAlong, float targetLateral)
     {
         float safeDt = Mathf.Max(0f, dt);
         for (int i = _vehicles.Count - 1; i >= 0; i--)
         {
             TrafficVehicle v = _vehicles[i];
             float desiredSpeed = v.cruiseSpeed;
-            float followLimit = v.direction >= 0 ? FindFollowLimit(v, targetAlong) : float.NegativeInfinity;
-            if (v.direction >= 0)
+            bool forward = v.direction >= 0;
+            float followLimit = forward
+                ? FindFollowLimit(v, targetAlong, targetLateral)
+                : FindFollowLimitReverse(v, targetAlong, targetLateral);
+            float available = forward ? followLimit - v.along : v.along - followLimit;
+            if (available <= 0.05f)
             {
-                float available = followLimit - v.along;
-                if (available <= 0.05f)
-                {
-                    desiredSpeed = 0f;
-                }
-                else if (available < followSlowZone)
-                {
-                    desiredSpeed *= Mathf.Clamp01(available / Mathf.Max(0.01f, followSlowZone));
+                desiredSpeed = 0f;
+            }
+            else if (available < followSlowZone)
+            {
+                desiredSpeed *= Mathf.Clamp01(available / Mathf.Max(0.01f, followSlowZone));
+                if (forward)
                     desiredSpeed = Mathf.Min(desiredSpeed, Mathf.Max(0f, _targetAlongSpeed));
-                }
             }
 
             v.currentSpeed = Mathf.SmoothDamp(v.currentSpeed, desiredSpeed, ref v.speedVel,
                                               Mathf.Max(0.01f, speedSmoothTime),
                                               Mathf.Infinity, safeDt);
             float nextAlong = v.along + v.direction * v.currentSpeed * safeDt;
-            if (v.direction >= 0 && followLimit >= v.along && nextAlong > followLimit)
+            bool pastLimit = forward ? nextAlong > followLimit : nextAlong < followLimit;
+            bool alreadyPastLimit = forward ? followLimit < v.along : followLimit > v.along;
+            if (alreadyPastLimit)
             {
-                nextAlong = followLimit;
+                nextAlong = v.along;
                 v.currentSpeed = 0f;
                 v.speedVel = 0f;
             }
-            else if (v.direction >= 0 && followLimit < v.along)
+            else if (pastLimit)
             {
-                nextAlong = v.along;
+                nextAlong = followLimit;
                 v.currentSpeed = 0f;
                 v.speedVel = 0f;
             }
@@ -240,7 +251,7 @@ public class RoadTrafficController : MonoBehaviour
             v.along = nextAlong;
             if (ShouldDespawn(v, targetAlong))
             {
-                DestroyVehicle(v);
+                ReleaseVehicle(v);
                 _vehicles.RemoveAt(i);
                 _trafficCellsDirty = true;
                 continue;
@@ -249,11 +260,17 @@ public class RoadTrafficController : MonoBehaviour
         }
     }
 
-    float FindFollowLimit(TrafficVehicle v, float targetAlong)
+    // The jeepney only blocks a car when it actually occupies that car's lane.
+    bool TargetSharesLane(TrafficVehicle v, float targetLateral)
+    {
+        return Mathf.Abs(targetLateral - laneOffset * v.side) < 0.9f;
+    }
+
+    float FindFollowLimit(TrafficVehicle v, float targetAlong, float targetLateral)
     {
         float limit = Mathf.Max(0f, _routeLength - 1f);
 
-        if (targetAlong > v.along)
+        if (targetAlong > v.along && TargetSharesLane(v, targetLateral))
             limit = Mathf.Min(limit, targetAlong - followDistance);
 
         foreach (TrafficVehicle other in _vehicles)
@@ -265,6 +282,38 @@ public class RoadTrafficController : MonoBehaviour
         }
 
         return Mathf.Max(0f, limit);
+    }
+
+    // Mirror of FindFollowLimit for oncoming cars: a lower bound on how far
+    // down-route they may travel before reaching whatever is in their lane.
+    float FindFollowLimitReverse(TrafficVehicle v, float targetAlong, float targetLateral)
+    {
+        float limit = 1f;
+
+        if (targetAlong < v.along && TargetSharesLane(v, targetLateral))
+            limit = Mathf.Max(limit, targetAlong + followDistance);
+
+        foreach (TrafficVehicle other in _vehicles)
+        {
+            if (other == v) continue;
+            if (Mathf.Abs(other.side - v.side) > 0.1f) continue;
+            if (other.along >= v.along) continue;
+            limit = Mathf.Max(limit, other.along + followDistance);
+        }
+
+        return limit;
+    }
+
+    // Projects the followed target (jeepney) onto the route-left axis so we
+    // know which lane it currently occupies.
+    float TargetLateralOffset(float targetAlong)
+    {
+        if (_target == null) return 0f;
+        Vector2 center = RouteMath.PointAt(_line, targetAlong);
+        Vector2 roadDir = RouteMath.DirectionAt(_line, targetAlong + 0.1f);
+        if (roadDir.sqrMagnitude < 1e-6f) roadDir = Vector2.up;
+        Vector2 left = new Vector2(-roadDir.y, roadDir.x);
+        return Vector2.Dot((Vector2)_target.position - center, left);
     }
 
     bool TrySpawn(float targetAlong)
@@ -284,12 +333,13 @@ public class RoadTrafficController : MonoBehaviour
                 : Mathf.Lerp(minSpawnAhead, maxSpawnAhead, slotT);
             float along = targetAlong + (behind ? -offset : offset);
             if (along < 2f || along > _routeLength - 2f) continue;
-            if (!FarFromStops(along) || !FarFromVehicles(along)) continue;
 
+            // Right-hand driving: forward traffic keeps to route-right (-1),
+            // oncoming traffic keeps to route-left (+1).
             int direction = oncoming ? -1 : 1;
-            float side = oncoming
-                ? 1f
-                : (((_spawnSerial + attempt) % 2 == 0) ? -1f : 1f);
+            float side = oncoming ? 1f : -1f;
+            if (!FarFromStops(along) || !FarFromVehicles(along, side)) continue;
+
             SpawnVehicle(along, side, RandomCarSpeed(), direction);
             _spawnSerial++;
             return true;
@@ -308,28 +358,43 @@ public class RoadTrafficController : MonoBehaviour
         }
     }
 
+    static Sprite CarSprite()
+    {
+        if (_carSprite == null)
+        {
+            _carSprite = Resources.Load<Sprite>("Placeholders/traffic_car");
+            if (_carSprite == null)
+                _carSprite = Resources.Load<Sprite>("Placeholders/jeepney_top");
+        }
+        return _carSprite;
+    }
+
     void SpawnVehicle(float along, float side, float cruiseSpeed, int direction = 1)
     {
-        var go = new GameObject("TrafficCar");
-        go.transform.SetParent(_root != null ? _root : transform, false);
-
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = Resources.Load<Sprite>("Placeholders/traffic_car");
-        if (sr.sprite == null)
-            sr.sprite = Resources.Load<Sprite>("Placeholders/jeepney_top");
-        sr.sortingOrder = 9;
-        sr.color = new Color(0.25f, 0.55f, 0.9f, 1f);
-
-        var v = new TrafficVehicle
+        TrafficVehicle v = null;
+        while (_pool.Count > 0 && (v == null || v.go == null))
+            v = _pool.Pop();
+        if (v == null || v.go == null)
         {
-            go = go,
-            renderer = sr,
-            along = along,
-            side = side,
-            direction = direction < 0 ? -1 : 1,
-            cruiseSpeed = Mathf.Max(0.1f, cruiseSpeed),
-            currentSpeed = Mathf.Max(0.1f, cruiseSpeed),
-        };
+            var go = new GameObject("TrafficCar");
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = CarSprite();
+            sr.sortingOrder = 9;
+            sr.color = new Color(0.25f, 0.55f, 0.9f, 1f);
+            v = new TrafficVehicle { go = go, renderer = sr };
+        }
+
+        v.go.transform.SetParent(_root != null ? _root : transform, false);
+        v.go.SetActive(true);
+        v.along = along;
+        v.side = side;
+        v.direction = direction < 0 ? -1 : 1;
+        v.cruiseSpeed = Mathf.Max(0.1f, cruiseSpeed);
+        v.currentSpeed = Mathf.Max(0.1f, cruiseSpeed);
+        v.speedVel = 0f;
+        v.sideVel = 0f;
+        v.placed = false;
+
         _vehicles.Add(v);
         _trafficCellsDirty = true;
         PlaceVehicle(v, 0f);
@@ -456,11 +521,14 @@ public class RoadTrafficController : MonoBehaviour
         return true;
     }
 
-    bool FarFromVehicles(float along)
+    bool FarFromVehicles(float along, float side)
     {
         foreach (TrafficVehicle v in _vehicles)
+        {
+            if (Mathf.Abs(v.side - side) > 0.1f) continue;
             if (Mathf.Abs(v.along - along) < minVehicleSpacing)
                 return false;
+        }
         return true;
     }
 
@@ -539,15 +607,30 @@ public class RoadTrafficController : MonoBehaviour
         return true;
     }
 
-    static void DestroyVehicle(TrafficVehicle v)
+    void ReleaseVehicle(TrafficVehicle v)
     {
         if (v == null || v.go == null) return;
-        if (Application.isPlaying) Object.Destroy(v.go);
-        else Object.DestroyImmediate(v.go);
+        if (Application.isPlaying)
+        {
+            v.go.SetActive(false);
+            _pool.Push(v);
+        }
+        else
+        {
+            // EditMode tests expect deterministic object counts — no pooling.
+            Object.DestroyImmediate(v.go);
+        }
     }
 
     void OnDestroy()
     {
         Clear();
+        while (_pool.Count > 0)
+        {
+            TrafficVehicle v = _pool.Pop();
+            if (v == null || v.go == null) continue;
+            if (Application.isPlaying) Object.Destroy(v.go);
+            else Object.DestroyImmediate(v.go);
+        }
     }
 }

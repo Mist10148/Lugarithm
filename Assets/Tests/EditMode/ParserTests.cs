@@ -13,6 +13,41 @@ public class ParserTests
     // Tree shapes
 
     [Test]
+    public void AvoidTraffic_ParsesAsZeroArgAction()
+    {
+        var program = Compile("avoidTraffic()\n", out var errors);
+
+        CollectionAssert.IsEmpty(errors);
+        Assert.AreEqual("avoidTraffic", ((CallStmt)program.Statements[0]).Name);
+    }
+
+    [Test]
+    public void AvoidTraffic_WithAnArgument_IsAnArityError()
+    {
+        Compile("avoidTraffic(1)\n", out var errors);
+
+        Assert.AreEqual(1, errors.Count);
+        StringAssert.Contains("avoidTraffic", errors[0].Message);
+        StringAssert.Contains("0 inputs", errors[0].Message);
+    }
+
+    [Test]
+    public void UserDefinedAvoidTraffic_StillParses()
+    {
+        string source =
+            "def avoidTraffic():\n" +
+            "    if carInFront():\n" +
+            "        moveLeft()\n" +
+            "\n" +
+            "avoidTraffic()\n";
+
+        var program = Compile(source, out var errors);
+
+        CollectionAssert.IsEmpty(errors);
+        Assert.AreEqual(2, program.Statements.Count);
+    }
+
+    [Test]
     public void LinearProgram_ParsesToCallsInOrder()
     {
         var program = Compile("moveForward()\nturnLeft()\nmoveForward()\n", out var errors);

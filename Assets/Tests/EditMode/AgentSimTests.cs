@@ -141,6 +141,62 @@ public class AgentSimTests
     }
 
     [Test]
+    public void AvoidTraffic_WithClearRoadAhead_ResolvesToWait()
+    {
+        var sim = NewWideSim(); // at (1,1) facing East
+        sim.TrafficEnabled = true;
+
+        AgentActionResult result = sim.Apply("avoidTraffic");
+
+        Assert.AreEqual("wait", result.Action);
+        Assert.IsNull(result.Warning);
+        Assert.AreEqual(new Vector2Int(1, 1), sim.Position);
+    }
+
+    [Test]
+    public void AvoidTraffic_DodgesIntoClearLane()
+    {
+        var sim = NewWideSim(); // at (1,1) facing East; left (north) is a wall
+        sim.TrafficEnabled = true;
+        sim.SetTrafficCells(new[] { new Vector2Int(2, 1) });
+
+        AgentActionResult result = sim.Apply("avoidTraffic");
+
+        Assert.AreEqual("moveRight", result.Action);
+        Assert.IsFalse(result.Blocked);
+        Assert.AreEqual(new Vector2Int(1, 2), sim.Position);
+        Assert.AreEqual(1, sim.Facing); // heading unchanged — a lane change, not a turn
+    }
+
+    [Test]
+    public void AvoidTraffic_PrefersLeftWhenBothLanesAreOpen()
+    {
+        var sim = NewWideSim();
+        sim.Apply("moveRight"); // center row (1,2), both neighbors open
+        sim.TrafficEnabled = true;
+        sim.SetTrafficCells(new[] { new Vector2Int(2, 2) });
+
+        AgentActionResult result = sim.Apply("avoidTraffic");
+
+        Assert.AreEqual("moveLeft", result.Action);
+        Assert.AreEqual(new Vector2Int(1, 1), sim.Position);
+    }
+
+    [Test]
+    public void AvoidTraffic_BoxedIn_WaitsWithWarning()
+    {
+        var sim = NewWideSim(); // at (1,1); left is a wall
+        sim.TrafficEnabled = true;
+        sim.SetTrafficCells(new[] { new Vector2Int(2, 1), new Vector2Int(1, 2) });
+
+        AgentActionResult result = sim.Apply("avoidTraffic");
+
+        Assert.AreEqual("wait", result.Action);
+        StringAssert.Contains("boxed in", result.Warning);
+        Assert.AreEqual(new Vector2Int(1, 1), sim.Position);
+    }
+
+    [Test]
     public void VisualTraffic_DoesNotMakeDropoffPathLookUnreachable()
     {
         GridModel grid = GridModel.Parse(new[]
