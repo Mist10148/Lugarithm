@@ -35,7 +35,8 @@ public static class SelfDrivePlanner
         "# drop your front-seat story passenger at their marked stop along the way.\n" +
         "# moreRoad() is always true (the road never ends); driveToDropoff() cruises until the\n" +
         "# story drop-off is ready, then heads straight for it. avoidTraffic() is the built-in:\n" +
-        "# it dodges around a car ahead and merges back to the right lane once it's clear.\n" +
+        "# it keeps a 1-cell gap, checks the oncoming lane before pulling out, dodges around\n" +
+        "# a car ahead, and merges back to the right lane once it's clear.\n" +
         "def drive():\n" +
         "    while moreRoad():\n" +
         "        avoidTraffic()\n" +

@@ -290,7 +290,9 @@ public class ExecutionController : MonoBehaviour
                     _singleStep = false;
                     State = ExecState.Paused;
 
-                    if (_sim.IsWin(_def))
+                    // Endless legs never finish on a mid-queue win — the controller's
+                    // win check fires the completion signal and the program keeps cruising.
+                    if (_sim.IsWin(_def) && !EndlessRouteActive)
                     {
                         ClearPendingMoveSource();
                         State = ExecState.Finished;

@@ -151,14 +151,15 @@ public class AgentSim : IAgentApi
     /// <summary>When true, sparse road traffic participates in movement queries.</summary>
     public bool TrafficEnabled;
     /// <summary>When true, traffic is a hard obstacle for primitive forward moves.
-    /// Procedural drive scenes turn this off so traffic is ambience/sensor data,
-    /// not a temporary wall that can erase a valid road.</summary>
+    /// Stays on everywhere (including procedural drive scenes) as the collision
+    /// safety net — cars are solid; avoidTraffic()/lane logic routes around them.</summary>
     public bool TrafficBlocksMovement = true;
     public IReadOnlyCollection<Vector2Int> TrafficCells => _trafficCells;
 
     /// <summary>Two-lane road mode for the procedural top-down levels: the road is one
     /// grid cell wide but carries a left and a right lane as sub-cell state. moveLeft /
-    /// moveRight switch lanes without changing <see cref="Position"/>, and every traffic
+    /// moveRight switch lanes — advancing one cell forward too when the road ahead is
+    /// open (a merging diagonal), or in place at walls/corners — and every traffic
     /// query becomes lane-aware. Mazes and authored puzzles leave this off and keep the
     /// legacy full-cell strafe.</summary>
     public bool LaneMode;
@@ -195,6 +196,13 @@ public class AgentSim : IAgentApi
 
     const int EndlessMacroMaxSteps = 4;
 
+    /// <summary>Dodge trigger distance: a same-lane car 1 or 2 cells ahead — acting at
+    /// 2 keeps a 1-cell gap behind the car instead of ramming its bumper.</summary>
+    const int SameLaneLookAheadCells = 2;
+    /// <summary>How far down the oncoming (left) lane to scan for an approaching car
+    /// before merging into it.</summary>
+    const int OncomingScanCells = 4;
+
     /// <summary>The story passenger's drop-off cell, armed by the controller a short buffer
     /// after the dialogue ends. The story passenger alights there (like any NPC) when
     /// dropOff() is called on the cell, which sets <see cref="StoryDelivered"/>.</summary>
@@ -204,6 +212,11 @@ public class AgentSim : IAgentApi
     /// <summary>True once the story passenger has been dropped at the armed cell. Completes the
     /// leg; the controller hides the front-seat card on this transition. The road keeps going.</summary>
     public bool StoryDelivered;
+
+    /// <summary>Post-win free roam on the endless road: once set, routeComplete() reads
+    /// false again so `while not routeComplete()` programs keep cruising forever after
+    /// the story drop — the jeepney keeps advancing and the road keeps streaming.</summary>
+    public bool FreeRoamCruise;
 
     /// <summary>Arms the story drop-off at <paramref name="cell"/> (called when the dialogue
     /// ends, after a buffer). Until armed, a story leg can't complete. The controller keeps the
@@ -279,6 +292,7 @@ public class AgentSim : IAgentApi
             EndlessRoute = EndlessRoute,
             StoryLegMode = StoryLegMode,
             LaneMode = LaneMode,
+            FreeRoamCruise = FreeRoamCruise,
         };
         copy.SetTrafficOccupancy(_trafficLaneMask);
         if (_rides != null)
@@ -438,8 +452,8 @@ public class AgentSim : IAgentApi
                 break;
 
             case "moveLeft":
-                // Lane change. Lane mode (procedural road): switch to the left lane of
-                // the same cell. Legacy: strafe one cell left of the heading.
+                // Lane change. Lane mode (procedural road): merge into the left lane,
+                // advancing a cell when the road is open. Legacy: strafe one cell left.
                 if (LaneMode) ApplyLaneSwitch(r, -1, "left");
                 else ApplyLaneChange(r, (Facing + 3) % 4, "left");
                 break;
@@ -450,21 +464,21 @@ public class AgentSim : IAgentApi
                 break;
 
             case "avoidTraffic":
-                // Built-in dodge: slide into a clear lane when a car blocks the cell
-                // ahead. Rewrites r.Action to the primitive actually performed so the
-                // view/HUD/duration layers need no special handling.
+                // Built-in dodge: merge into a clear lane BEFORE reaching the car ahead
+                // (trigger at 2 cells → 1-cell gap kept), scanning the oncoming lane a
+                // few cells down for an approaching car before pulling into it. Rewrites
+                // r.Action to the primitive actually performed so the view/HUD/duration
+                // layers need no special handling.
                 Vector2Int front = Position + FacingDeltas[Facing];
                 if (LaneMode)
                 {
-                    if (!TrafficPresent(front, LaneCardinal))
+                    if (!SameLaneCarWithin(SameLaneLookAheadCells))
                     {
                         // Road ahead is clear. If a dodge left us in the oncoming
                         // (left) lane, merge back home as soon as it's clear.
                         if (LaneSide != 1)
                         {
-                            int homeCardinal = LaneCardinalFor(1);
-                            if (!TrafficPresent(Position, homeCardinal) &&
-                                !TrafficPresent(front, homeCardinal))
+                            if (LaneClearAhead(1, SameLaneLookAheadCells))
                             {
                                 ApplyLaneSwitch(r, 1, "right");
                                 r.Action = "moveRight";
@@ -483,9 +497,8 @@ public class AgentSim : IAgentApi
                     else
                     {
                         int otherSide = -LaneSide;
-                        int otherCardinal = LaneCardinalFor(otherSide);
-                        if (!TrafficPresent(Position, otherCardinal) &&
-                            !TrafficPresent(front, otherCardinal))
+                        int scan = otherSide < 0 ? OncomingScanCells : SameLaneLookAheadCells;
+                        if (LaneClearAhead(otherSide, scan))
                         {
                             ApplyLaneSwitch(r, otherSide, otherSide < 0 ? "left" : "right");
                             r.Action = otherSide < 0 ? "moveLeft" : "moveRight";
@@ -645,8 +658,11 @@ public class AgentSim : IAgentApi
     }
 
     /// <summary>Lane-mode lane change: switch to the lane on <paramref name="side"/>
-    /// (+1 right, -1 left of the heading) within the same cell. Bumps when already in
-    /// that lane or when a car occupies it right beside the jeepney.</summary>
+    /// (+1 right, -1 left of the heading). When the road ahead is open the switch
+    /// advances one cell forward too — a real merging diagonal, not an in-place
+    /// slide — falling back to the in-place switch at walls/corners or when the
+    /// landing cell's lane is occupied. Bumps when already in that lane or when a
+    /// car occupies it right beside the jeepney.</summary>
     void ApplyLaneSwitch(AgentActionResult r, int side, string sideName)
     {
         if (LaneSide == side)
@@ -657,15 +673,30 @@ public class AgentSim : IAgentApi
         }
 
         int targetCardinal = LaneCardinalFor(side);
-        if (TrafficPresent(Position, targetCardinal))
+        Vector2Int fwd = Position + FacingDeltas[Facing];
+        bool diagonalOk = _grid.IsWalkable(fwd)
+                       && !TrafficPresent(Position, targetCardinal)   // beside slot swept past
+                       && !TrafficPresent(fwd, targetCardinal);       // landing slot
+        if (diagonalOk)
         {
-            r.Blocked = true;
-            r.Warning = $"a car is in the {sideName} lane beside you — wait for it to pass.";
+            LaneSide = side;
+            Position = fwd;
+            r.To = fwd;
+            r.LaneAfter = LaneCardinal;
             return;
         }
 
-        LaneSide = side;
-        r.LaneAfter = LaneCardinal;
+        // Wall/corner ahead or landing lane occupied: legacy in-place switch when
+        // the lane right beside us is free.
+        if (!TrafficPresent(Position, targetCardinal))
+        {
+            LaneSide = side;
+            r.LaneAfter = LaneCardinal;
+            return;
+        }
+
+        r.Blocked = true;
+        r.Warning = $"a car is in the {sideName} lane beside you — wait for it to pass.";
     }
 
     /// <summary>Strafes one cell along <paramref name="dirIndex"/> (a perpendicular of the current
@@ -872,6 +903,26 @@ public class AgentSim : IAgentApi
     {
         List<Vector2Int> path = GridPathfinder.Path(_grid, Position, target);
         if (path == null) { r.Warning = "can't find a road to there."; return; }
+
+        // Traffic-aware planning: stop the queued path one cell short of a car in
+        // our lane instead of ramming its bumper — the queue drains, the program
+        // regains control, and avoidTraffic() dodges from a 1-cell gap. The bump
+        // flush stays as the safety net for cars that move in mid-batch.
+        if (LaneMode && TrafficEnabled)
+            for (int i = 1; i < path.Count; i++)
+            {
+                int heading = HeadingOf(path[i - 1], path[i]);
+                if (heading < 0) break;
+                int laneCard = LaneSide > 0 ? (heading + 1) % 4 : (heading + 3) % 4;
+                bool carAtStep  = TrafficPresent(path[i], laneCard);
+                bool carBeyond  = i + 1 < path.Count && TrafficPresent(path[i + 1], laneCard);
+                if (carAtStep || carBeyond)
+                {
+                    path.RemoveRange(i, path.Count - i);   // last kept cell keeps the gap
+                    break;
+                }
+            }
+
         int enqueued = 0;
         foreach (string move in GridPathfinder.ToActions(path, Facing))
         {
@@ -879,6 +930,16 @@ public class AgentSim : IAgentApi
             _pending.Enqueue(move);
             enqueued++;
         }
+    }
+
+    /// <summary>Cardinal (0..3) of the unit step from <paramref name="a"/> to
+    /// <paramref name="b"/>, or -1 for a non-adjacent pair.</summary>
+    static int HeadingOf(Vector2Int a, Vector2Int b)
+    {
+        Vector2Int d = b - a;
+        for (int i = 0; i < 4; i++)
+            if (FacingDeltas[i] == d) return i;
+        return -1;
     }
 
     // -------------------------------------------------------------------------
@@ -897,7 +958,12 @@ public class AgentSim : IAgentApi
                 return LaneMode ? LaneIsClear(-1) : IsClear(Position + FacingDeltas[(Facing + 3) % 4]);
             case "rightIsClear":
                 return LaneMode ? LaneIsClear(+1) : IsClear(Position + FacingDeltas[(Facing + 1) % 4]);
-            case "carInFront":    return TrafficPresent(Position + FacingDeltas[Facing], LaneCardinal);
+            case "carInFront":
+                // Lane mode: fire at the same early distance as avoidTraffic (1-cell
+                // gap) so player dodges happen before the bump, not after.
+                return LaneMode
+                    ? SameLaneCarWithin(SameLaneLookAheadCells)
+                    : TrafficPresent(Position + FacingDeltas[Facing], LaneCardinal);
             case "atStop":        return _grid.Get(Position) == GridModel.Cell.Stop;
             case "atDestination": return Position == _grid.DestPos;
             case "routeComplete": return RouteComplete();
@@ -958,13 +1024,43 @@ public class AgentSim : IAgentApi
     }
 
     /// <summary>Lane-mode "is the other lane open": false when already in that lane,
-    /// otherwise true when no car sits in it here or in the cell ahead.</summary>
+    /// otherwise true when the lane is clear beside us and for its scan window ahead
+    /// (deeper for the oncoming lane — an approaching car counts as occupied).</summary>
     bool LaneIsClear(int side)
     {
         if (LaneSide == side) return false;
+        return LaneClearAhead(side, side < 0 ? OncomingScanCells : SameLaneLookAheadCells);
+    }
+
+    /// <summary>A car in our own lane within <paramref name="cells"/> cells ahead
+    /// (scan stops at the first non-walkable cell — walls/corners).</summary>
+    bool SameLaneCarWithin(int cells)
+    {
+        Vector2Int cell = Position;
+        for (int i = 1; i <= cells; i++)
+        {
+            cell += FacingDeltas[Facing];
+            if (!_grid.IsWalkable(cell)) return false;
+            if (TrafficPresent(cell, LaneCardinal)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>The lane on <paramref name="side"/> is free beside us and for
+    /// <paramref name="scanCells"/> cells ahead (scan stops at the first
+    /// non-walkable cell — walls/corners).</summary>
+    bool LaneClearAhead(int side, int scanCells)
+    {
         int cardinal = LaneCardinalFor(side);
-        return !TrafficPresent(Position, cardinal) &&
-               !TrafficPresent(Position + FacingDeltas[Facing], cardinal);
+        if (TrafficPresent(Position, cardinal)) return false;
+        Vector2Int cell = Position;
+        for (int i = 1; i <= scanCells; i++)
+        {
+            cell += FacingDeltas[Facing];
+            if (!_grid.IsWalkable(cell)) return true;   // road ends — nothing coming
+            if (TrafficPresent(cell, cardinal)) return false;
+        }
+        return true;
     }
 
     bool TrafficPresent(Vector2Int cell)
@@ -1062,9 +1158,10 @@ public class AgentSim : IAgentApi
         {
             // Live story leg: complete only once the story passenger has been dropped at their
             // marked stop (dialogue over + buffer + dropOff). Filler riders never finish the
-            // leg, so the road stays endless until the story is delivered.
+            // leg, so the road stays endless until the story is delivered. Post-win free roam
+            // un-latches it so cruise loops keep driving instead of finishing instantly.
             if (StoryLegMode)
-                return StoryDelivered;
+                return StoryDelivered && !FreeRoamCruise;
 
             // Headless / solvability path (no controller): "all riders delivered".
             if (_rides != null)

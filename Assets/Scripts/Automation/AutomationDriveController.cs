@@ -513,6 +513,9 @@ public class AutomationDriveController : MonoBehaviour
         _endlessWinFired = true;
         _won = true;
         _optionalFreeRoam = true;   // keep streaming the road after the win
+        // Un-latch routeComplete() so `while not routeComplete()` programs keep
+        // cruising — the jeepney keeps advancing and the road keeps streaming.
+        exec.Sim.FreeRoamCruise = true;
         OnStoryDropped();
         if (!_conversationDone && !_tutorialComplete && !_solvedNudged)
         {
@@ -1341,19 +1344,13 @@ public class AutomationDriveController : MonoBehaviour
 
         if (win)
         {
-            if (_proceduralTopDown && _storyLegShown)
-            {
-                AppendProceduralRoute(keepProgramRunning: false);
-                _won = false;
-                if (console != null)
-                    console.Info("route complete - another stretch is ready.");
-                return;
-            }
-
             _won = true;
             // Endless mode: a win never freezes the world — the road keeps streaming
-            // and RUN stays live while the completion panel is up.
+            // and RUN stays live while the completion panel is up. FreeRoamCruise
+            // un-latches routeComplete() so the next RUN cruises forever.
             if (_proceduralTopDown) _optionalFreeRoam = true;
+            if (_proceduralTopDown && exec != null && exec.Sim != null)
+                exec.Sim.FreeRoamCruise = true;
             if (_proceduralTopDown) OnStoryDropped();   // a program that ends on routeComplete
             // The leg completes only when the puzzle is solved AND the story passenger's
             // chat is finished. If the chat is still going, hold and nudge once.
@@ -1364,6 +1361,14 @@ public class AutomationDriveController : MonoBehaviour
                     console.Info($"Solved! Finish your chat with {_storyPassengerName} to wrap up the leg.");
             }
             TryShowStoryComplete($"LEVEL COMPLETE — {_level.displayName}");
+            return;
+        }
+
+        // Post-win free-roam cruise ending is not a failure — no nag, no hint escalation.
+        if (_endlessWinFired || _won || _storyLegShown)
+        {
+            if (console != null)
+                console.Info("cruise ended — press RUN to keep driving.");
             return;
         }
 
@@ -1460,7 +1465,10 @@ public class AutomationDriveController : MonoBehaviour
         _freeRoamStoryConsumed = true;
         if (dialogue != null) dialogue.StopAndHide();
         if (exec != null && exec.Sim != null)
+        {
             exec.Sim.StoryDropoffArmed = false;             // leg already done; don't re-complete
+            exec.Sim.FreeRoamCruise    = true;              // routeComplete() loops keep cruising
+        }
         _won = false;
         if (console != null)
             console.Info("keep cruising the endless road - or press Finish leg when you're done.");
