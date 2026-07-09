@@ -59,5 +59,9 @@ public class ResizeHandle : MonoBehaviour, IBeginDragHandler, IDragHandler
         size.x = Mathf.Max(minSize.x, size.x);
         size.y = Mathf.Max(minSize.y, size.y);
         target.sizeDelta = size;
+
+        // Growing a window can also shove it past an edge (pivot-dependent) —
+        // run the shared position clamp so all four edges stay recoverable.
+        WindowClampUtil.Clamp(target, _canvas);
     }
 }

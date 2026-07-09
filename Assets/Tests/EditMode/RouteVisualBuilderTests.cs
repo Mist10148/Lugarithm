@@ -261,6 +261,68 @@ public class RouteVisualBuilderTests
     }
 
     [Test]
+    public void BuildProcedural_CornerWithNonIntegerLengths_HasNoGapsAndACornerCap()
+    {
+        const float rhw = 3f;
+        var root = new GameObject("RVB_CornerTest");
+
+        try
+        {
+            Vector2 bend = new Vector2(10.5f, 0f);
+            Vector2 end  = new Vector2(10.5f, 7.3f);
+            var dest = new TownNode { id = 1, pos = end, kind = NodeKind.TerminalEnd, name = "Dest" };
+            var layout = new ManualLayoutResult
+            {
+                trunk = new[] { Vector2.zero, bend, end },
+                dest  = dest,
+                segments = new List<RoadSegment>
+                {
+                    new RoadSegment(Vector2.zero, bend, true),
+                    new RoadSegment(bend, end, true),
+                },
+                stops = new List<TownNode> { dest },
+            };
+
+            RouteVisualBuilder.BuildProcedural(root.transform, layout, rhw);
+
+            var tilePositions = new List<Vector2>();
+            bool capAtBend = false;
+            foreach (Transform t in root.GetComponentsInChildren<Transform>())
+            {
+                if (t.name == "RoadTile" || t.name == "RoadCap")
+                    tilePositions.Add(t.position);
+                if (t.name == "RoadCap" && ((Vector2)t.position - bend).magnitude < 0.01f)
+                    capAtBend = true;
+            }
+
+            Assert.IsTrue(capAtBend, "a square RoadCap must sit exactly on the bend vertex");
+            Assert.IsTrue(HasTileNear(tilePositions, end, 0.01f),
+                "a tile must sit exactly at the route end despite the non-integer segment length");
+
+            var poly = new[] { Vector2.zero, bend, end };
+            float total = RouteMath.TotalLength(poly);
+            for (float d = 0f; d <= total; d += 0.5f)
+            {
+                Vector2 p = RouteMath.PointAt(poly, d);
+                Assert.IsTrue(HasTileNear(tilePositions, p, 0.75f),
+                    $"road coverage gap near along={d:0.0} ({p})");
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    static bool HasTileNear(List<Vector2> tiles, Vector2 point, float radius)
+    {
+        foreach (Vector2 t in tiles)
+            if ((t - point).magnitude <= radius)
+                return true;
+        return false;
+    }
+
+    [Test]
     public void RoadsideDecorator_StraightTrunk_PlacesFrontageOffRoadAndClearOfStops()
     {
         if (Resources.Load<Sprite>("Placeholders/bldg_sari_sari") == null)

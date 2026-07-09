@@ -67,6 +67,72 @@ public class CodeEditorPolishTests
     }
 
     [Test]
+    public void CodeEditor_VisibleLineIndex_SkipsCollapsedFoldBodies()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        try
+        {
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = inputGo.AddComponent<TMP_InputField>();
+            editor.input = input;
+
+            editor.SetSource(
+                "def drive():\n" +          // 1 (fold header)
+                "    moveForward()\n" +     // 2 (body)
+                "    moveForward()\n" +     // 3 (body)
+                "moveForward()\n" +         // 4
+                "pickUp()");                // 5
+
+            // No folds collapsed: rows are logical - 1.
+            Assert.AreEqual(0, editor.VisibleLineIndex(1));
+            Assert.AreEqual(3, editor.VisibleLineIndex(4));
+
+            editor.ToggleFold(1);
+
+            Assert.AreEqual(0, editor.VisibleLineIndex(1), "header keeps its row");
+            Assert.AreEqual(-1, editor.VisibleLineIndex(2), "collapsed body renders nowhere");
+            Assert.AreEqual(-1, editor.VisibleLineIndex(3));
+            Assert.AreEqual(1, editor.VisibleLineIndex(4), "lines below the fold shift up");
+            Assert.AreEqual(2, editor.VisibleLineIndex(5));
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
+    [Test]
+    public void CodeEditor_SetScaffold_ForceReplaces_NonForcePreserves()
+    {
+        var editorGo = new GameObject("Editor");
+        var inputGo = new GameObject("Input");
+        try
+        {
+            var editor = editorGo.AddComponent<CodeEditorController>();
+            var input = inputGo.AddComponent<TMP_InputField>();
+            editor.input = input;
+
+            editor.SetScaffold("# first drill");
+            Assert.AreEqual("# first drill", editor.Source);
+
+            editor.SetScaffold("# second drill");
+            Assert.AreEqual("# first drill", editor.Source,
+                "non-force scaffold must never clobber existing text");
+
+            editor.SetScaffold("# second drill", force: true);
+            Assert.AreEqual("# second drill", editor.Source,
+                "force scaffold must replace stale text when the editor is reused across drills");
+        }
+        finally
+        {
+            Object.DestroyImmediate(editorGo);
+            Object.DestroyImmediate(inputGo);
+        }
+    }
+
+    [Test]
     public void CodeEditor_LongLineStillCountsAsOneLogicalLine()
     {
         var editorGo = new GameObject("Editor");

@@ -13,6 +13,12 @@ public class AgentActionResult
     public Vector2Int From, To;
     public int FacingBefore, FacingAfter;
 
+    /// <summary>World-cardinal lane (0..3) before/after the action in lane mode
+    /// (procedural roads), or -1 when lanes don't apply. The view layer offsets
+    /// the jeepney laterally by this so lane changes render as smooth slides.</summary>
+    public int LaneBefore = -1;
+    public int LaneAfter  = -1;
+
     public bool   Blocked;
     public string Warning;
 
@@ -145,6 +151,28 @@ public class AgentSim : IAgentApi
     public bool TrafficBlocksMovement = true;
     public IReadOnlyCollection<Vector2Int> TrafficCells => _trafficCells;
 
+    /// <summary>Two-lane road mode for the procedural top-down levels: the road is one
+    /// grid cell wide but carries a left and a right lane as sub-cell state. moveLeft /
+    /// moveRight switch lanes without changing <see cref="Position"/>, and every traffic
+    /// query becomes lane-aware. Mazes and authored puzzles leave this off and keep the
+    /// legacy full-cell strafe.</summary>
+    public bool LaneMode;
+
+    /// <summary>+1 = right lane (right-hand driving default), -1 = left lane, relative
+    /// to the current facing — so turning a corner keeps you in "your" lane.</summary>
+    public int LaneSide { get; private set; } = 1;
+
+    /// <summary>The world cardinal (0..3) of the agent's lateral lane offset, or -1
+    /// outside lane mode. Derived from facing + <see cref="LaneSide"/>.</summary>
+    public int LaneCardinal => LaneMode
+        ? (LaneSide > 0 ? (Facing + 1) % 4 : (Facing + 3) % 4)
+        : -1;
+
+    // Per-cell lane occupancy: bit i set = a car sits in the lane whose lateral
+    // offset points toward world cardinal i. Legacy SetTrafficCells marks all lanes.
+    readonly Dictionary<Vector2Int, int> _trafficLaneMask = new Dictionary<Vector2Int, int>();
+    const int AllLanesMask = 0xF;
+
     /// <summary>Seat capacity; reporters read this as the world state.</summary>
     public int SeatCapacity = 8;
 
@@ -245,8 +273,9 @@ public class AgentSim : IAgentApi
             TrafficBlocksMovement = TrafficBlocksMovement,
             EndlessRoute = EndlessRoute,
             StoryLegMode = StoryLegMode,
+            LaneMode = LaneMode,
         };
-        copy.SetTrafficCells(_trafficCells);
+        copy.SetTrafficOccupancy(_trafficLaneMask);
         if (_rides != null)
         {
             // Rides carry mutable run-state (aboard/delivered/paid); clone them so the dry
@@ -270,6 +299,7 @@ public class AgentSim : IAgentApi
     {
         Position            = _grid.StartPos;
         Facing              = _startFacing;
+        LaneSide            = 1;   // right-hand driving: start in the right lane
         StepsUsed           = 0;
         PassengersAboard    = 0;
         PassengersDelivered = 0;
@@ -294,15 +324,36 @@ public class AgentSim : IAgentApi
     public void SetTrafficCells(IEnumerable<Vector2Int> cells)
     {
         _trafficCells.Clear();
+        _trafficLaneMask.Clear();
         if (cells == null) return;
         foreach (Vector2Int cell in cells)
             if (_grid != null && _grid.IsWalkable(cell))
+            {
                 _trafficCells.Add(cell);
+                _trafficLaneMask[cell] = AllLanesMask;   // no lane info → occupy every lane
+            }
+    }
+
+    /// <summary>Lane-aware traffic occupancy: for each cell, a bitmask of which lanes
+    /// (by world cardinal of the car's lateral offset) hold a car. Used by the road
+    /// traffic controller in <see cref="LaneMode"/>.</summary>
+    public void SetTrafficOccupancy(IReadOnlyDictionary<Vector2Int, int> cellLaneMask)
+    {
+        _trafficCells.Clear();
+        _trafficLaneMask.Clear();
+        if (cellLaneMask == null) return;
+        foreach (var kv in cellLaneMask)
+            if (_grid != null && _grid.IsWalkable(kv.Key) && kv.Value != 0)
+            {
+                _trafficCells.Add(kv.Key);
+                _trafficLaneMask[kv.Key] = kv.Value;
+            }
     }
 
     public void ClearTraffic()
     {
         _trafficCells.Clear();
+        _trafficLaneMask.Clear();
     }
 
     void ResetRides()
@@ -339,6 +390,8 @@ public class AgentSim : IAgentApi
             To           = Position,
             FacingBefore = Facing,
             FacingAfter  = Facing,
+            LaneBefore   = LaneCardinal,
+            LaneAfter    = LaneCardinal,
         };
 
         StepsUsed++;
@@ -370,28 +423,57 @@ public class AgentSim : IAgentApi
             case "turnLeft":
                 Facing = (Facing + 3) % 4;
                 r.FacingAfter = Facing;
+                r.LaneAfter = LaneCardinal;   // same relative lane, new world cardinal
                 break;
 
             case "turnRight":
                 Facing = (Facing + 1) % 4;
                 r.FacingAfter = Facing;
+                r.LaneAfter = LaneCardinal;
                 break;
 
             case "moveLeft":
-                // Lane change: strafe one cell to the left of the heading, keeping facing.
-                ApplyLaneChange(r, (Facing + 3) % 4, "left");
+                // Lane change. Lane mode (procedural road): switch to the left lane of
+                // the same cell. Legacy: strafe one cell left of the heading.
+                if (LaneMode) ApplyLaneSwitch(r, -1, "left");
+                else ApplyLaneChange(r, (Facing + 3) % 4, "left");
                 break;
 
             case "moveRight":
-                // Lane change: strafe one cell to the right of the heading, keeping facing.
-                ApplyLaneChange(r, (Facing + 1) % 4, "right");
+                if (LaneMode) ApplyLaneSwitch(r, +1, "right");
+                else ApplyLaneChange(r, (Facing + 1) % 4, "right");
                 break;
 
             case "avoidTraffic":
                 // Built-in dodge: slide into a clear lane when a car blocks the cell
                 // ahead. Rewrites r.Action to the primitive actually performed so the
                 // view/HUD/duration layers need no special handling.
-                if (!TrafficPresent(Position + FacingDeltas[Facing]))
+                Vector2Int front = Position + FacingDeltas[Facing];
+                if (LaneMode)
+                {
+                    if (!TrafficPresent(front, LaneCardinal))
+                    {
+                        r.Action = "wait";
+                    }
+                    else
+                    {
+                        int otherSide = -LaneSide;
+                        int otherCardinal = LaneCardinalFor(otherSide);
+                        if (!TrafficPresent(Position, otherCardinal) &&
+                            !TrafficPresent(front, otherCardinal))
+                        {
+                            ApplyLaneSwitch(r, otherSide, otherSide < 0 ? "left" : "right");
+                            r.Action = otherSide < 0 ? "moveLeft" : "moveRight";
+                        }
+                        else
+                        {
+                            r.Action = "wait";
+                            r.Warning = "boxed in — waiting for traffic to clear.";
+                        }
+                    }
+                    break;
+                }
+                if (!TrafficPresent(front))
                 {
                     r.Action = "wait";
                 }
@@ -535,6 +617,30 @@ public class AgentSim : IAgentApi
         }
 
         return r;
+    }
+
+    /// <summary>Lane-mode lane change: switch to the lane on <paramref name="side"/>
+    /// (+1 right, -1 left of the heading) within the same cell. Bumps when already in
+    /// that lane or when a car occupies it right beside the jeepney.</summary>
+    void ApplyLaneSwitch(AgentActionResult r, int side, string sideName)
+    {
+        if (LaneSide == side)
+        {
+            r.Blocked = true;
+            r.Warning = $"already in the {sideName} lane — the road has two lanes.";
+            return;
+        }
+
+        int targetCardinal = LaneCardinalFor(side);
+        if (TrafficPresent(Position, targetCardinal))
+        {
+            r.Blocked = true;
+            r.Warning = $"a car is in the {sideName} lane beside you — wait for it to pass.";
+            return;
+        }
+
+        LaneSide = side;
+        r.LaneAfter = LaneCardinal;
     }
 
     /// <summary>Strafes one cell along <paramref name="dirIndex"/> (a perpendicular of the current
@@ -757,10 +863,16 @@ public class AgentSim : IAgentApi
     {
         switch (name)
         {
-            case "frontIsClear":  return IsClear(Position + FacingDeltas[Facing]);
-            case "leftIsClear":   return IsClear(Position + FacingDeltas[(Facing + 3) % 4]);
-            case "rightIsClear":  return IsClear(Position + FacingDeltas[(Facing + 1) % 4]);
-            case "carInFront":    return TrafficPresent(Position + FacingDeltas[Facing]);
+            case "frontIsClear":
+                return LaneMode
+                    ? _grid.IsWalkable(Position + FacingDeltas[Facing]) &&
+                      !TrafficPresent(Position + FacingDeltas[Facing], LaneCardinal)
+                    : IsClear(Position + FacingDeltas[Facing]);
+            case "leftIsClear":
+                return LaneMode ? LaneIsClear(-1) : IsClear(Position + FacingDeltas[(Facing + 3) % 4]);
+            case "rightIsClear":
+                return LaneMode ? LaneIsClear(+1) : IsClear(Position + FacingDeltas[(Facing + 1) % 4]);
+            case "carInFront":    return TrafficPresent(Position + FacingDeltas[Facing], LaneCardinal);
             case "atStop":        return _grid.Get(Position) == GridModel.Cell.Stop;
             case "atDestination": return Position == _grid.DestPos;
             case "routeComplete": return RouteComplete();
@@ -820,14 +932,39 @@ public class AgentSim : IAgentApi
         return _grid.IsWalkable(cell) && !TrafficPresent(cell);
     }
 
+    /// <summary>Lane-mode "is the other lane open": false when already in that lane,
+    /// otherwise true when no car sits in it here or in the cell ahead.</summary>
+    bool LaneIsClear(int side)
+    {
+        if (LaneSide == side) return false;
+        int cardinal = LaneCardinalFor(side);
+        return !TrafficPresent(Position, cardinal) &&
+               !TrafficPresent(Position + FacingDeltas[Facing], cardinal);
+    }
+
     bool TrafficPresent(Vector2Int cell)
     {
         return TrafficEnabled && _trafficCells.Contains(cell);
     }
 
+    /// <summary>Lane-aware traffic check: is a car in this cell's lane toward the
+    /// given world cardinal? Outside lane mode any traffic in the cell counts.</summary>
+    bool TrafficPresent(Vector2Int cell, int laneCardinal)
+    {
+        if (!TrafficEnabled) return false;
+        if (!LaneMode || laneCardinal < 0)
+            return _trafficCells.Contains(cell);
+        return _trafficLaneMask.TryGetValue(cell, out int mask) &&
+               (mask & (1 << laneCardinal)) != 0;
+    }
+
+    /// <summary>World cardinal of the lane on the given relative side (+1 right,
+    /// -1 left of the current facing).</summary>
+    int LaneCardinalFor(int side) => side > 0 ? (Facing + 1) % 4 : (Facing + 3) % 4;
+
     bool TrafficBlocksMovementAt(Vector2Int cell)
     {
-        return TrafficBlocksMovement && TrafficPresent(cell);
+        return TrafficBlocksMovement && TrafficPresent(cell, LaneCardinal);
     }
 
     bool PassengerWaitingHere()

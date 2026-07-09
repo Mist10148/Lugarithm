@@ -371,6 +371,66 @@ public class RoadTrafficControllerTests
         }
     }
 
+    [Test]
+    public void ForwardCar_DrivesOffRouteEndAndDespawns_InsteadOfParking()
+    {
+        GameObject root = new GameObject("TrafficRouteEndRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            target.transform.position = new Vector3(70f, 0f, 0f);
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(40f, 0f));
+            traffic.InitManual(route, root.transform, target.transform, null);
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(76f, cruiseSpeed: 3f));
+
+            for (int i = 0; i < 15; i++)
+                traffic.Tick(0.2f);
+
+            for (int i = 0; i < traffic.ActiveVehicleCount; i++)
+            {
+                float along = traffic.VehicleAlongForTests(i);
+                Assert.IsFalse(along >= 74f && along <= 81f,
+                    "no car should be parked at the route frontier — it must drive off and despawn");
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void OncomingCar_RunsPastRouteStartAndDespawns()
+    {
+        GameObject root = new GameObject("TrafficRouteStartRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            target.transform.position = new Vector3(30f, 0f, 0f);
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
+            traffic.InitManual(route, root.transform, target.transform, null);
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(6f, cruiseSpeed: 4f, direction: -1));
+
+            for (int i = 0; i < 20; i++)
+                traffic.Tick(0.1f);
+
+            for (int i = 0; i < traffic.ActiveVehicleCount; i++)
+            {
+                Assert.IsFalse(traffic.VehicleDirectionForTests(i) < 0 &&
+                               traffic.VehicleAlongForTests(i) < 10f,
+                    "no oncoming car should be parked near the route start — it must exit and despawn");
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
     static RouteContext RouteWithStops(Transform parent, params Vector2[] stops)
     {
         var route = new RouteContext

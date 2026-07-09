@@ -108,6 +108,7 @@ public static class AutomationDriveSceneBuilder
         // written, was previously dead code with no button assigned to it).
         Button workspaceToggle = UIFactory.CreateButton(canvas.transform, "WorkspaceToggle",
                                                         "Reopen Editor", new Vector2(190f, 40f), 18f);
+        UIFactory.LocalizeButton(workspaceToggle, "hud.reopen");
         UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-24f, -184f), new Vector2(190f, 40f));
         workspaceToggle.image.color = new Color(0.35f, 0.35f, 0.40f);
 
@@ -276,7 +277,7 @@ public static class AutomationDriveSceneBuilder
     /// A titled floating window with full chrome: title-bar drag, click-to-focus,
     /// minimize/restore, close, and a bottom-right resize grip. <paramref name="content"/>
     /// is the body below the title bar; <paramref name="windowCtrl"/> drives the
-    /// window and can be registered with a <see cref="WindowDock"/>.
+    /// window so the HUD "Reopen Editor" button can recover it.
     /// </summary>
     internal static RectTransform BuildWindow(RectTransform parent, string name, string title,
                                               out RectTransform content, out RectTransform titleBar,
@@ -908,16 +909,21 @@ public static class AutomationDriveSceneBuilder
                                                  Vector2.zero, Vector2.zero);
 
         // Container for gutter icons + fold arrows (drawn over the gutter background).
+        // Its rect must be IDENTICAL to the line-number column: icons are positioned
+        // from lineNumbers.textInfo line metrics, which are local to that frame.
         var gutterRoot = UIFactory.CreateRect(gutterContent, "GutterIcons",
-                                              Vector2.zero, Vector2.one,
-                                              Vector2.zero, Vector2.zero);
+                                              new Vector2(0f, 0f), new Vector2(0f, 1f),
+                                              Vector2.zero, new Vector2(40f, 0f));
 
         var lineNumbers = UIFactory.CreateText(gutterContent, "LineNumbers", "1", 22f,
                                                UIFactory.TextDim, TextAlignmentOptions.TopRight);
+        // No vertical inset: line 1 must start at exactly the same height as the code
+        // text (the controller mirrors the input's vertical TMP margin at runtime);
+        // the gutter's RectMask2D clips overflow, so no padding is needed here.
         lineNumbers.rectTransform.anchorMin = new Vector2(0f, 0f);
         lineNumbers.rectTransform.anchorMax = new Vector2(0f, 1f);
-        lineNumbers.rectTransform.offsetMin = new Vector2(0f, 8f);
-        lineNumbers.rectTransform.offsetMax = new Vector2(40f, -8f);
+        lineNumbers.rectTransform.offsetMin = new Vector2(0f, 0f);
+        lineNumbers.rectTransform.offsetMax = new Vector2(40f, 0f);
         lineNumbers.overflowMode = TextOverflowModes.Overflow;
 
         TMP_InputField input = UIFactory.CreateMultilineInput(parent, "CodeInput",
@@ -953,6 +959,18 @@ public static class AutomationDriveSceneBuilder
         execBarRt.gameObject.SetActive(false);
         execBarRt.SetAsFirstSibling();
 
+        // Dim caret-line highlight while editing (hidden during runs). Same frame
+        // and positioning approach as the exec bar, just quieter.
+        var caretBarRt = UIFactory.CreatePanel(highlight.rectTransform, "CaretLineBar",
+                                               Vector2.zero, Vector2.one,
+                                               new Color(1f, 1f, 1f, 0.06f));
+        caretBarRt.offsetMin = Vector2.zero;
+        caretBarRt.offsetMax = Vector2.zero;
+        var caretBar = caretBarRt.GetComponent<Image>();
+        caretBar.raycastTarget = false;
+        caretBarRt.gameObject.SetActive(false);
+        caretBarRt.SetAsFirstSibling();
+
         // Squiggle underlines for lint errors — also parented to the highlight so
         // they scroll glued to their line.
         var squigglesRoot = UIFactory.CreateRect(highlight.rectTransform, "Squiggles",
@@ -984,6 +1002,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(editor, "highlight",   highlight);
         SceneBuilderUtil.Wire(editor, "lintLabel",   lint);
         SceneBuilderUtil.Wire(editor, "execLineBar", execBar);
+        SceneBuilderUtil.Wire(editor, "caretLineBar", caretBar);
         SceneBuilderUtil.Wire(editor, "gutterRoot",  gutterRoot);
         SceneBuilderUtil.Wire(editor, "gutterContent", gutterContent);
         SceneBuilderUtil.Wire(editor, "squigglesRoot", squigglesRoot);
@@ -1258,7 +1277,7 @@ public static class AutomationDriveSceneBuilder
                                                 TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(speedCaption, new Vector2(0f, 0f), new Vector2(170f, 34f), new Vector2(70f, 24f));
 
-        speedLabel = UIFactory.CreateText(panel, "SpeedValue", "x1.0", 22f, UIFactory.TextBright,
+        speedLabel = UIFactory.CreateText(panel, "SpeedValue", "0 km/h", 22f, UIFactory.TextBright,
                                           TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(speedLabel, new Vector2(0f, 0f), new Vector2(240f, 32f), new Vector2(160f, 30f));
 

@@ -27,11 +27,29 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     // How quickly the cruise speed ramps up from a standstill. Bigger = lazier launch.
     const float AccelSmoothTime = 0.45f;
 
-    // Full needle deflection lines up with Manual's topSpeed (4 world units/sec).
-    const float TopSpeed = 4f;
+    // Full needle deflection lines up with Manual's topSpeed via SpeedGauge.TopSpeed.
+    const float TopSpeed = SpeedGauge.TopSpeed;
 
     public float CurrentSpeed => _cruiseSpeed;
-    public float CurrentSpeed01 => TopSpeed > 0f ? Mathf.Clamp01(_cruiseSpeed / TopSpeed) : 0f;
+    public float CurrentSpeed01 => SpeedGauge.Normalize(_cruiseSpeed);
+
+    // Two-lane rendering: matches RoadTrafficController.laneOffset so the jeepney
+    // lines up with the traffic lanes, inside the existing road art.
+    const float LaneVisualOffset = 1.35f;
+
+    /// <summary>Supplies the sim's current world-cardinal lane (or -1 outside lane
+    /// mode) for poses that don't come from an action result (SnapTo after a reset).
+    /// Wired by the drive controller.</summary>
+    public System.Func<int> LaneCardinalSource;
+
+    Vector3 LaneOffsetWorld(int laneCardinal)
+    {
+        if (laneCardinal < 0 || _space == null) return Vector3.zero;
+        return (Vector3)(_space.FacingDirection(laneCardinal) * LaneVisualOffset);
+    }
+
+    Vector3 WorldOf(Vector2Int cell, int laneCardinal) =>
+        _space.CellToWorld(cell) + LaneOffsetWorld(laneCardinal);
 
     // -------------------------------------------------------------------------
 
@@ -44,7 +62,8 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
     public void SnapTo(Vector2Int cell, int facing)
     {
-        transform.position = _space.CellToWorld(cell);
+        int lane = LaneCardinalSource != null ? LaneCardinalSource() : -1;
+        transform.position = WorldOf(cell, lane);
         SetSortOrder(cell);
         SetBodyFacing(facing);
 
@@ -95,28 +114,32 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
                 if (result.Blocked)
                     yield return Bump(result.FacingBefore, duration);
                 else
-                    yield return MoveTo(result.From, result.To, duration);
+                    yield return MoveBetween(result, duration);
                 break;
 
             case "turnLeft":
             case "turnRight":
-                yield return Turn(result.FacingBefore, result.FacingAfter, duration);
+                // In lane mode the lane offset swings with the facing, so the body
+                // rotation and the small positional slide play together.
+                yield return Turn(result.FacingBefore, result.FacingAfter, duration,
+                                  WorldOf(result.From, result.LaneBefore),
+                                  WorldOf(result.To, result.LaneAfter));
                 break;
 
             case "moveLeft":
-                // Slide sideways without rotating — MoveTo leaves the body facing untouched,
-                // so the jeepney drifts into the lane while still pointing ahead.
+                // Slide sideways without rotating — the body keeps facing ahead, so
+                // the jeepney drifts into the lane (cell strafe or sub-cell lane).
                 if (result.Blocked)
                     yield return Bump((result.FacingBefore + 3) % 4, duration);
                 else
-                    yield return MoveTo(result.From, result.To, duration);
+                    yield return MoveBetween(result, duration);
                 break;
 
             case "moveRight":
                 if (result.Blocked)
                     yield return Bump((result.FacingBefore + 1) % 4, duration);
                 else
-                    yield return MoveTo(result.From, result.To, duration);
+                    yield return MoveBetween(result, duration);
                 break;
 
             case "pickUp":
@@ -200,8 +223,8 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         foreach (AgentActionResult result in moves)
         {
             if (!IsCruiseMove(result)) continue;
-            if (pts.Count == 0) pts.Add(_space.CellToWorld(result.From));
-            pts.Add(_space.CellToWorld(result.To));
+            if (pts.Count == 0) pts.Add(WorldOf(result.From, result.LaneBefore));
+            pts.Add(WorldOf(result.To, result.LaneAfter));
             toCells.Add(result.To);
             rotDirs.Add(result.Action == "moveForward"
                 ? _space.CellToWorld(result.To) - _space.CellToWorld(result.From)
@@ -265,10 +288,10 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         return Quaternion.Euler(0f, 0f, angle);
     }
 
-    IEnumerator MoveTo(Vector2Int from, Vector2Int to, float duration)
+    IEnumerator MoveBetween(AgentActionResult result, float duration)
     {
-        Vector3 a = _space.CellToWorld(from);
-        Vector3 b = _space.CellToWorld(to);
+        Vector3 a = WorldOf(result.From, result.LaneBefore);
+        Vector3 b = WorldOf(result.To, result.LaneAfter);
 
         float elapsed = 0f;
         while (elapsed < duration)
@@ -276,12 +299,12 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
             elapsed += Time.deltaTime;
             float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
             transform.position = Vector3.Lerp(a, b, t);
-            if (t > 0.5f) SetSortOrder(to);
+            if (t > 0.5f) SetSortOrder(result.To);
             yield return null;
         }
 
         transform.position = b;
-        SetSortOrder(to);
+        SetSortOrder(result.To);
     }
 
     IEnumerator Bump(int facing, float duration)
@@ -308,23 +331,31 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         transform.position = origin;
     }
 
-    IEnumerator Turn(int fromFacing, int toFacing, float duration)
+    IEnumerator Turn(int fromFacing, int toFacing, float duration,
+                     Vector3? fromPos = null, Vector3? toPos = null)
     {
         Quaternion a = BodyRotation(fromFacing);
         Quaternion b = BodyRotation(toFacing);
+        bool slide = fromPos.HasValue && toPos.HasValue &&
+                     (toPos.Value - fromPos.Value).sqrMagnitude > 1e-6f;
 
         float elapsed = 0f;
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            _bodyRot = Quaternion.Slerp(a, b, Mathf.Clamp01(elapsed / duration));
+            float t = Mathf.Clamp01(elapsed / duration);
+            _bodyRot = Quaternion.Slerp(a, b, t);
             body.transform.localRotation = _bodyRot;
+            if (slide)
+                transform.position = Vector3.Lerp(fromPos.Value, toPos.Value,
+                                                  Mathf.SmoothStep(0f, 1f, t));
             yield return null;
         }
 
         _bodyRot = b;
         _hasBodyRot = true;
         body.transform.localRotation = b;
+        if (slide) transform.position = toPos.Value;
     }
 
     IEnumerator Pop(string spritePath, float duration)

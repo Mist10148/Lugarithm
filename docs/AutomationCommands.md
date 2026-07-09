@@ -21,7 +21,7 @@ Actions do something and take a tick.
 |---|---|
 | `moveForward()` | Move one grid step in the direction the jeepney faces. |
 | `turnLeft()` / `turnRight()` | Rotate without moving. |
-| `moveLeft()` / `moveRight()` | Slide one lane sideways without turning; use these to dodge traffic. |
+| `moveLeft()` / `moveRight()` | Switch to the other lane without turning (the road has exactly two lanes — left and right); use these to dodge traffic. |
 | `avoidTraffic()` | Built-in dodge: if a car blocks the cell ahead, slides into a clear lane (left first, then right); waits when boxed in. A user-defined `def avoidTraffic():` shadows the built-in. |
 | `driveToNextStop()` | Pathfind to the nearest useful pickup/drop-off target, or to the terminal when no rider target remains. |
 | `driveToTerminal()` | Pathfind to the current route terminal. |

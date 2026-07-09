@@ -10,6 +10,7 @@ public class ManualHudController : MonoBehaviour
 {
     [Header("Dashboard")]
     [SerializeField] private RectTransform speedNeedle;
+    [SerializeField] private TMP_Text      speedValueLabel;
     [SerializeField] private Image         fuelFill;
     [SerializeField] private TMP_Text      currencyLabel;
 
@@ -23,12 +24,15 @@ public class ManualHudController : MonoBehaviour
     JeepneyController _jeepney;
     int _shownCurrency = int.MinValue;
     int _shownDebt = int.MinValue;
+    int _shownKph = int.MinValue;
+    float _needleAngle;
 
     // -------------------------------------------------------------------------
 
     public void Init(JeepneyController jeepney)
     {
         _jeepney = jeepney;
+        _needleAngle = needleMinAngle;
 
         if (chips != null)
             foreach (PassengerChip chip in chips)
@@ -41,8 +45,20 @@ public class ManualHudController : MonoBehaviour
         {
             if (speedNeedle != null)
             {
-                float angle = Mathf.Lerp(needleMinAngle, needleMaxAngle, _jeepney.CurrentSpeed01);
-                speedNeedle.localRotation = Quaternion.Euler(0f, 0f, angle);
+                float target = Mathf.Lerp(needleMinAngle, needleMaxAngle, _jeepney.CurrentSpeed01);
+                // Frame-rate-independent ease so the needle settles instead of jittering.
+                _needleAngle = Mathf.Lerp(_needleAngle, target, 1f - Mathf.Exp(-8f * Time.deltaTime));
+                speedNeedle.localRotation = Quaternion.Euler(0f, 0f, _needleAngle);
+            }
+
+            if (speedValueLabel != null)
+            {
+                int kph = SpeedGauge.ToKph(_jeepney.CurrentSpeed);
+                if (kph != _shownKph)
+                {
+                    _shownKph = kph;
+                    speedValueLabel.text = $"{kph} km/h";
+                }
             }
 
             if (fuelFill != null)

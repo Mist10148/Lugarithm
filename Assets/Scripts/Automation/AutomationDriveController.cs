@@ -244,6 +244,9 @@ public class AutomationDriveController : MonoBehaviour
         // off filler riders while the road streams.
         sim.EndlessRoute = useProceduralTopDown;
         sim.StoryLegMode = useProceduralTopDown;
+        // Two-lane road: the procedural trunk is one cell wide but carries left/right
+        // lanes as sub-cell state, matching where the traffic cars actually drive.
+        sim.LaneMode = useProceduralTopDown;
 
         IAgentView activeAgent = null;
         IGridSpace activeSpace = null;
@@ -278,6 +281,9 @@ public class AutomationDriveController : MonoBehaviour
                 topDownAgentView = go.AddComponent<TopDownAgentView>();
                 topDownAgentView.body = sr;
             }
+            // Lane-mode poses that don't come from an action result (reset snaps)
+            // still need the sim's current lane for the lateral offset.
+            topDownAgentView.LaneCardinalSource = () => sim.LaneCardinal;
             activeAgent = topDownAgentView;
 
             if (cameraFollow == null && worldCamera != null)
@@ -421,7 +427,7 @@ public class AutomationDriveController : MonoBehaviour
         // either advances the speed and both faces (plus the gauge) stay in sync.
         if (speedButton != null) speedButton.onClick.AddListener(CycleSpeed);
 
-        if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = "x1.0";
+        if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = "0 km/h";
 
         if (stepButton != null)
             stepButton.onClick.AddListener(() => exec?.StepOnce());
@@ -530,26 +536,48 @@ public class AutomationDriveController : MonoBehaviour
     }
 
     /// <summary>
-    /// Streams the next chunk ahead of the driving program, mirroring Manual's lookahead,
-    /// so the procedural town is continuously generated from the start (not only after a
-    /// win). Only appends at a static-world boundary — program running, nothing animating,
-    /// no queued moves — so re-rasterizing the grid can never teleport an in-flight path.
+    /// Streams the next chunk ahead of the jeepney, mirroring Manual's lookahead, so the
+    /// procedural town is continuously generated in every exec state — a finished or idle
+    /// program must not freeze the road (and the traffic on it) at the frontier. Only
+    /// appends at a static-world boundary — nothing animating, no queued moves — so
+    /// re-rasterizing the grid can never teleport an in-flight path.
     /// </summary>
     void TickProceduralStreaming()
     {
         if (!_proceduralTopDown || _streamingTown == null) return;
-        if (_storyLegShown && !_optionalFreeRoam) return;   // resume streaming for free-roam
-        if (_won && !_optionalFreeRoam) return;
         if (exec == null || exec.Sim == null || topDownAgentView == null) return;
-        if (_chunksAppended >= _maxChunks) return;
-        if (exec.State != ExecutionController.ExecState.Running) return;
-        if (exec.Busy) return;   // wait for a static-world boundary between visual batches
 
         float distToEnd = Vector2.Distance(
             (Vector2)topDownAgentView.transform.position, _streamingTown.TrunkEndPos);
-        if (distToEnd >= StreamLookAhead) return;
 
+        bool storyFrozen = _storyLegShown && !_optionalFreeRoam;
+        bool wonFrozen   = _won && !_optionalFreeRoam;
+        if (!ShouldStreamNow(exec.Busy, exec.Sim.HasPendingMoves, storyFrozen, wonFrozen,
+                             _chunksAppended, _maxChunks, distToEnd, StreamLookAhead))
+            return;
+
+        // Always the state-preserving rebind here: lookahead streaming must never stop a
+        // paused program or fire a world reset — the destructive path is reserved for the
+        // explicit post-win "keep exploring" append.
         AppendProceduralRoute(keepProgramRunning: true);
+    }
+
+    /// <summary>Pure streaming guard: true when it is safe AND useful to append the next
+    /// chunk. Safety = a static-world boundary (nothing animating, no queued moves — the
+    /// RebindStreamingWorld contract); usefulness = frontier within lookahead and the leg
+    /// isn't frozen by a pending story drop-off or an un-continued win. Deliberately does
+    /// NOT depend on the exec run state — an idle program still gets road.</summary>
+    public static bool ShouldStreamNow(bool busy, bool hasPendingMoves,
+                                         bool storyFrozen, bool wonFrozen,
+                                         int chunksAppended, int maxChunks,
+                                         float distToEnd, float lookAhead)
+    {
+        if (busy) return false;              // mid-animation — grid must not shift
+        if (hasPendingMoves) return false;   // queued path — same invariant
+        if (storyFrozen) return false;       // armed drop-off cell must stay valid
+        if (wonFrozen) return false;
+        if (chunksAppended >= maxChunks) return false;
+        return distToEnd < lookAhead;
     }
 
     void PlayBoardingDialogue()
@@ -879,34 +907,48 @@ public class AutomationDriveController : MonoBehaviour
     const float NeedleFullAngle = -120f;
     float _needleAngle = NeedleRestAngle;
 
-    /// <summary>Drives the bottom-left gauge needle from the top-down jeepney's real cruise speed
-    /// (world units/sec). It rises as the agent accelerates, holds while cruising, and falls back to
-    /// rest when stopped or idle — matching Manual mode's speedometer behavior.</summary>
+    int _shownGaugeKph = int.MinValue;
+
+    /// <summary>Drives the bottom-left gauge (needle + km/h readout) from the jeepney's
+    /// simulated speed. The animated cruise speed scales with the playback preset, so it is
+    /// divided back out: the gauge is the jeepney's dashboard and must read the same at ×1
+    /// and ×4 — the preset has its own readout on the speed button.</summary>
     void UpdateSpeedNeedle()
     {
-        if (gaugeSpeedNeedle == null) return;
+        float playback = Mathf.Max(0.01f, SpeedPresets[_speedIndex]);
+        float simSpeed = topDownAgentView != null ? topDownAgentView.CurrentSpeed / playback : 0f;
 
-        float t = topDownAgentView != null ? topDownAgentView.CurrentSpeed01 : 0f;
-        float target = Mathf.Lerp(NeedleRestAngle, NeedleFullAngle, t);
+        if (gaugeSpeedNeedle != null)
+        {
+            float target = Mathf.Lerp(NeedleRestAngle, NeedleFullAngle, SpeedGauge.Normalize(simSpeed));
 
-        // Frame-rate-independent ease so the needle settles smoothly rather than snapping.
-        _needleAngle = Mathf.Lerp(_needleAngle, target, 1f - Mathf.Exp(-8f * Time.deltaTime));
-        gaugeSpeedNeedle.localRotation = Quaternion.Euler(0f, 0f, _needleAngle);
+            // Frame-rate-independent ease so the needle settles smoothly rather than snapping.
+            _needleAngle = Mathf.Lerp(_needleAngle, target, 1f - Mathf.Exp(-8f * Time.deltaTime));
+            gaugeSpeedNeedle.localRotation = Quaternion.Euler(0f, 0f, _needleAngle);
+        }
+
+        if (gaugeSpeedLabel != null)
+        {
+            int kph = SpeedGauge.ToKph(simSpeed);
+            if (kph != _shownGaugeKph)
+            {
+                _shownGaugeKph = kph;
+                gaugeSpeedLabel.text = $"{kph} km/h";
+            }
+        }
     }
 
-    /// <summary>Advances the speed cycle button to the next preset and updates every
-    /// readout (both windows' buttons + the on-screen gauge).</summary>
+    /// <summary>Advances the speed cycle button to the next preset and updates both
+    /// windows' buttons. The gauge label is a real speed readout and is not touched.</summary>
     void CycleSpeed()
     {
         _speedIndex = (_speedIndex + 1) % SpeedPresets.Length;
         float v = SpeedPresets[_speedIndex];
         SetSpeed(v);
 
-        string text = $"×{v:0.0}";
-        text = $"x{v:0.##}";
+        string text = $"x{v:0.##}";
         if (speedLabel != null)      speedLabel.text      = text;
         if (codeSpeedLabel != null)  codeSpeedLabel.text  = text;
-        if (gaugeSpeedLabel != null) gaugeSpeedLabel.text = text;
     }
 
     // -------------------------------------------------------------------------

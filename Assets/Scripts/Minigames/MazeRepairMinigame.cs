@@ -54,6 +54,8 @@ public class MazeRepairMinigame : MonoBehaviour
     [SerializeField] private Button resetButton;
     [Tooltip("Loads a known-good maze solver into the editor/blocks and runs it — for testing.")]
     [SerializeField] private Button autopilotButton;
+    [Tooltip("Brings back the editor window when the player closed or minimized it mid-drill.")]
+    [SerializeField] private Button reopenButton;
 
     [Header("Co-Pilot hint (optional)")]
     [SerializeField] private Button   hintButton;
@@ -96,6 +98,7 @@ public class MazeRepairMinigame : MonoBehaviour
         if (runButton   != null) runButton.onClick.AddListener(OnRun);
         if (resetButton != null) resetButton.onClick.AddListener(OnReset);
         if (autopilotButton != null) autopilotButton.onClick.AddListener(OnAutopilot);
+        if (reopenButton != null) reopenButton.onClick.AddListener(FocusActiveEditor);
         if (hintButton  != null)
         {
             hintButton.gameObject.SetActive(false);
@@ -123,6 +126,7 @@ public class MazeRepairMinigame : MonoBehaviour
         if (runButton   != null) runButton.onClick.RemoveListener(OnRun);
         if (resetButton != null) resetButton.onClick.RemoveListener(OnReset);
         if (autopilotButton != null) autopilotButton.onClick.RemoveListener(OnAutopilot);
+        if (reopenButton != null) reopenButton.onClick.RemoveListener(FocusActiveEditor);
         if (hintButton  != null) hintButton.onClick.RemoveListener(OnHintRequested);
 
         if (exec != null)
@@ -185,7 +189,7 @@ public class MazeRepairMinigame : MonoBehaviour
         // Prime both editors; the active one is chosen by the setting below.
         if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, null);
         if (palette     != null) palette.Init(_def.allowedBlocks, blockCanvas);
-        if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold);
+        if (codeEditor  != null) codeEditor.SetScaffold(_def.codeScaffold, force: true);
 
         // Give the in-editor AI agent the level vocabulary + live maze/jeepney state.
         if (vibeCtrl != null)
@@ -261,7 +265,7 @@ public class MazeRepairMinigame : MonoBehaviour
 
         if (blockCanvas != null) blockCanvas.Init(_def.allowedQueries, null);
         if (palette != null) palette.Init(_def.allowedBlocks, blockCanvas);
-        if (codeEditor != null) codeEditor.SetScaffold(_def.codeScaffold);
+        if (codeEditor != null) codeEditor.SetScaffold(_def.codeScaffold, force: true);
 
         if (vibeCtrl != null)
         {
@@ -620,6 +624,18 @@ public class MazeRepairMinigame : MonoBehaviour
         {
             cb?.Invoke(result);
         }
+    }
+
+    /// <summary>Recovers the active editor window (closed or minimized) — the maze
+    /// overlay's counterpart of AutomationDriveController.FocusActiveEditor, so the
+    /// player can never strand themselves editor-less mid-drill.</summary>
+    void FocusActiveEditor()
+    {
+        GameObject panel = _codeActive ? codePanel : blockPanel;
+        if (panel == null) return;
+        panel.SetActive(true);
+        var windowCtrl = panel.GetComponentInChildren<EditorWindowController>(true);
+        if (windowCtrl != null) windowCtrl.Open();
     }
 
     string CurrentSourceText()

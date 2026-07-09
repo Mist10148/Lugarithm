@@ -32,6 +32,9 @@ public class CodeEditorController : MonoBehaviour
     [Header("Exec highlight")]
     [SerializeField] private Image execLineBar;
 
+    [Header("Caret line highlight")]
+    [SerializeField] private Image caretLineBar;
+
     [Header("Squiggles")]
     [SerializeField] private RectTransform squigglesRoot;
     [SerializeField] private Sprite squiggleSprite;
@@ -119,7 +122,7 @@ public class CodeEditorController : MonoBehaviour
 
         if (input != null)
         {
-            input.onValueChanged.AddListener(_ =>
+            _onValueChanged = _ =>
             {
                 _dirty = true;
                 _lintTimer = lintDelaySeconds;
@@ -127,7 +130,8 @@ public class CodeEditorController : MonoBehaviour
                 RefreshLineNumbers();
                 RefreshHighlight();
                 RequestAutocomplete();
-            });
+            };
+            input.onValueChanged.AddListener(_onValueChanged);
         }
 
         ComputeFoldRanges();
@@ -136,13 +140,19 @@ public class CodeEditorController : MonoBehaviour
         SyncHighlightToInput();
     }
 
+    UnityEngine.Events.UnityAction<string> _onValueChanged;
+
     void OnDestroy()
     {
         if (SettingsManager.Instance != null)
             SettingsManager.Instance.OnSettingsChanged -= ApplyTheme;
 
         if (input != null)
+        {
             input.onValidateInput -= OnValidateInput;
+            if (_onValueChanged != null)
+                input.onValueChanged.RemoveListener(_onValueChanged);
+        }
     }
 
     void Update()
@@ -168,15 +178,6 @@ public class CodeEditorController : MonoBehaviour
             }
         }
 
-        if (autocomplete != null && autocomplete.Visible)
-        {
-            if (Input.anyKeyDown && !IsNavigationKey())
-            {
-                // Let the input field update first, then refresh autocomplete.
-                // Simplest is to re-request next frame via _dirty path.
-            }
-        }
-
         HandleIndentKeys();
         PreventCaretInFoldedRegion();
     }
@@ -194,13 +195,6 @@ public class CodeEditorController : MonoBehaviour
         bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
         if (shift) DedentSelection();
         else       IndentSelection();
-    }
-
-    bool IsNavigationKey()
-    {
-        return Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow)
-            || Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.Return)
-            || Input.GetKeyDown(KeyCode.Escape);
     }
 
     void LateUpdate()
@@ -268,9 +262,18 @@ public class CodeEditorController : MonoBehaviour
             lineNumbers.overflowMode      = TextOverflowModes.Overflow;
             if (src.font != null && lineNumbers.font != src.font)
                 lineNumbers.font = src.font;
+
+            // Match the code text's VERTICAL margin (top/bottom) so line 1 of the
+            // gutter starts at exactly the same height as line 1 of the code — any
+            // difference here is a constant offset that scrolling can never fix.
+            // Horizontal margin stays the gutter's own (numbers are right-aligned).
+            Vector4 gm = lineNumbers.margin;
+            if (!Mathf.Approximately(gm.y, src.margin.y) || !Mathf.Approximately(gm.w, src.margin.w))
+                lineNumbers.margin = new Vector4(gm.x, src.margin.y, gm.z, src.margin.w);
         }
 
         UpdateExecLineBarPosition();
+        UpdateCaretLineBar();
         UpdateSquiggles();
         UpdateGutterIcons();
         UpdateFoldButtons();
@@ -580,15 +583,26 @@ public class CodeEditorController : MonoBehaviour
 
     // -------------------------------------------------------------------------
 
-    public void SetScaffold(string scaffold)
+    /// <summary>Places starter code in the editor. By default only fills an empty
+    /// editor (the player's work is never clobbered); <paramref name="force"/> always
+    /// replaces — used when one editor instance is reused across drills (maze repair)
+    /// so the previous drill's code can't leak into the next.</summary>
+    public void SetScaffold(string scaffold, bool force = false)
     {
-        if (input != null && string.IsNullOrEmpty(input.text))
+        if (input == null) return;
+        if (!force && !string.IsNullOrEmpty(input.text)) return;
+
+        input.SetTextWithoutNotify(scaffold ?? "");
+        if (force)
         {
-            input.SetTextWithoutNotify(scaffold ?? "");
-            ComputeFoldRanges();
-            RefreshLineNumbers();
-            RefreshHighlight();
+            _foldedLines.Clear();
+            ClearExecutionHighlight();
+            _errors.Clear();
+            if (lintLabel != null) lintLabel.text = "";
         }
+        ComputeFoldRanges();
+        RefreshLineNumbers();
+        RefreshHighlight();
     }
 
     public void SetSource(string source)
@@ -634,11 +648,16 @@ public class CodeEditorController : MonoBehaviour
     // -------------------------------------------------------------------------
     // Line numbers + folding display
 
+    string _lastLineNumberText;
+
     public void RefreshLineNumbers()
     {
         if (lineNumbers == null || input == null) return;
         ApplyCodeTextLayout(lineNumbers);
-        lineNumbers.text = BuildLineNumberText(LineCount());
+        string text = BuildLineNumberText(LineCount());
+        if (text == _lastLineNumberText) return;   // skip the mesh rebuild when nothing changed
+        _lastLineNumberText = text;
+        lineNumbers.text = text;
         lineNumbers.ForceMeshUpdate();   // refresh metrics now so gutter icons line up
     }
 
@@ -750,6 +769,39 @@ public class CodeEditorController : MonoBehaviour
         for (int i = 0; i < text.Length; i++)
             if (text[i] == '\n') count++;
         return count;
+    }
+
+    /// <summary>Maps a 1-based logical source line to its 0-based rendered row in the
+    /// gutter/highlight (both collapse folded bodies), or -1 when the line is hidden
+    /// inside a collapsed fold. All row-positioned decorations (gutter icons, fold
+    /// buttons, exec/caret bars, squigglies) must go through this — indexing textInfo
+    /// with the raw logical line drifts as soon as any fold above it is collapsed.</summary>
+    public int VisibleLineIndex(int logicalLine)
+    {
+        if (logicalLine < 1) return -1;
+        int total = LineCount();
+        if (logicalLine > total) return -1;
+
+        int row = 0;
+        for (int i = 1; i <= total; i++)
+        {
+            if (IsLineFolded(i))
+            {
+                // A folded header renders as one "..." row; its body renders nowhere.
+                int skipEnd = i;
+                foreach (FoldRange fr in _foldRanges)
+                    if (fr.HeaderLine == i) { skipEnd = Mathf.Max(skipEnd, fr.EndLine); break; }
+                if (logicalLine <= skipEnd)
+                    return logicalLine == i ? row : -1;
+                i = skipEnd;
+            }
+            else if (i == logicalLine)
+            {
+                return row;
+            }
+            row++;
+        }
+        return -1;
     }
 
     // -------------------------------------------------------------------------
@@ -913,18 +965,15 @@ public class CodeEditorController : MonoBehaviour
             FoldRange fr = _foldRanges[i];
             Button btn = _foldButtons[i];
             RectTransform rt = (RectTransform)btn.transform;
-            PositionGutterObject(rt, fr.HeaderLine, 0f);
-
-            TMP_Text label = btn.GetComponentInChildren<TMP_Text>();
-            if (label != null)
-                label.text = _foldedLines.Contains(fr.HeaderLine) ? "▸" : "▾";
+            bool placed = PositionGutterObject(rt, fr.HeaderLine, 0f);
 
             int header = fr.HeaderLine;
+            TMP_Text label = btn.GetComponentInChildren<TMP_Text>();
             if (label != null)
                 label.text = _foldedLines.Contains(header) ? ">" : "v";
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(() => ToggleFold(header));
-            btn.gameObject.SetActive(true);
+            btn.gameObject.SetActive(placed);
         }
 
         for (int i = _foldRanges.Count; i < _foldButtons.Count; i++)
@@ -1004,27 +1053,57 @@ public class CodeEditorController : MonoBehaviour
     void UpdateExecLineBarPosition()
     {
         if (execLineBar == null || highlight == null || _executingLine < 1) return;
-        if (highlight.textInfo == null || _executingLine > highlight.textInfo.lineCount) return;
 
-        TMP_LineInfo lineInfo = highlight.textInfo.lineInfo[_executingLine - 1];
-        RectTransform barRt = (RectTransform)execLineBar.transform;
+        // Map through the fold-aware row: a collapsed fold ABOVE the executing line
+        // shifts every rendered row up, so the raw logical index would drift.
+        int row = VisibleLineIndex(_executingLine);
+        if (highlight.textInfo == null || row < 0 || row >= highlight.textInfo.lineCount) return;
 
-        // Parent the bar to the highlight overlay itself — that layer is already
-        // kept glyph-aligned and scrolled with the code (see SyncHighlightToInput),
-        // so positioning the bar from the line metrics in the highlight's own local
-        // space keeps it pinned to its line through scrolling, with no separate
-        // scroll term to drift out of sync.
-        if (barRt.parent != highlight.rectTransform) barRt.SetParent(highlight.rectTransform, false);
-        barRt.anchorMin = new Vector2(0f, 1f);
-        barRt.anchorMax = new Vector2(1f, 1f);
-        barRt.pivot     = new Vector2(0.5f, 1f);
-
-        barRt.anchoredPosition = new Vector2(0f, lineInfo.ascender);
-        barRt.sizeDelta = new Vector2(0f, lineInfo.lineHeight);
+        PositionLineBar(execLineBar, highlight.textInfo.lineInfo[row]);
 
         Color c = _theme.execBarColor;
         c.a = 0.35f + 0.15f * Mathf.Sin(Time.time * 3f);
         execLineBar.color = c;
+    }
+
+    /// <summary>Dim highlight on the caret's line while editing, hidden during runs so
+    /// it never fights the executing-line bar.</summary>
+    void UpdateCaretLineBar()
+    {
+        if (caretLineBar == null || highlight == null || input == null) return;
+
+        bool show = input.isFocused && _executingLine < 1;
+        if (show)
+        {
+            int line = CharIndexToLine(input.stringPosition);
+            int row = VisibleLineIndex(line);
+            if (highlight.textInfo == null || row < 0 || row >= highlight.textInfo.lineCount)
+                show = false;
+            else
+            {
+                PositionLineBar(caretLineBar, highlight.textInfo.lineInfo[row]);
+                caretLineBar.color = new Color(1f, 1f, 1f, 0.06f);
+            }
+        }
+
+        if (caretLineBar.gameObject.activeSelf != show)
+            caretLineBar.gameObject.SetActive(show);
+    }
+
+    // Parent the bar to the highlight overlay itself — that layer is already
+    // kept glyph-aligned and scrolled with the code (see SyncHighlightToInput),
+    // so positioning the bar from the line metrics in the highlight's own local
+    // space keeps it pinned to its line through scrolling, with no separate
+    // scroll term to drift out of sync.
+    void PositionLineBar(Image bar, TMP_LineInfo lineInfo)
+    {
+        RectTransform barRt = (RectTransform)bar.transform;
+        if (barRt.parent != highlight.rectTransform) barRt.SetParent(highlight.rectTransform, false);
+        barRt.anchorMin = new Vector2(0f, 1f);
+        barRt.anchorMax = new Vector2(1f, 1f);
+        barRt.pivot     = new Vector2(0.5f, 1f);
+        barRt.anchoredPosition = new Vector2(0f, lineInfo.ascender);
+        barRt.sizeDelta = new Vector2(0f, lineInfo.lineHeight);
     }
 
     // -------------------------------------------------------------------------
@@ -1044,9 +1123,10 @@ public class CodeEditorController : MonoBehaviour
         int idx = 0;
         foreach (LangError err in _errors)
         {
-            if (err.Line <= 0 || err.Line > highlight.textInfo.lineCount) continue;
+            int row = err.Line > 0 ? VisibleLineIndex(err.Line) : -1;
+            if (row < 0 || row >= highlight.textInfo.lineCount) continue;
 
-            TMP_LineInfo lineInfo = highlight.textInfo.lineInfo[err.Line - 1];
+            TMP_LineInfo lineInfo = highlight.textInfo.lineInfo[row];
             Image img = _squiggleImages[idx];
             RectTransform rt = (RectTransform)img.transform;
 
@@ -1133,13 +1213,10 @@ public class CodeEditorController : MonoBehaviour
 
         TMP_Text label = icon.GetComponentInChildren<TMP_Text>();
         if (label != null)
-            label.text = kind == GutterIconKind.Error ? "⚑" : "▶";
-
-        if (label != null)
             label.text = kind == GutterIconKind.Error ? "!" : ">";
 
-        icon.gameObject.SetActive(true);
-        PositionGutterObject((RectTransform)icon.transform, line, 18f);
+        // Hidden inside a collapsed fold → no row to sit on; keep the icon off.
+        icon.gameObject.SetActive(PositionGutterObject((RectTransform)icon.transform, line, 18f));
     }
 
     Image EnsureGutterIcon(int line)
@@ -1191,17 +1268,22 @@ public class CodeEditorController : MonoBehaviour
             SetGutterIcon(line, GutterIconKind.None);
     }
 
-    void PositionGutterObject(RectTransform rt, int line, float xOffset)
+    /// <summary>Positions a gutter decoration on the rendered row of a logical line.
+    /// Returns false (and hides nothing itself) when the line is hidden in a fold or
+    /// out of range — callers deactivate the object in that case.</summary>
+    bool PositionGutterObject(RectTransform rt, int line, float xOffset)
     {
-        if (lineNumbers == null || lineNumbers.textInfo == null) return;
-        if (line < 1 || line > lineNumbers.textInfo.lineCount) return;
+        if (lineNumbers == null || lineNumbers.textInfo == null) return false;
+        int row = VisibleLineIndex(line);
+        if (row < 0 || row >= lineNumbers.textInfo.lineCount) return false;
 
-        TMP_LineInfo lineInfo = lineNumbers.textInfo.lineInfo[line - 1];
+        TMP_LineInfo lineInfo = lineNumbers.textInfo.lineInfo[row];
         rt.anchorMin = new Vector2(0f, 1f);
         rt.anchorMax = new Vector2(0f, 1f);
         rt.pivot = new Vector2(0.5f, 1f);
         rt.sizeDelta = new Vector2(20f, lineInfo.lineHeight);
         rt.anchoredPosition = new Vector2(xOffset, lineInfo.ascender);
+        return true;
     }
 
     public enum GutterIconKind { None, Error, Executing }

@@ -39,6 +39,8 @@ public class RoadTrafficController : MonoBehaviour
     readonly List<float> _stopAlong = new List<float>();
     readonly HashSet<Vector2Int> _trafficCells = new HashSet<Vector2Int>();
     readonly HashSet<Vector2Int> _lastSyncedTrafficCells = new HashSet<Vector2Int>();
+    readonly Dictionary<Vector2Int, int> _trafficLaneMasks = new Dictionary<Vector2Int, int>();
+    readonly Dictionary<Vector2Int, int> _lastSyncedLaneMasks = new Dictionary<Vector2Int, int>();
 
     RouteContext _route;
     Vector2[] _line;
@@ -172,6 +174,8 @@ public class RoadTrafficController : MonoBehaviour
         _vehicles.Clear();
         _trafficCells.Clear();
         _lastSyncedTrafficCells.Clear();
+        _trafficLaneMasks.Clear();
+        _lastSyncedLaneMasks.Clear();
         _trafficCellsDirty = true;
         if (_automationSim != null)
             _automationSim.ClearTraffic();
@@ -268,7 +272,9 @@ public class RoadTrafficController : MonoBehaviour
 
     float FindFollowLimit(TrafficVehicle v, float targetAlong, float targetLateral)
     {
-        float limit = Mathf.Max(0f, _routeLength - 1f);
+        // Past the end is allowed: cars drive off the route and despawn ("leave
+        // town") instead of parking forever at the frontier of a streamed road.
+        float limit = _routeLength + followDistance;
 
         if (targetAlong > v.along && TargetSharesLane(v, targetLateral))
             limit = Mathf.Min(limit, targetAlong - followDistance);
@@ -288,7 +294,9 @@ public class RoadTrafficController : MonoBehaviour
     // down-route they may travel before reaching whatever is in their lane.
     float FindFollowLimitReverse(TrafficVehicle v, float targetAlong, float targetLateral)
     {
-        float limit = 1f;
+        // Below the start is allowed: oncoming cars run off the route start and
+        // despawn instead of queueing forever at along ~1.
+        float limit = -followDistance;
 
         if (targetAlong < v.along && TargetSharesLane(v, targetLateral))
             limit = Mathf.Max(limit, targetAlong + followDistance);
@@ -467,25 +475,70 @@ public class RoadTrafficController : MonoBehaviour
     void SyncAutomationCells()
     {
         _trafficCells.Clear();
+        _trafficLaneMasks.Clear();
         if (_automationSpace == null || _automationSim == null)
             return;
 
+        bool laneMode = _automationSim.LaneMode;
         foreach (TrafficVehicle v in _vehicles)
         {
             if (v.go == null) continue;
             Vector2Int cell = _automationSpace.WorldToCell(v.go.transform.position);
-            if (IsSafeAutomationTrafficCell(cell))
-                _trafficCells.Add(cell);
+            if (!IsSafeAutomationTrafficCell(cell)) continue;
+            _trafficCells.Add(cell);
+
+            if (!laneMode) continue;
+            int mask = LaneMaskFor(v);
+            _trafficLaneMasks.TryGetValue(cell, out int existing);
+            _trafficLaneMasks[cell] = existing | mask;
         }
 
-        if (_trafficCellsDirty || !TrafficSetsEqual(_trafficCells, _lastSyncedTrafficCells))
+        if (_trafficCellsDirty || !TrafficMasksEqual(_trafficLaneMasks, _lastSyncedLaneMasks) ||
+            !TrafficSetsEqual(_trafficCells, _lastSyncedTrafficCells))
         {
-            _automationSim.SetTrafficCells(_trafficCells);
+            if (laneMode) _automationSim.SetTrafficOccupancy(_trafficLaneMasks);
+            else          _automationSim.SetTrafficCells(_trafficCells);
+
             _lastSyncedTrafficCells.Clear();
             foreach (Vector2Int cell in _trafficCells)
                 _lastSyncedTrafficCells.Add(cell);
+            _lastSyncedLaneMasks.Clear();
+            foreach (var kv in _trafficLaneMasks)
+                _lastSyncedLaneMasks[kv.Key] = kv.Value;
             _trafficCellsDirty = false;
         }
+    }
+
+    /// <summary>Which lane (bit per world cardinal) this car occupies, from the
+    /// dominant direction of its lateral offset off the route centerline. Near a
+    /// corner the offset eases toward zero — mark BOTH lanes then (safe default).</summary>
+    int LaneMaskFor(TrafficVehicle v)
+    {
+        Vector2 roadDir = RouteMath.DirectionAt(_line, v.along + 0.1f);
+        if (roadDir.sqrMagnitude < 1e-6f) roadDir = Vector2.up;
+        Vector2 left = new Vector2(-roadDir.y, roadDir.x);
+        Vector2 lateral = left * v.visualSide;
+
+        if (lateral.magnitude < 0.3f)
+            return 0xF;   // ambiguous mid-corner — occupy every lane
+
+        int best = 0;
+        float bestDot = float.NegativeInfinity;
+        for (int c = 0; c < 4; c++)
+        {
+            float dot = Vector2.Dot(lateral, _automationSpace.FacingDirection(c));
+            if (dot > bestDot) { bestDot = dot; best = c; }
+        }
+        return 1 << best;
+    }
+
+    static bool TrafficMasksEqual(Dictionary<Vector2Int, int> a, Dictionary<Vector2Int, int> b)
+    {
+        if (a.Count != b.Count) return false;
+        foreach (var kv in a)
+            if (!b.TryGetValue(kv.Key, out int other) || other != kv.Value)
+                return false;
+        return true;
     }
 
     bool IsSafeAutomationTrafficCell(Vector2Int cell)
@@ -498,6 +551,11 @@ public class RoadTrafficController : MonoBehaviour
             _automationSim.Grid.Get(cell) == GridModel.Cell.Destination ||
             _automationSim.Grid.Get(cell) == GridModel.Cell.Start)
             return false;
+
+        // In lane mode the escape route is the OTHER LANE of the same cell, so no
+        // adjacent walkable cell is required for the car to be dodgeable.
+        if (_automationSim.LaneMode)
+            return true;
 
         bool hasEscape = false;
         foreach (Vector2Int d in AgentSim.FacingDeltas)
@@ -545,6 +603,7 @@ public class RoadTrafficController : MonoBehaviour
         if (v == null) return true;
         if (v.along < targetAlong - despawnBehind) return true;
         if (v.along > _routeLength - 1f) return true;
+        if (v.direction < 0 && v.along < 1f) return true;
         return false;
     }
 

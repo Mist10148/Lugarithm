@@ -888,6 +888,13 @@ public static class MinigameOverlayBuilder
         hintBtn.image.color = UIFactory.Accent;
         hintBtn.gameObject.SetActive(false);
 
+        // Recovers a closed/minimized editor window — without this a player who
+        // clicks the editor's "x" mid-drill would be stranded with no editor.
+        Button reopen = UIFactory.CreateButton(left, "ReopenEditorButton", "Reopen Editor",
+                                               new Vector2(160f, 44f), 18f);
+        UIFactory.Place(reopen, new Vector2(1f, 0f), new Vector2(-170f, 78f), new Vector2(160f, 44f));
+        UIFactory.LocalizeButton(reopen, "hud.reopen");
+
         TMP_Text hintLbl = UIFactory.CreateText(left, "HintLabel", "", 16f, UIFactory.TextDim,
                                                 TextAlignmentOptions.TopLeft);
         UIFactory.Place(hintLbl, new Vector2(0.5f, 0f), new Vector2(0f, 112f), new Vector2(520f, 36f));
@@ -931,6 +938,7 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(game, "vibeCtrl",      mazeVibe);
         SceneBuilderUtil.Wire(game, "ghost",         codeEditor.GetComponent<GhostTextController>());
         SceneBuilderUtil.Wire(game, "exec",          exec);
+        SceneBuilderUtil.Wire(game, "reopenButton",  reopen);
         SceneBuilderUtil.Wire(game, "runButton",     run);
         SceneBuilderUtil.Wire(game, "resetButton",   reset);
         SceneBuilderUtil.Wire(game, "autopilotButton", autopilot);

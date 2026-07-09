@@ -173,6 +173,9 @@ public static class ManualDriveSceneBuilder
         var speedCaption = UIFactory.CreateLocalizedText(dash, "SpeedCaption", "hud.speed", 16f, UIFactory.TextDim);
         UIFactory.Place(speedCaption, new Vector2(0f, 0f), new Vector2(40f, 6f), new Vector2(90f, 22f));
 
+        var speedValue = UIFactory.CreateText(dash, "SpeedValue", "0 km/h", 18f, UIFactory.TextBright);
+        UIFactory.Place(speedValue, new Vector2(0f, 0f), new Vector2(40f, 28f), new Vector2(110f, 24f));
+
         // Fuel bar
         var fuelCaption = UIFactory.CreateLocalizedText(dash, "FuelCaption", "hud.fuel", 18f, UIFactory.TextDim,
                                                         TextAlignmentOptions.MidlineLeft);
@@ -205,6 +208,7 @@ public static class ManualDriveSceneBuilder
 
         var hud = canvas.gameObject.AddComponent<ManualHudController>();
         SceneBuilderUtil.Wire(hud, "speedNeedle",   needleRt);
+        SceneBuilderUtil.Wire(hud, "speedValueLabel", speedValue);
         SceneBuilderUtil.Wire(hud, "fuelFill",      fuelFill);
         SceneBuilderUtil.Wire(hud, "currencyLabel", currency);
         SceneBuilderUtil.WireArray(hud, "chips",    chips);

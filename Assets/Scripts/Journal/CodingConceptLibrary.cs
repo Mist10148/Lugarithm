@@ -64,11 +64,12 @@ public static class CodingConceptLibrary
             {
                 title = "Traffic & Lane Changes",
                 body =
-                    "The road is shared and traffic keeps to its side: cars going your way stay on the " +
-                    "right, oncoming cars pass on the left. <b>carInFront()</b> is a query that asks " +
-                    "whether a moving car is directly ahead of the jeepney. When it is true, dodge with " +
-                    "<b>moveLeft()</b> or <b>moveRight()</b>; those commands slide one lane sideways " +
-                    "without turning the jeepney.\n\n" +
+                    "The road has exactly two lanes — left and right — and traffic keeps to its side: " +
+                    "cars going your way stay on the right, oncoming cars pass on the left. " +
+                    "<b>carInFront()</b> is a query that asks whether a moving car is directly ahead " +
+                    "<i>in your lane</i>. When it is true, dodge with <b>moveLeft()</b> or " +
+                    "<b>moveRight()</b>; those commands slide to the other lane without turning the " +
+                    "jeepney (there is no middle lane, so a second moveLeft() just bumps).\n\n" +
                     "<b>avoidTraffic()</b> is a built-in command that does this whole habit in one call: " +
                     "if a car blocks the cell ahead it slides into a clear lane (left first, then right), " +
                     "and simply waits when boxed in. You can still write your own <b>def avoidTraffic():</b> " +

@@ -80,6 +80,7 @@ public static class LocalizationTable
         // --- HUD / drive chrome ----------------------------------------------
         ["hud.exit"]      = new[] { "Exit",      "Lumabas" },
         ["hud.journal"]   = new[] { "Journal",   "Talaarawan" },
+        ["hud.reopen"]    = new[] { "Reopen Editor", "Buksan ang Editor" },
         ["hud.fuel"]      = new[] { "FUEL",      "GASOLINA" },
         ["hud.speed"]     = new[] { "SPEED",     "BILIS" },
         ["hud.manualhint"]= new[] { "A / D change lanes · Space brakes",

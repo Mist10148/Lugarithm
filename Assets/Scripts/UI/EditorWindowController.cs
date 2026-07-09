@@ -8,8 +8,8 @@ using TMPro;
 /// anywhere to focus (bring to front), a title-bar button to minimize/restore
 /// (collapse to just the title bar), and a close button that hides it. Title-bar
 /// dragging is handled by <see cref="DragWindowHandle"/> and corner resizing by
-/// <see cref="ResizeHandle"/>; this owns focus, minimize, and open/close so a
-/// <see cref="WindowDock"/> can reopen a closed or minimized window.
+/// <see cref="ResizeHandle"/>; this owns focus, minimize, and open/close so the
+/// HUD "Reopen Editor" button can recover a closed or minimized window.
 /// </summary>
 [DisallowMultipleComponent]
 public class EditorWindowController : MonoBehaviour, IPointerDownHandler
@@ -25,13 +25,16 @@ public class EditorWindowController : MonoBehaviour, IPointerDownHandler
     public bool   IsOpen => window != null && window.gameObject.activeSelf;
     public bool   IsMinimized { get; private set; }
 
-    const float TitleBarHeight = 34f;
+    public const float TitleBarHeight = 34f;
     float _restoreHeight;
+    RectTransform _canvas;
 
     void Awake()
     {
         if (window == null) window = (RectTransform)transform;
         _restoreHeight = window.sizeDelta.y;
+        Canvas c = GetComponentInParent<Canvas>();
+        if (c != null) _canvas = (RectTransform)c.transform;
         if (minimizeButton != null) minimizeButton.onClick.AddListener(ToggleMinimize);
         if (closeButton    != null) closeButton.onClick.AddListener(Close);
     }
@@ -50,6 +53,7 @@ public class EditorWindowController : MonoBehaviour, IPointerDownHandler
         window.gameObject.SetActive(true);
         if (IsMinimized) ToggleMinimize();   // un-minimize on reopen
         BringToFront();
+        WindowClampUtil.Clamp(window, _canvas);   // reopen always lands reachable
     }
 
     public void Close()
@@ -72,5 +76,6 @@ public class EditorWindowController : MonoBehaviour, IPointerDownHandler
 
         if (minimizeLabel != null) minimizeLabel.text = IsMinimized ? "+" : "_";
         BringToFront();
+        WindowClampUtil.Clamp(window, _canvas);   // restoring near an edge must not push the body off-screen
     }
 }

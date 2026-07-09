@@ -210,18 +210,44 @@ public static class RouteVisualBuilder
             ? new Vector2(Mathf.Sign(dir.x), 0f)
             : new Vector2(0f, Mathf.Sign(dir.y));
 
-        for (float d = 0f; d <= len; d += 1f)
-        {
-            var tile = new GameObject("RoadTile");
-            tile.transform.SetParent(parent, false);
-            tile.transform.position = a + dir * d;
-            tile.transform.rotation = Quaternion.FromToRotation(Vector3.up, (Vector3)tileDir);
-            tile.transform.localScale = new Vector3(width, 1.25f, 1f);
+        for (float d = 0f; d < len; d += 1f)
+            PlaceRoadTile(parent, sprite, a + dir * d, tileDir, width);
 
-            var sr = tile.AddComponent<SpriteRenderer>();
-            sr.sprite = sprite;
-            sr.sortingOrder = -50;
-        }
+        // One tile exactly at the far endpoint — a non-integer segment length
+        // otherwise leaves a sub-unit gap right at the bend or chunk seam.
+        PlaceRoadTile(parent, sprite, b, tileDir, width);
+
+        // Square caps at both endpoints: an axis-aligned width×width square
+        // centered on the shared vertex covers the outer-corner notch where two
+        // legs meet at 90°, whatever the orientation of either leg. Overdraw on
+        // straight joints is invisible (same sprite, same sorting order).
+        PlaceRoadCap(parent, sprite, a, width);
+        PlaceRoadCap(parent, sprite, b, width);
+    }
+
+    static void PlaceRoadTile(Transform parent, Sprite sprite, Vector2 pos, Vector2 tileDir, float width)
+    {
+        var tile = new GameObject("RoadTile");
+        tile.transform.SetParent(parent, false);
+        tile.transform.position = pos;
+        tile.transform.rotation = Quaternion.FromToRotation(Vector3.up, (Vector3)tileDir);
+        tile.transform.localScale = new Vector3(width, 1.25f, 1f);
+
+        var sr = tile.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.sortingOrder = -50;
+    }
+
+    static void PlaceRoadCap(Transform parent, Sprite sprite, Vector2 pos, float width)
+    {
+        var cap = new GameObject("RoadCap");
+        cap.transform.SetParent(parent, false);
+        cap.transform.position = pos;
+        cap.transform.localScale = new Vector3(width, width, 1f);
+
+        var sr = cap.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.sortingOrder = -50;
     }
 
     static StopZone BuildProceduralStop(Transform parent, TownNode node, int ordinal,
@@ -455,22 +481,21 @@ public static class RouteVisualBuilder
         var roadRoot = new GameObject("Road");
         roadRoot.transform.SetParent(parent, false);
 
+        float width = def.roadHalfWidth * 2f;
         const float step = 1.0f;
-        for (float d = 0f; d <= totalLength; d += step)
+        for (float d = 0f; d < totalLength; d += step)
         {
             Vector2 point     = RouteMath.PointAt(def.waypoints, d);
             Vector2 direction = RouteMath.DirectionAt(def.waypoints, d);
-
-            var tile = new GameObject("RoadTile");
-            tile.transform.SetParent(roadRoot.transform, false);
-            tile.transform.position = point;
-            tile.transform.rotation = Quaternion.FromToRotation(Vector3.up, direction);
-            tile.transform.localScale = new Vector3(def.roadHalfWidth * 2f, 1.25f, 1f);
-
-            var sr = tile.AddComponent<SpriteRenderer>();
-            sr.sprite = roadSprite;
-            sr.sortingOrder = -50;
+            PlaceRoadTile(roadRoot.transform, roadSprite, point, direction, width);
         }
+        // Exact end tile (non-integer totalLength) plus square caps at every
+        // bend vertex so 90° corners have no notch.
+        PlaceRoadTile(roadRoot.transform, roadSprite,
+                      RouteMath.PointAt(def.waypoints, totalLength),
+                      RouteMath.DirectionAt(def.waypoints, totalLength), width);
+        for (int i = 1; i < def.waypoints.Length - 1; i++)
+            PlaceRoadCap(roadRoot.transform, roadSprite, def.waypoints[i], width);
     }
 
     static StopZone BuildStop(Transform parent, ManualRouteDefinition def,
