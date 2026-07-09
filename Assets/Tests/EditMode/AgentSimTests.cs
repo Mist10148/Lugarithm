@@ -349,8 +349,9 @@ public class AgentSimTests
         sim.Apply("keepDriving");
 
         Assert.Greater(sim.PendingMoveCount, 0);
-        Assert.LessOrEqual(sim.PendingMoveCount, 4,
-            "endless cruise macros must yield often enough for stream-ahead generation");
+        Assert.LessOrEqual(sim.PendingMoveCount, 12,
+            "endless cruise macros must yield often enough for stream-ahead generation " +
+            "(8 forward cells + interleaved turns)");
     }
 
     [Test]
@@ -369,7 +370,8 @@ public class AgentSimTests
         sim.Apply("driveToDropoff");
 
         Assert.Greater(sim.PendingMoveCount, 0);
-        Assert.LessOrEqual(sim.PendingMoveCount, 4,
-            "story drop-off navigation must not monopolize the execution loop");
+        Assert.LessOrEqual(sim.PendingMoveCount, 12,
+            "story drop-off navigation must not monopolize the execution loop " +
+            "(8 forward cells + interleaved turns)");
     }
 }

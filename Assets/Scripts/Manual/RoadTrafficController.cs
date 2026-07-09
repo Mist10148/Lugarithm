@@ -9,21 +9,21 @@ using UnityEngine;
 public class RoadTrafficController : MonoBehaviour
 {
     [Header("Traffic")]
-    [SerializeField] private int maxActiveVehicles = 3;
-    [SerializeField] private int minActiveVehicles = 1;
-    [SerializeField] private float minSpawnCooldown = 3f;
-    [SerializeField] private float maxSpawnCooldown = 6f;
+    [SerializeField] private int maxActiveVehicles = 2;
+    [SerializeField] private int minActiveVehicles = 0;
+    [SerializeField] private float minSpawnCooldown = 7f;
+    [SerializeField] private float maxSpawnCooldown = 14f;
     [SerializeField] private float minSpawnAhead = 16f;
     [SerializeField] private float maxSpawnAhead = 36f;
     [SerializeField] private float minSpawnBehind = 10f;
     [SerializeField] private float maxSpawnBehind = 24f;
     [SerializeField] private float despawnBehind = 30f;
-    [SerializeField, Range(0f, 1f)] private float oncomingTrafficRatio = 0.4f;
+    [SerializeField, Range(0f, 1f)] private float oncomingTrafficRatio = 0.3f;
     [SerializeField] private float minCarSpeed = 2.2f;
     [SerializeField] private float maxCarSpeed = 3.3f;
     [SerializeField] private float laneOffset = 1.35f;
     [SerializeField] private float stopClearance = 8f;
-    [SerializeField] private float minVehicleSpacing = 8f;
+    [SerializeField] private float minVehicleSpacing = 14f;
     [SerializeField] private float followDistance = 3f;
     [SerializeField] private float followSlowZone = 3.5f;
     [SerializeField] private float speedSmoothTime = 0.35f;
@@ -80,6 +80,7 @@ public class RoadTrafficController : MonoBehaviour
     public int ActiveVehicleCount => _vehicles.Count;
     public float FollowDistanceForTests => followDistance;
     public int MinActiveVehiclesForTests => Mathf.Clamp(minActiveVehicles, 0, VehicleCap());
+    public int VehicleCapForTests => VehicleCap();
 
     public bool ForceSpawnForTests(float targetAlong)
     {
@@ -98,7 +99,9 @@ public class RoadTrafficController : MonoBehaviour
         float resolvedSide = float.IsNaN(side)
             ? (direction >= 0 ? -1f : 1f)
             : (side >= 0f ? 1f : -1f);
-        if (!FarFromStops(along) || !FarFromVehicles(along, resolvedSide)) return false;
+        // Explicit placement: tests position cars deliberately (often closer than the
+        // natural minVehicleSpacing) to probe following/queueing — only stop clearance applies.
+        if (!FarFromStops(along)) return false;
 
         SpawnVehicle(along, resolvedSide,
                      cruiseSpeed > 0f ? cruiseSpeed : RandomCarSpeed(),
@@ -651,7 +654,7 @@ public class RoadTrafficController : MonoBehaviour
 
     void ScheduleNextSpawn(bool immediate)
     {
-        float delay = immediate ? 1.5f : Random.Range(minSpawnCooldown, maxSpawnCooldown);
+        float delay = immediate ? 4f : Random.Range(minSpawnCooldown, maxSpawnCooldown);
         _nextSpawnTime = Time.time + delay;
     }
 

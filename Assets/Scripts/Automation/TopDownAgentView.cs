@@ -37,6 +37,19 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     // lines up with the traffic lanes, inside the existing road art.
     const float LaneVisualOffset = 1.35f;
 
+    // Smoothed lane-offset channel (the traffic-car visualSide pattern): animation
+    // writes the CENTERLINE position and composes this world-space lateral offset on
+    // top each frame — so lane switches drift at cruise speed, in-place switches
+    // glide, and the corner lane-cardinal flip swings instead of jumping 2×1.35.
+    Vector3 _laneOffsetVisual;
+    Vector3 _laneOffsetVel;
+    int     _laneTargetCardinal = -1;
+    const float LaneSmoothTime = 0.25f;
+
+    // Corners get chamfered by this much on each leg so the jeepney sweeps a turn at
+    // constant speed (with the lagged body heading) instead of pivoting on a vertex.
+    const float CornerCutDistance = 0.9f;
+
     /// <summary>Supplies the sim's current world-cardinal lane (or -1 outside lane
     /// mode) for poses that don't come from an action result (SnapTo after a reset).
     /// Wired by the drive controller.</summary>
@@ -48,8 +61,18 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         return (Vector3)(_space.FacingDirection(laneCardinal) * LaneVisualOffset);
     }
 
-    Vector3 WorldOf(Vector2Int cell, int laneCardinal) =>
-        _space.CellToWorld(cell) + LaneOffsetWorld(laneCardinal);
+    void SetLaneTarget(int laneCardinal) => _laneTargetCardinal = laneCardinal;
+
+    /// <summary>Advances the lane-offset channel one frame toward its target and
+    /// returns the current offset. Every animation frame composes position as
+    /// centerline + this, so lateral motion is always SmoothDamp-continuous.</summary>
+    Vector3 StepLaneOffset()
+    {
+        Vector3 target = LaneOffsetWorld(_laneTargetCardinal);
+        _laneOffsetVisual = Vector3.SmoothDamp(_laneOffsetVisual, target,
+                                               ref _laneOffsetVel, LaneSmoothTime);
+        return _laneOffsetVisual;
+    }
 
     // -------------------------------------------------------------------------
 
@@ -63,7 +86,10 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     public void SnapTo(Vector2Int cell, int facing)
     {
         int lane = LaneCardinalSource != null ? LaneCardinalSource() : -1;
-        transform.position = WorldOf(cell, lane);
+        SetLaneTarget(lane);
+        _laneOffsetVisual = LaneOffsetWorld(lane);   // teleports stay teleports — no drift-in
+        _laneOffsetVel    = Vector3.zero;
+        transform.position = _space.CellToWorld(cell) + _laneOffsetVisual;
         SetSortOrder(cell);
         SetBodyFacing(facing);
 
@@ -92,54 +118,55 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
     public IEnumerator PlayAction(AgentActionResult result, float duration)
     {
-        // A flowing cruise only happens through PlayContinuousPath. Anything routed here as a
-        // single beat that isn't locomotion (a stop, fare, change, idle wait) is a genuine halt,
-        // so drop cruise momentum — the next drive eases in from rest instead of resuming at speed.
+        // Only a genuine service halt (boarding, fares, change) drops cruise momentum — the
+        // jeepney really is stopped at the curb there. Logic beats (wait, avoidTraffic checks,
+        // queries) must NOT kill it, or every loop-iteration check re-ramps the cruise from rest.
         switch (result.Action)
         {
-            case "moveForward":
-            case "moveLeft":
-            case "moveRight":
-            case "turnLeft":
-            case "turnRight":
-                break;
-            default:
+            case "pickUp":
+            case "collectFare":
+            case "giveChange":
                 _cruiseSpeed = 0f;
+                break;
+            case "dropOff":
+                if (result.DroppedOff) _cruiseSpeed = 0f;   // somebody actually alighted
                 break;
         }
 
         switch (result.Action)
         {
             case "moveForward":
+                // A single move rides the same constant-speed cruise path as a batch,
+                // so it reuses _cruiseSpeed momentum instead of easing in from rest.
                 if (result.Blocked)
                     yield return Bump(result.FacingBefore, duration);
                 else
-                    yield return MoveBetween(result, duration);
+                    yield return PlayContinuousPath(new[] { result }, duration);
                 break;
 
             case "turnLeft":
             case "turnRight":
-                // In lane mode the lane offset swings with the facing, so the body
-                // rotation and the small positional slide play together.
-                yield return Turn(result.FacingBefore, result.FacingAfter, duration,
-                                  WorldOf(result.From, result.LaneBefore),
-                                  WorldOf(result.To, result.LaneAfter));
+                yield return Turn(result, duration);
                 break;
 
             case "moveLeft":
-                // Slide sideways without rotating — the body keeps facing ahead, so
-                // the jeepney drifts into the lane (cell strafe or sub-cell lane).
+                // Lane change: a merging diagonal rides the cruise (the lane channel
+                // supplies the lateral drift); an in-place switch glides the channel.
                 if (result.Blocked)
                     yield return Bump((result.FacingBefore + 3) % 4, duration);
+                else if (result.From != result.To)
+                    yield return PlayContinuousPath(new[] { result }, duration);
                 else
-                    yield return MoveBetween(result, duration);
+                    yield return LaneGlide(result, duration);
                 break;
 
             case "moveRight":
                 if (result.Blocked)
                     yield return Bump((result.FacingBefore + 1) % 4, duration);
+                else if (result.From != result.To)
+                    yield return PlayContinuousPath(new[] { result }, duration);
                 else
-                    yield return MoveBetween(result, duration);
+                    yield return LaneGlide(result, duration);
                 break;
 
             case "pickUp":
@@ -179,12 +206,14 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     {
         if (moves == null || moves.Count == 0) yield break;
 
-        bool hasForwardMove = false;
+        // The continuous path needs at least one real travel segment; a batch of only
+        // turns / in-place lane switches plays per-action (rotation + lane glide).
+        bool hasTravel = false;
         foreach (AgentActionResult result in moves)
-            if (IsCruiseMove(result))
-                hasForwardMove = true;
+            if (IsCruiseMove(result) && result.From != result.To)
+                hasTravel = true;
 
-        if (hasForwardMove)
+        if (hasTravel)
         {
             yield return PlayContinuousPath(moves, secondsPerStep);
             // A traffic bump ends a batch, and the continuous polyline only stitches
@@ -217,26 +246,47 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
     IEnumerator PlayContinuousPath(IReadOnlyList<AgentActionResult> moves, float secondsPerStep)
     {
-        // Stitch the forward moves into one world-space polyline so the jeepney drives the
-        // whole stretch as a single heavy motion — accelerate, cruise, settle — instead of
-        // easing to a near-stop at every cell. Rotation lags the travel direction so corners
-        // feel weighty, like a real loaded jeepney leaning into the turn. Lane changes ride
-        // the same polyline as lateral drift: the body keeps pointing down the road (the
-        // heading it had when the slide started) instead of swinging 90° sideways.
-        var pts     = new List<Vector3>();
-        var toCells = new List<Vector2Int>();
-        var rotDirs = new List<Vector3>();   // per-segment body-heading target
-        foreach (AgentActionResult result in moves)
+        // Stitch the batch into one CENTERLINE polyline driven at constant speed — one
+        // heavy motion: accelerate, cruise, settle. The lane offset is a separate
+        // smoothed channel composed on top each frame, so lane changes render as a
+        // lateral drift at cruise speed and the offset swings smoothly through corners.
+        // Turns contribute no vertex; corners get chamfered so the jeepney sweeps them
+        // (rotation lags the travel direction — a loaded jeepney leaning into the turn).
+        var pts   = new List<Vector3>();
+        var dirs  = new List<Vector3>();     // per-segment travel direction
+        var lanes = new List<int>();         // per-segment lane-cardinal target
+        var cells = new List<Vector2Int>();  // per-segment sort-order cell
+        int trailingLane = int.MinValue;     // lane retarget after the last vertex
+        int travelSegs = 0;
+
+        foreach (AgentActionResult m in moves)
         {
-            if (!IsCruiseMove(result)) continue;
-            if (pts.Count == 0) pts.Add(WorldOf(result.From, result.LaneBefore));
-            pts.Add(WorldOf(result.To, result.LaneAfter));
-            toCells.Add(result.To);
-            rotDirs.Add(result.Action == "moveForward"
-                ? _space.CellToWorld(result.To) - _space.CellToWorld(result.From)
-                : (Vector3)(_space.FacingDirection(result.FacingBefore)));
+            if (m.Blocked) break;   // a bump ends the batch; PlayPath replays it as its own beat
+            bool isTurn = m.Action == "turnLeft" || m.Action == "turnRight";
+            if (!isTurn && !IsCruiseMove(m)) continue;
+
+            if (m.From != m.To)
+            {
+                Vector3 a = _space.CellToWorld(m.From);
+                Vector3 b = _space.CellToWorld(m.To);
+                if (pts.Count == 0) pts.Add(a);
+                pts.Add(b);
+                dirs.Add(b - a);
+                lanes.Add(m.LaneAfter);
+                cells.Add(m.To);
+                travelSegs++;
+                trailingLane = int.MinValue;
+            }
+            else
+            {
+                // Turn or in-place lane switch: no vertex — it only retargets the lane
+                // channel (a turn's new heading shows up in the next segment's dir).
+                trailingLane = m.LaneAfter;
+            }
         }
-        if (pts.Count < 2) yield break;
+        if (travelSegs == 0) yield break;
+
+        ApplyCornerCuts(pts, dirs, lanes, cells);
 
         int segCount = pts.Count - 1;
         var segLen   = new float[segCount];
@@ -244,10 +294,9 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         for (int i = 0; i < segCount; i++) { segLen[i] = Vector3.Distance(pts[i], pts[i + 1]); total += segLen[i]; }
         if (total < 1e-4f) yield break;
 
-        // Constant cruise speed for this batch. secondsPerStep is constant across batches,
-        // so targetSpeed is too — the jeepney holds one speed through every chunk and corner
-        // instead of re-running an ease-in/ease-out per batch ("pumping").
-        float duration    = Mathf.Max(0.04f, secondsPerStep * segCount);
+        // Constant cruise speed pinned to the ORIGINAL cell count, so chamfered corners
+        // (slightly shorter path) don't change the pace between batches ("pumping").
+        float duration    = Mathf.Max(0.04f, secondsPerStep * travelSegs);
         float targetSpeed = total / duration;
 
         if (!_hasBodyRot)
@@ -268,9 +317,11 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
             int s = 0;
             while (s < segCount - 1 && dist > segLen[s]) { dist -= segLen[s]; s++; }
             float u = segLen[s] > 1e-4f ? Mathf.Clamp01(dist / segLen[s]) : 1f;
-            transform.position = Vector3.Lerp(pts[s], pts[s + 1], u);
 
-            Vector3 dir = rotDirs[s];
+            SetLaneTarget(lanes[s]);
+            transform.position = Vector3.Lerp(pts[s], pts[s + 1], u) + StepLaneOffset();
+
+            Vector3 dir = dirs[s];
             if (dir.sqrMagnitude > 1e-5f && body != null)
             {
                 Quaternion target = BodyRotationFromDir(dir);
@@ -280,12 +331,44 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
                 body.transform.localRotation = _bodyRot;
             }
 
-            SetSortOrder(toCells[Mathf.Min(s, toCells.Count - 1)]);
+            SetSortOrder(cells[Mathf.Min(s, cells.Count - 1)]);
             yield return null;
         }
 
-        transform.position = pts[pts.Count - 1];
-        SetSortOrder(toCells[toCells.Count - 1]);
+        // Land on the centerline endpoint plus the channel's CURRENT offset — a
+        // half-finished lane drift keeps drifting through the next batch, never snaps.
+        transform.position = pts[pts.Count - 1] + _laneOffsetVisual;
+        if (trailingLane != int.MinValue) SetLaneTarget(trailingLane);
+        SetSortOrder(cells[cells.Count - 1]);
+    }
+
+    /// <summary>Chamfers every interior vertex where the heading changes: the sharp
+    /// corner point becomes an entry/exit pair CornerCutDistance up each leg (clamped
+    /// to half the shorter leg), and the inserted diagonal blends heading + starts the
+    /// outgoing lane swing early — a swept corner at constant speed, matching Manual's
+    /// cornerEaseDistance feel.</summary>
+    static void ApplyCornerCuts(List<Vector3> pts, List<Vector3> dirs,
+                                List<int> lanes, List<Vector2Int> cells)
+    {
+        for (int i = dirs.Count - 1; i >= 1; i--)
+        {
+            Vector3 dPrev = dirs[i - 1].normalized;
+            Vector3 dNext = dirs[i].normalized;
+            if (Vector3.Angle(dPrev, dNext) < 1f) continue;
+
+            float lenPrev = Vector3.Distance(pts[i - 1], pts[i]);
+            float lenNext = Vector3.Distance(pts[i], pts[i + 1]);
+            float cut = Mathf.Min(CornerCutDistance, lenPrev * 0.5f, lenNext * 0.5f);
+            if (cut < 0.05f) continue;
+
+            Vector3 entry = pts[i] - dPrev * cut;
+            Vector3 exit  = pts[i] + dNext * cut;
+            pts[i] = entry;
+            pts.Insert(i + 1, exit);
+            dirs.Insert(i, exit - entry);
+            lanes.Insert(i, lanes[i]);      // start swinging toward the outgoing lane in the corner
+            cells.Insert(i, cells[i - 1]);  // corner cell = incoming segment's destination
+        }
     }
 
     Quaternion BodyRotationFromDir(Vector3 dir)
@@ -294,22 +377,22 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         return Quaternion.Euler(0f, 0f, angle);
     }
 
-    IEnumerator MoveBetween(AgentActionResult result, float duration)
+    IEnumerator LaneGlide(AgentActionResult result, float duration)
     {
-        Vector3 a = WorldOf(result.From, result.LaneBefore);
-        Vector3 b = WorldOf(result.To, result.LaneAfter);
+        // In-place lane switch (wall/corner ahead): the cell doesn't change — retarget
+        // the lane channel and let it drift over the beat. Cruise momentum is left
+        // alone so a following drive resumes at speed.
+        SetLaneTarget(result.LaneAfter);
+        Vector3 center = _space.CellToWorld(result.To);
 
         float elapsed = 0f;
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
-            transform.position = Vector3.Lerp(a, b, t);
-            if (t > 0.5f) SetSortOrder(result.To);
+            transform.position = center + StepLaneOffset();
             yield return null;
         }
-
-        transform.position = b;
+        transform.position = center + _laneOffsetVisual;
         SetSortOrder(result.To);
     }
 
@@ -337,13 +420,17 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         transform.position = origin;
     }
 
-    IEnumerator Turn(int fromFacing, int toFacing, float duration,
-                     Vector3? fromPos = null, Vector3? toPos = null)
+    IEnumerator Turn(AgentActionResult result, float duration)
     {
-        Quaternion a = BodyRotation(fromFacing);
-        Quaternion b = BodyRotation(toFacing);
-        bool slide = fromPos.HasValue && toPos.HasValue &&
-                     (toPos.Value - fromPos.Value).sqrMagnitude > 1e-6f;
+        // Standalone in-place pivot (a turn with no travel batch around it). Rotation
+        // starts from the CURRENT lagged heading — never snaps back to the exact grid
+        // facing — and the lane offset swings via the channel as its cardinal rotates.
+        Quaternion a = _hasBodyRot && body != null
+            ? _bodyRot
+            : BodyRotation(result.FacingBefore);
+        Quaternion b = BodyRotation(result.FacingAfter);
+        SetLaneTarget(result.LaneAfter);
+        Vector3 center = _space.CellToWorld(result.From);
 
         float elapsed = 0f;
         while (elapsed < duration)
@@ -351,40 +438,52 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             _bodyRot = Quaternion.Slerp(a, b, t);
-            body.transform.localRotation = _bodyRot;
-            if (slide)
-                transform.position = Vector3.Lerp(fromPos.Value, toPos.Value,
-                                                  Mathf.SmoothStep(0f, 1f, t));
+            if (body != null) body.transform.localRotation = _bodyRot;
+            transform.position = center + StepLaneOffset();
             yield return null;
         }
 
         _bodyRot = b;
         _hasBodyRot = true;
-        body.transform.localRotation = b;
-        if (slide) transform.position = toPos.Value;
+        if (body != null) body.transform.localRotation = b;
+        transform.position = center + _laneOffsetVisual;
     }
+
+    // Pooled pop icon: one persistent child + a sprite cache, so every fare/pickup beat
+    // doesn't allocate a GameObject and hit Resources.Load (hitches near stops).
+    GameObject     _popIcon;
+    SpriteRenderer _popRenderer;
+    static readonly Dictionary<string, Sprite> _popSpriteCache = new Dictionary<string, Sprite>();
 
     IEnumerator Pop(string spritePath, float duration)
     {
-        var icon = new GameObject("Pop");
-        icon.transform.SetParent(transform, false);
-        icon.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+        if (_popIcon == null)
+        {
+            _popIcon = new GameObject("Pop");
+            _popIcon.transform.SetParent(transform, false);
+            _popRenderer = _popIcon.AddComponent<SpriteRenderer>();
+            _popRenderer.sortingOrder = 999;
+        }
 
-        var sr = icon.AddComponent<SpriteRenderer>();
-        sr.sprite = Resources.Load<Sprite>(spritePath);
-        sr.sortingOrder = 999;
+        if (!_popSpriteCache.TryGetValue(spritePath, out Sprite sprite) || sprite == null)
+        {
+            sprite = Resources.Load<Sprite>(spritePath);
+            _popSpriteCache[spritePath] = sprite;
+        }
+        _popRenderer.sprite = sprite;
+        _popIcon.SetActive(true);
 
         float elapsed = 0f;
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            icon.transform.localPosition = new Vector3(0f, 0.45f + 0.35f * t, 0f);
-            sr.color = new Color(1f, 1f, 1f, 1f - t);
+            _popIcon.transform.localPosition = new Vector3(0f, 0.45f + 0.35f * t, 0f);
+            _popRenderer.color = new Color(1f, 1f, 1f, 1f - t);
             yield return null;
         }
 
-        Object.Destroy(icon);
+        _popIcon.SetActive(false);
     }
 
     // -------------------------------------------------------------------------

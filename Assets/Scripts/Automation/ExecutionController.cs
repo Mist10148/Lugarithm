@@ -22,6 +22,11 @@ public class ExecutionController : MonoBehaviour
 
     [SerializeField] private float minVisibleStepSeconds = 0.2f;
 
+    // Floor for invisible logic beats (wait, turns, macro calls). Service actions that
+    // show something (pickUp, dropOff, collectFare, giveChange) keep the visible floor —
+    // everything else must not stall the cruise for a fifth of a second per check.
+    [SerializeField] private float minLogicStepSeconds = 0.06f;
+
     [Header("Heatmap")]
     [Tooltip("A line that executes this many times in a single frame is considered 'hot'.")]
     [SerializeField] private int hotLineThreshold = 200;
@@ -60,7 +65,7 @@ public class ExecutionController : MonoBehaviour
     // Heatmap state: hits per line within the current frame, reset each yield.
     Dictionary<int, int> _frameLineHits = new Dictionary<int, int>();
 
-    const int EndlessPathBatchSize = 4;
+    const int EndlessPathBatchSize = 8;
 
     public AgentSim Sim => _sim;
 
@@ -220,10 +225,25 @@ public class ExecutionController : MonoBehaviour
     static bool IsMovementAction(string action) =>
         action == "moveForward" || action == "moveLeft" || action == "moveRight";
 
+    /// <summary>Navigation macros whose only effect is planning moves into the queue.</summary>
+    static bool IsDriveMacro(string action) =>
+        action == "driveToNextStop" || action == "driveToDestination" ||
+        action == "driveToTerminal" || action == "driveToDropoff" ||
+        action == "keepDriving";
+
+    /// <summary>Actions with a visible beat of their own (peep/coin pop) — they keep the
+    /// minVisibleStepSeconds floor so the player can read them.</summary>
+    static bool IsServiceAction(string action) =>
+        action == "pickUp" || action == "dropOff" ||
+        action == "collectFare" || action == "giveChange";
+
     float DurationFor(string action)
     {
         float raw = IsMovementAction(action) ? baseStepSeconds / Speed : logicStepSeconds / Speed;
-        return Mathf.Max(minVisibleStepSeconds, raw);
+        float floor = IsMovementAction(action) || IsServiceAction(action)
+            ? minVisibleStepSeconds
+            : minLogicStepSeconds;
+        return Mathf.Max(floor, raw);
     }
 
     void Stop()
@@ -309,7 +329,13 @@ public class ExecutionController : MonoBehaviour
                 int batchLimit = EndlessRouteActive
                     ? EndlessPathBatchSize
                     : int.MaxValue;
-                while (_sim.HasPendingMoves && moves.Count < batchLimit)
+                // Keep draining past the cap while the batch would end on a turn — a
+                // turn split from its forward move renders as a dead-stop pivot plus
+                // a heading snap on the next batch (worst case overrun: a U-turn + move).
+                while (_sim.HasPendingMoves &&
+                       (moves.Count < batchLimit ||
+                        moves[moves.Count - 1].Action == "turnLeft" ||
+                        moves[moves.Count - 1].Action == "turnRight"))
                 {
                     AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
                     moves.Add(moveResult);
@@ -400,13 +426,20 @@ public class ExecutionController : MonoBehaviour
                     OnHotLine?.Invoke(line);
             }
 
-            float duration = DurationFor(result.Action);
-            Busy = true;
-            if (_view != null)
-                yield return _view.PlayAction(result, duration);
-            else
-                yield return new WaitForSeconds(duration);
-            Busy = false;
+            // A drive macro that just queued a path has no beat of its own — its visible
+            // effect IS the path that follows. Skipping the yield here keeps the cruise
+            // rolling straight into the batch drain instead of idling a logic step first.
+            bool macroWithPath = _sim != null && _sim.HasPendingMoves && IsDriveMacro(result.Action);
+            if (!macroWithPath)
+            {
+                float duration = DurationFor(result.Action);
+                Busy = true;
+                if (_view != null)
+                    yield return _view.PlayAction(result, duration);
+                else
+                    yield return new WaitForSeconds(duration);
+                Busy = false;
+            }
 
             _frameLineHits.Clear();
 

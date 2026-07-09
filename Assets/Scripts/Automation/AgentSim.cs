@@ -194,7 +194,7 @@ public class AgentSim : IAgentApi
     /// delivered" as the solvability condition.</summary>
     public bool StoryLegMode;
 
-    const int EndlessMacroMaxSteps = 4;
+    const int EndlessMacroMaxSteps = 8;
 
     /// <summary>Dodge trigger distance: a same-lane car 1 or 2 cells ahead — acting at
     /// 2 keeps a 1-cell gap behind the car instead of ramming its bumper.</summary>
@@ -560,6 +560,11 @@ public class AgentSim : IAgentApi
                     r.DroppedOff   = true;
                     r.DroppedOffCount = 1;
                     AddAlightingColor(r, DefaultPeepColor);
+                    // Enter free roam in the same Apply, so routeComplete() never reads true
+                    // in a live leg — `while not routeComplete()` programs cruise straight
+                    // through the win instead of racing the controller's Update poll.
+                    if (EndlessRoute && StoryLegMode)
+                        FreeRoamCruise = true;
                 }
                 if (_rides != null) { DropOffRides(r); break; }
                 if (Position == _grid.DestPos && PassengersAboard > 0)
@@ -633,7 +638,7 @@ public class AgentSim : IAgentApi
                 {
                     Vector2Int? stop = NearestRelevantStop();
                     if (stop.HasValue) EnqueuePathTo(stop.Value, r, EndlessRoute ? EndlessMacroMaxSteps : int.MaxValue);
-                    else               EnqueuePathTo(_grid.DestPos, r, maxSteps: 4);
+                    else               EnqueuePathTo(_grid.DestPos, r, maxSteps: EndlessMacroMaxSteps);
                 }
                 break;
             }
@@ -645,7 +650,7 @@ public class AgentSim : IAgentApi
                 // stream the next stretch ahead of us (the road never ends or stalls).
                 Vector2Int? stop = NearestRelevantStop();
                 if (stop.HasValue) EnqueuePathTo(stop.Value, r, EndlessRoute ? EndlessMacroMaxSteps : int.MaxValue);
-                else               EnqueuePathTo(_grid.DestPos, r, maxSteps: 4);
+                else               EnqueuePathTo(_grid.DestPos, r, maxSteps: EndlessMacroMaxSteps);
                 break;
             }
 
@@ -923,13 +928,22 @@ public class AgentSim : IAgentApi
                 }
             }
 
-        int enqueued = 0;
+        // Cap counts forward cells only — turns ride free, so a capped hop never
+        // splits a turn→forward pair across hops (the split rendered as a dead-stop
+        // pivot plus a rotation snap on the next batch).
+        int forwards = 0;
+        var hop = new List<string>();
         foreach (string move in GridPathfinder.ToActions(path, Facing))
         {
-            if (enqueued >= maxSteps) break;   // short hop: keep the streamer ahead of us
-            _pending.Enqueue(move);
-            enqueued++;
+            if (forwards >= maxSteps) break;   // short hop: keep the streamer ahead of us
+            hop.Add(move);
+            if (move == "moveForward") forwards++;
         }
+        // Never end a hop on an orphan turn — the next hop re-plans it with its forward.
+        while (hop.Count > 0 && hop[hop.Count - 1] != "moveForward")
+            hop.RemoveAt(hop.Count - 1);
+        foreach (string move in hop)
+            _pending.Enqueue(move);
     }
 
     /// <summary>Cardinal (0..3) of the unit step from <paramref name="a"/> to

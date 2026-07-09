@@ -14,17 +14,16 @@ public class RoadTrafficControllerTests
             RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
             traffic.InitManual(route, root.transform, target.transform, null);
 
-            Assert.IsTrue(traffic.ForceSpawnForTests(0f));
-            Assert.AreEqual(1, traffic.ActiveVehicleCount);
+            int cap = traffic.VehicleCapForTests;
+            for (int i = 1; i <= cap; i++)
+            {
+                Assert.IsTrue(traffic.ForceSpawnForTests(0f));
+                Assert.AreEqual(i, traffic.ActiveVehicleCount);
+            }
 
-            Assert.IsTrue(traffic.ForceSpawnForTests(0f));
-            Assert.AreEqual(2, traffic.ActiveVehicleCount);
-
-            Assert.IsTrue(traffic.ForceSpawnForTests(0f));
-            Assert.AreEqual(3, traffic.ActiveVehicleCount);
-
-            Assert.IsFalse(traffic.ForceSpawnForTests(0f));
-            Assert.AreEqual(3, traffic.ActiveVehicleCount);
+            Assert.IsFalse(traffic.ForceSpawnForTests(0f),
+                "spawns past the active-vehicle cap must be refused");
+            Assert.AreEqual(cap, traffic.ActiveVehicleCount);
         }
         finally
         {
@@ -68,7 +67,6 @@ public class RoadTrafficControllerTests
 
             Assert.IsTrue(traffic.ForceSpawnAtForTests(12f, 1f));
             Assert.IsTrue(traffic.ForceSpawnAtForTests(24f, -1f));
-            Assert.IsTrue(traffic.ForceSpawnAtForTests(36f, 1f));
 
             float first = traffic.VehicleCruiseSpeedForTests(0);
             bool anyDifferent = false;

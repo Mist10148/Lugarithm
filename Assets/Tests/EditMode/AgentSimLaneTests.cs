@@ -369,15 +369,15 @@ public class AgentSimLaneTests
     }
 
     [Test]
-    public void RouteComplete_UnlatchesInFreeRoamCruise()
+    public void StoryDelivery_AutoEntersFreeRoamCruise()
     {
         var sim = NewStoryLegSim();
         sim.ArmStoryDropoff(sim.Position);
         sim.Apply("dropOff");
         Assert.IsTrue(sim.StoryDelivered);
-        Assert.IsTrue(sim.EvaluateQuery("routeComplete"));
-
-        sim.FreeRoamCruise = true;
+        Assert.IsTrue(sim.FreeRoamCruise,
+            "delivering the story passenger must enter free roam in the same Apply — " +
+            "routeComplete() may never observe the win in a live leg");
         Assert.IsFalse(sim.EvaluateQuery("routeComplete"),
             "free roam must un-latch completion so cruise loops keep driving");
         Assert.IsFalse(sim.IsWin(null));
@@ -392,7 +392,7 @@ public class AgentSimLaneTests
         var sim = NewStoryLegSim();
         sim.ArmStoryDropoff(sim.Position);
         sim.Apply("dropOff");
-        sim.FreeRoamCruise = true;
+        // No manual FreeRoamCruise set — the delivery itself must have entered free roam.
 
         var program = Parser.Compile("while not routeComplete():\n    wait()\n", out var errors);
         CollectionAssert.IsEmpty(errors);
@@ -406,5 +406,32 @@ public class AgentSimLaneTests
                 "a delivered story must not end the cruise once free roam is on");
             Assert.IsNull(step.RuntimeError);
         }
+    }
+
+    [Test]
+    public void StoryDelivery_MidProgram_LoopKeepsRunning()
+    {
+        // The delivery happens DURING execution (the old race window): the loop condition
+        // is re-evaluated right after dropOff() and must still read routeComplete()==false.
+        var sim = NewStoryLegSim();
+        sim.ArmStoryDropoff(sim.Position);
+
+        var program = Parser.Compile("while not routeComplete():\n    dropOff()\n    wait()\n",
+            out var errors);
+        CollectionAssert.IsEmpty(errors);
+        var vm = new Interpreter();
+        vm.Load(program);
+
+        for (int i = 0; i < 60; i++)
+        {
+            StepResult step = vm.Step(sim);
+            Assert.IsFalse(step.Finished,
+                "the cruise loop must survive the story delivery mid-program");
+            Assert.IsNull(step.RuntimeError);
+            if (!string.IsNullOrEmpty(step.ActionName))
+                sim.Apply(step.ActionName, step.ActionArgs);
+        }
+        Assert.IsTrue(sim.StoryDelivered);
+        Assert.IsTrue(sim.FreeRoamCruise);
     }
 }

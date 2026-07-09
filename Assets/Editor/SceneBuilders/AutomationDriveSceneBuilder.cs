@@ -1286,14 +1286,14 @@ public static class AutomationDriveSceneBuilder
 
     static void WireModerateTrafficDefaults(RoadTrafficController traffic)
     {
-        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 3);
-        SceneBuilderUtil.Wire(traffic, "minActiveVehicles", 1);
-        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 3f);
-        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 6f);
-        SceneBuilderUtil.Wire(traffic, "oncomingTrafficRatio", 0.4f);
+        SceneBuilderUtil.Wire(traffic, "maxActiveVehicles", 2);
+        SceneBuilderUtil.Wire(traffic, "minActiveVehicles", 0);
+        SceneBuilderUtil.Wire(traffic, "minSpawnCooldown", 7f);
+        SceneBuilderUtil.Wire(traffic, "maxSpawnCooldown", 14f);
+        SceneBuilderUtil.Wire(traffic, "oncomingTrafficRatio", 0.3f);
         SceneBuilderUtil.Wire(traffic, "minCarSpeed", 2.2f);
         SceneBuilderUtil.Wire(traffic, "maxCarSpeed", 3.3f);
-        SceneBuilderUtil.Wire(traffic, "minVehicleSpacing", 8f);
+        SceneBuilderUtil.Wire(traffic, "minVehicleSpacing", 14f);
         SceneBuilderUtil.Wire(traffic, "followDistance", 3f);
         SceneBuilderUtil.Wire(traffic, "followSlowZone", 3.5f);
         SceneBuilderUtil.Wire(traffic, "enableManualSoftContacts", true);

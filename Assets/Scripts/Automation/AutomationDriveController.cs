@@ -164,9 +164,9 @@ public class AutomationDriveController : MonoBehaviour
 
     // Lookahead distance (world units) at which the procedural town streams the next
     // chunk ahead of the driving program — matches Manual's StreamLookAhead.
-    const float StreamLookAhead = 70f;   // spawn the next chunk well off-camera (cam half-width ~21 + lead) so it doesn't pop in at the edge
+    const float StreamLookAhead = 90f;   // spawn the next chunk well off-camera (cam half-width ~21 + lead); generous lead because 8-cell hops widen the busy stretches between safe append windows
     const int ActiveChunksBehind = 2;
-    const int ActiveChunksAhead = 6;
+    const int ActiveChunksAhead = 7;
 
     public float AutomationFuel01 => _autoFuel;
     public int AutomationRefuelSpent => _autoRefuelSpent;
@@ -507,8 +507,12 @@ public class AutomationDriveController : MonoBehaviour
     {
         if (!_proceduralTopDown || _won || _endlessWinFired || _storyLegShown) return;
         if (exec == null || exec.Sim == null || _def == null || !_def.endlessRoute) return;
-        if (exec.State != ExecutionController.ExecState.Running) return;
-        if (!exec.Sim.IsWin(_def)) return;
+        if (exec.State != ExecutionController.ExecState.Running &&
+            exec.State != ExecutionController.ExecState.Paused) return;
+        // A live story leg auto-enters FreeRoamCruise at the drop, so routeComplete()/IsWin()
+        // never read true — detect the win from StoryDelivered directly.
+        bool storyWin = exec.Sim.StoryLegMode ? exec.Sim.StoryDelivered : exec.Sim.IsWin(_def);
+        if (!storyWin) return;
 
         _endlessWinFired = true;
         _won = true;
@@ -1324,6 +1328,12 @@ public class AutomationDriveController : MonoBehaviour
 
     void HandleFinished(bool win)
     {
+        // A live story leg auto-enters FreeRoamCruise at the drop, so IsWin() reads false
+        // afterward — a non-loop program that ends right after delivering must still win.
+        // Once the win has fired, later cruise endings keep the "cruise ended" path below.
+        win = win || (!_won && !_endlessWinFired &&
+                      _proceduralTopDown && exec != null && exec.Sim != null &&
+                      exec.Sim.StoryLegMode && exec.Sim.StoryDelivered);
         FlushOutput();   // a print()-only program never hits HandleStepDone, so flush here
         if (codeEditor != null) codeEditor.ClearExecutionHighlight();
         if (blockCanvas != null) blockCanvas.ClearExecutionHighlight();
