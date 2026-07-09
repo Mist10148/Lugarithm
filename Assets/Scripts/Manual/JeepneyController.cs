@@ -67,6 +67,7 @@ public class JeepneyController : MonoBehaviour
     private float _trafficSlowUntil;
     private float _trafficLaneNudge;
     private float _trafficNudgeUntil;
+    private float _trafficFollowLimit = float.PositiveInfinity;
 
     // -------------------------------------------------------------------------
     // Public state
@@ -153,7 +154,17 @@ public class JeepneyController : MonoBehaviour
                                        smoothTime, Mathf.Infinity, Time.fixedDeltaTime);
         if (_routeSpeed < 0f) _routeSpeed = 0f;
 
-        _routeDistance = Mathf.Min(_routeDistance + _routeSpeed * Time.fixedDeltaTime, _routeLength);
+        float proposedDistance = Mathf.Min(_routeDistance + _routeSpeed * Time.fixedDeltaTime, _routeLength);
+        if (proposedDistance > _trafficFollowLimit)
+        {
+            // A car ahead in this lane is a wall, not a ghost: bump into its tail and
+            // hold there (never yanked backward if the limit dips behind us — e.g. a
+            // car merging in beside the jeep). A/D still changes lanes to overtake.
+            proposedDistance = Mathf.Max(_routeDistance, Mathf.Max(0f, _trafficFollowLimit));
+            _routeSpeed = 0f;
+            _speedVel   = 0f;
+        }
+        _routeDistance = proposedDistance;
         if (_routeDistance >= _routeLength - 0.001f)
         {
             _routeSpeed = 0f;
@@ -286,6 +297,7 @@ public class JeepneyController : MonoBehaviour
             _routeSpeed = 0f;
             _speedVel   = 0f;
         }
+        _trafficFollowLimit = float.PositiveInfinity;
     }
 
     /// <summary>Places the jeepney on the route start, facing along it.</summary>
@@ -309,9 +321,18 @@ public class JeepneyController : MonoBehaviour
         transform.SetPositionAndRotation(position, Quaternion.Euler(0f, 0f, rotationDegrees));
     }
 
+    /// <summary>Route-distance ceiling imposed by the nearest same-lane car ahead,
+    /// pushed by <see cref="RoadTrafficController"/> every tick. PositiveInfinity
+    /// when the lane is clear.</summary>
+    public void SetTrafficFollowLimit(float limit)
+    {
+        _trafficFollowLimit = limit;
+    }
+
     /// <summary>
-    /// Manual traffic is a soft obstacle: contact bleeds speed and leans the
-    /// lane assist away for a moment, but it never traps the jeepney.
+    /// Manual traffic contact bleeds speed and leans the lane assist away for a
+    /// moment — the "bump" feel on top of the hard follow-limit that stops the
+    /// jeepney from passing through the car.
     /// </summary>
     public void ApplySoftTrafficContact(Vector2 vehiclePosition)
     {

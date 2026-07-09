@@ -4,12 +4,12 @@ using NUnit.Framework;
 /// exec state, but never while the world could shift under an in-flight animation.</summary>
 public class AutomationStreamingGateTests
 {
-    static bool Stream(bool busy = false, bool pending = false, bool storyFrozen = false,
-                       bool wonFrozen = false, int chunks = 0, int maxChunks = int.MaxValue,
+    static bool Stream(bool busy = false, bool pending = false,
+                       int chunks = 0, int maxChunks = int.MaxValue,
                        float distToEnd = 10f, float lookAhead = 70f)
     {
         return AutomationDriveController.ShouldStreamNow(
-            busy, pending, storyFrozen, wonFrozen, chunks, maxChunks, distToEnd, lookAhead);
+            busy, pending, chunks, maxChunks, distToEnd, lookAhead);
     }
 
     [Test]
@@ -29,10 +29,12 @@ public class AutomationStreamingGateTests
     }
 
     [Test]
-    public void NeverStreams_WhileStoryOrWinFreezeIsActive()
+    public void Streams_RegardlessOfStoryProgress()
     {
-        Assert.IsFalse(Stream(storyFrozen: true));
-        Assert.IsFalse(Stream(wonFrozen: true));
+        // The guard has no story/win input: delivering the story passenger or having
+        // the LEVEL COMPLETE panel open must never stop the road from extending.
+        Assert.IsTrue(Stream());
+        Assert.IsFalse(Stream(busy: true), "the static-world safety inputs still hold");
     }
 
     [Test]

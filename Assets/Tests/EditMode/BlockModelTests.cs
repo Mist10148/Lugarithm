@@ -202,8 +202,8 @@ public class BlockModelTests
         ProgramNode fromBlocks = BlockProgram.ToAst(roots, out var blockErrors, out _);
         CollectionAssert.IsEmpty(blockErrors);
         string printed = AstPrinter.Print(fromBlocks);
-        StringAssert.Contains("def avoidTraffic():", printed);
-        StringAssert.Contains("if carInFront():", printed);
+        StringAssert.Contains("def drive():", printed);
+        StringAssert.Contains("avoidTraffic()", printed);
         StringAssert.Contains("giveChange(changeOwed())", printed);
     }
 }

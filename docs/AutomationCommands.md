@@ -19,10 +19,10 @@ Actions do something and take a tick.
 
 | Command | What it does |
 |---|---|
-| `moveForward()` | Move one grid step in the direction the jeepney faces. |
+| `moveForward()` | Move one grid step in the direction the jeepney faces. Traffic is solid: driving into a same-lane car **bumps** (blocked with a warning) — it never passes through. |
 | `turnLeft()` / `turnRight()` | Rotate without moving. |
-| `moveLeft()` / `moveRight()` | Switch to the other lane without turning (the road has exactly two lanes — left and right); use these to dodge traffic. |
-| `avoidTraffic()` | Built-in dodge: if a car blocks the cell ahead, slides into a clear lane (left first, then right); waits when boxed in. A user-defined `def avoidTraffic():` shadows the built-in. |
+| `moveLeft()` / `moveRight()` | Switch to the other lane without turning (the road has exactly two lanes — left and right); use these to dodge traffic. Bumps if a car already occupies that lane beside you. |
+| `avoidTraffic()` | Built-in overtaking habit: if a car blocks your lane ahead, checks the other lane (beside **and** one cell ahead) and slides over only when it's clear; waits when boxed in. Once the road ahead is clear it merges back to the home (right) lane on its own — again only when safe, since the left lane carries oncoming traffic. A user-defined `def avoidTraffic():` shadows the built-in. |
 | `driveToNextStop()` | Pathfind to the nearest useful pickup/drop-off target, or to the terminal when no rider target remains. |
 | `driveToTerminal()` | Pathfind to the current route terminal. |
 | `driveToDestination()` | Backward-compatible alias for destination/terminal navigation. |
@@ -78,6 +78,11 @@ while not routeComplete():
 
 ## Notes
 
+- The endless road never stops generating: delivering the story passenger (and
+  the LEVEL COMPLETE panel) doesn't freeze streaming — the run auto-continues
+  into free-roam.
+- The reference/autopilot programs call the built-in `avoidTraffic()` (dodge,
+  boxed-in wait, merge back) rather than defining their own.
 - `atDestination()` remains valid in maze and minigame content.
 - Procedural Automation palettes should prefer `routeComplete()` and
   `driveToTerminal()`.

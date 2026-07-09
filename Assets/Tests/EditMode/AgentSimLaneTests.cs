@@ -21,7 +21,7 @@ public class AgentSimLaneTests
         {
             LaneMode = true,
             TrafficEnabled = true,
-            TrafficBlocksMovement = false,
+            TrafficBlocksMovement = true,
         };
         return sim;
     }
@@ -100,11 +100,79 @@ public class AgentSimLaneTests
         Assert.AreEqual("wait", boxed.Action);
         StringAssert.Contains("boxed in", boxed.Warning);
 
-        // Clear road → resolves to a quiet wait.
+        // Clear road while still in the left lane → merges back home.
         sim.ClearTraffic();
+        AgentActionResult merge = sim.Apply("avoidTraffic");
+        Assert.AreEqual("moveRight", merge.Action);
+        Assert.IsFalse(merge.Blocked);
+        Assert.AreEqual(EastRight, sim.LaneCardinal, "must return to the home (right) lane");
+    }
+
+    [Test]
+    public void AvoidTraffic_HoldsLeftLane_UntilHomeLaneClears()
+    {
+        var sim = NewLaneSim();
+        Vector2Int front = sim.Position + new Vector2Int(1, 0);
+
+        // Dodge into the left lane around a car in my lane ahead.
+        sim.SetTrafficOccupancy(new Dictionary<Vector2Int, int> { [front] = 1 << EastRight });
+        Assert.AreEqual("moveLeft", sim.Apply("avoidTraffic").Action);
+        Assert.AreEqual(EastLeft, sim.LaneCardinal);
+
+        // The overtaken car now sits in the home lane right beside me → hold the left lane.
+        sim.SetTrafficOccupancy(new Dictionary<Vector2Int, int> { [sim.Position] = 1 << EastRight });
+        AgentActionResult hold = sim.Apply("avoidTraffic");
+        Assert.AreEqual("wait", hold.Action);
+        StringAssert.Contains("merge back", hold.Warning);
+        Assert.AreEqual(EastLeft, sim.LaneCardinal, "must not merge into an occupied lane");
+
+        // Home lane clears → merge back.
+        sim.ClearTraffic();
+        AgentActionResult merge = sim.Apply("avoidTraffic");
+        Assert.AreEqual("moveRight", merge.Action);
+        Assert.AreEqual(EastRight, sim.LaneCardinal);
+    }
+
+    [Test]
+    public void AvoidTraffic_ClearRoadInHomeLane_IsAQuietWait()
+    {
+        var sim = NewLaneSim();
         AgentActionResult idle = sim.Apply("avoidTraffic");
         Assert.AreEqual("wait", idle.Action);
         Assert.IsNull(idle.Warning);
+        Assert.AreEqual(EastRight, sim.LaneCardinal);
+    }
+
+    [Test]
+    public void MoveForward_BumpsOnSameLaneCar_ButNotOtherLane()
+    {
+        var sim = NewLaneSim();
+        Vector2Int start = sim.Position;
+        Vector2Int front = start + new Vector2Int(1, 0);
+
+        // Car in MY lane ahead → bump, no pass-through.
+        sim.SetTrafficOccupancy(new Dictionary<Vector2Int, int> { [front] = 1 << EastRight });
+        AgentActionResult bump = sim.Apply("moveForward");
+        Assert.IsTrue(bump.Blocked);
+        StringAssert.Contains("traffic ahead", bump.Warning);
+        Assert.AreEqual(start, sim.Position, "must not drive through a car");
+
+        // Car only in the ONCOMING lane ahead → my lane is open.
+        sim.SetTrafficOccupancy(new Dictionary<Vector2Int, int> { [front] = 1 << EastLeft });
+        AgentActionResult pass = sim.Apply("moveForward");
+        Assert.IsFalse(pass.Blocked);
+        Assert.AreEqual(front, sim.Position);
+    }
+
+    [Test]
+    public void FlushPendingMoves_DropsQueuedMacroPath()
+    {
+        var sim = NewLaneSim();
+        sim.Apply("driveToDestination");
+        Assert.IsTrue(sim.HasPendingMoves);
+
+        sim.FlushPendingMoves();
+        Assert.IsFalse(sim.HasPendingMoves);
     }
 
     [Test]

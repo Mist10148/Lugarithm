@@ -273,6 +273,12 @@ public class ExecutionController : MonoBehaviour
                     AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
                     OnStepDone?.Invoke(moveResult, PendingMoveStep(moveResult));
 
+                    // A queued move that bumps (a car pulled into the planned path)
+                    // invalidates the rest of the plan — flush it so the program
+                    // re-decides from fresh state instead of replaying a stale path.
+                    if (moveResult.Blocked)
+                        _sim.FlushPendingMoves();
+
                     float moveDuration = DurationFor(moveResult.Action);
                     Busy = true;
                     if (_view != null)
@@ -306,6 +312,13 @@ public class ExecutionController : MonoBehaviour
                     AgentActionResult moveResult = _sim.Apply(_sim.DequeueMove());
                     moves.Add(moveResult);
                     OnStepDone?.Invoke(moveResult, PendingMoveStep(moveResult));
+                    if (moveResult.Blocked)
+                    {
+                        // Bumped into traffic mid-path: show this one bump, drop the
+                        // stale plan, and let the program re-decide next step.
+                        _sim.FlushPendingMoves();
+                        break;
+                    }
                     if (_sim.IsWin(_def)) { wonDuringPath = true; break; }
                 }
 

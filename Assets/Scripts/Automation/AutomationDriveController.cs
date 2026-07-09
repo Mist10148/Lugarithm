@@ -550,9 +550,7 @@ public class AutomationDriveController : MonoBehaviour
         float distToEnd = Vector2.Distance(
             (Vector2)topDownAgentView.transform.position, _streamingTown.TrunkEndPos);
 
-        bool storyFrozen = _storyLegShown && !_optionalFreeRoam;
-        bool wonFrozen   = _won && !_optionalFreeRoam;
-        if (!ShouldStreamNow(exec.Busy, exec.Sim.HasPendingMoves, storyFrozen, wonFrozen,
+        if (!ShouldStreamNow(exec.Busy, exec.Sim.HasPendingMoves,
                              _chunksAppended, _maxChunks, distToEnd, StreamLookAhead))
             return;
 
@@ -564,18 +562,16 @@ public class AutomationDriveController : MonoBehaviour
 
     /// <summary>Pure streaming guard: true when it is safe AND useful to append the next
     /// chunk. Safety = a static-world boundary (nothing animating, no queued moves — the
-    /// RebindStreamingWorld contract); usefulness = frontier within lookahead and the leg
-    /// isn't frozen by a pending story drop-off or an un-continued win. Deliberately does
-    /// NOT depend on the exec run state — an idle program still gets road.</summary>
+    /// RebindStreamingWorld contract); usefulness = frontier within lookahead. Deliberately
+    /// does NOT depend on the exec run state or story progress — an idle program still gets
+    /// road, and story beats never freeze the world (the armed drop-off is pinned to a world
+    /// position, so appends can't invalidate it).</summary>
     public static bool ShouldStreamNow(bool busy, bool hasPendingMoves,
-                                         bool storyFrozen, bool wonFrozen,
                                          int chunksAppended, int maxChunks,
                                          float distToEnd, float lookAhead)
     {
         if (busy) return false;              // mid-animation — grid must not shift
         if (hasPendingMoves) return false;   // queued path — same invariant
-        if (storyFrozen) return false;       // armed drop-off cell must stay valid
-        if (wonFrozen) return false;
         if (chunksAppended >= maxChunks) return false;
         return distToEnd < lookAhead;
     }
@@ -956,7 +952,7 @@ public class AutomationDriveController : MonoBehaviour
 
     void OnAutopilot()
     {
-        if (_won || exec == null) return;
+        if ((_won && !_optionalFreeRoam) || exec == null) return;
 
         // Editor-first autopilot: place the reference program where the player can
         // see and review it. The player presses RUN themselves (auto-running here
@@ -1355,6 +1351,9 @@ public class AutomationDriveController : MonoBehaviour
             }
 
             _won = true;
+            // Endless mode: a win never freezes the world — the road keeps streaming
+            // and RUN stays live while the completion panel is up.
+            if (_proceduralTopDown) _optionalFreeRoam = true;
             if (_proceduralTopDown) OnStoryDropped();   // a program that ends on routeComplete
             // The leg completes only when the puzzle is solved AND the story passenger's
             // chat is finished. If the chat is still going, hold and nudge once.

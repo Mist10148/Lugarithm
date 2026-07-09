@@ -187,6 +187,12 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         if (hasForwardMove)
         {
             yield return PlayContinuousPath(moves, secondsPerStep);
+            // A traffic bump ends a batch, and the continuous polyline only stitches
+            // un-blocked moves — play the terminal bump beat explicitly so hitting a
+            // car is visible instead of silently swallowed.
+            AgentActionResult last = moves[moves.Count - 1];
+            if (last.Blocked)
+                yield return PlayAction(last, secondsPerStep);
             yield break;
         }
 

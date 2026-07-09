@@ -413,7 +413,7 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(traffic, "minVehicleSpacing", 8f);
         SceneBuilderUtil.Wire(traffic, "followDistance", 3f);
         SceneBuilderUtil.Wire(traffic, "followSlowZone", 3.5f);
-        SceneBuilderUtil.Wire(traffic, "enableManualSoftContacts", false);
+        SceneBuilderUtil.Wire(traffic, "enableManualSoftContacts", true);
     }
 
     // -------------------------------------------------------------------------

@@ -31,7 +31,7 @@ public class RoadTrafficController : MonoBehaviour
     [SerializeField] private float cornerEaseDistance = 2.5f;
     [SerializeField] private float rotationFollowSpeed = 4f;
     [SerializeField] private float softCollisionRadius = 1.4f;
-    [SerializeField] private bool enableManualSoftContacts = false;
+    [SerializeField] private bool enableManualSoftContacts = true;
 
     readonly List<TrafficVehicle> _vehicles = new List<TrafficVehicle>();
     readonly Stack<TrafficVehicle> _pool = new Stack<TrafficVehicle>();
@@ -142,8 +142,9 @@ public class RoadTrafficController : MonoBehaviour
         _automationMode = true;
         if (_automationSim != null)
         {
+            // Traffic is a hard obstacle: driving into a same-lane car bumps
+            // (lane-aware via TrafficBlocksMovementAt), it never passes through.
             _automationSim.TrafficEnabled = true;
-            _automationSim.TrafficBlocksMovement = false;
         }
         _hasLastTargetAlong = false;
         ScheduleNextSpawn(immediate: true);
@@ -161,7 +162,6 @@ public class RoadTrafficController : MonoBehaviour
         if (_automationSim != null)
         {
             _automationSim.TrafficEnabled = true;
-            _automationSim.TrafficBlocksMovement = false;
         }
         _trafficCellsDirty = true;
         SyncAutomationCells();
@@ -205,7 +205,12 @@ public class RoadTrafficController : MonoBehaviour
         }
 
         if (_manualMode)
+        {
             TickManualSoftContacts();
+            if (_manualJeepney != null)
+                _manualJeepney.SetTrafficFollowLimit(
+                    PlayerFollowLimit(targetAlong, targetLateral));
+        }
         if (_automationMode)
             SyncAutomationCells();
     }
@@ -309,6 +314,22 @@ public class RoadTrafficController : MonoBehaviour
             limit = Mathf.Max(limit, other.along + followDistance);
         }
 
+        return limit;
+    }
+
+    // FindFollowLimit from the player's perspective: how far along the route the
+    // manual jeepney may travel before it would rear-end the nearest car sharing
+    // its lane. Cars are a wall, not a ghost — the jeep queues a car-length back,
+    // but changing lanes (A/D) still overtakes.
+    float PlayerFollowLimit(float targetAlong, float targetLateral)
+    {
+        float limit = float.PositiveInfinity;
+        foreach (TrafficVehicle v in _vehicles)
+        {
+            if (v.along <= targetAlong) continue;
+            if (Mathf.Abs(targetLateral - laneOffset * v.side) >= 0.9f) continue;
+            limit = Mathf.Min(limit, v.along - followDistance);
+        }
         return limit;
     }
 

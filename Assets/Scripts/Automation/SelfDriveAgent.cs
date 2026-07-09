@@ -34,7 +34,8 @@ public static class SelfDrivePlanner
         "# Self-driving jeepney for the endless road: cruise forever, tend every rider, and\n" +
         "# drop your front-seat story passenger at their marked stop along the way.\n" +
         "# moreRoad() is always true (the road never ends); driveToDropoff() cruises until the\n" +
-        "# story drop-off is ready, then heads straight for it.\n" +
+        "# story drop-off is ready, then heads straight for it. avoidTraffic() is the built-in:\n" +
+        "# it dodges around a car ahead and merges back to the right lane once it's clear.\n" +
         "def drive():\n" +
         "    while moreRoad():\n" +
         "        avoidTraffic()\n" +
@@ -42,13 +43,6 @@ public static class SelfDrivePlanner
         "        handleDropoffs()\n" +
         "        handlePassengers()\n" +
         "        handleFares()\n" +
-        "\n" +
-        "def avoidTraffic():\n" +
-        "    if carInFront():\n" +
-        "        if leftIsClear():\n" +
-        "            moveLeft()\n" +
-        "        else:\n" +
-        "            moveRight()\n" +
         "\n" +
         "def handlePassengers():\n" +
         "    if passengerWaiting():\n" +
@@ -72,13 +66,6 @@ public static class SelfDrivePlanner
         "        avoidTraffic()\n" +
         "        driveToDropoff()\n" +
         "        tendStop()\n" +
-        "\n" +
-        "def avoidTraffic():\n" +
-        "    if carInFront():\n" +
-        "        if leftIsClear():\n" +
-        "            moveLeft()\n" +
-        "        else:\n" +
-        "            moveRight()\n" +
         "\n" +
         "def tendStop():\n" +
         "    handleDropoffs()\n" +
@@ -116,13 +103,6 @@ public static class SelfDrivePlanner
         "                    pickUp()\n" +
         "                    settleFare()\n" +
         "\n" +
-        "def avoidTraffic():\n" +
-        "    if carInFront():\n" +
-        "        if leftIsClear():\n" +
-        "            moveLeft()\n" +
-        "        else:\n" +
-        "            moveRight()\n" +
-        "\n" +
         "def settleFare():\n" +
         "    if fareOwed() > 0:\n" +
         "        collectFare()\n" +
@@ -138,13 +118,6 @@ public static class SelfDrivePlanner
         "        avoidTraffic()\n" +
         "        driveToDropoff()\n" +
         "        serveCurrentStop()\n" +
-        "\n" +
-        "def avoidTraffic():\n" +
-        "    if carInFront():\n" +
-        "        if leftIsClear():\n" +
-        "            moveLeft()\n" +
-        "        else:\n" +
-        "            moveRight()\n" +
         "\n" +
         "def serveCurrentStop():\n" +
         "    if atRequestedStop():\n" +
@@ -268,9 +241,10 @@ public static class SelfDrivePlanner
                                "your story passenger at the marked weaving village stop.",
                     codeScaffold =
                         "# New idea: functions name the pattern; loops repeat it.\n" +
-                        "# Try helpers like drive(), avoidTraffic(), tendStop(), handlePassengers(), handleFares().\n" +
+                        "# Try helpers like drive(), tendStop(), handlePassengers(), handleFares().\n" +
                         "# Navigation: driveToDropoff()\n" +
-                        "# Traffic: if carInFront(), dodge with moveLeft() or moveRight()\n" +
+                        "# Traffic: avoidTraffic() dodges a car ahead and merges back when clear.\n" +
+                        "#          Don't ram traffic - moveForward() into a car just bumps.\n" +
                         "# Service: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
                         "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n",
                     optimalSolutionText = Level3ReferenceSolution,
@@ -291,7 +265,7 @@ public static class SelfDrivePlanner
                     codeScaffold =
                         "# New idea: nested if statements handle layered rules.\n" +
                         "# Check traffic, requested stops, then passengers, then fare/change.\n" +
-                        "# Traffic: carInFront(), moveLeft(), moveRight()\n" +
+                        "# Traffic: avoidTraffic() dodges and merges back; or carInFront(), moveLeft(), moveRight()\n" +
                         "# Reporters: seatsLeft(), fareOwed(), changeOwed()\n" +
                         "# Queries: atRequestedStop(), passengerWaiting(), hasPassengerAboard(), routeComplete()\n",
                     optimalSolutionText = Level4ReferenceSolution,
@@ -331,9 +305,10 @@ public static class SelfDrivePlanner
                                "completes when they are delivered - keepDriving() to cruise on and serve more.",
                     codeScaffold =
                         "# Split the ride into helper functions, then call drive():\n" +
-                        "#   drive(), avoidTraffic(), handlePassengers(), handleFares(), handleDropoffs()\n" +
+                        "#   drive(), handlePassengers(), handleFares(), handleDropoffs()\n" +
                         "# Navigation: driveToNextStop(), driveToDropoff(), keepDriving()\n" +
-                        "# Traffic: if carInFront(), dodge with moveLeft() or moveRight()\n" +
+                        "# Traffic: avoidTraffic() dodges a car ahead and merges back when clear.\n" +
+                        "#          Don't ram traffic - moveForward() into a car just bumps.\n" +
                         "# Tend riders: pickUp(), collectFare(), giveChange(changeOwed()), dropOff()\n" +
                         "# Ask: passengerWaiting(), hasPassengerAboard(), atRequestedStop(), routeComplete()\n" +
                         "# Cruise forever:  while True:  keepDriving()\n",

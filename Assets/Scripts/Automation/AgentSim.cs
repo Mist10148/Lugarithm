@@ -141,6 +141,11 @@ public class AgentSim : IAgentApi
     public int PendingMoveCount => _pending.Count;
     public string DequeueMove() => _pending.Dequeue();
 
+    /// <summary>Drops any queued macro moves. Called when a queued move bumps into
+    /// traffic so the program re-decides from fresh state instead of replaying a
+    /// path that was planned before the car appeared.</summary>
+    public void FlushPendingMoves() => _pending.Clear();
+
     public GridModel Grid => _grid;
 
     /// <summary>When true, sparse road traffic participates in movement queries.</summary>
@@ -453,7 +458,27 @@ public class AgentSim : IAgentApi
                 {
                     if (!TrafficPresent(front, LaneCardinal))
                     {
-                        r.Action = "wait";
+                        // Road ahead is clear. If a dodge left us in the oncoming
+                        // (left) lane, merge back home as soon as it's clear.
+                        if (LaneSide != 1)
+                        {
+                            int homeCardinal = LaneCardinalFor(1);
+                            if (!TrafficPresent(Position, homeCardinal) &&
+                                !TrafficPresent(front, homeCardinal))
+                            {
+                                ApplyLaneSwitch(r, 1, "right");
+                                r.Action = "moveRight";
+                            }
+                            else
+                            {
+                                r.Action = "wait";
+                                r.Warning = "holding the left lane until the right lane is clear to merge back.";
+                            }
+                        }
+                        else
+                        {
+                            r.Action = "wait";
+                        }
                     }
                     else
                     {

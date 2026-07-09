@@ -70,24 +70,31 @@ public static class CodingConceptLibrary
                     "<i>in your lane</i>. When it is true, dodge with <b>moveLeft()</b> or " +
                     "<b>moveRight()</b>; those commands slide to the other lane without turning the " +
                     "jeepney (there is no middle lane, so a second moveLeft() just bumps).\n\n" +
-                    "<b>avoidTraffic()</b> is a built-in command that does this whole habit in one call: " +
-                    "if a car blocks the cell ahead it slides into a clear lane (left first, then right), " +
-                    "and simply waits when boxed in. You can still write your own <b>def avoidTraffic():</b> " +
-                    "— a function you define wins over the built-in, so the example below shows what the " +
-                    "built-in does under the hood.\n\n" +
-                    "<b>Watch out:</b> <b>carInFront()</b> only answers the question. Put it inside an " +
-                    "<b>if</b> before you move.",
+                    "<b>avoidTraffic()</b> is a built-in command that does the whole overtaking habit " +
+                    "in one call. If a car blocks your lane ahead, it first checks that the other lane " +
+                    "is clear — beside you AND one cell ahead — before sliding over; if the other lane " +
+                    "is busy too, it waits (boxed in). And because the left lane carries oncoming " +
+                    "traffic, once the road ahead is clear it merges back to the right lane on its own " +
+                    "— again only when the right lane is safe. Call it every loop and the jeepney " +
+                    "dodges, passes, and settles back into its own lane. You can still write your own " +
+                    "<b>def avoidTraffic():</b> — a function you define wins over the built-in.\n\n" +
+                    "<b>Watch out:</b> cars are solid. <b>moveForward()</b> into a car (or moveLeft()/" +
+                    "moveRight() into an occupied lane) just bumps — the jeepney stops with a warning " +
+                    "and never passes through. Check <b>carInFront()</b> (or call avoidTraffic()) " +
+                    "before you drive.",
                 codeExample =
-                    "<mspace=0.6em># One call dodges the car ahead:\n" +
+                    "<mspace=0.6em># One call per loop: dodge, pass, merge back.\n" +
                     "avoidTraffic()\n" +
                     "driveToNextStop()\n\n" +
-                    "# What the built-in does under the hood:\n" +
+                    "# Roughly what the built-in does:\n" +
                     "def avoidTraffic():\n" +
                     "    if carInFront():\n" +
-                    "        if leftIsClear():\n" +
-                    "            moveLeft()\n" +
-                    "        else:\n" +
-                    "            moveRight()</mspace>"
+                    "        if leftIsClear():  # beside AND ahead\n" +
+                    "            moveLeft()     # dodge around the car\n" +
+                    "        # else: wait, boxed in\n" +
+                    "    # once past the car, if still in the left\n" +
+                    "    # lane and rightIsClear(): moveRight()\n" +
+                    "    # to merge back home</mspace>"
             },
 
             new CodingConceptEntry
@@ -412,10 +419,12 @@ public static class CodingConceptLibrary
                     "delivering them is what <b>completes the leg</b>. <b>keepDriving()</b> cruises on along " +
                     "the endless road, serving anyone nearby, so the jeepney never has to stop.\n\n" +
                     "The leg finishes the moment your story rider is dropped off (<b>routeComplete()</b> turns " +
-                    "True), but the road carries on — you can <b>keepDriving()</b> as long as you like to " +
+                    "True), but the road never stops generating — even while the LEVEL COMPLETE card is up, " +
+                    "the town keeps growing ahead and you can <b>keepDriving()</b> as long as you like to " +
                     "pick up more riders.\n\n" +
                     "<b>Watch out:</b> after a turn you still owe a move; the drive-helpers handle that for " +
-                    "you, but hand-stepping with moveForward()/turnLeft() does not.",
+                    "you, but hand-stepping with moveForward()/turnLeft() does not. And traffic is solid — " +
+                    "call avoidTraffic() in your loop so the jeepney doesn't bump along behind a slow car.",
                 codeExample =
                     "<mspace=0.6em># Deliver the story rider, then the leg is done:\n" +
                     "while not routeComplete():\n" +
@@ -451,7 +460,9 @@ public static class CodingConceptLibrary
                     "cashTendered(), changeOwed(), distanceTraveled(), distanceToDestination(), " +
                     "currentStop(), nextStop(). Maze drills add position().\n\n" +
                     "<b>Watch out:</b> only some commands are unlocked per level — the palette and " +
-                    "autocomplete show what's available right now.",
+                    "autocomplete show what's available right now. Cars are solid: driving into one " +
+                    "bumps (the jeepney stops with a warning, no passing through) — avoidTraffic() " +
+                    "dodges around a car ahead and merges back to the right lane when it's clear.",
                 codeExample =
                     "<mspace=0.6em># Reporters feed calculations and arguments:\n" +
                     "owed = changeOwed()\n" +
