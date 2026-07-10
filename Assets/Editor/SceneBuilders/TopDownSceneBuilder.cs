@@ -108,8 +108,8 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(follow, "smoothTime",   0.08f);
         SceneBuilderUtil.Wire(follow, "velocityLead", 0f);
         SceneBuilderUtil.Wire(follow, "useBounds",    true);
-        SceneBuilderUtil.Wire(follow, "minBounds",    new Vector2(0f, 0f));
-        SceneBuilderUtil.Wire(follow, "maxBounds",    new Vector2(24f, 36f));
+        SceneBuilderUtil.Wire(follow, "minBounds",    new Vector2(-52f, -78f));
+        SceneBuilderUtil.Wire(follow, "maxBounds",    new Vector2(76f, 114f));
         // leadBody intentionally left unwired so there is no directional lead.
 
         // --- HUD --------------------------------------------------------------------
@@ -247,8 +247,10 @@ public static class TopDownSceneBuilder
         background.transform.SetParent(root.transform, false);
         background.transform.position = new Vector3(12f, 18f, 0f);
         var backgroundRenderer = background.AddComponent<SpriteRenderer>();
-        backgroundRenderer.sprite = LoadTutorialSprite("TutorialHeritagePlaza.png", false, 2048f / 24f);
+        backgroundRenderer.sprite = LoadTutorialSprite("TutorialHeritagePlaza.png", false, 16f);
         backgroundRenderer.sortingOrder = -20;
+        
+        background.AddComponent<PolygonCollider2D>();
 
         root.SetActive(false);
         return root;
