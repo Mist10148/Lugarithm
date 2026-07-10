@@ -1,8 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Whether a town minigame station is one of the two non-coding warm-up puzzles
-/// or the town's single main coding challenge (the one that gates moving on).
+/// Whether a town minigame station is a non-coding puzzle or a coding challenge.
 /// </summary>
 public enum MinigameStationType { Puzzle, Coding }
 
@@ -10,15 +9,13 @@ public enum MinigameStationType { Puzzle, Coding }
 /// The placeholder "flavor" of a station, used to label it and pick a distinct
 /// map marker. Puzzle kinds map onto the simple non-coding drills we already have
 /// art/logic seeds for (maze, flow/color-connect, block-fill, pattern-match);
-/// <see cref="Coding"/> is the lesson-tied programming challenge.
+/// coding kinds include the line-order side objective and the main coding maze.
 /// </summary>
 public enum MinigamePuzzleKind { Maze, ColorConnect, BlockFill, PatternMatch, FlowConnect, CrateStack, Coding, CodingMaze }
 
 /// <summary>
-/// Placeholder definition for one interactable town minigame station. Carries the
-/// display copy shown in the access panel plus a marker colour so the three
-/// stations read as visibly distinct objectives on the map. The actual minigame
-/// is not wired yet — these drive the placeholder access flow only.
+/// Definition for one interactable town objective. Carries its playable puzzle
+/// kind, authored presentation copy, heritage/concept hook, and marker colour.
 /// </summary>
 public class MinigameStationDef
 {
@@ -30,37 +27,35 @@ public class MinigameStationDef
     public MinigamePuzzleKind  kind;
     public Color markerColor;
 
-    /// <summary>True for the single main quest per level (the CodeOrder coding
-    /// challenge). Main quests are visually distinct from side objectives.</summary>
+    /// <summary>True for the single coding-maze main objective per level.
+    /// Main objectives are visually distinct from side objectives.</summary>
     public bool isMainQuest;
 
     public bool IsCoding => type == MinigameStationType.Coding;
 }
 
 /// <summary>
-/// Authored library of the three minigame stations per overworld town: two simple
-/// non-coding puzzles and one lesson-tied coding challenge. Mirrors the pattern of
+/// Authored library of the six minigame stations per overworld town: five side
+/// objectives and one lesson-tied coding-maze main objective. Mirrors the pattern of
 /// <see cref="TownNpcDialogueLibrary"/> / <see cref="OverworldMapLibrary"/> — code
 /// defined now, liftable to data later. Coding concepts follow the README town
 /// table (sequencing → conditionals → lists → functions+loops → nested
 /// conditionals → multi-variable constraints).
 ///
-/// These are PLACEHOLDERS: the copy and marker are real, but the games behind them
-/// are stubbed by the access panel until the full minigames are wired in.
+/// Each definition selects its playable minigame and the marker used in the town hub.
 /// </summary>
 public static class TownMinigameLibrary
 {
-    // Distinct map-marker palette so all three objectives are tell-apart at a glance
-    // (and distinct from NPC red, jeep amber, exit). Two puzzle hues + one coding hue.
+    // Distinct map-marker palette so objectives are tell-apart at a glance
+    // (and distinct from NPC red, jeep amber, exit).
     static readonly Color PuzzleTeal   = new Color(0.22f, 0.70f, 0.74f);
     static readonly Color PuzzlePurple = new Color(0.60f, 0.42f, 0.82f);
     static readonly Color CodingGreen  = new Color(0.28f, 0.74f, 0.42f);
     static readonly Color MainQuestGold = new Color(0.96f, 0.72f, 0.15f);
 
     /// <summary>
-    /// Returns the three station defs for a level in canonical order:
-    /// [puzzle A, puzzle B, coding]. The level controller binds them to the map's
-    /// Q/Q/C entities in row-major order, per station kind.
+    /// Returns the six station defs for a level in canonical order. The level
+    /// controller binds them to the map's Q/C entities in row-major order, per kind.
     /// </summary>
     public static MinigameStationDef[] ForLevel(int levelIndex)
     {
@@ -101,8 +96,7 @@ public static class TownMinigameLibrary
         {
             id = id, title = title, description = description, concept = concept,
             type = MinigameStationType.Coding, kind = MinigamePuzzleKind.Coding,
-            markerColor = MainQuestGold,
-            isMainQuest = true,
+            markerColor = CodingGreen,
         };
 
     static MinigameStationDef CodingMaze(string id, string title, string concept,
@@ -111,7 +105,8 @@ public static class TownMinigameLibrary
         {
             id = id, title = title, description = description, concept = concept,
             type = MinigameStationType.Coding, kind = MinigamePuzzleKind.CodingMaze,
-            markerColor = CodingGreen,
+            markerColor = MainQuestGold,
+            isMainQuest = true,
         };
 
     // -------------------------------------------------------------------------

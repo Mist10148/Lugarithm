@@ -77,6 +77,8 @@ public class MazeRepairMinigame : MonoBehaviour
     RenderTexture _rt;
     bool  _active;
     bool  _codeActive;
+    bool  _townChallenge;
+    bool  _timedOut;
     int   _attempts;
     float _timeLeft;
     float _timeLimitSeconds;
@@ -146,6 +148,8 @@ public class MazeRepairMinigame : MonoBehaviour
     /// <summary>Opens the maze repair puzzle. <paramref name="fault"/> is flavor only.</summary>
     public void Show(BreakdownFault fault, int seed, Action<MinigameResult> onDone)
     {
+        _townChallenge = false;
+        _timedOut = false;
         _onDone   = onDone;
         _attempts = 0;
         _timeLeft = softTimerSeconds;
@@ -229,6 +233,8 @@ public class MazeRepairMinigame : MonoBehaviour
     /// <summary>Opens the same coding maze as a town-hub objective instead of a repair.</summary>
     public void ShowTownChallenge(MinigameStationDef station, int levelIndex, Action<MinigameResult> onDone)
     {
+        _townChallenge = true;
+        _timedOut = false;
         _onDone = onDone;
         _attempts = 0;
 
@@ -314,8 +320,11 @@ public class MazeRepairMinigame : MonoBehaviour
         if (timerLabel != null)
             timerLabel.text = $"⏱ {Mathf.CeilToInt(Mathf.Max(0f, _timeLeft))}s";
 
-        if (_timeLeft <= 0f)
-            Finish(timedOut: true);   // soft escape hatch — the drive carries on
+        if (_timeLeft <= 0f && !_timedOut)
+        {
+            if (_townChallenge) ExpireTownTimer();
+            else Finish(timedOut: true);   // breakdown escape hatch remains unchanged
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -482,7 +491,7 @@ public class MazeRepairMinigame : MonoBehaviour
 
         if (win)
         {
-            Finish(timedOut: false);
+            Finish(timedOut: _townChallenge && _timedOut);
             return;
         }
 
@@ -565,11 +574,30 @@ public class MazeRepairMinigame : MonoBehaviour
 
     // -------------------------------------------------------------------------
 
+    void ExpireTownTimer()
+    {
+        _timedOut = true;
+        _timeLeft = 0f;
+        _failCount++;
+        if (_activeRunAttempt != null)
+        {
+            int steps = _sim != null ? _sim.StepsUsed : 0;
+            _runHistory.Complete(_activeRunAttempt, false, "Timed out", steps,
+                $"Time bonus expired after {steps} step(s). Continue solving.");
+            _activeRunAttempt = null;
+        }
+        if (feedbackLabel != null)
+            feedbackLabel.text = "Time bonus expired — keep working; the objective is not complete yet.";
+        RevealHintAfterStruggle();
+    }
+
+    // -------------------------------------------------------------------------
+
     void Finish(bool timedOut)
     {
         if (!_active) return;
 
-        if (timedOut)
+        if (timedOut && !_townChallenge)
         {
             _failCount++;
             if (_activeRunAttempt != null)

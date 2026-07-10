@@ -28,6 +28,7 @@ public enum EntityType
     Exit,       // E — level exit / completion trigger
     PuzzleStation, // Q — non-coding puzzle minigame station (maze, flow, block-fill…)
     CodeChallenge, // C — the town's main coding challenge (gates moving on)
+    Artifact,   // Runtime-only secret collectible unlocked after every objective
 }
 
 /// <summary>

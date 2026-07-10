@@ -9,7 +9,7 @@ using TMPro;
 /// be solved to advance — retries are free and the soft timer only dents the
 /// score. Reuses the shared <see cref="MinigameResult"/> contract.
 /// </summary>
-public class CrateStackMinigame : MonoBehaviour
+public class CrateStackMinigame : MonoBehaviour, IVerticalReorderTarget
 {
     [Header("References")]
     [SerializeField] private GameObject root;
@@ -20,12 +20,13 @@ public class CrateStackMinigame : MonoBehaviour
     [SerializeField] private Image[]    cardBackgrounds;
     [SerializeField] private Button[]   upButtons;         // move a crate up (toward the top)
     [SerializeField] private Button[]   downButtons;       // move a crate down (toward the bottom)
+    [SerializeField] private VerticalReorderHandle[] dragHandles;
     [SerializeField] private Image      timerFill;
 
     [Header("Timing")]
     [SerializeField] private float softTimerSeconds = 60f;
 
-    public const int Slots = 5;
+    public const int Slots = 7;
 
     static readonly Color CardCrate   = new Color(0.45f, 0.33f, 0.20f);   // crate brown
     static readonly Color GoodColor   = new Color(0.45f, 0.85f, 0.45f);
@@ -35,6 +36,7 @@ public class CrateStackMinigame : MonoBehaviour
     Action<MinigameResult> _onDone;
     CrateStackPuzzle _puzzle;
     float _timer;
+    float _timerStart;
     bool  _running;
     bool  _timedOut;
 
@@ -50,6 +52,11 @@ public class CrateStackMinigame : MonoBehaviour
                 upButtons[i].onClick.AddListener(() => Move(idx, -1));
             if (downButtons != null && i < downButtons.Length && downButtons[i] != null)
                 downButtons[i].onClick.AddListener(() => Move(idx, +1));
+            if (dragHandles != null && i < dragHandles.Length && dragHandles[i] != null)
+            {
+                dragHandles[i].index = i;
+                dragHandles[i].owner = this;
+            }
         }
         if (root != null) root.SetActive(false);
     }
@@ -59,7 +66,7 @@ public class CrateStackMinigame : MonoBehaviour
         if (!_running || _timedOut) return;
 
         _timer -= Time.deltaTime;
-        if (timerFill != null) timerFill.fillAmount = Mathf.Clamp01(_timer / softTimerSeconds);
+        if (timerFill != null) timerFill.fillAmount = Mathf.Clamp01(_timer / _timerStart);
 
         if (_timer <= 0f)
         {
@@ -76,19 +83,25 @@ public class CrateStackMinigame : MonoBehaviour
 
     /// <summary>Opens the puzzle; <paramref name="onDone"/> fires once it's solved.</summary>
     public void Show(int seed, Action<MinigameResult> onDone)
+        => Show(null, 1, seed, onDone);
+
+    public void Show(MinigameStationDef station, int levelIndex, int seed,
+                     Action<MinigameResult> onDone)
     {
         _onDone   = onDone;
-        _timer    = softTimerSeconds;
         _running  = true;
         _timedOut = false;
 
-        int max = cardLabels != null ? cardLabels.Length : Slots;
+        int max = Mathf.Min(cardLabels != null ? cardLabels.Length : Slots,
+                            OverworldPuzzleTuning.CrateCount(levelIndex));
         _puzzle = new CrateStackPuzzle(max, seed);
+        _timerStart = OverworldPuzzleTuning.SoftTimerSeconds(max * max);
+        _timer = _timerStart;
 
-        if (titleLabel != null) titleLabel.text = "OTON MARKET — stack the crates heaviest at the bottom:";
+        if (titleLabel != null) titleLabel.text = station != null ? station.title : "CRATE STACK";
         if (feedbackLabel != null)
         {
-            feedbackLabel.text  = "Use ↑ ↓ to reorder. Heaviest crate on the bottom.";
+            feedbackLabel.text  = "Drag crates or use ↑ ↓. Put the heaviest crate on the bottom.";
             feedbackLabel.color = NeutralCol;
         }
 
@@ -103,6 +116,16 @@ public class CrateStackMinigame : MonoBehaviour
         if (!_running || _puzzle == null) return;
 
         if (_puzzle.Move(index, dir))
+        {
+            Refresh();
+            if (_puzzle.IsSolved()) Finish();
+        }
+    }
+
+    public void MoveCard(int fromIndex, int toIndex)
+    {
+        if (!_running || _puzzle == null) return;
+        if (_puzzle.MoveTo(fromIndex, toIndex))
         {
             Refresh();
             if (_puzzle.IsSolved()) Finish();
@@ -135,7 +158,6 @@ public class CrateStackMinigame : MonoBehaviour
     {
         _running = false;
         if (feedbackLabel != null) { feedbackLabel.text = "Stacked — the cart is balanced!"; feedbackLabel.color = GoodColor; }
-        if (root != null) root.SetActive(false);
 
         var result = new MinigameResult
         {
@@ -144,11 +166,15 @@ public class CrateStackMinigame : MonoBehaviour
             Score    = _timedOut ? 60 : 100,
         };
 
+        StartCoroutine(FinishAfter(result));
+    }
+
+    System.Collections.IEnumerator FinishAfter(MinigameResult result)
+    {
+        yield return new WaitForSecondsRealtime(0.7f);
+        if (root != null) root.SetActive(false);
         Action<MinigameResult> done = _onDone;
         _onDone = null;
-        if (resultsPanel != null)
-            resultsPanel.Show("MINIGAME · Non-code", "CRATE STACK", result, null, () => done?.Invoke(result));
-        else
-            done?.Invoke(result);
+        done?.Invoke(result);
     }
 }

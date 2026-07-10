@@ -92,6 +92,12 @@ public static class OverworldPuzzleLibrary
         return MazeLayout.Parse(Mazes[idx]);
     }
 
+    public static MazeLayout GetAuthoredMaze(int seed)
+    {
+        int idx = ((seed % Mazes.Length) + Mazes.Length) % Mazes.Length;
+        return MazeLayout.Parse(Mazes[idx]);
+    }
+
     // -------------------------------------------------------------------------
     // Block-fill — a full rectangle (all tiles fillable). A Hamiltonian path
     // always exists on a rectangle (snake row by row), so any rectangle is safe.
@@ -118,32 +124,32 @@ public static class OverworldPuzzleLibrary
         ["tut_code"] = new CodingPuzzle
         {
             goal = "Leave the garage and reach the first stop, in order.",
-            orderedLines = new[] { "startEngine()", "releaseBrake()", "driveToNextStop()", "openDoor()" },
+            orderedLines = new[] { "moveForward()", "moveForward()", "openDoor()", "announceStop()" },
         },
         ["molo_code"] = new CodingPuzzle
         {
             goal = "Pick up a waiting passenger, otherwise drive on.",
-            orderedLines = new[] { "if passengerWaiting():", "    pickUp()", "else:", "    driveOn()" },
+            orderedLines = new[] { "if passengerWaiting():", "    pickUp()", "else:", "    moveForward()" },
         },
         ["oton_code"] = new CodingPuzzle
         {
             goal = "Visit each stop in the list and drop off there.",
-            orderedLines = new[] { "stops = [ 'Molo', 'Oton', 'Tigbauan' ]", "for s in stops:", "    driveTo(s)", "    dropOff()" },
+            orderedLines = new[] { "stops = [1, 2, 3]", "for stop in stops:", "    announceStop()" },
         },
         ["tig_code"] = new CodingPuzzle
         {
             goal = "Define the weave step, then repeat it.",
-            orderedLines = new[] { "def weave():", "    overThread()", "    underThread()", "repeat 3: weave()" },
+            orderedLines = new[] { "def serviceStop():", "    pickUp()", "    collectFare()", "serviceStop()" },
         },
         ["miag_code"] = new CodingPuzzle
         {
             goal = "At a stop, drop those who want off; else keep their seat.",
-            orderedLines = new[] { "if atStop():", "    if wantsOff():", "        dropOff()", "    else:", "        keepSeat()" },
+            orderedLines = new[] { "if atStop():", "    if atRequestedStop():", "        dropOff()", "    else:", "        wait()" },
         },
         ["sj_code"] = new CodingPuzzle
         {
             goal = "Run the full route, boarding only when seats allow.",
-            orderedLines = new[] { "while not routeComplete():", "    if seatsLeft() and passengerWaiting():", "        pickUp()", "    collectFare()", "    driveToNextStop()" },
+            orderedLines = new[] { "while not routeComplete():", "    driveToNextStop()", "    if passengerWaiting():", "        pickUp()", "        collectFare()" },
         },
     };
 
@@ -153,7 +159,7 @@ public static class OverworldPuzzleLibrary
         return new CodingPuzzle
         {
             goal = string.IsNullOrEmpty(concept) ? "Order the program." : $"Order the program ({concept}).",
-            orderedLines = new[] { "startEngine()", "driveToNextStop()", "dropOff()", "openDoor()" },
+            orderedLines = new[] { "openDoor()", "driveToNextStop()", "announceStop()", "closeDoor()" },
         };
     }
 

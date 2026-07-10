@@ -4,15 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Placeholder access panel for the overworld minigame stations. When the player
-/// interacts with a puzzle station or the coding challenge, this card pops with
-/// the station's name, what it will ask, and its concept/heritage hook. A
-/// "Start" button stands in for the (not-yet-wired) real minigame and reports the
-/// station as solved; "Leave" backs out.
-///
-/// This is deliberately a stub: it lets the three-objectives loop be walked and
-/// tested now, and is the single seam where each real minigame gets plugged in
-/// later (swap the Start handler for a call into the actual minigame overlay).
+/// Defensive fallback panel for future station kinds that do not yet have a
+/// playable controller. Every current six-objective town routes to a real game.
 /// </summary>
 public class MinigamePlaceholderPanel : MonoBehaviour
 {

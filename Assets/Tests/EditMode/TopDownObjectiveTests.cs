@@ -15,6 +15,8 @@ public class TopDownObjectiveTests
             bool hasCrate = false;
             bool hasCoding = false;
             bool hasCodingMaze = false;
+            int mainObjectiveCount = 0;
+            int sideObjectiveCount = 0;
 
             foreach (MinigameStationDef def in defs)
             {
@@ -24,6 +26,8 @@ public class TopDownObjectiveTests
                 hasCrate |= def.kind == MinigamePuzzleKind.CrateStack;
                 hasCoding |= def.kind == MinigamePuzzleKind.Coding;
                 hasCodingMaze |= def.kind == MinigamePuzzleKind.CodingMaze;
+                if (def.isMainQuest) mainObjectiveCount++;
+                else sideObjectiveCount++;
             }
 
             Assert.AreEqual(6, defs.Length, $"level {level} station definition count");
@@ -33,6 +37,14 @@ public class TopDownObjectiveTests
             Assert.IsTrue(hasCrate, $"level {level} includes transferred CrateStack station");
             Assert.IsTrue(hasCoding, $"level {level} includes CodeOrder station");
             Assert.IsTrue(hasCodingMaze, $"level {level} includes CodingMaze station");
+            Assert.AreEqual(1, mainObjectiveCount, $"level {level} main objective count");
+            Assert.AreEqual(5, sideObjectiveCount, $"level {level} side objective count");
+            Assert.IsTrue(System.Array.Exists(defs,
+                def => def.isMainQuest && def.kind == MinigamePuzzleKind.CodingMaze),
+                $"level {level} coding maze is the main objective");
+            Assert.IsTrue(System.Array.Exists(defs,
+                def => !def.isMainQuest && def.kind == MinigamePuzzleKind.Coding),
+                $"level {level} CodeOrder is a side objective");
         }
     }
 

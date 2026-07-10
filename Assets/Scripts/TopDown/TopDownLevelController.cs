@@ -35,6 +35,9 @@ public class TopDownLevelController : MonoBehaviour
     [SerializeField] private TMP_Text promptLabel;
     [SerializeField] private TMP_Text objectivesLabel;
     [SerializeField] private TMP_Text mainQuestLabel;
+    [SerializeField] private GameObject artifactStatusRoot;
+    [SerializeField] private TMP_Text artifactStatusMark;
+    [SerializeField] private GameObject artifactStatusCheck;
     [SerializeField] private Button exitButton;
 
     [Header("Dialogue")]
@@ -61,6 +64,7 @@ public class TopDownLevelController : MonoBehaviour
     [SerializeField] private Sprite playerSprite;
     [SerializeField] private Sprite npcSprite;
     [SerializeField] private Sprite interactionIndicatorSprite;
+    [SerializeField] private Sprite artifactSprite;
 
     // -------------------------------------------------------------------------
     // State
@@ -73,19 +77,20 @@ public class TopDownLevelController : MonoBehaviour
     private bool _dialogueActive;
 
     // Minigame stations: the def + body sprite per station trigger, which station
-    // ids have been solved, and the coding station's id (its completion gates the exit).
+    // ids have been solved, and the main coding maze (its completion gates the exit).
     private readonly Dictionary<InteractionTrigger, MinigameStationDef> _stationDefs
         = new Dictionary<InteractionTrigger, MinigameStationDef>();
     private readonly Dictionary<InteractionTrigger, SpriteRenderer> _stationBodies
         = new Dictionary<InteractionTrigger, SpriteRenderer>();
     private readonly HashSet<string> _solvedStations = new HashSet<string>();
     private int _stationCount;
-    private readonly HashSet<string> _codingStationIds = new HashSet<string>();
     private string _mainQuestId;
-    private string _mainQuestTitle;
-    private bool _mainQuestSolved;
     private int _sideObjectiveCount;
     private bool _panelActive;
+    private bool _artifactUnlocked;
+    private bool _artifactCollected;
+    private InteractionTrigger _artifactTrigger;
+    private int _visitSeed;
 
     // -------------------------------------------------------------------------
     // Lifecycle
@@ -94,6 +99,7 @@ public class TopDownLevelController : MonoBehaviour
     void Start()
     {
         _levelIndex = GameManager.Instance != null ? GameManager.Instance.SelectedLevelIndex : 0;
+        _visitSeed = unchecked(System.Environment.TickCount ^ GetInstanceID() ^ (_levelIndex * 7919));
         _mapData = GetMapData(_levelIndex);
 
         if (_mapData == null)
@@ -103,6 +109,7 @@ public class TopDownLevelController : MonoBehaviour
         }
 
         BuildTilemap();
+        BuildMapBoundaries();
         ApplyEnvironmentVisualState();
         ApplyPlayerCharacter();
         SpawnEntities();
@@ -188,6 +195,32 @@ public class TopDownLevelController : MonoBehaviour
             case TileType.Water:    return waterTile;
             default:                return grassTile;
         }
+    }
+
+    /// <summary>Keeps the physics body inside the authored map even when an outer
+    /// row is walkable grass rather than wall tiles.</summary>
+    void BuildMapBoundaries()
+    {
+        if (_mapData == null) return;
+
+        var root = new GameObject("MapBoundaries");
+        CreateBoundary(root.transform, "Left", new Vector2(-0.5f, _mapData.height * 0.5f),
+            new Vector2(1f, _mapData.height + 2f));
+        CreateBoundary(root.transform, "Right", new Vector2(_mapData.width + 0.5f, _mapData.height * 0.5f),
+            new Vector2(1f, _mapData.height + 2f));
+        CreateBoundary(root.transform, "Bottom", new Vector2(_mapData.width * 0.5f, -0.5f),
+            new Vector2(_mapData.width + 2f, 1f));
+        CreateBoundary(root.transform, "Top", new Vector2(_mapData.width * 0.5f, _mapData.height + 0.5f),
+            new Vector2(_mapData.width + 2f, 1f));
+    }
+
+    static void CreateBoundary(Transform parent, string name, Vector2 center, Vector2 size)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.position = center;
+        var collider = go.AddComponent<BoxCollider2D>();
+        collider.size = size;
     }
 
     // -------------------------------------------------------------------------
@@ -300,12 +333,9 @@ public class TopDownLevelController : MonoBehaviour
             _stationDefs[trigger] = def;
             if (body != null) _stationBodies[trigger] = body;
             _stationCount++;
-            if (def.IsCoding) _codingStationIds.Add(def.id);
-
             if (def.isMainQuest)
             {
                 _mainQuestId = def.id;
-                _mainQuestTitle = def.title;
                 // Main quest markers are larger and pulse to stand out.
                 if (body != null)
                 {
@@ -475,20 +505,14 @@ public class TopDownLevelController : MonoBehaviour
     {
         if (playerController == null) return;
 
-        // Find the player start entity
-        MapEntity start = null;
-        foreach (var e in _mapData.entities)
-        {
-            if (e.type == EntityType.PlayerStart)
-            {
-                start = e;
-                break;
-            }
-        }
+        // Begin at the boarding point so the player is safely inside the map and
+        // can immediately use the existing "Press E to board" interaction.
+        bool found = OverworldArtifactPlacement.TryGetPreferredSpawnCell(
+            _mapData, out Vector2Int start);
 
-        // Default to center-bottom if no start found
-        float px = start != null ? start.gridX + 0.5f : _mapData.width * 0.5f;
-        float py = start != null ? start.gridY + 0.5f : 1.5f;
+        // Default to center-bottom only for malformed maps with neither marker.
+        float px = found ? start.x + 0.5f : _mapData.width * 0.5f;
+        float py = found ? start.y + 0.5f : 1.5f;
 
         playerController.transform.position = new Vector3(px, py, 0f);
     }
@@ -521,6 +545,16 @@ public class TopDownLevelController : MonoBehaviour
 
         if (promptLabel != null)
             promptLabel.text = "";
+
+        if (artifactStatusRoot != null)
+            artifactStatusRoot.SetActive(false);
+        if (artifactStatusMark != null)
+        {
+            artifactStatusMark.text = "X";
+            artifactStatusMark.gameObject.SetActive(true);
+        }
+        if (artifactStatusCheck != null)
+            artifactStatusCheck.SetActive(false);
     }
 
     // -------------------------------------------------------------------------
@@ -543,6 +577,9 @@ public class TopDownLevelController : MonoBehaviour
             case EntityType.PuzzleStation:
             case EntityType.CodeChallenge:
                 HandleStationInteraction(trigger);
+                break;
+            case EntityType.Artifact:
+                HandleArtifactInteraction(trigger);
                 break;
         }
     }
@@ -585,19 +622,20 @@ public class TopDownLevelController : MonoBehaviour
         else if (gridPuzzle != null &&
                  (def.kind == MinigamePuzzleKind.Maze ||
                   def.kind == MinigamePuzzleKind.BlockFill ||
-                  def.kind == MinigamePuzzleKind.PatternMatch))
+                  def.kind == MinigamePuzzleKind.PatternMatch ||
+                  def.kind == MinigamePuzzleKind.ColorConnect))
         {
-            gridPuzzle.Begin(def, onSolved, onQuit);
+            gridPuzzle.Begin(def, _levelIndex, StationSeed(def), onSolved, onQuit);
             launched = true;
         }
         else if (def.kind == MinigamePuzzleKind.FlowConnect && flowPuzzle != null)
         {
-            flowPuzzle.Show(StationSeed(def), _ => onSolved());
+            flowPuzzle.Show(def, _levelIndex, StationSeed(def), _ => onSolved());
             launched = true;
         }
         else if (def.kind == MinigamePuzzleKind.CrateStack && cratePuzzle != null)
         {
-            cratePuzzle.Show(StationSeed(def), _ => onSolved());
+            cratePuzzle.Show(def, _levelIndex, StationSeed(def), _ => onSolved());
             launched = true;
         }
         else if (minigamePanel != null)
@@ -638,14 +676,114 @@ public class TopDownLevelController : MonoBehaviour
             body.color = new Color(c.r, c.g, c.b, 0.4f);
         }
 
-        if (isNew) UpdateObjectives();
+        if (isNew)
+        {
+            UpdateObjectives();
+            TryUnlockArtifact();
+        }
+    }
+
+    void TryUnlockArtifact()
+    {
+        if (_artifactUnlocked ||
+            !OverworldArtifactPlacement.AreObjectivesComplete(
+                _solvedStations, _mainQuestId, _sideObjectiveCount))
+            return;
+
+        MapEntity jeep = _mapData.entities.Find(e => e.type == EntityType.JeepStop);
+        if (jeep == null)
+        {
+            Debug.LogWarning("[TopDownLevel] Cannot place artifact: map has no jeep stop.");
+            return;
+        }
+
+        var excluded = new HashSet<Vector2Int>();
+        foreach (MapEntity entity in _mapData.entities)
+        {
+            // Keep a one-cell buffer so the artifact trigger cannot overlap an
+            // existing NPC, objective, exit, or boarding trigger.
+            for (int y = -1; y <= 1; y++)
+                for (int x = -1; x <= 1; x++)
+                    excluded.Add(new Vector2Int(entity.gridX + x, entity.gridY + y));
+        }
+
+        var origin = new Vector2Int(jeep.gridX, jeep.gridY);
+        var random = new System.Random(unchecked(System.Environment.TickCount ^ GetInstanceID()));
+        if (!OverworldArtifactPlacement.TryChooseCell(
+                _mapData, origin, excluded, random, out Vector2Int cell))
+        {
+            Debug.LogWarning("[TopDownLevel] No reachable, unoccupied cell is available for the artifact.");
+            return;
+        }
+
+        SpawnArtifact(cell);
+        _artifactUnlocked = true;
+        if (artifactStatusMark != null)
+        {
+            artifactStatusMark.text = "X";
+            artifactStatusMark.gameObject.SetActive(true);
+        }
+        if (artifactStatusCheck != null) artifactStatusCheck.SetActive(false);
+        if (artifactStatusRoot != null) artifactStatusRoot.SetActive(true);
+    }
+
+    void SpawnArtifact(Vector2Int cell)
+    {
+        var root = new GameObject($"Artifact_{cell.x}_{cell.y}");
+        root.transform.position = new Vector3(cell.x + 0.5f, cell.y + 0.5f, 0f);
+
+        var trigger = root.AddComponent<InteractionTrigger>();
+        var collider = root.AddComponent<CircleCollider2D>();
+        collider.isTrigger = true;
+        collider.radius = 0.65f;
+        trigger.Init(EntityType.Artifact, "Artifact", "Press E to collect artifact");
+
+        if (artifactSprite != null)
+        {
+            var body = new GameObject("Artifact_Body");
+            body.transform.SetParent(root.transform, false);
+            body.transform.localScale = Vector3.one * 5f;
+            var renderer = body.AddComponent<SpriteRenderer>();
+            renderer.sprite = artifactSprite;
+            renderer.color = new Color(1f, 0.78f, 0.2f);
+            renderer.sortingOrder = 7;
+        }
+
+        if (interactionIndicatorSprite != null)
+        {
+            var indicator = new GameObject("Indicator");
+            indicator.transform.SetParent(root.transform, false);
+            indicator.transform.localPosition = new Vector3(0f, 0.65f, 0f);
+            var renderer = indicator.AddComponent<SpriteRenderer>();
+            renderer.sprite = interactionIndicatorSprite;
+            renderer.sortingOrder = 10;
+            renderer.enabled = false;
+        }
+
+        trigger.OnInteracted += HandleInteraction;
+        trigger.OnPlayerEntered += HandlePlayerEntered;
+        trigger.OnPlayerExited += HandlePlayerExited;
+        _triggers.Add(trigger);
+        _artifactTrigger = trigger;
+    }
+
+    void HandleArtifactInteraction(InteractionTrigger trigger)
+    {
+        if (_artifactCollected || trigger != _artifactTrigger) return;
+
+        _artifactCollected = true;
+        if (artifactStatusMark != null) artifactStatusMark.gameObject.SetActive(false);
+        if (artifactStatusCheck != null) artifactStatusCheck.SetActive(true);
+        if (_activeTrigger == trigger) _activeTrigger = null;
+        UpdatePrompt("");
+        trigger.gameObject.SetActive(false);
     }
 
     int StationSeed(MinigameStationDef def)
     {
         unchecked
         {
-            int seed = 7000 + (_levelIndex * 397);
+            int seed = _visitSeed ^ (7000 + (_levelIndex * 397));
             if (def != null && !string.IsNullOrEmpty(def.id))
                 for (int i = 0; i < def.id.Length; i++)
                     seed = (seed * 31) + def.id[i];
@@ -707,14 +845,11 @@ public class TopDownLevelController : MonoBehaviour
 
     void HandleExitInteraction(InteractionTrigger trigger)
     {
-        // The main coding challenge gates moving on — clear it before leaving.
-        foreach (string stationId in _codingStationIds)
+        // Only the main coding maze gates moving on; side objectives are optional.
+        if (!string.IsNullOrEmpty(_mainQuestId) && !_solvedStations.Contains(_mainQuestId))
         {
-            if (!_solvedStations.Contains(stationId))
-            {
-                UpdatePrompt("Finish the coding challenges before you move on.");
-                return;
-            }
+            UpdatePrompt("Finish the main coding objective before you move on.");
+            return;
         }
 
         // Complete the level and return to LevelSelect
@@ -773,7 +908,7 @@ public class TopDownLevelController : MonoBehaviour
                 int solvedSide = 0;
                 foreach (string id in _solvedStations)
                     if (id != _mainQuestId) solvedSide++;
-                objectivesLabel.text = $"Objectives  {solvedSide}/{_sideObjectiveCount}";
+                objectivesLabel.text = $"{solvedSide}/{_sideObjectiveCount} SIDE OBJECTIVES";
             }
         }
 
@@ -787,10 +922,7 @@ public class TopDownLevelController : MonoBehaviour
             else
             {
                 bool solved = _solvedStations.Contains(_mainQuestId);
-                _mainQuestSolved = solved;
-                string check = solved ? "✓" : "★";
-                string title = !string.IsNullOrEmpty(_mainQuestTitle) ? _mainQuestTitle : "Coding";
-                mainQuestLabel.text = $"{check}  MAIN QUEST: {title}";
+                mainQuestLabel.text = $"{(solved ? 1 : 0)}/1 MAIN OBJECTIVE";
             }
         }
     }

@@ -218,8 +218,8 @@ public static class MinigameOverlayBuilder
     }
 
     // -------------------------------------------------------------------------
-    // Overworld grid puzzle (Maze / BlockFill / PatternMatch) — a 6×6 board of
-    // clickable cells reused across the three non-code station kinds.
+    // Overworld grid puzzle (Maze / BlockFill / PatternMatch / ColorConnect) —
+    // an 8×8 maximum board whose active size follows the town difficulty tier.
 
     public static GridPuzzleMinigame BuildGridPuzzle(
         Transform parent, bool tutorialPixelTheme = false)
@@ -255,6 +255,13 @@ public static class MinigameOverlayBuilder
 
         var images  = new Image[n * n];
         var buttons = new Button[n * n];
+        var pointers = new GridPuzzleCell[n * n];
+        var labels = new TMP_Text[n * n];
+        var north = new Image[n * n];
+        var east = new Image[n * n];
+        var south = new Image[n * n];
+        var west = new Image[n * n];
+        var endpoints = new Image[n * n];
         for (int i = 0; i < n * n; i++)
         {
             var cellRt = UIFactory.CreateRect(grid, $"Cell_{i}",
@@ -269,18 +276,56 @@ public static class MinigameOverlayBuilder
             // The game controls cell colour directly, so don't let the button's
             // tint transition fight it.
             btn.transition = Selectable.Transition.None;
-            images[i]  = img;
+
+            var label = UIFactory.CreateText(cellRt, "Cue", "", 17f, UIFactory.TextBright);
+            UIFactory.Place(label, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(126f, 48f));
+            label.raycastTarget = false;
+
+            Image MakeArm(string armName, Vector2 pos, Vector2 size)
+            {
+                var armRt = UIFactory.CreateFixedRect(cellRt, armName, new Vector2(0.5f, 0.5f), pos, size);
+                var arm = UIFactory.AddImage(armRt, UIFactory.Accent);
+                arm.raycastTarget = false;
+                arm.gameObject.SetActive(false);
+                return arm;
+            }
+
+            north[i] = MakeArm("North", new Vector2(0f, 16f), new Vector2(8f, 32f));
+            east[i] = MakeArm("East", new Vector2(16f, 0f), new Vector2(32f, 8f));
+            south[i] = MakeArm("South", new Vector2(0f, -16f), new Vector2(8f, 32f));
+            west[i] = MakeArm("West", new Vector2(-16f, 0f), new Vector2(32f, 8f));
+            var endpointRt = UIFactory.CreateFixedRect(cellRt, "Endpoint", new Vector2(0.5f, 0.5f),
+                                                       Vector2.zero, new Vector2(22f, 22f));
+            endpoints[i] = UIFactory.AddImage(endpointRt, UIFactory.Accent,
+                                              SceneBuilderUtil.LoadPlaceholder("circle"));
+            endpoints[i].raycastTarget = false;
+            endpoints[i].gameObject.SetActive(false);
+
+            var pointer = cellRt.gameObject.AddComponent<GridPuzzleCell>();
+            pointer.index = i;
+            images[i] = img;
             buttons[i] = btn;
+            pointers[i] = pointer;
+            labels[i] = label;
         }
 
         var feedback = UIFactory.CreateText(window, "Feedback", "", 22f, UIFactory.TextBright, TextAlignmentOptions.Center);
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 96f), new Vector2(640f, 32f));
 
-        Button reset = UIFactory.CreateButton(window, "ResetButton", "Reset", new Vector2(200f, 56f));
-        UIFactory.Place(reset, new Vector2(0.5f, 0f), new Vector2(-120f, 28f), new Vector2(200f, 56f));
+        var timerBg = UIFactory.CreatePanel(window, "TimerBg",
+                                            new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), UIFactory.PanelDarker);
+        UIFactory.Place(timerBg, new Vector2(0.5f, 0f), new Vector2(0f, 142f), new Vector2(560f, 16f));
+        Image timerFill = MakeFillBar(timerBg, UIFactory.TutorialGold);
 
-        Button quit = UIFactory.CreateButton(window, "QuitButton", "Leave", new Vector2(200f, 56f));
-        UIFactory.Place(quit, new Vector2(0.5f, 0f), new Vector2(120f, 28f), new Vector2(200f, 56f));
+        Button reset = UIFactory.CreateButton(window, "ResetButton", "Reset", new Vector2(180f, 56f));
+        UIFactory.Place(reset, new Vector2(0.5f, 0f), new Vector2(-205f, 28f), new Vector2(180f, 56f));
+
+        Button replay = UIFactory.CreateButton(window, "ReplayButton", "Replay", new Vector2(180f, 56f));
+        UIFactory.Place(replay, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(180f, 56f));
+        replay.gameObject.SetActive(false);
+
+        Button quit = UIFactory.CreateButton(window, "QuitButton", "Leave", new Vector2(180f, 56f));
+        UIFactory.Place(quit, new Vector2(0.5f, 0f), new Vector2(205f, 28f), new Vector2(180f, 56f));
 
         var game = overlay.gameObject.AddComponent<GridPuzzleMinigame>();
         SceneBuilderUtil.Wire(game, "root",             overlay.gameObject);
@@ -289,8 +334,18 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(game, "feedbackLabel",    feedback);
         SceneBuilderUtil.WireArray(game, "cellImages",  images);
         SceneBuilderUtil.WireArray(game, "cellButtons", buttons);
+        SceneBuilderUtil.WireArray(game, "pointerCells", pointers);
+        SceneBuilderUtil.WireArray(game, "cellLabels", labels);
+        SceneBuilderUtil.WireArray(game, "northArms", north);
+        SceneBuilderUtil.WireArray(game, "eastArms", east);
+        SceneBuilderUtil.WireArray(game, "southArms", south);
+        SceneBuilderUtil.WireArray(game, "westArms", west);
+        SceneBuilderUtil.WireArray(game, "endpointDots", endpoints);
+        SceneBuilderUtil.Wire(game, "gridLayout", gl);
         SceneBuilderUtil.Wire(game, "resetButton",      reset);
+        SceneBuilderUtil.Wire(game, "replayButton",     replay);
         SceneBuilderUtil.Wire(game, "quitButton",       quit);
+        SceneBuilderUtil.Wire(game, "timerFill",        timerFill);
         if (tutorialPixelTheme)
         {
             UIFactory.Place(window, new Vector2(0.5f, 0.5f),
@@ -303,10 +358,6 @@ public static class MinigameOverlayBuilder
                             new Vector2(0f, -4f), new Vector2(540f, 540f));
             UIFactory.Place(feedback, new Vector2(0.5f, 0f),
                             new Vector2(0f, 108f), new Vector2(680f, 34f));
-            UIFactory.Place(reset, new Vector2(0.5f, 0f),
-                            new Vector2(-122f, 34f), new Vector2(210f, 58f));
-            UIFactory.Place(quit, new Vector2(0.5f, 0f),
-                            new Vector2(122f, 34f), new Vector2(210f, 58f));
 
             foreach (Image cell in images)
             {
@@ -332,7 +383,7 @@ public static class MinigameOverlayBuilder
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
-        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(720f, 700f));
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(720f, 820f));
 
         var title = UIFactory.CreateText(window, "Title", "", 26f, UIFactory.Accent, TextAlignmentOptions.Center);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(680f, 40f));
@@ -350,6 +401,7 @@ public static class MinigameOverlayBuilder
         var bgs    = new Image[max];
         var ups    = new Button[max];
         var downs  = new Button[max];
+        var drags  = new VerticalReorderHandle[max];
         for (int i = 0; i < max; i++)
         {
             var row = UIFactory.CreateRect(list, $"Card_{i}",
@@ -360,6 +412,9 @@ public static class MinigameOverlayBuilder
             bg.sprite = UIFactory.BuiltinSprite("UISprite.psd");
             bg.type   = Image.Type.Sliced;
             bg.color  = new Color(0.22f, 0.30f, 0.42f);
+            var drag = row.gameObject.AddComponent<VerticalReorderHandle>();
+            drag.index = i;
+            drag.rowStep = 64f;
 
             var label = UIFactory.CreateText(row, "Label", "", 22f, UIFactory.TextBright,
                                              TextAlignmentOptions.MidlineLeft);
@@ -370,8 +425,25 @@ public static class MinigameOverlayBuilder
             Button down = UIFactory.CreateButton(row, "Down", "▼", new Vector2(62f, 46f), 22f);
             UIFactory.Place(down, new Vector2(1f, 0.5f), new Vector2(-16f, 0f), new Vector2(62f, 46f));
 
-            labels[i] = label; bgs[i] = bg; ups[i] = up; downs[i] = down;
+            labels[i] = label; bgs[i] = bg; ups[i] = up; downs[i] = down; drags[i] = drag;
         }
+
+        var preview = UIFactory.CreatePanel(window, "Preview",
+                                             new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                                             UIFactory.PanelDarker);
+        UIFactory.Place(preview, new Vector2(0.5f, 0f), new Vector2(0f, 212f), new Vector2(520f, 62f));
+        var previewTrack = UIFactory.CreatePanel(preview, "Track",
+                                                  new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                                  UIFactory.TutorialMuted);
+        UIFactory.Place(previewTrack, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(400f, 5f));
+        previewTrack.GetComponent<Image>().raycastTarget = false;
+        var previewMarker = UIFactory.CreateFixedRect(preview, "JeepMarker", new Vector2(0.5f, 0.5f),
+                                                       new Vector2(-190f, 0f), new Vector2(34f, 34f));
+        var previewMarkerImage = UIFactory.AddImage(previewMarker, Color.white, SproutLandsUiLibrary.MenuIconJeep);
+        previewMarkerImage.preserveAspect = true;
+        previewMarkerImage.raycastTarget = false;
+        var previewText = UIFactory.CreateText(window, "PreviewText", "", 16f, UIFactory.TextDim);
+        UIFactory.Place(previewText, new Vector2(0.5f, 0f), new Vector2(0f, 184f), new Vector2(620f, 28f));
 
         var feedback = UIFactory.CreateText(window, "Feedback", "", 22f, UIFactory.TextBright, TextAlignmentOptions.Center);
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 160f), new Vector2(660f, 32f));
@@ -403,10 +475,13 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.WireArray(game, "cardBackgrounds", bgs);
         SceneBuilderUtil.WireArray(game, "upButtons",       ups);
         SceneBuilderUtil.WireArray(game, "downButtons",     downs);
+        SceneBuilderUtil.WireArray(game, "dragHandles",     drags);
         SceneBuilderUtil.Wire(game, "runButton",  run);
         SceneBuilderUtil.Wire(game, "quitButton", quit);
         SceneBuilderUtil.Wire(game, "hintButton", hint);
         SceneBuilderUtil.Wire(game, "hintLabel",  hintText);
+        SceneBuilderUtil.Wire(game, "previewMarker", previewMarker);
+        SceneBuilderUtil.Wire(game, "previewLabel", previewText);
         if (tutorialPixelTheme)
         {
             UIFactory.Place(window, new Vector2(0.5f, 0.5f),
@@ -496,7 +571,6 @@ public static class MinigameOverlayBuilder
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(660f, 32f));
 
         var game = overlay.gameObject.AddComponent<FlowConnectMinigame>();
-        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent, tutorialPixelTheme));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
@@ -522,13 +596,13 @@ public static class MinigameOverlayBuilder
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
-        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(720f, 700f));
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(720f, 820f));
 
         var title = UIFactory.CreateText(window, "Title", "", 26f, UIFactory.Accent);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(680f, 44f));
 
         var list = UIFactory.CreateRect(window, "Cards", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
-        UIFactory.Place(list, new Vector2(0.5f, 1f), new Vector2(0f, -68f), new Vector2(620f, 432f));
+        UIFactory.Place(list, new Vector2(0.5f, 1f), new Vector2(0f, -68f), new Vector2(620f, 500f));
         UIFactory.AddVerticalLayout(list, 8f, align: TextAnchor.UpperCenter);
 
         int max = CrateStackMinigame.Slots;
@@ -536,6 +610,7 @@ public static class MinigameOverlayBuilder
         var bgs    = new Image[max];
         var ups    = new Button[max];
         var downs  = new Button[max];
+        var drags  = new VerticalReorderHandle[max];
         for (int i = 0; i < max; i++)
         {
             var row = UIFactory.CreateRect(list, $"Crate_{i}",
@@ -546,6 +621,9 @@ public static class MinigameOverlayBuilder
             bg.sprite = UIFactory.BuiltinSprite("UISprite.psd");
             bg.type   = Image.Type.Sliced;
             bg.color  = new Color(0.45f, 0.33f, 0.20f);
+            var drag = row.gameObject.AddComponent<VerticalReorderHandle>();
+            drag.index = i;
+            drag.rowStep = 68f;
 
             var label = UIFactory.CreateText(row, "Label", "", 24f, UIFactory.TextBright,
                                              TextAlignmentOptions.MidlineLeft);
@@ -560,6 +638,7 @@ public static class MinigameOverlayBuilder
             bgs[i]    = bg;
             ups[i]    = up;
             downs[i]  = down;
+            drags[i]  = drag;
         }
 
         var timerBg = UIFactory.CreatePanel(window, "TimerBg",
@@ -571,7 +650,6 @@ public static class MinigameOverlayBuilder
         UIFactory.Place(feedback, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(660f, 32f));
 
         var game = overlay.gameObject.AddComponent<CrateStackMinigame>();
-        SceneBuilderUtil.Wire(game, "resultsPanel", BuildResultsCard(parent, tutorialPixelTheme));
         SceneBuilderUtil.Wire(game, "root",          overlay.gameObject);
         SceneBuilderUtil.Wire(game, "titleLabel",    title);
         SceneBuilderUtil.Wire(game, "feedbackLabel", feedback);
@@ -579,6 +657,7 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.WireArray(game, "cardBackgrounds", bgs);
         SceneBuilderUtil.WireArray(game, "upButtons",       ups);
         SceneBuilderUtil.WireArray(game, "downButtons",     downs);
+        SceneBuilderUtil.WireArray(game, "dragHandles",     drags);
         SceneBuilderUtil.Wire(game, "timerFill", timerFill);
 
         if (tutorialPixelTheme)

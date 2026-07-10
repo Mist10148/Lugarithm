@@ -21,6 +21,34 @@ public class FlowConnectLayout
 /// </summary>
 public static class FlowConnectLayouts
 {
+    public static FlowConnectLayout Generate(int levelIndex, int seed)
+    {
+        const int size = 5;
+        int count = Mathf.Min(size, OverworldPuzzleTuning.FlowPairs(levelIndex));
+        var random = new System.Random(seed);
+        var lanes = new System.Collections.Generic.List<int> { 0, 1, 2, 3, 4 };
+        for (int i = lanes.Count - 1; i > 0; i--)
+        {
+            int j = random.Next(i + 1);
+            (lanes[i], lanes[j]) = (lanes[j], lanes[i]);
+        }
+
+        bool horizontal = random.Next(2) == 0;
+        var pairs = new FlowPair[count];
+        var solution = new Vector2Int[count][];
+        for (int color = 0; color < count; color++)
+        {
+            int lane = lanes[color];
+            var path = new Vector2Int[size];
+            for (int p = 0; p < size; p++)
+                path[p] = horizontal ? new Vector2Int(p, lane) : new Vector2Int(lane, p);
+            if (random.Next(2) == 1) System.Array.Reverse(path);
+            pairs[color] = new FlowPair(path[0], path[path.Length - 1]);
+            solution[color] = path;
+        }
+        return new FlowConnectLayout { Width = size, Height = size, Pairs = pairs, Solution = solution };
+    }
+
     public static FlowConnectLayout Get(int seed)
     {
         int i = ((seed % All.Length) + All.Length) % All.Length;

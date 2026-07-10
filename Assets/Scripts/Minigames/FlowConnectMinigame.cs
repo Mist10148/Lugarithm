@@ -46,6 +46,7 @@ public class FlowConnectMinigame : MonoBehaviour
     int   _active = -1;
     bool  _drawing;
     float _timer;
+    float _timerStart;
     bool  _running;
     bool  _timedOut;
 
@@ -68,7 +69,7 @@ public class FlowConnectMinigame : MonoBehaviour
 
         _timer -= Time.deltaTime;
         if (timerFill != null)
-            timerFill.fillAmount = Mathf.Clamp01(_timer / softTimerSeconds);
+            timerFill.fillAmount = Mathf.Clamp01(_timer / _timerStart);
 
         if (_timer <= 0f)
         {
@@ -85,19 +86,26 @@ public class FlowConnectMinigame : MonoBehaviour
 
     /// <summary>Opens the puzzle; <paramref name="onDone"/> fires once it's solved.</summary>
     public void Show(int seed, Action<MinigameResult> onDone)
+        => Show(null, 1, seed, onDone);
+
+    public void Show(MinigameStationDef station, int levelIndex, int seed,
+                     Action<MinigameResult> onDone)
     {
         _onDone   = onDone;
-        _timer    = softTimerSeconds;
         _running  = true;
         _timedOut = false;
         _active   = -1;
         _drawing  = false;
 
-        FlowConnectLayout layout = FlowConnectLayouts.Get(seed);
+        FlowConnectLayout layout = FlowConnectLayouts.Generate(levelIndex, seed);
         _board = new FlowConnectBoard(layout.Width, layout.Height, layout.Pairs);
+        int expectedMoves = 0;
+        foreach (Vector2Int[] path in layout.Solution) expectedMoves += path.Length;
+        _timerStart = OverworldPuzzleTuning.SoftTimerSeconds(expectedMoves);
+        _timer = _timerStart;
 
         BindCells();
-        if (titleLabel != null) titleLabel.text = "MOLO TRANSIT HUBS — link each pair, no crossings:";
+        if (titleLabel != null) titleLabel.text = station != null ? station.title : "FLOW CONNECT";
         if (feedbackLabel != null)
         {
             feedbackLabel.text  = "Drag from a hub to its matching hub.";
@@ -200,7 +208,6 @@ public class FlowConnectMinigame : MonoBehaviour
     {
         _running = false;
         if (feedbackLabel != null) { feedbackLabel.text = "All hubs linked!"; feedbackLabel.color = GoodColor; }
-        if (root != null) root.SetActive(false);
 
         var result = new MinigameResult
         {
@@ -209,11 +216,15 @@ public class FlowConnectMinigame : MonoBehaviour
             Score    = _timedOut ? 60 : 100,
         };
 
+        StartCoroutine(FinishAfter(result));
+    }
+
+    System.Collections.IEnumerator FinishAfter(MinigameResult result)
+    {
+        yield return new WaitForSecondsRealtime(0.7f);
+        if (root != null) root.SetActive(false);
         Action<MinigameResult> done = _onDone;
         _onDone = null;
-        if (resultsPanel != null)
-            resultsPanel.Show("MINIGAME · Non-code", "FLOW CONNECT", result, null, () => done?.Invoke(result));
-        else
-            done?.Invoke(result);
+        done?.Invoke(result);
     }
 }

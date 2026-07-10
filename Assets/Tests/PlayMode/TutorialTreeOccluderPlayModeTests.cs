@@ -25,6 +25,17 @@ public class TutorialTreeOccluderPlayModeTests
         Assert.IsNotNull(toto);
         Assert.IsNotNull(bising);
 
+        GameObject jeepStop = GameObject.Find("JeepStop_12_32");
+        Assert.IsNotNull(jeepStop);
+        Assert.That(Vector2.Distance(player.transform.position, jeepStop.transform.position),
+            Is.LessThan(0.01f), "Player must begin at the jeep boarding trigger.");
+
+        GameObject background = GameObject.Find("HeritagePlazaBackground");
+        Assert.IsNotNull(background);
+        Assert.IsNull(background.GetComponent<PolygonCollider2D>(),
+            "The full plaza image must not act as a filled physics collider.");
+        Assert.IsNotNull(GameObject.Find("MapBoundaries"));
+
         AssertAnimator(player.GetComponentInChildren<Animator>(), "Townspeople_13_NPC_Animator");
         AssertAnimator(rosa.GetComponentInChildren<Animator>(), "Townspeople_5_NPC_Animator");
         AssertAnimator(toto.GetComponentInChildren<Animator>(), "Townspeople_3_NPC_Animator");
@@ -102,6 +113,88 @@ public class TutorialTreeOccluderPlayModeTests
 
         UnityEngine.Object.Destroy(tree);
         UnityEngine.Object.Destroy(player);
+    }
+
+    [UnityTest]
+    public IEnumerator CompletingEveryObjective_SpawnsCollectibleArtifactAndUpdatesTracker()
+    {
+        SceneManager.LoadScene("TopDownLevel");
+        yield return null;
+        yield return null;
+
+        TopDownLevelController controller =
+            UnityEngine.Object.FindAnyObjectByType<TopDownLevelController>();
+        Assert.IsNotNull(controller);
+
+        FieldInfo stationDefsField = typeof(TopDownLevelController).GetField(
+            "_stationDefs", BindingFlags.Instance | BindingFlags.NonPublic);
+        MethodInfo markSolved = typeof(TopDownLevelController).GetMethod(
+            "MarkStationSolved", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(stationDefsField);
+        Assert.IsNotNull(markSolved);
+
+        var stationDefs = stationDefsField.GetValue(controller) as System.Collections.IDictionary;
+        Assert.IsNotNull(stationDefs);
+        Assert.AreEqual(6, stationDefs.Count);
+        foreach (System.Collections.DictionaryEntry entry in stationDefs)
+            markSolved.Invoke(controller, new[] { entry.Key, entry.Value });
+
+        yield return null;
+
+        InteractionTrigger artifact = null;
+        foreach (InteractionTrigger trigger in
+                 UnityEngine.Object.FindObjectsByType<InteractionTrigger>(FindObjectsInactive.Include))
+        {
+            if (trigger.EntityType == EntityType.Artifact)
+            {
+                artifact = trigger;
+                break;
+            }
+        }
+        Assert.IsNotNull(artifact);
+        Assert.IsTrue(artifact.gameObject.activeSelf);
+
+        FieldInfo statusRootField = typeof(TopDownLevelController).GetField(
+            "artifactStatusRoot", BindingFlags.Instance | BindingFlags.NonPublic);
+        FieldInfo statusMarkField = typeof(TopDownLevelController).GetField(
+            "artifactStatusMark", BindingFlags.Instance | BindingFlags.NonPublic);
+        FieldInfo statusCheckField = typeof(TopDownLevelController).GetField(
+            "artifactStatusCheck", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(statusRootField);
+        Assert.IsNotNull(statusMarkField);
+        Assert.IsNotNull(statusCheckField);
+
+        GameObject statusRoot = statusRootField.GetValue(controller) as GameObject;
+        object statusMark = statusMarkField.GetValue(controller);
+        GameObject statusCheck = statusCheckField.GetValue(controller) as GameObject;
+        Assert.IsNotNull(statusRoot);
+        Assert.IsNotNull(statusMark);
+        Assert.IsNotNull(statusCheck);
+        Assert.IsTrue(statusRoot.activeInHierarchy);
+        Assert.AreEqual("X", ReadText(statusMark));
+        Assert.IsFalse(statusCheck.activeSelf);
+
+        MethodInfo collectArtifact = typeof(TopDownLevelController).GetMethod(
+            "HandleArtifactInteraction", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(collectArtifact);
+        collectArtifact.Invoke(controller, new object[] { artifact });
+
+        Assert.IsFalse(artifact.gameObject.activeSelf);
+        Assert.IsFalse((statusMark as Component).gameObject.activeSelf);
+        Assert.IsTrue(statusCheck.activeSelf);
+
+        // Keep the fixture's standalone tree tests isolated from the runtime map
+        // boundary colliders created by TopDownLevelController.
+        Scene cleanupScene = SceneManager.CreateScene("ArtifactTestCleanup");
+        SceneManager.SetActiveScene(cleanupScene);
+        yield return SceneManager.UnloadSceneAsync("TopDownLevel");
+    }
+
+    static string ReadText(object label)
+    {
+        PropertyInfo textProperty = label?.GetType().GetProperty("text");
+        Assert.IsNotNull(textProperty);
+        return textProperty.GetValue(label) as string;
     }
 
     [UnityTest]

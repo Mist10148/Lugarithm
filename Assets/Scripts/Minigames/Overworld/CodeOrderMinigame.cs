@@ -15,7 +15,7 @@ using UnityEngine.UI;
 /// self-contained and reports through simple onSolved/onQuit callbacks so it slots
 /// into the overworld station dispatch.
 /// </summary>
-public class CodeOrderMinigame : MonoBehaviour
+public class CodeOrderMinigame : MonoBehaviour, IVerticalReorderTarget
 {
     public const int MaxLines = 6;
 
@@ -29,10 +29,13 @@ public class CodeOrderMinigame : MonoBehaviour
     [SerializeField] private Image[]    cardBackgrounds;   // parallel to cardLabels
     [SerializeField] private Button[]   upButtons;
     [SerializeField] private Button[]   downButtons;
+    [SerializeField] private VerticalReorderHandle[] dragHandles;
     [SerializeField] private Button     runButton;
     [SerializeField] private Button     quitButton;
     [SerializeField] private Button     hintButton;
     [SerializeField] private TMP_Text   hintLabel;
+    [SerializeField] private RectTransform previewMarker;
+    [SerializeField] private TMP_Text previewLabel;
 
     static readonly Color CardNormal = new Color(0.22f, 0.30f, 0.42f);
     static readonly Color CardWrong  = new Color(0.55f, 0.25f, 0.25f);
@@ -60,6 +63,11 @@ public class CodeOrderMinigame : MonoBehaviour
                 upButtons[i].onClick.AddListener(() => Move(idx, -1));
             if (downButtons != null && i < downButtons.Length && downButtons[i] != null)
                 downButtons[i].onClick.AddListener(() => Move(idx, +1));
+            if (dragHandles != null && i < dragHandles.Length && dragHandles[i] != null)
+            {
+                dragHandles[i].index = i;
+                dragHandles[i].owner = this;
+            }
         }
         if (runButton  != null) runButton.onClick.AddListener(OnRun);
         if (quitButton != null) quitButton.onClick.AddListener(QuitOut);
@@ -86,6 +94,9 @@ public class CodeOrderMinigame : MonoBehaviour
         _runHistory.Clear();
         if (hintButton != null) hintButton.gameObject.SetActive(false);
         if (hintLabel != null) hintLabel.text = "";
+        if (previewLabel != null) previewLabel.text = "Arrange valid Para, then RUN to preview it.";
+        if (previewMarker != null) previewMarker.anchoredPosition = new Vector2(-190f, 0f);
+        if (runButton != null) runButton.interactable = true;
 
         CodingPuzzle puzzle = OverworldPuzzleLibrary.GetCoding(def.id, def.concept);
         _correct = puzzle.orderedLines;
@@ -113,17 +124,39 @@ public class CodeOrderMinigame : MonoBehaviour
         if (feedbackLabel != null) { feedbackLabel.text = "Use ↑ ↓ to order the program, then press RUN."; feedbackLabel.color = Neutral; }
     }
 
+    public void MoveCard(int fromIndex, int toIndex)
+    {
+        if (fromIndex < 0 || fromIndex >= _count) return;
+        toIndex = Mathf.Clamp(toIndex, 0, _count - 1);
+        if (fromIndex == toIndex) return;
+        string line = _order[fromIndex];
+        _order.RemoveAt(fromIndex);
+        _order.Insert(toIndex, line);
+        Refresh(-1);
+        if (feedbackLabel != null)
+        {
+            feedbackLabel.text = "Drag cards or use ↑ ↓, then press RUN.";
+            feedbackLabel.color = Neutral;
+        }
+    }
+
     void OnRun()
     {
         CodeRunAttempt attempt = _runHistory.RecordStarted(CurrentSourceText(), "Code order");
         int wrong = FirstWrongIndex();
         if (wrong < 0)
         {
-            if (feedbackLabel != null) { feedbackLabel.text = "Program runs — well done!"; feedbackLabel.color = Good; }
+            Parser.Compile(CurrentSourceText(), out List<LangError> errors);
+            if (errors.Count > 0)
+            {
+                if (feedbackLabel != null) { feedbackLabel.text = errors[0].ToString(); feedbackLabel.color = Bad; }
+                _runHistory.Complete(attempt, false, "Parse error", 0, errors[0].ToString());
+                return;
+            }
+            if (feedbackLabel != null) { feedbackLabel.text = "Program is valid — previewing the route…"; feedbackLabel.color = Good; }
             _runHistory.Complete(attempt, true, "Solved", _count, $"Solved in {_runHistory.Count} run(s).");
-            Action cb = _onSolved;
-            Cleanup();
-            ShowCodeResults(cb);
+            if (runButton != null) runButton.interactable = false;
+            StartCoroutine(PreviewThenFinish());
             return;
         }
 
@@ -133,6 +166,31 @@ public class CodeOrderMinigame : MonoBehaviour
         _lastWrongIndex = wrong;
         Refresh(wrong);
         RevealHintAfterStruggle();
+    }
+
+    IEnumerator PreviewThenFinish()
+    {
+        if (previewMarker != null)
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                if (previewLabel != null) previewLabel.text = _correct[i].Trim();
+                Vector2 from = previewMarker.anchoredPosition;
+                Vector2 to = new Vector2(Mathf.Lerp(-190f, 190f, (i + 1f) / _count), 0f);
+                float elapsed = 0f;
+                while (elapsed < 0.22f)
+                {
+                    elapsed += Time.unscaledDeltaTime;
+                    previewMarker.anchoredPosition = Vector2.Lerp(from, to, elapsed / 0.22f);
+                    yield return null;
+                }
+            }
+        }
+        if (previewLabel != null) previewLabel.text = "Preview complete — the program reaches its goal.";
+        yield return new WaitForSecondsRealtime(0.35f);
+        Action callback = _onSolved;
+        Cleanup();
+        ShowCodeResults(callback);
     }
 
     void RevealHintAfterStruggle()
@@ -194,6 +252,7 @@ public class CodeOrderMinigame : MonoBehaviour
         _onQuit = null;
         if (hintButton != null) hintButton.gameObject.SetActive(false);
         if (hintLabel != null) hintLabel.text = "";
+        if (previewLabel != null) previewLabel.text = "";
         if (root != null) root.SetActive(false);
     }
 

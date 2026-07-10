@@ -36,6 +36,17 @@ public class CrateStackPuzzle
         return true;
     }
 
+    public bool MoveTo(int fromIndex, int toIndex)
+    {
+        if (fromIndex < 0 || fromIndex >= _order.Count) return false;
+        toIndex = System.Math.Max(0, System.Math.Min(_order.Count - 1, toIndex));
+        if (fromIndex == toIndex) return false;
+        int value = _order[fromIndex];
+        _order.RemoveAt(fromIndex);
+        _order.Insert(toIndex, value);
+        return true;
+    }
+
     /// <summary>True when the heaviest crate is at the bottom (weights increase downward).</summary>
     public bool IsSolved() => IsSorted(_order);
 

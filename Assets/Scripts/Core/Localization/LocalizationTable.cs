@@ -83,6 +83,7 @@ public static class LocalizationTable
         ["hud.reopen"]    = new[] { "Reopen Editor", "Buksan ang Editor" },
         ["hud.fuel"]      = new[] { "FUEL",      "GASOLINA" },
         ["hud.speed"]     = new[] { "SPEED",     "BILIS" },
+        ["hud.artifactfound"] = new[] { "Artifact Found:", "Nahanap na Artifact:" },
         ["hud.manualhint"]= new[] { "A / D change lanes · Space brakes",
                                     "A / D para lumipat ng linya · Space para mag-preno" },
 
