@@ -105,6 +105,12 @@ public class ManualDriveController : MonoBehaviour
         // World — procedural town when the level opts in, else the authored route.
         Transform root = worldRoot != null ? worldRoot : transform;
         _proceduralActive = _def.procedural != null && _def.procedural.enabled;
+        if (_proceduralActive && cameraFollow != null)
+        {
+            Camera driveCamera = cameraFollow.GetComponent<Camera>();
+            if (driveCamera != null)
+                driveCamera.orthographicSize = SceneTemplateLibrary.RecommendedCameraOrthoSize;
+        }
 
         Vector2[] driveLine;
         if (_proceduralActive)
@@ -165,8 +171,7 @@ public class ManualDriveController : MonoBehaviour
         if (_breakdown != null)
             _breakdown.Init(jeepney, engineRepairMinigame, refuelMinigame, mazeRepairMinigame,
                             toast, _tracker,
-                            _ctx.TotalLength, _def.manual.breakdownAtRouteFraction,
-                            automaticInterruptionsEnabled: _levelIndex != 0);
+                            _ctx.TotalLength, _def.manual.breakdownAtRouteFraction);
 
         _startTime = Time.time;
 

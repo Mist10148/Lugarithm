@@ -70,12 +70,22 @@ public static class RouteVisualBuilder
             ZoneByNode      = new Dictionary<int, StopZone>(),
         };
 
-        Sprite roadSprite = Resources.Load<Sprite>("Placeholders/road_tile");
-        var roadRoot = new GameObject("Road");
-        roadRoot.transform.SetParent(parent, false);
-        foreach (RoadSegment s in layout.segments)
-            TileSegment(roadRoot.transform, roadSprite, s.a, s.b,
-                        roadHalfWidth * (s.isTrunk ? 2f : 1.5f));
+        // Whole-scene background: the route was generated to follow the roads
+        // painted in the scene chunks, so the visuals are just those chunks.
+        bool sceneWorld = layout.scenePlacements != null && layout.scenePlacements.Count > 0;
+        if (sceneWorld)
+        {
+            SceneChunkVisualBuilder.Spawn(parent, layout.scenePlacements);
+        }
+        else
+        {
+            Sprite roadSprite = Resources.Load<Sprite>("Placeholders/road_tile");
+            var roadRoot = new GameObject("Road");
+            roadRoot.transform.SetParent(parent, false);
+            foreach (RoadSegment s in layout.segments)
+                TileSegment(roadRoot.transform, roadSprite, s.a, s.b,
+                            roadHalfWidth * (s.isTrunk ? 2f : 1.5f));
+        }
 
         for (int i = 0; i < layout.stops.Count; i++)
         {
@@ -87,11 +97,15 @@ public static class RouteVisualBuilder
             if (isDest) ctx.DestinationZone = zone;
         }
 
-        // Dress the street: continuous heritage frontage + ambient folk beside the road.
-        var stopPositions = new List<Vector2>(layout.stops.Count);
-        foreach (TownNode n in layout.stops) stopPositions.Add(n.pos);
-        RoadsideDecorator.DecorateSegments(parent, layout.segments, layout.segments,
-                                           stopPositions, roadHalfWidth, seed: 0);
+        // Legacy placeholder worlds still dress the street with the decorator;
+        // scene chunks bake their own frontage.
+        if (!sceneWorld)
+        {
+            var stopPositions = new List<Vector2>(layout.stops.Count);
+            foreach (TownNode n in layout.stops) stopPositions.Add(n.pos);
+            RoadsideDecorator.DecorateSegments(parent, layout.segments, layout.segments,
+                                               stopPositions, roadHalfWidth, seed: 0);
+        }
 
         return ctx;
     }
@@ -109,20 +123,30 @@ public static class RouteVisualBuilder
         if (ctx.Segments == null) ctx.Segments = new List<RoadSegment>();
 
         Transform visualParent = chunkRoot != null ? chunkRoot : parent;
-        Sprite roadSprite = Resources.Load<Sprite>("Placeholders/road_tile");
-        Transform roadRoot = visualParent.Find("Road");
-        if (roadRoot == null)
+        bool sceneWorld = delta.scenePlacements != null && delta.scenePlacements.Count > 0;
+        if (sceneWorld)
         {
-            var rr = new GameObject("Road");
-            rr.transform.SetParent(visualParent, false);
-            roadRoot = rr.transform;
+            foreach (RoadSegment s in delta.segments)
+                ctx.Segments.Add(s);
+            SceneChunkVisualBuilder.Spawn(visualParent, delta.scenePlacements);
         }
-
-        foreach (RoadSegment s in delta.segments)
+        else
         {
-            ctx.Segments.Add(s);
-            TileSegment(roadRoot, roadSprite, s.a, s.b,
-                        roadHalfWidth * (s.isTrunk ? 2f : 1.5f));
+            Sprite roadSprite = Resources.Load<Sprite>("Placeholders/road_tile");
+            Transform roadRoot = visualParent.Find("Road");
+            if (roadRoot == null)
+            {
+                var rr = new GameObject("Road");
+                rr.transform.SetParent(visualParent, false);
+                roadRoot = rr.transform;
+            }
+
+            foreach (RoadSegment s in delta.segments)
+            {
+                ctx.Segments.Add(s);
+                TileSegment(roadRoot, roadSprite, s.a, s.b,
+                            roadHalfWidth * (s.isTrunk ? 2f : 1.5f));
+            }
         }
 
         var zones = new List<StopZone>(ctx.Zones);
@@ -161,13 +185,17 @@ public static class RouteVisualBuilder
 
         // Dress only this chunk's new trunk, but clear it against the whole graph so
         // buildings never land on a road the streamed town has wound close by.
-        var stopPositions = new List<Vector2>();
-        if (ctx.ZoneByNode != null)
-            foreach (StopZone z in ctx.ZoneByNode.Values)
-                if (z != null) stopPositions.Add((Vector2)z.transform.position);
-        RoadsideDecorator.DecorateSegments(parent, delta.segments, ctx.Segments,
-                                           stopPositions, roadHalfWidth, seed: 0,
-                                           chunkRoot: visualParent);
+        // Scene chunks bake their own frontage, so only legacy worlds decorate.
+        if (!sceneWorld)
+        {
+            var stopPositions = new List<Vector2>();
+            if (ctx.ZoneByNode != null)
+                foreach (StopZone z in ctx.ZoneByNode.Values)
+                    if (z != null) stopPositions.Add((Vector2)z.transform.position);
+            RoadsideDecorator.DecorateSegments(parent, delta.segments, ctx.Segments,
+                                               stopPositions, roadHalfWidth, seed: 0,
+                                               chunkRoot: visualParent);
+        }
     }
 
     /// <summary>

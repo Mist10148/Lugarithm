@@ -68,6 +68,24 @@ public class TownLayout
     /// <summary>Trunk node ids in spine order (terminal-start → terminal-end).</summary>
     public readonly List<int> trunkNodeIds = new List<int>();
 
+    /// <summary>
+    /// Whole-scene background chunks (in chain order) when the route geometry is
+    /// driven by <see cref="SceneTemplateLibrary"/>; empty otherwise.
+    /// </summary>
+    public readonly List<ScenePlacement> scenePlacements = new List<ScenePlacement>();
+
+    /// <summary>
+    /// The smooth driving polyline (start → frontier) in scene-template worlds:
+    /// follows the painted curves, unlike the cardinal trunk node spine. Manual
+    /// driving/traffic use this; the node graph stays Manhattan for Automation.
+    /// Empty outside scene-template worlds.
+    /// </summary>
+    public readonly List<Vector2> sceneDrivePath = new List<Vector2>();
+
+    /// <summary>Diagonal road segments covering painted curves (off-road math
+    /// only — never graph edges).</summary>
+    public readonly List<RoadSegment> sceneExtraSegments = new List<RoadSegment>();
+
     public TownNode Node(int id) => nodes[id];
 
     /// <summary>The trunk spine as a polyline in Manual-mode world units.</summary>

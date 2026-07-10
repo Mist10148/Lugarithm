@@ -16,7 +16,8 @@ public static class ManualDriveSceneBuilder
 
         // --- World -----------------------------------------------------------------
 
-        Camera cam = SceneBuilderUtil.CreateCamera2D("Main Camera", new Color(0.13f, 0.22f, 0.14f), 9f);
+        Camera cam = SceneBuilderUtil.CreateCamera2D("Main Camera", new Color(0.13f, 0.22f, 0.14f),
+                                                     SceneTemplateLibrary.RecommendedCameraOrthoSize);
         var follow = cam.gameObject.AddComponent<CameraFollow2D>();
 
         SceneBuilderUtil.CreateGlobalLight2D();

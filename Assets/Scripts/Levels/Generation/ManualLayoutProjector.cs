@@ -27,6 +27,9 @@ public class ManualLayoutResult
     public List<TownNode>     stops    = new List<TownNode>();   // boardable nodes incl. terminals
     public TownNode           start;
     public TownNode           dest;
+
+    /// <summary>Whole-scene background chunks for this layout/chunk delta (may be empty).</summary>
+    public List<ScenePlacement> scenePlacements = new List<ScenePlacement>();
 }
 
 public static class ManualLayoutProjector
@@ -35,7 +38,10 @@ public static class ManualLayoutProjector
     {
         var result = new ManualLayoutResult
         {
-            trunk = layout.TrunkPolyline(),
+            // Scene-template worlds drive along the painted curves; the node
+            // spine stays cardinal for Automation.
+            trunk = layout.sceneDrivePath.Count > 1
+                ? layout.sceneDrivePath.ToArray() : layout.TrunkPolyline(),
             start = layout.Node(layout.startNodeId),
             dest  = layout.Node(layout.destNodeId),
         };
@@ -43,9 +49,12 @@ public static class ManualLayoutProjector
         foreach (TownEdge e in layout.edges)
             result.segments.Add(new RoadSegment(
                 layout.Node(e.a).pos, layout.Node(e.b).pos, e.isTrunk));
+        result.segments.AddRange(layout.sceneExtraSegments);
 
         foreach (TownNode n in layout.nodes)
             if (n.IsStop) result.stops.Add(n);
+
+        result.scenePlacements.AddRange(layout.scenePlacements);
 
         // Earlier → later along the route, so dulog "later stop" logic lines up.
         result.stops.Sort((p, q) => p.alongTrunk.CompareTo(q.alongTrunk));
@@ -61,7 +70,8 @@ public static class ManualLayoutProjector
     {
         var result = new ManualLayoutResult
         {
-            trunk = layout.TrunkPolyline(),
+            trunk = layout.sceneDrivePath.Count > 1
+                ? layout.sceneDrivePath.ToArray() : layout.TrunkPolyline(),
             start = layout.Node(layout.startNodeId),
             dest  = layout.Node(layout.destNodeId),
         };
@@ -69,6 +79,7 @@ public static class ManualLayoutProjector
         foreach (TownEdge e in chunk.edges)
             result.segments.Add(new RoadSegment(
                 layout.Node(e.a).pos, layout.Node(e.b).pos, e.isTrunk));
+        result.segments.AddRange(chunk.sceneExtraSegments);
 
         var seen = new HashSet<int>();
         foreach (TownNode n in chunk.nodes)
@@ -81,6 +92,8 @@ public static class ManualLayoutProjector
         TownNode oldDest = layout.Node(chunk.nodes.Count > 0 ? chunk.nodes[0].id : layout.destNodeId);
         if (oldDest.IsStop && seen.Add(oldDest.id))
             result.stops.Add(oldDest);
+
+        result.scenePlacements.AddRange(chunk.scenePlacements);
 
         result.stops.Sort((p, q) => p.alongTrunk.CompareTo(q.alongTrunk));
         return result;
