@@ -59,6 +59,17 @@ public class CameraFollow2D : MonoBehaviour
         transform.position = Vector3.SmoothDamp(transform.position, goal, ref _velocity, smoothTime);
     }
 
+    /// <summary>Sets the clamp rectangle at runtime and enables bounds. Used by
+    /// scenes shared across levels of differing map sizes (e.g. the top-down
+    /// overworld hubs), where the containing rect must be derived per-level
+    /// rather than baked into the scene.</summary>
+    public void SetBounds(Vector2 min, Vector2 max)
+    {
+        minBounds = min;
+        maxBounds = max;
+        useBounds = true;
+    }
+
     /// <summary>Lets the drive controller retarget (and snap) at spawn time.</summary>
     public void SnapTo(Transform newTarget)
     {

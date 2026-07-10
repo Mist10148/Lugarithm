@@ -47,6 +47,13 @@ public class ExecutionController : MonoBehaviour
     /// <summary>Fired when a single line is executing very hot this frame.</summary>
     public event Action<int> OnHotLine;
 
+    /// <summary>Fired from inside the run loop at a static-world boundary — nothing
+    /// animating, move queue empty, about to plan the next statement. The streaming
+    /// controller may synchronously append + rebind the streamed world here (the very
+    /// next interpreter step plans on the new grid). Subscribers must never call
+    /// Run/Stop/ResetWorld — only the state-preserving RebindStreamingWorld path.</summary>
+    public event Action OnStaticWorldWindow;
+
     readonly Interpreter _vm = new Interpreter();
 
     AgentSim          _sim;
@@ -72,6 +79,12 @@ public class ExecutionController : MonoBehaviour
     /// <summary>Simulated seconds represented by one movement step — fuel drain
     /// and any other per-step real-world rates must scale by this.</summary>
     public float BaseStepSeconds => baseStepSeconds;
+
+    /// <summary>Simulated driving seconds one executed action represents: a movement
+    /// step is a full cell of driving; turns, checks, and service beats are near-instant.
+    /// Per-step real-world rates (fuel drain) charge this, not a flat step.</summary>
+    public float SimulatedSecondsFor(string action) =>
+        IsMovementAction(action) ? baseStepSeconds : logicStepSeconds;
     public IReadOnlyDictionary<int, int> LineHits => _vm.LineHits;
 
     /// <summary>Accumulated <c>print()</c> output for the current run. Cleared when
@@ -218,6 +231,14 @@ public class ExecutionController : MonoBehaviour
         Speed = Mathf.Clamp(speed, 0.2f, 8f);
     }
 
+    /// <summary>Overrides the seconds-per-cell movement pace. Procedural top-down legs
+    /// set this to cellSize / SpeedGauge.TopSpeed so ×1.0 playback cruises at exactly
+    /// Manual's top speed (fuel drain scales along via <see cref="BaseStepSeconds"/>).</summary>
+    public void ConfigureMovementPace(float secondsPerCell)
+    {
+        baseStepSeconds = Mathf.Max(0.05f, secondsPerCell);
+    }
+
     /// <summary>True for the locomotion primitive — the only action type that keeps the
     /// slow, Manual-matching cadence. Every other action (turns, pickUp, dropOff,
     /// collectFare, giveChange, wait, and any future non-movement action) resolves at
@@ -282,6 +303,14 @@ public class ExecutionController : MonoBehaviour
         {
             while (State == ExecState.Paused)
                 yield return null;
+
+            // Static-world window: between batches / before the next statement the
+            // view sits settled on a grid cell and the queue is empty — the one safe
+            // instant to re-rasterize the streamed grid mid-run. A continuously
+            // driving endless program never idles at a frame boundary, so this is
+            // the only chance lookahead streaming gets while it runs.
+            if (_sim != null && !_sim.HasPendingMoves && !Busy)
+                OnStaticWorldWindow?.Invoke();
 
             // A navigation macro (driveToNextStop / driveToDestination) plans a
             // path into the sim's move queue; drain it one cell per visual step so

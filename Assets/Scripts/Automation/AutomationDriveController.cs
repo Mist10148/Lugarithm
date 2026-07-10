@@ -318,11 +318,19 @@ public class AutomationDriveController : MonoBehaviour
         {
             _activeAgent = activeAgent;
             exec.Init(grid, sim, activeAgent, activeSpace, activeStopView, _def, startFacing);
-            exec.OnStepDone     += HandleStepDone;
-            exec.OnRuntimeError += HandleRuntimeError;
-            exec.OnFinished     += HandleFinished;
-            exec.OnWorldReset   += HandleWorldReset;
-            exec.OnHotLine      += HandleHotLine;
+            exec.OnStepDone          += HandleStepDone;
+            exec.OnRuntimeError      += HandleRuntimeError;
+            exec.OnFinished          += HandleFinished;
+            exec.OnWorldReset        += HandleWorldReset;
+            exec.OnHotLine           += HandleHotLine;
+            exec.OnStaticWorldWindow += HandleStaticWorldWindow;
+
+            // Procedural driving legs cruise at exactly Manual's top speed: one cell
+            // (gridCellSize units) takes cellSize / TopSpeed seconds at ×1.0 playback.
+            // Authored maze puzzles keep the serialized snappier default.
+            if (useProceduralTopDown)
+                exec.ConfigureMovementPace(
+                    _level.procedural.gen.gridCellSize / SpeedGauge.TopSpeed);
         }
 
         // Now that exec.Init has placed the agent at its start cell, lock the camera onto
@@ -551,20 +559,43 @@ public class AutomationDriveController : MonoBehaviour
     /// </summary>
     void TickProceduralStreaming()
     {
+        if (exec == null || exec.Sim == null) return;
+        TryStreamAhead(exec.Busy, exec.Sim.HasPendingMoves);
+    }
+
+    /// <summary>Static-world window raised by the exec loop between move batches. A
+    /// continuously driving endless program (<c>while True: keepDriving()</c>) refills
+    /// its move queue without ever idling at a frame boundary, so the per-frame
+    /// <see cref="TickProceduralStreaming"/> path never fires for it — this callback is
+    /// where its road gets extended. Busy/pending are false by construction here.</summary>
+    void HandleStaticWorldWindow()
+    {
+        TryStreamAhead(busy: false, hasPendingMoves: false);
+    }
+
+    // One chunk extends the trunk 48–144 units; two appends cover the deepest deficit a
+    // long busy stretch can accumulate before the next static-world window.
+    const int MaxAppendsPerWindow = 2;
+
+    void TryStreamAhead(bool busy, bool hasPendingMoves)
+    {
         if (!_proceduralTopDown || _streamingTown == null) return;
         if (exec == null || exec.Sim == null || topDownAgentView == null) return;
 
-        float distToEnd = Vector2.Distance(
-            (Vector2)topDownAgentView.transform.position, _streamingTown.TrunkEndPos);
+        for (int i = 0; i < MaxAppendsPerWindow; i++)
+        {
+            float distToEnd = Vector2.Distance(
+                (Vector2)topDownAgentView.transform.position, _streamingTown.TrunkEndPos);
 
-        if (!ShouldStreamNow(exec.Busy, exec.Sim.HasPendingMoves,
-                             _chunksAppended, _maxChunks, distToEnd, StreamLookAhead))
-            return;
+            if (!ShouldStreamNow(busy, hasPendingMoves,
+                                 _chunksAppended, _maxChunks, distToEnd, StreamLookAhead))
+                return;
 
-        // Always the state-preserving rebind here: lookahead streaming must never stop a
-        // paused program or fire a world reset — the destructive path is reserved for the
-        // explicit post-win "keep exploring" append.
-        AppendProceduralRoute(keepProgramRunning: true);
+            // Always the state-preserving rebind here: lookahead streaming must never stop a
+            // paused program or fire a world reset — the destructive path is reserved for the
+            // explicit post-win "keep exploring" append.
+            AppendProceduralRoute(keepProgramRunning: true);
+        }
     }
 
     /// <summary>Pure streaming guard: true when it is safe AND useful to append the next
@@ -1132,7 +1163,7 @@ public class AutomationDriveController : MonoBehaviour
     int   _autoRefuelSpent;
     bool  _autoBreakdownActive;
 
-    void AutoFuelTick()
+    void AutoFuelTick(string action)
     {
         if (_autoBreakdownActive) return;
         if (_levelIndex == 0) return;
@@ -1142,10 +1173,11 @@ public class AutomationDriveController : MonoBehaviour
                 5000 + _levelIndex,
                 _levelIndex == 0 ? 0 : DriveInterruptionScheduler.GuaranteedRepairCount);
 
-        // One movement step represents baseStepSeconds of simulated driving, so the
-        // drain is scaled to match Manual Mode's per-second rate regardless of the
-        // playback Speed slider (Speed only stretches real-world animation time).
-        float stepSeconds = exec != null ? exec.BaseStepSeconds : 1f;
+        // Each action drains the simulated seconds it represents — a movement step is a
+        // full cell of driving, a logic/service beat is near-instant — matching Manual
+        // Mode's per-second rate regardless of the playback Speed slider (Speed only
+        // stretches real-world animation time).
+        float stepSeconds = exec != null ? exec.SimulatedSecondsFor(action) : 1f;
         _autoFuel = Mathf.Max(0f, _autoFuel - RefuelMath.FuelDrainPerSecond * stepSeconds);
         RefreshAutomationHud();
 
@@ -1294,7 +1326,7 @@ public class AutomationDriveController : MonoBehaviour
         if (codeEditor != null && exec != null)
             codeEditor.SetHeat(exec.LineHits);
 
-        AutoFuelTick();
+        AutoFuelTick(result.Action);
     }
 
     void HandleHotLine(int line)

@@ -108,8 +108,10 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(follow, "smoothTime",   0.08f);
         SceneBuilderUtil.Wire(follow, "velocityLead", 0f);
         SceneBuilderUtil.Wire(follow, "useBounds",    true);
-        SceneBuilderUtil.Wire(follow, "minBounds",    new Vector2(-52f, -78f));
-        SceneBuilderUtil.Wire(follow, "maxBounds",    new Vector2(76f, 114f));
+        // Sensible default for the tutorial map (24x36); TopDownLevelController
+        // overrides these per-level at load via CameraFollow2D.SetBounds.
+        SceneBuilderUtil.Wire(follow, "minBounds",    new Vector2(0f, 0f));
+        SceneBuilderUtil.Wire(follow, "maxBounds",    new Vector2(24f, 36f));
         // leadBody intentionally left unwired so there is no directional lead.
 
         // --- HUD --------------------------------------------------------------------
@@ -249,8 +251,10 @@ public static class TopDownSceneBuilder
         var backgroundRenderer = background.AddComponent<SpriteRenderer>();
         backgroundRenderer.sprite = LoadTutorialSprite("TutorialHeritagePlaza.png", false, 16f);
         backgroundRenderer.sortingOrder = -20;
-        
-        background.AddComponent<PolygonCollider2D>();
+
+        // No collider here: the plaza PNG is fully opaque, so a PolygonCollider2D
+        // would auto-generate a solid rectangle over the whole map and trap the
+        // player at spawn. Containment comes from the wall-tilemap collider.
 
         root.SetActive(false);
         return root;

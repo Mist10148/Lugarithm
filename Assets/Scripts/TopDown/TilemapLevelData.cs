@@ -105,6 +105,14 @@ public class OverworldMapData
         for (int y = 0; y < h; y++)
         {
             string row = rows[y];
+
+            // Maps are authored top-to-bottom (first text row = top of the town),
+            // but Unity's +Y points up, so flip the row index into world space:
+            // text-row 0 becomes the top world row, the last text row the bottom.
+            // This keeps tiles, wall colliders, and entities aligned with the
+            // painted overworld art (e.g. the tutorial plaza's bottom entrance).
+            int worldY = h - 1 - y;
+
             for (int x = 0; x < w; x++)
             {
                 char ch = x < row.Length ? row[x] : 'G'; // pad with grass
@@ -117,14 +125,14 @@ public class OverworldMapData
                     {
                         type = ent,
                         gridX = x,
-                        gridY = y,
+                        gridY = worldY,
                         displayName = ent.ToString(),
                     });
-                    data.tiles[y, x] = TileType.Path; // entities sit on walkable ground
+                    data.tiles[worldY, x] = TileType.Path; // entities sit on walkable ground
                 }
                 else
                 {
-                    data.tiles[y, x] = TileFromChar(ch);
+                    data.tiles[worldY, x] = TileFromChar(ch);
                 }
             }
         }
