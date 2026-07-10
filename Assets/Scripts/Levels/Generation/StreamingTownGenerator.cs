@@ -59,7 +59,10 @@ public static class StreamingTownGenerator
             BranchCountMin = def.gen.branchCountMin,
             BranchCountMax = def.gen.branchCountMax,
             Fares = fares ?? new FareTable(),
-            RoadHalfWidth = def.trunk.Length >= 2 ? Vector2.Distance(def.trunk[0], def.trunk[1]) * 0.5f : 3f,
+            // Scene templates paint a fixed-width road (6 units), so the authored
+            // vertex spacing must not be misread as a road width there.
+            RoadHalfWidth = SceneTemplateLibrary.Active ? 3f
+                : def.trunk.Length >= 2 ? Vector2.Distance(def.trunk[0], def.trunk[1]) * 0.5f : 3f,
         };
 
         TownNode dest = s.Layout.Node(s.Layout.destNodeId);
@@ -93,6 +96,8 @@ public static class StreamingTownGenerator
             var layout = s.Layout;
             int n0 = layout.nodes.Count, e0 = layout.edges.Count;
             int r0 = layout.requests.Count, t0 = layout.trunkNodeIds.Count, d0 = layout.destNodeId;
+            int p0 = layout.scenePlacements.Count;
+            int dp0 = layout.sceneDrivePath.Count, xs0 = layout.sceneExtraSegments.Count;
             try
             {
                 chunk = TryAppend(s, seed + attempt);
@@ -105,6 +110,9 @@ public static class StreamingTownGenerator
                 layout.edges.RemoveRange(e0, layout.edges.Count - e0);
                 layout.requests.RemoveRange(r0, layout.requests.Count - r0);
                 layout.trunkNodeIds.RemoveRange(t0, layout.trunkNodeIds.Count - t0);
+                layout.scenePlacements.RemoveRange(p0, layout.scenePlacements.Count - p0);
+                layout.sceneDrivePath.RemoveRange(dp0, layout.sceneDrivePath.Count - dp0);
+                layout.sceneExtraSegments.RemoveRange(xs0, layout.sceneExtraSegments.Count - xs0);
                 layout.destNodeId = d0;
                 chunk = null;
             }
@@ -153,7 +161,10 @@ public static class StreamingTownGenerator
         NodeKind oldDestKind0 = oldDest.kind;
         string   oldDestName0 = oldDest.name;
         oldDest.kind = NodeKind.Stop;
-        if (string.IsNullOrEmpty(oldDest.name) || oldDest.name == "Destination")
+        // Endless-road frontiers are junctions named "Bend N" — once demoted to a
+        // boardable stop they need a stop name, not a bend name.
+        if (string.IsNullOrEmpty(oldDest.name) || oldDest.name == "Destination"
+            || oldDest.name.StartsWith("Bend "))
             oldDest.name = $"Sitio {layout.nodes.Count}";
         chunk.nodes.Add(oldDest);
 
@@ -164,63 +175,112 @@ public static class StreamingTownGenerator
         Vector2 prevPos = layout.Node(layout.trunkNodeIds[oldDestTrunkIdx - 1]).pos;
         Vector2 dir = SnapToCardinal(oldDest.pos - prevPos);
 
-        // Extend the trunk with 2-4 segments; each turn is straight or a single
-        // 90° bend, and every node is snapped to the grid for crisp corners.
-        int bendCount = rng.Next(2, 5);
-        float segLen = 24f + (float)rng.NextDouble() * 12f;
-
+        int placements0 = layout.scenePlacements.Count;
+        int drive0 = layout.sceneDrivePath.Count;
+        int extra0 = layout.sceneExtraSegments.Count;
         TownNode last = oldDest;
         int lastTurn = s.LastTurnSign;
-        Vector2 prevDir = dir;
-        for (int i = 0; i < bendCount; i++)
+        SceneChunkPlan scenePlan = null;
+
+        if (SceneTemplateLibrary.Active)
         {
-            dir = ChooseForwardCardinal(dir, s.ForwardAxis, ref lastTurn, rng);
-            Vector2 nextPos = SnapToGrid(last.pos + dir * segLen, s.CellSize);
+            // Whole-scene geometry: extend by exactly one scene chunk continuing
+            // the road's current direction (it may turn 90° at a painted
+            // crossroad); interior vertices become boardable stops, corners
+            // become junctions, the exit is the streaming frontier.
+            scenePlan = SceneTemplateLibrary.PlanChunk(
+                oldDest.pos, dir, s.ForwardAxis, layout.scenePlacements,
+                forceStraight: false, seed, layout.scenePlacements.Count);
 
-            bool corner   = dir != prevDir;          // a 90° bend (no stop on awkward corners)
-            bool frontier = i == bendCount - 1;       // streaming anchor
-
-            // Straight pass-throughs become boardable stops so the road keeps offering
-            // passengers even with side-streets disabled; corners stay junctions. The
-            // frontier is the streaming anchor: a plain junction (no "Destination" end
-            // sign) on the endless Automation road, or a TerminalEnd for Manual's finish.
-            NodeKind kind;
-            string   name;
-            if (frontier)
+            for (int i = 0; i < scenePlan.vertices.Count; i++)
             {
-                kind = s.EndlessNoTerminal ? NodeKind.Junction : NodeKind.TerminalEnd;
-                name = s.EndlessNoTerminal ? $"Bend {layout.nodes.Count}" : "Destination";
+                Vector2 pos = scenePlan.vertices[i];
+                bool frontier = i == scenePlan.vertices.Count - 1;
+                bool corner = scenePlan.corners[i];
+                var node = new TownNode
+                {
+                    id = layout.nodes.Count,
+                    pos = pos,
+                    kind = frontier ? (s.EndlessNoTerminal ? NodeKind.Junction : NodeKind.TerminalEnd)
+                                    : corner ? NodeKind.Junction : NodeKind.Stop,
+                    name = frontier ? (s.EndlessNoTerminal ? $"Bend {layout.nodes.Count}" : "Destination")
+                                    : corner ? $"Bend {layout.nodes.Count}" : $"Sitio {layout.nodes.Count}",
+                    alongTrunk = last.alongTrunk + Vector2.Distance(last.pos, pos),
+                };
+                layout.nodes.Add(node);
+                layout.trunkNodeIds.Add(node.id);
+                var edge = new TownEdge(last.id, node.id, isTrunk: true);
+                layout.edges.Add(edge);
+                chunk.nodes.Add(node);
+                chunk.edges.Add(edge);
+                chunk.newTrunkNodeIds.Add(node.id);
+                last = node;
             }
-            else if (corner)
+
+            layout.scenePlacements.Add(scenePlan.placement);
+            chunk.scenePlacements.Add(scenePlan.placement);
+            layout.sceneDrivePath.AddRange(scenePlan.drivePath);
+            layout.sceneExtraSegments.AddRange(scenePlan.extraSegments);
+            chunk.sceneExtraSegments.AddRange(scenePlan.extraSegments);
+        }
+        else
+        {
+            // Extend the trunk with 2-4 segments; each turn is straight or a single
+            // 90° bend, and every node is snapped to the grid for crisp corners.
+            int bendCount = rng.Next(2, 5);
+            float segLen = 24f + (float)rng.NextDouble() * 12f;
+
+            Vector2 prevDir = dir;
+            for (int i = 0; i < bendCount; i++)
             {
-                kind = NodeKind.Junction;
-                name = $"Bend {layout.nodes.Count}";
+                dir = ChooseForwardCardinal(dir, s.ForwardAxis, ref lastTurn, rng);
+                Vector2 nextPos = SnapToGrid(last.pos + dir * segLen, s.CellSize);
+
+                bool corner   = dir != prevDir;          // a 90° bend (no stop on awkward corners)
+                bool frontier = i == bendCount - 1;       // streaming anchor
+
+                // Straight pass-throughs become boardable stops so the road keeps offering
+                // passengers even with side-streets disabled; corners stay junctions. The
+                // frontier is the streaming anchor: a plain junction (no "Destination" end
+                // sign) on the endless Automation road, or a TerminalEnd for Manual's finish.
+                NodeKind kind;
+                string   name;
+                if (frontier)
+                {
+                    kind = s.EndlessNoTerminal ? NodeKind.Junction : NodeKind.TerminalEnd;
+                    name = s.EndlessNoTerminal ? $"Bend {layout.nodes.Count}" : "Destination";
+                }
+                else if (corner)
+                {
+                    kind = NodeKind.Junction;
+                    name = $"Bend {layout.nodes.Count}";
+                }
+                else
+                {
+                    kind = NodeKind.Stop;
+                    name = $"Sitio {layout.nodes.Count}";
+                }
+
+                var node = new TownNode
+                {
+                    id = layout.nodes.Count,
+                    pos = nextPos,
+                    kind = kind,
+                    name = name,
+                    alongTrunk = last.alongTrunk + segLen,
+                };
+                prevDir = dir;
+
+                layout.nodes.Add(node);
+                layout.trunkNodeIds.Add(node.id);
+                var edge = new TownEdge(last.id, node.id, isTrunk: true);
+                layout.edges.Add(edge);
+                chunk.nodes.Add(node);
+                chunk.edges.Add(edge);
+                chunk.newTrunkNodeIds.Add(node.id);
+
+                last = node;
             }
-            else
-            {
-                kind = NodeKind.Stop;
-                name = $"Sitio {layout.nodes.Count}";
-            }
-
-            var node = new TownNode
-            {
-                id = layout.nodes.Count,
-                pos = nextPos,
-                kind = kind,
-                name = name,
-                alongTrunk = last.alongTrunk + segLen,
-            };
-            prevDir = dir;
-
-            layout.nodes.Add(node);
-            layout.trunkNodeIds.Add(node.id);
-            var edge = new TownEdge(last.id, node.id, isTrunk: true);
-            layout.edges.Add(edge);
-            chunk.nodes.Add(node);
-            chunk.edges.Add(edge);
-            chunk.newTrunkNodeIds.Add(node.id);
-
-            last = node;
         }
 
         layout.destNodeId = last.id;
@@ -239,7 +299,40 @@ public static class StreamingTownGenerator
         if (branchRoots.Count > 0) branchRoots.RemoveAt(branchRoots.Count - 1);
         TownLayoutGeneratorShuffle(branchRoots, rng);
 
-        foreach (int rootId in branchRoots)
+        if (scenePlan != null)
+        {
+            // Scene-template mode: the only legal side-streets are the ones
+            // painted into the chunk art.
+            foreach (SceneArm arm in scenePlan.arms)
+            {
+                if (madeBranches >= wantBranches) break;
+
+                int rootId = -1;
+                float best = 1.5f;
+                foreach (int id in chunk.newTrunkNodeIds)
+                {
+                    float d = Vector2.Distance(layout.Node(id).pos, arm.root);
+                    if (d < best) { best = d; rootId = id; }
+                }
+                if (rootId < 0 || layout.Node(rootId).kind == NodeKind.TerminalEnd) continue;
+
+                var stop = new TownNode
+                {
+                    id = layout.nodes.Count,
+                    pos = arm.tip,
+                    kind = NodeKind.Stop,
+                    name = $"Sitio {layout.nodes.Count}",
+                    alongTrunk = layout.Node(rootId).alongTrunk,
+                };
+                layout.nodes.Add(stop);
+                var branchEdge = new TownEdge(rootId, stop.id, isTrunk: false);
+                layout.edges.Add(branchEdge);
+                chunk.nodes.Add(stop);
+                chunk.edges.Add(branchEdge);
+                madeBranches++;
+            }
+        }
+        else foreach (int rootId in branchRoots)
         {
             if (madeBranches >= wantBranches) break;
             TownNode root = layout.Node(rootId);
@@ -317,6 +410,9 @@ public static class StreamingTownGenerator
             layout.edges.RemoveRange(edgeCount0, layout.edges.Count - edgeCount0);
             layout.requests.RemoveRange(reqCount0, layout.requests.Count - reqCount0);
             layout.trunkNodeIds.RemoveRange(trunkCount0, layout.trunkNodeIds.Count - trunkCount0);
+            layout.scenePlacements.RemoveRange(placements0, layout.scenePlacements.Count - placements0);
+            layout.sceneDrivePath.RemoveRange(drive0, layout.sceneDrivePath.Count - drive0);
+            layout.sceneExtraSegments.RemoveRange(extra0, layout.sceneExtraSegments.Count - extra0);
             layout.destNodeId = destId0;
             oldDest.kind = oldDestKind0;
             oldDest.name = oldDestName0;
@@ -344,15 +440,34 @@ public static class StreamingTownGenerator
         // may be a lateral turn) so the fallback always makes forward progress.
         Vector2 dir = s.ForwardAxis.sqrMagnitude > 0.01f ? s.ForwardAxis : Vector2.up;
 
+        // Scene-template mode still lays a whole scene chunk so the endless
+        // background never has a bare stretch of road.
+        float step = 30f;
+        Vector2 frontierPos = SnapToGrid(oldDest.pos + dir * step, s.CellSize);
+        if (SceneTemplateLibrary.Active)
+        {
+            SceneChunkPlan plan = SceneTemplateLibrary.PlanChunk(
+                oldDest.pos, dir, s.ForwardAxis, layout.scenePlacements,
+                forceStraight: true, CombineSeed(s.BaseSeed, s.NextChunkIndex) ^ 0x5f5f,
+                layout.scenePlacements.Count);
+            frontierPos = plan.exit;
+            step = Vector2.Distance(oldDest.pos, plan.exit);
+            layout.scenePlacements.Add(plan.placement);
+            chunk.scenePlacements.Add(plan.placement);
+            layout.sceneDrivePath.AddRange(plan.drivePath);
+            layout.sceneExtraSegments.AddRange(plan.extraSegments);
+            chunk.sceneExtraSegments.AddRange(plan.extraSegments);
+        }
+
         var node = new TownNode
         {
             id = layout.nodes.Count,
-            pos = SnapToGrid(oldDest.pos + dir * 30f, s.CellSize),
+            pos = frontierPos,
             // Honor the endless flag: a plain junction frontier (no "Destination" end sign) so a
             // fallback chunk never plants a visible terminal on the never-ending road.
             kind = s.EndlessNoTerminal ? NodeKind.Junction : NodeKind.TerminalEnd,
             name = s.EndlessNoTerminal ? $"Bend {layout.nodes.Count}" : "Destination",
-            alongTrunk = oldDest.alongTrunk + 30f,
+            alongTrunk = oldDest.alongTrunk + step,
         };
         layout.nodes.Add(node);
         layout.trunkNodeIds.Add(node.id);
@@ -475,4 +590,6 @@ public class TownChunk
     public readonly List<TownEdge>        edges        = new List<TownEdge>();
     public readonly List<PassengerRequest> requests     = new List<PassengerRequest>();
     public readonly List<int>             newTrunkNodeIds = new List<int>();
+    public readonly List<ScenePlacement>  scenePlacements = new List<ScenePlacement>();
+    public readonly List<RoadSegment>     sceneExtraSegments = new List<RoadSegment>();
 }

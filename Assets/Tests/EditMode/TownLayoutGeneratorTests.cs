@@ -65,26 +65,41 @@ public class TownLayoutGeneratorTests
     [Test]
     public void Anchors_AreImmovableAcrossSeeds()
     {
+        // In scene-template worlds the road is wherever the scene art painted
+        // it, so anchors bind to the road rather than authored coordinates. The
+        // contract: every anchor exists, keeps its kind, keeps its story ORDER
+        // along the trunk, and lands at the SAME position for every seed
+        // (the initial chain is seed-independent by design).
+        string[] names = { "Molo Boundary", "Batiano River", "Poblacion", "Oton Market" };
+        NodeKind[] kinds = { NodeKind.TerminalStart, NodeKind.NpcDrop,
+                             NodeKind.HeritageSite, NodeKind.TerminalEnd };
+
+        Vector2[] reference = null;
         for (int seed = 0; seed < 30; seed++)
         {
             TownLayout layout = Gen(seed);
+            var positions = new Vector2[names.Length];
+            float prevAlong = float.NegativeInfinity;
+            for (int i = 0; i < names.Length; i++)
+            {
+                TownNode node = layout.nodes.Find(n => n.name == names[i]);
+                Assert.IsNotNull(node, $"anchor '{names[i]}' must exist (seed {seed})");
+                Assert.AreEqual(kinds[i], node.kind, $"anchor '{names[i]}' keeps its kind");
+                Assert.GreaterOrEqual(node.alongTrunk, prevAlong,
+                    $"anchor '{names[i]}' must keep its story order along the trunk");
+                prevAlong = node.alongTrunk;
+                positions[i] = node.pos;
+            }
 
-            AssertAnchor(layout, "Molo Boundary", new Vector2(0f, 0f),   NodeKind.TerminalStart);
-            AssertAnchor(layout, "Batiano River", new Vector2(0f, 30f),  NodeKind.NpcDrop);
-            AssertAnchor(layout, "Poblacion",     new Vector2(18f, 72f), NodeKind.HeritageSite);
-            AssertAnchor(layout, "Oton Market",   new Vector2(6f, 114f), NodeKind.TerminalEnd);
+            if (reference == null) reference = positions;
+            else
+                for (int i = 0; i < names.Length; i++)
+                    Assert.AreEqual(reference[i], positions[i],
+                        $"anchor '{names[i]}' must not move across seeds (seed {seed})");
 
             Assert.AreEqual(NodeKind.TerminalStart, layout.Node(layout.startNodeId).kind);
             Assert.AreEqual(NodeKind.TerminalEnd,   layout.Node(layout.destNodeId).kind);
         }
-    }
-
-    static void AssertAnchor(TownLayout layout, string name, Vector2 pos, NodeKind kind)
-    {
-        TownNode node = layout.nodes.Find(n => n.name == name);
-        Assert.IsNotNull(node, $"anchor '{name}' must exist");
-        Assert.AreEqual(pos, node.pos, $"anchor '{name}' must not move");
-        Assert.AreEqual(kind, node.kind, $"anchor '{name}' keeps its kind");
     }
 
     // -------------------------------------------------------------------------

@@ -184,9 +184,7 @@ public class AutomationDriveController : MonoBehaviour
             _level = LevelLibrary.Get(0);
         }
         _def = _level.auto;
-        _interruptionScheduler = new DriveInterruptionScheduler(
-            5000 + _levelIndex,
-            _levelIndex == 0 ? 0 : DriveInterruptionScheduler.GuaranteedRepairCount);
+        _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
 
         // Procedural town: build the automation grid + rides from a generated
         // layout so the self-driving agent has real passengers to tend. The
@@ -288,7 +286,7 @@ public class AutomationDriveController : MonoBehaviour
             if (worldCamera != null)
             {
                 worldCamera.rect = new Rect(0f, 0f, 1f, 1f);
-                worldCamera.orthographicSize = 12f;
+                worldCamera.orthographicSize = SceneTemplateLibrary.RecommendedCameraOrthoSize;
             }
         }
         else
@@ -1051,8 +1049,20 @@ public class AutomationDriveController : MonoBehaviour
 
         var sr = go.GetComponent<SpriteRenderer>();
         if (sr == null) sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite       = Resources.Load<Sprite>("Placeholders/grass_tile");
-        sr.drawMode     = SpriteDrawMode.Simple;
+        // The scene-art grass is textured and must tile; the flat placeholder
+        // can simply stretch. Either way the sprite stays camera-sized (see
+        // UpdateProceduralGroundPosition), never layout-sized.
+        Sprite artGrass = SceneChunkVisualBuilder.GroundSprite();
+        if (artGrass != null)
+        {
+            sr.sprite   = artGrass;
+            sr.drawMode = SpriteDrawMode.Tiled;
+        }
+        else
+        {
+            sr.sprite   = Resources.Load<Sprite>("Placeholders/grass_tile");
+            sr.drawMode = SpriteDrawMode.Simple;
+        }
         sr.sortingOrder = -100;
 
         UpdateProceduralGroundPosition();
@@ -1067,14 +1077,30 @@ public class AutomationDriveController : MonoBehaviour
         Vector3 center = topDownAgentView != null
             ? topDownAgentView.transform.position
             : worldCamera != null ? worldCamera.transform.position : Vector3.zero;
-        ground.position = new Vector3(center.x, center.y, 0f);
 
         SpriteRenderer sr = ground.GetComponent<SpriteRenderer>();
-        if (sr == null || sr.sprite == null) return;
+        if (sr == null || sr.sprite == null)
+        {
+            ground.position = new Vector3(center.x, center.y, 0f);
+            return;
+        }
+
+        // Re-center in whole-tile steps so the tiled grass stays anchored to
+        // the world instead of visibly riding along with the camera.
+        Vector2 tile = sr.sprite.bounds.size;
+        ground.position = new Vector3(
+            Mathf.Round(center.x / Mathf.Max(tile.x, 0.01f)) * tile.x,
+            Mathf.Round(center.y / Mathf.Max(tile.y, 0.01f)) * tile.y, 0f);
 
         float height = worldCamera != null ? worldCamera.orthographicSize * 2f : 48f;
         float width = worldCamera != null ? height * Mathf.Max(1f, worldCamera.aspect) : 80f;
         float size = Mathf.Max(width, height) + 120f;
+        if (sr.drawMode == SpriteDrawMode.Tiled)
+        {
+            ground.localScale = Vector3.one;
+            sr.size = new Vector2(size, size);
+            return;
+        }
         Vector2 spriteSize = sr.sprite.bounds.size;
         float sx = spriteSize.x > 0.01f ? size / spriteSize.x : size;
         float sy = spriteSize.y > 0.01f ? size / spriteSize.y : size;
@@ -1090,12 +1116,9 @@ public class AutomationDriveController : MonoBehaviour
     void AutoFuelTick()
     {
         if (_autoBreakdownActive) return;
-        if (_levelIndex == 0) return;
         if (refuelMinigame == null && mazeRepairMinigame == null) return;
         if (_interruptionScheduler == null)
-            _interruptionScheduler = new DriveInterruptionScheduler(
-                5000 + _levelIndex,
-                _levelIndex == 0 ? 0 : DriveInterruptionScheduler.GuaranteedRepairCount);
+            _interruptionScheduler = new DriveInterruptionScheduler(5000 + _levelIndex);
 
         // One movement step represents baseStepSeconds of simulated driving, so the
         // drain is scaled to match Manual Mode's per-second rate regardless of the

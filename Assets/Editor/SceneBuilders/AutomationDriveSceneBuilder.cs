@@ -16,8 +16,9 @@ public static class AutomationDriveSceneBuilder
 
         // --- World (full-screen top-down; iso fallback still present) ---------------
 
-        Camera worldCam = SceneBuilderUtil.CreateCamera2D("World Camera",
-                                                          new Color(0.13f, 0.22f, 0.14f), 5f);
+        Camera worldCam = SceneBuilderUtil.CreateCamera2D(
+            "World Camera", new Color(0.13f, 0.22f, 0.14f),
+            SceneTemplateLibrary.RecommendedCameraOrthoSize);
         var cameraFollow = worldCam.gameObject.AddComponent<CameraFollow2D>();
         SceneBuilderUtil.CreateGlobalLight2D();
         SceneBuilderUtil.CreateEventSystem();

@@ -41,13 +41,45 @@ public static class TownLayoutGenerator
         var layout = new TownLayout { seed = seed };
 
         TownGenParams gen = def.gen ?? new TownGenParams();
-        Vector2[] trunk = OrthogonalizeAndSnap(def.trunk, gen.gridCellSize);
+
+        // Geometry source: the whole-scene background templates when present
+        // (the road follows the roads painted in the scene art), otherwise the
+        // authored trunk. Everything downstream — stop seeding, rides, fares,
+        // validation — is identical for both.
+        Vector2[] trunk;
+        List<SceneArm> sceneArms = null;
+        AnchorNode[] anchors = def.anchors;
+        if (SceneTemplateLibrary.Active)
+        {
+            Vector2[] authored = OrthogonalizeAndSnap(def.trunk, gen.gridCellSize);
+            Vector2 heading = CardinalHeading(authored);
+            float targetLen = PolylineLength(authored);
+
+            var verts = new List<Vector2> { authored[0] };
+            sceneArms = new List<SceneArm>();
+            layout.sceneDrivePath.Add(authored[0]);
+            foreach (SceneChunkPlan p in SceneTemplateLibrary.PlanInitial(
+                         authored[0], heading, targetLen, seed))
+            {
+                verts.AddRange(p.vertices);
+                sceneArms.AddRange(p.arms);
+                layout.scenePlacements.Add(p.placement);
+                layout.sceneDrivePath.AddRange(p.drivePath);
+                layout.sceneExtraSegments.AddRange(p.extraSegments);
+            }
+            trunk = verts.ToArray();
+            anchors = SceneTemplateLibrary.RemapAnchors(def.anchors, authored, trunk);
+        }
+        else
+        {
+            trunk = OrthogonalizeAndSnap(def.trunk, gen.gridCellSize);
+        }
 
         // 1. Trunk nodes (anchors annotate matching vertices; the rest are bends).
         int stopNameCursor = 1;
         for (int i = 0; i < trunk.Length; i++)
         {
-            AnchorNode anchor = MatchAnchor(def.anchors, trunk[i]);
+            AnchorNode anchor = MatchAnchor(anchors, trunk[i]);
             var node = new TownNode { id = layout.nodes.Count, pos = trunk[i] };
 
             if (anchor != null)
@@ -99,9 +131,16 @@ public static class TownLayoutGenerator
         layout.startNodeId = FindKind(layout, NodeKind.TerminalStart, layout.trunkNodeIds[0]);
         layout.destNodeId  = FindKind(layout, NodeKind.TerminalEnd, layout.trunkNodeIds[layout.trunkNodeIds.Count - 1]);
 
-        // 3. Branch side-streets (skipped for the trunk-only fallback).
+        // 3. Branch side-streets (skipped for the trunk-only fallback). With
+        // scene templates the only legal branches are the side-streets painted
+        // into the art; otherwise the classic random perpendicular stubs.
         if (!trunkOnly)
-            GrowBranches(layout, gen, rng, ref stopNameCursor);
+        {
+            if (sceneArms != null)
+                GrowSceneBranches(layout, gen, sceneArms, rng, ref stopNameCursor);
+            else
+                GrowBranches(layout, gen, rng, ref stopNameCursor);
+        }
 
         // 4. Commit ordinary-passenger rides.
         BuildRequests(layout, gen, fares, rng);
@@ -181,6 +220,68 @@ public static class TownLayoutGenerator
             usedAlong.Add(root.alongTrunk);
             made++;
         }
+    }
+
+    /// <summary>
+    /// Hangs branch stops on the side-streets painted into the scene templates:
+    /// each arm's root must coincide with a trunk vertex (the planner puts one
+    /// there); the tip becomes the branch stop, on the painted road.
+    /// </summary>
+    static void GrowSceneBranches(TownLayout layout, TownGenParams gen, List<SceneArm> arms,
+                                  System.Random rng, ref int stopNameCursor)
+    {
+        int want = RandRange(rng, gen.branchCountMin, gen.branchCountMax);
+        if (want <= 0 || arms.Count == 0) return;
+
+        var usedAlong = new List<float>();
+        int made = 0;
+        foreach (SceneArm arm in arms)
+        {
+            if (made >= want) break;
+
+            int rootId = -1;
+            float best = 1.5f;
+            foreach (int id in layout.trunkNodeIds)
+            {
+                float d = Vector2.Distance(layout.Node(id).pos, arm.root);
+                if (d < best) { best = d; rootId = id; }
+            }
+            if (rootId < 0) continue;
+
+            TownNode root = layout.Node(rootId);
+            if (root.kind == NodeKind.TerminalStart || root.kind == NodeKind.TerminalEnd) continue;
+            if (TooClose(usedAlong, root.alongTrunk, gen.branchSpacing)) continue;
+
+            var stop = new TownNode
+            {
+                id         = layout.nodes.Count,
+                pos        = arm.tip,
+                kind       = NodeKind.Stop,
+                name       = $"Sitio {stopNameCursor++}",
+                alongTrunk = root.alongTrunk,
+            };
+            layout.nodes.Add(stop);
+            layout.edges.Add(new TownEdge(rootId, stop.id, isTrunk: false));
+            usedAlong.Add(root.alongTrunk);
+            made++;
+        }
+    }
+
+    /// <summary>The polyline's dominant heading snapped to a cardinal.</summary>
+    static Vector2 CardinalHeading(Vector2[] pts)
+    {
+        Vector2 d = pts.Length >= 2 ? pts[pts.Length - 1] - pts[0] : Vector2.up;
+        if (d.sqrMagnitude < 0.0001f) return Vector2.up;
+        return Mathf.Abs(d.x) >= Mathf.Abs(d.y)
+            ? new Vector2(Mathf.Sign(d.x), 0f)
+            : new Vector2(0f, Mathf.Sign(d.y));
+    }
+
+    static float PolylineLength(Vector2[] pts)
+    {
+        float len = 0f;
+        for (int i = 1; i < pts.Length; i++) len += Vector2.Distance(pts[i - 1], pts[i]);
+        return len;
     }
 
     // -------------------------------------------------------------------------
