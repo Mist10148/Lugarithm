@@ -13,11 +13,17 @@ public class CameraFollow2D : MonoBehaviour
     [SerializeField] private float smoothTime = 0.32f;
     [SerializeField] private float velocityLead = 0.28f;
 
+    [Header("Bounds")]
+    [SerializeField] private bool useBounds = false;
+    [SerializeField] private Vector2 minBounds;
+    [SerializeField] private Vector2 maxBounds;
+
     [Tooltip("Logical physics body used for velocity-lead.")]
     [SerializeField] private Rigidbody2D leadBody;
 
     private Vector3 _velocity;
     private Rigidbody2D _targetBody;
+    private Camera _cam;
 
     // -------------------------------------------------------------------------
 
@@ -25,6 +31,7 @@ public class CameraFollow2D : MonoBehaviour
     {
         if (target != null)
             _targetBody = target.GetComponent<Rigidbody2D>();
+        _cam = GetComponent<Camera>();
     }
 
     void LateUpdate()
@@ -38,6 +45,15 @@ public class CameraFollow2D : MonoBehaviour
             lead = (Vector3)(_targetBody.linearVelocity * velocityLead);
 
         Vector3 goal = target.position + lead;
+
+        if (useBounds && _cam != null)
+        {
+            float camHeight = _cam.orthographicSize;
+            float camWidth = camHeight * _cam.aspect;
+            goal.x = Mathf.Clamp(goal.x, minBounds.x + camWidth, maxBounds.x - camWidth);
+            goal.y = Mathf.Clamp(goal.y, minBounds.y + camHeight, maxBounds.y - camHeight);
+        }
+
         goal.z = transform.position.z;
 
         transform.position = Vector3.SmoothDamp(transform.position, goal, ref _velocity, smoothTime);
