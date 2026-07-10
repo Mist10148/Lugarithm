@@ -525,6 +525,13 @@ public class TopDownLevelController : MonoBehaviour
     {
         if (cameraFollow != null && playerController != null)
         {
+            // Clamp the camera to this level's map extents (the scene is shared
+            // across levels of differing sizes, so bounds are set per-load, not
+            // baked). The map spans world (0,0)–(width,height).
+            if (_mapData != null)
+                cameraFollow.SetBounds(Vector2.zero,
+                                       new Vector2(_mapData.width, _mapData.height));
+
             cameraFollow.SnapTo(playerController.transform);
         }
     }

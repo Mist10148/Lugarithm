@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEditor;
 
 /// <summary>
 /// Builds Bootstrap.unity — the first-loaded scene. Hosts the persistent
@@ -20,6 +21,16 @@ public static class BootstrapSceneBuilder
         new GameObject("GameManager").AddComponent<GameManager>();
         new GameObject("SettingsManager").AddComponent<SettingsManager>();
         new GameObject("LocalizationManager").AddComponent<LocalizationManager>();
+
+        // Background music (seamless loop, volume driven by the Music setting).
+        var audioGo = new GameObject("AudioManager");
+        var audioMgr = audioGo.AddComponent<AudioManager>();
+        var musicSource = audioGo.AddComponent<AudioSource>();
+        musicSource.loop = true;
+        musicSource.playOnAwake = false;
+        musicSource.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+            "Assets/Audio/Music/bgmusic/Lakbay_Pamana_Seamless_Loop.mp3");
+        SceneBuilderUtil.Wire(audioMgr, "musicSource", musicSource);
 
         var transitionGo = new GameObject("SceneTransition");
         var transition = transitionGo.AddComponent<SceneTransitionManager>();

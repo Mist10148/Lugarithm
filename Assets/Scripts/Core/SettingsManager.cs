@@ -147,9 +147,15 @@ public class SettingsManager : MonoBehaviour
             audioMixer.SetFloat(musicVolumeParam, LinearToDb(S.musicVolume));
             audioMixer.SetFloat(sfxVolumeParam,   LinearToDb(S.sfxVolume));
         }
+        else if (AudioManager.Instance != null)
+        {
+            // Route music through the dedicated BGM source so it acts independently
+            // of SFX (unlike the global AudioListener stopgap below).
+            AudioManager.Instance.SetMusicVolume(S.musicVolume);
+        }
         else
         {
-            // First-pass fallback until an AudioMixer is wired up.
+            // Last-ditch fallback until an AudioMixer or AudioManager exists.
             AudioListener.volume = S.musicVolume;
         }
     }
