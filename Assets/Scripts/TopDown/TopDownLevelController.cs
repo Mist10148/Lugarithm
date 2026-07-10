@@ -65,6 +65,7 @@ public class TopDownLevelController : MonoBehaviour
     [SerializeField] private Sprite npcSprite;
     [SerializeField] private Sprite interactionIndicatorSprite;
     [SerializeField] private Sprite artifactSprite;
+    [SerializeField] private AudioClip artifactProximityClip;
 
     // -------------------------------------------------------------------------
     // State
@@ -766,6 +767,11 @@ public class TopDownLevelController : MonoBehaviour
             renderer.sortingOrder = 10;
             renderer.enabled = false;
         }
+
+        var proximityAudio = root.AddComponent<ArtifactProximityAudio>();
+        proximityAudio.Configure(
+            playerController != null ? playerController.transform : null,
+            artifactProximityClip);
 
         trigger.OnInteracted += HandleInteraction;
         trigger.OnPlayerEntered += HandlePlayerEntered;
