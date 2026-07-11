@@ -192,6 +192,44 @@ public static class TopDownSceneBuilder
         artifactCheck.gameObject.SetActive(false);
         artifactStatus.gameObject.SetActive(false);
 
+        // Optional artifact tracker. It stays hidden until all five side objectives
+        // and the main objective are complete, then reads X until the pickup is found.
+        var artifactStatus = UIFactory.CreatePanel(canvas.transform, "ArtifactStatus",
+                                                    new Vector2(1f, 1f), new Vector2(1f, 1f),
+                                                    UIFactory.TutorialPlum);
+        UIFactory.Place(artifactStatus, new Vector2(1f, 1f), new Vector2(-18f, -74f),
+                        new Vector2(300f, 48f));
+        artifactStatus.GetComponent<Image>().raycastTarget = false;
+
+        var artifactCaption = UIFactory.CreateLocalizedText(
+            artifactStatus, "ArtifactCaption", "hud.artifactfound", 19f,
+            UIFactory.TutorialCream, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(artifactCaption, new Vector2(0f, 0.5f), new Vector2(14f, 0f),
+                        new Vector2(235f, 36f));
+
+        var artifactMark = UIFactory.CreateText(
+            artifactStatus, "ArtifactMark", "X", 25f,
+            UIFactory.TutorialGold, TextAlignmentOptions.Center);
+        artifactMark.fontStyle = FontStyles.Bold;
+        UIFactory.Place(artifactMark, new Vector2(1f, 0.5f), new Vector2(-14f, 0f),
+                        new Vector2(42f, 36f));
+
+        // The pixel font has no check glyph, so draw a crisp check from two bars.
+        var artifactCheck = UIFactory.CreateFixedRect(
+            artifactStatus, "ArtifactCheck", new Vector2(1f, 0.5f),
+            new Vector2(-14f, 0f), new Vector2(42f, 36f));
+        var checkShort = UIFactory.CreateFixedRect(
+            artifactCheck, "ShortStroke", new Vector2(0.5f, 0.5f),
+            new Vector2(-6f, -3f), new Vector2(15f, 5f));
+        UIFactory.AddImage(checkShort, UIFactory.TutorialGold).raycastTarget = false;
+        checkShort.localEulerAngles = new Vector3(0f, 0f, -45f);
+        var checkLong = UIFactory.CreateFixedRect(
+            artifactCheck, "LongStroke", new Vector2(0.5f, 0.5f),
+            new Vector2(5f, 1f), new Vector2(25f, 5f));
+        UIFactory.AddImage(checkLong, UIFactory.TutorialGold).raycastTarget = false;
+        checkLong.localEulerAngles = new Vector3(0f, 0f, 45f);
+        artifactCheck.gameObject.SetActive(false);
+
         // Controls hint (bottom-left)
         var hintBackdrop = UIFactory.CreatePanel(canvas.transform, "HintBackdrop",
                                                  new Vector2(0f, 0f), new Vector2(0f, 0f),
@@ -315,6 +353,10 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.Wire(controller, "npcSprite",          SceneBuilderUtil.LoadPlaceholder("td_npc"));
         SceneBuilderUtil.Wire(controller, "interactionIndicatorSprite",
                                SceneBuilderUtil.LoadPlaceholder("td_interaction"));
+        SceneBuilderUtil.Wire(controller, "artifactSprite", SproutLandsUiLibrary.MenuIconBook);
+        SceneBuilderUtil.Wire(controller, "artifactProximityClip",
+            AssetDatabase.LoadAssetAtPath<AudioClip>(
+                "Assets/Audio/SFX/audio cue/Cultural_Heritage_Artifact_Beat_Loop.wav"));
         SceneBuilderUtil.Wire(controller, "puzzleStationSprite",
                                SceneBuilderUtil.LoadPlaceholder("td_puzzle"));
         SceneBuilderUtil.Wire(controller, "codeStationSprite",
@@ -322,6 +364,8 @@ public static class TopDownSceneBuilder
 
         // Wire the body sprite on the player controller
         SceneBuilderUtil.Wire(player, "bodySprite", bodySr);
+
+        artifactStatus.gameObject.SetActive(false);
 
         // --- Save -------------------------------------------------------------------
 

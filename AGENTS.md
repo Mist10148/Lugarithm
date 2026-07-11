@@ -84,7 +84,12 @@ All go through `GeminiClient`; all have deterministic authored fallbacks; all ar
 4. **Co-Pilot / Vibe-Coding** (`CopilotHintService`, `VibeCodingService`, `VibeIntentRouter`) —
    tiered hints + Ask/Plan/Agent/Refactor; generated programs are validated and must solve the
    puzzle before they touch the editor.
-5. **Context-Aware procedural placement** of collectibles by skill/playstyle.
+5. **Ghost-text completion** (`GhostTextController`) — Copilot-style inline next-line suggestion in
+   the Code editor (Tab to accept); debounced/cached; disabled in block mode.
+
+> The secret Artifact's placement (`OverworldArtifactPlacement`) and its Cultural Echo proximity
+> audio (`ArtifactProximityAudio`) are **deterministic C#, not a Gemini system**; skill-adaptive
+> placement is a future idea, not implemented.
 
 Never hardcode keys, provider URLs, or prompts-with-secrets in scripts. New AI work →
 append `docs/AI_DISCLOSURE.md`.

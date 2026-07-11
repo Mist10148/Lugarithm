@@ -29,7 +29,7 @@ Team **Cyfer** • Region VI – Western Visayas
 8. The Para Language (Play-by-Coding)
 9. Heritage, Towns & the Journal
 10. AI Integration & Disclosure
-11. Progression & Gacha
+11. Progression & Rewards
 12. Technical Overview
 13. Current Build Status
 14. Ethics, Copyright & Cultural Responsibility
@@ -141,10 +141,18 @@ Each leg of the journey runs the same shape, in either mode:
 4. **Deliver & reveal.** Drop the passenger at the destination *and* finish their conversation →
    a **heritage reveal** plays inline → a **completion card** → a **results** screen with your score
    and earnings.
-5. **Recover & grow.** A **journal page** is recovered. Spend earned currency on **gacha** heritage
-   cosmetics; replay towns for higher scores and more pulls.
+5. **Recover & grow.** A **journal page** is recovered and a per-town **badge** is earned; earnings
+   are banked to your wallet. Replay towns for higher scores (Section 11).
 
 The leg-completion gate is the same in both modes: **passenger delivered + conversation finished**.
+
+**Optional — the secret Artifact hunt (100% completion).** A town hub has one main coding objective
+(which gates leaving) plus optional side objectives. Clear **every** objective — the main coding
+quest *and* all side objectives — and a hidden **heritage Artifact** spawns somewhere in the town,
+at a different randomized reachable spot each time. You find it by ear: a **Cultural Echo** ambient
+cue plays from the artifact and **strengthens as you get closer** (silent from far away, swelling to
+full as you're nearly on top of it), guiding you in. Walking up and pressing **E** collects it. It's
+a pure completionist reward layered on top of the required progression.
 
 ---
 
@@ -245,7 +253,7 @@ timeouts/token budgets, and grounding in authored, sourced content:
 | **Heritage Oracle (Almanac)** | RAG chatbot that answers only from **unlocked** journal pages, cites records, and refuses spoilers for unvisited towns. |
 | **Coding Mentor** | After each puzzle, shows the player's solution beside an authored optimal one with plain explanations of why it's better. |
 | **Co-Pilot / Vibe-Coding** | Tiered, spoiler-free hints; and Ask / Plan / Agent / Refactor modes — Agent compiles plain-language intent into validated, puzzle-solving code. |
-| **Context-Aware placement** | Places heritage collectibles by player skill/playstyle (near the path when struggling, deeper for completionists). |
+| **Ghost-text completion** | Copilot-style inline next-line suggestion in the Code editor after a typing pause; **Tab** to accept. Tiny debounced requests, cached, disabled in block mode. |
 
 Keys live only in the local, git-ignored root `.env` (synced to a generated `ai_config.json`); no
 secret is committed.
@@ -259,14 +267,22 @@ secret is committed.
 
 ---
 
-## 11. Progression & Gacha
+## 11. Progression & Rewards
 
-- **Currency** is earned by completing legs efficiently, solving town puzzles, and learning the
-  history accurately. The Code editor carries a small scoring multiplier over blocks.
-- **Gacha pulls** unlock heritage-themed rewards — per-town **badges** and **jeepney cosmetics**
-  (Molo floral panels, Oton anchor decal, Tigbauan coral-stone trim, Miag-ao golden-sandstone paint,
-  San Joaquin battle-scene mural), plus performance upgrades and new vehicles.
-- Replay any town to improve your score and earn more pulls.
+- **Currency (a peso `₱` wallet)** is earned by completing legs efficiently, solving town puzzles,
+  and learning the history accurately; it's banked to the save on town completion and spent on
+  refuels/repairs. Underfunded refuels create **debt** that is paid down from later earnings. The
+  Code editor carries a small scoring multiplier over blocks.
+- **Badges** — a per-town badge is awarded on completion (with an unlock overlay), recorded in the
+  save.
+- **Unlockable code editor themes** — earned cosmetics that reskin the text editor's syntax
+  highlighting.
+- **Best scores** are tracked per town; **replay** any town to improve your score.
+
+> **Future / aspirational.** The original design imagined a **gacha** layer spending currency on
+> heritage-themed cosmetics (jeepney paint per town, performance upgrades, new vehicles). That
+> economy is **not implemented** in the current build — the shipped rewards are the wallet, badges,
+> and code themes above. Gacha remains a possible future extension, not a current feature.
 
 ---
 
@@ -293,8 +309,10 @@ secret is committed.
 **Implemented:** both play modes end-to-end (Manual real-time driving with passengers/fares/breakdowns;
 Automation with the Para block + code editors, stepping execution, and autopilot); the shared dressed,
 streaming procedural town; the Para language including user-defined functions; the five Gemini AI
-systems with authored fallbacks; the journal/Almanac; sectioned settings and English/Filipino UI;
-gacha/badges; local save.
+systems with authored fallbacks; the journal/Almanac; the top-down town hub with objectives and the
+optional secret **Artifact hunt** (randomized placement + the Cultural Echo proximity-audio cue,
+both unit-tested); sectioned settings and English/Filipino UI; the **currency wallet, per-town
+badges, and unlockable code themes**; local save.
 
 **Recent (this pass):** Automation pre-grows the procedural town so the dressed street is present from
 the first frame; the autopilot/reference solution is restructured into user-defined functions and the

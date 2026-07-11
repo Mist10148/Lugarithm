@@ -7,10 +7,12 @@ replace source inspection.
 - Authority: [`AGENTS.md`](../AGENTS.md) → [`README.md`](../README.md) (GDD) →
   [`docs/PRD.md`](PRD.md) (requirements) → [`docs/PHASE_TASKS.md`](PHASE_TASKS.md) (build order).
   Treat running code as truth for what exists; if code and docs disagree, report it.
-- Snapshot context: 2026-06-27. Recent change — **Automation↔Manual convergence (partial):** the
+- Snapshot context: 2026-07-11. Recent changes — **Automation↔Manual convergence (partial):** the
   procedural town is pre-grown at start so the dressed street is present from frame 1; autopilot and
-  the reference solution are now user-defined functions; the completion card matches Manual. Known
-  remaining gaps are listed under "Verified state" and "Follow-ups".
+  the reference solution are now user-defined functions; the completion card matches Manual. Also the
+  top-down town's optional secret **Artifact hunt** (randomized placement + **Cultural Echo**
+  proximity audio) is implemented and unit-tested. Known remaining gaps are under "Verified state" /
+  "Follow-ups".
 
 ## Game Identity
 
@@ -25,9 +27,9 @@ replace source inspection.
 - **Genre/audience:** Cozy narrative adventure + coding puzzle, for ages ~10–16 and up.
 - **Engine:** Unity 2D (isometric authored puzzles + top-down procedural towns), C#, no namespaces,
   manager singletons, editor-generated scenes.
-- **Levels:** Tutorial → Iloilo City/Molo (conditionals) → Oton (lists/indexing) → Tigbauan
-  (functions + loops) → Miag-ao (nested conditionals) → San Joaquin (multi-variable constraints).
-  Guimbal is a scenic drive-through, not a puzzle town in v1.
+- **Levels:** Tutorial (if/else) → Iloilo City/Molo (loops + conditionals) → Oton (functions `def`) →
+  Tigbauan (helper functions + loops) → Miag-ao (nested conditionals) → San Joaquin (multi-variable
+  constraints). Guimbal is a scenic drive-through, not a puzzle town in v1.
 
 ## Core Loop
 
@@ -36,10 +38,11 @@ replace source inspection.
 3. Drive the leg — **Manual** (WASD + Coin Drawer fares) or **Automation** (write Para; run/step/
    pause/speed; one-click Autopilot). A mandatory mid-drive **progression gate** (town puzzle) pops.
 4. Deliver the passenger to the destination **and** finish their chat → heritage reveal → completion
-   card → results → currency → LevelSelect.
-5. Recover a journal page; spend currency on gacha heritage cosmetics; replay for better scores.
+   card → results → currency banked → LevelSelect.
+5. Recover a journal page and earn a per-town badge; replay for better scores. *(Optional: clear all
+   town objectives to unlock the secret Artifact hunt, found via the Cultural Echo proximity cue.)*
 
-## Verified State (2026-06-27)
+## Verified State (2026-07-11)
 
 - **Both modes implemented.** Manual: `ManualDriveController` + `JeepneyController` (continuous
   physics, lane drift), `PassengerManager`, `CoinDrawerController`, `DulogMarkerController`,
@@ -54,6 +57,11 @@ replace source inspection.
 - **Automation now pre-grows the procedural town** at `Start()` so the dressed street is laid out
   ahead from the first frame (was a stub extended only after a win). Autopilot/reference solution is
   function-structured (`drive()`/`handlePassengers()`/`handleFares()`).
+- **Town hub & secret Artifact:** the top-down hub (`TopDownLevelController`) spawns objectives
+  (5 side + 1 main coding maze). Clearing them all unlocks a hidden **Artifact** at a
+  randomized reachable interior cell near the jeep stop (`OverworldArtifactPlacement`), found via a
+  **Cultural Echo** proximity-audio cue that swells with nearness (`ArtifactProximityAudio`). Both
+  are deterministic (not Gemini) and unit-tested.
 - **Five Gemini AI systems** implemented with authored fallbacks (see below).
 - **Settings/localization:** sectioned settings with segmented pill selectors; English/Filipino UI
   live switch (`LocalizationManager`/`LocalizedLabel`).
@@ -73,10 +81,14 @@ deterministic authored fallback.
 | Living Story dialogue | `LivingStoryService`, `DialogueController` | Rephrases authored lines only; never changes facts/names/plot; hard timeout → authored fallback; trivial lines skip AI. |
 | Heritage Oracle (Almanac) | `HeritageOracleService`, `KnowledgeRagService` | RAG over **unlocked** journal pages; cites records; refuses spoilers for unvisited towns. |
 | Coding Mentor | `CodingMentorService`, `CodeAnalyticsService` | Compares player code to an authored optimal; refactor validated against unlocked vocabulary. |
-| Co-Pilot / Vibe-Coding | `CopilotHintService`, `VibeCodingService`, `VibeIntentRouter`, `GhostTextController` | Tiered hints (no spoilers); Agent/Refactor output validated + dry-run; only applied if it solves the puzzle. |
-| Procedural placement | (context-aware spawner) | Places collectibles by skill/playstyle. |
+| Co-Pilot / Vibe-Coding | `CopilotHintService`, `VibeCodingService`, `VibeIntentRouter` | Tiered hints (no spoilers); Agent/Refactor output validated + dry-run; only applied if it solves the puzzle. |
+| Ghost-text completion | `GhostTextController` | Copilot-style inline next-line suggestion (Tab to accept); tiny debounced/cached requests; disabled in block mode. |
 
 Usage is tracked by `AiUsageTracker` (editor report). No keys/prompts-with-secrets in scripts.
+
+> **Not a Gemini system:** the secret Artifact placement (`OverworldArtifactPlacement`) and the
+> Cultural Echo proximity audio (`ArtifactProximityAudio`) are deterministic C#, not AI. The GDD's
+> "context-aware, skill-adaptive placement" idea is a **future** extension, not implemented.
 
 ## Important Files
 
@@ -87,6 +99,9 @@ Usage is tracked by `AiUsageTracker` (editor report). No keys/prompts-with-secre
   `FareMath`, `CoinDrawerController`, `DulogMarkerController`, `RouteVisualBuilder`, `RoadsideDecorator`).
 - Automation: `Assets/Scripts/Automation/*` (`AutomationDriveController`, `AgentSim`,
   `ExecutionController`, `SelfDriveAgent`, `TopDownGridSpace`/`TopDownAgentView`, `Lang/*`, `Blocks/*`).
+- Town hub / overworld: `Assets/Scripts/TopDown/*` (`TopDownLevelController`, `TopDownPlayerController`,
+  `InteractionTrigger`, `OverworldArtifactPlacement`, `ArtifactProximityAudio`); objectives in
+  `Assets/Scripts/Minigames/TownMinigameLibrary.cs`.
 - Generation (shared): `Assets/Scripts/Levels/Generation/*` (`TownLayout`, `TownLayoutGenerator`,
   `StreamingTownGenerator`, `ManualLayoutProjector`, `GridLayoutProjector`, `PassengerRequest`).
 - AI: `Assets/Scripts/AI/*`; config: `Assets/Editor/EnvConfigSync.cs`, root `.env` (+ `.env.example`).

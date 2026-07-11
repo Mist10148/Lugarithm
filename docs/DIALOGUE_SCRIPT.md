@@ -6,7 +6,7 @@
 > during the drive*, Genshin-style: the player chooses an intent, the passenger
 > answers, and the conversation branches. Companion to the
 > [Heritage Research Dossier](HERITAGE_RESEARCH.md) (the fact source) and the
-> [PRD](PRD.md) §5.6 / §7.2 (passenger + Living Story Engine specs).
+> [PRD](PRD.md) — the story-passenger loop (LOOP-R2) and the Living Story system (AI-R1).
 >
 > **v1.2 changes:** Kept the dialogue **lean** — removed the artifact/portal
 > theme layer and the heavier folded-in detail. Every spoken fact has been
@@ -29,7 +29,7 @@ that isn't seeded here or in the dossier's Lore Book set.
 | `↩ HUB` | Return to the conversation hub (the re-selectable topic menu) |
 | `✦ once` | One-time topic — greys out in the hub after it's heard |
 | `[EVENT: …]` | A gameplay beat fires here (breakdown, fare, arrival) — dialogue pauses for it |
-| `(+♥)` | Small relationship/affinity gain (feeds the relationship score in PRD §7.2) |
+| `(+♥)` | Small relationship/affinity gain (feeds the passenger relationship/affinity score) |
 | `🔒 REVEAL` | Held-back heritage beat — only plays on the completion cutscene, never on the drive |
 
 **Drive conversation model.** Each leg opens with a scripted **boarding beat**,
@@ -662,7 +662,7 @@ Story completion → **CS-08 Epilogue**.
 
 # Appendix — Writing & AI-generation notes
 
-**For the Living Story Engine (PRD §7.2):**
+**For the Living Story Engine (PRD AI-R1):**
 - Every node above is a **scripted fallback** *and* a **content boundary.** The AI
   may rephrase, shorten, or react to the player's relationship score and prior
   choices — but it may only assert facts seeded in this script or in the
