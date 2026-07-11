@@ -9,6 +9,7 @@ public static class LugarithmUiSkin
     const string SettingsRoot = "Assets/UI/Sprites/LugarithmUi/Settings";
     const string TutorialHudRoot = "Assets/UI/Sprites/LugarithmUi/TutorialHud/Parts";
     const string TutorialMinigameRoot = "Assets/UI/Sprites/LugarithmUi/TutorialMinigames";
+    const string TutorialMinigamePartsRoot = "Assets/UI/Sprites/LugarithmUi/TutorialMinigames/Parts";
     const string JeepneyHudRoot = "Assets/UI/Sprites/LugarithmUi/JeepneyHud/Parts";
     const string JournalRoot = "Assets/UI/Sprites/LugarithmUi/Journal";
 
@@ -73,6 +74,22 @@ public static class LugarithmUiSkin
     public static Sprite MinigameFirstRoute => LoadMinigame("first_route");
     public static Sprite MinigameStraightRoad => LoadMinigame("straight_road");
     public static Sprite MinigameResults => LoadMinigame("results_chroma");
+    public static Sprite MinigameResultsOuterFrame => LoadMinigamePart("results_outer_frame");
+    public static Sprite MinigameResultsTitleRibbon => LoadMinigamePart("results_title_ribbon");
+    public static Sprite MinigameResultsDropdown => LoadMinigamePart("results_dropdown");
+    public static Sprite MinigameResultsSolutionPanel => LoadMinigamePart("results_solution_panel");
+    public static Sprite MinigameResultsContinueButton => LoadMinigamePart("results_continue_button");
+    public static Sprite MinigameRoadOuterFrame => LoadMinigamePart("road_outer_frame");
+    public static Sprite MinigameRoadTitleRibbon => LoadMinigamePart("road_title_ribbon");
+    public static Sprite MinigameMazePreviewFrame => LoadMinigamePart("maze_preview_frame");
+    public static Sprite MinigameEditorFrame => LoadMinigamePart("editor_frame");
+    public static Sprite MinigameButtonPrimary => LoadMinigamePart("button_primary_wide");
+    public static Sprite MinigameButtonSecondary => LoadMinigamePart("button_secondary");
+    public static Sprite MinigameGarageOuterFrame => LoadMinigamePart("garage_outer_frame");
+    public static Sprite MinigameCapizWindowOuterFrame => LoadMinigamePart("capiz_window_outer_frame");
+    public static Sprite MinigameFirstRouteOuterFrame => LoadMinigamePart("first_route_outer_frame");
+    public static Sprite MinigameRouteLinksOuterFrame => LoadMinigamePart("route_links_outer_frame");
+    public static Sprite MinigameCapizRouteOuterFrame => LoadMinigamePart("capiz_route_outer_frame");
     public static Sprite JeepneyObjective => LoadJeepney("objective_card");
     public static Sprite JeepneyObjectiveStrip => LoadJeepney("objective_strip");
     public static Sprite JeepneyFrontSeat => LoadJeepney("front_seat");
@@ -103,6 +120,11 @@ public static class LugarithmUiSkin
     static Sprite LoadMinigame(string name)
     {
         return AssetDatabase.LoadAssetAtPath<Sprite>($"{TutorialMinigameRoot}/{name}.png");
+    }
+
+    static Sprite LoadMinigamePart(string name)
+    {
+        return AssetDatabase.LoadAssetAtPath<Sprite>($"{TutorialMinigamePartsRoot}/{name}.png");
     }
 
     static Sprite LoadJeepney(string name)

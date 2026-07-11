@@ -194,6 +194,25 @@ public static class UIFactory
         return button;
     }
 
+    /// <summary>Applies the extracted TutorialMinigames button art while retaining
+    /// the live Button/TMP interaction layer. Reusable by future minigame builders.</summary>
+    public static void ApplyTutorialMinigameButton(Button button, bool primary = false)
+    {
+        if (button == null) return;
+        Sprite sprite = primary ? LugarithmUiSkin.MinigameButtonPrimary
+                                : LugarithmUiSkin.MinigameButtonSecondary;
+        if (sprite == null) return;
+        Image image = button.targetGraphic as Image ?? button.GetComponent<Image>();
+        if (image == null) return;
+        image.sprite = sprite;
+        image.type = Image.Type.Simple;
+        image.preserveAspect = false;
+        image.color = Color.white;
+        Outline outline = image.GetComponent<Outline>();
+        if (outline != null) outline.enabled = false;
+        button.transition = Selectable.Transition.ColorTint;
+    }
+
     static bool Approximately(Color a, Color b)
     {
         return Mathf.Abs(a.r - b.r) < 0.01f && Mathf.Abs(a.g - b.g) < 0.01f &&

@@ -16,6 +16,8 @@ public sealed class CodeAnalysis
     public int LoopDepth;
     public int HotLine;
     public int AttemptCount;
+    public int Steps;
+    public float ElapsedSeconds;
     public string ComplexityClass;
     public string Summary;
 }
@@ -56,6 +58,8 @@ public static class CodeAnalyticsService
             LoopDepth = player.MaxLoopDepth,
             HotLine = hotLine,
             AttemptCount = Math.Max(1, attemptCount),
+            Steps = Math.Max(0, steps),
+            ElapsedSeconds = Math.Max(0f, elapsed),
             ComplexityClass = player.MaxLoopDepth == 0 ? "O(1)" :
                               player.MaxLoopDepth == 1 ? "O(n)" : $"O(n^{player.MaxLoopDepth})",
             Summary = $"Steps {stepScore}/50 · reliability {retryScore}/20 · time {timeScore}/15 · structure {structureScore}/15 · runs {Math.Max(1, attemptCount)}"

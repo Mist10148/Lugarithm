@@ -22,6 +22,7 @@ public class MinigameResultsPanel : MonoBehaviour
     [SerializeField] private TMP_Text   codeStatsLabel;
     [SerializeField] private GameObject analysisGroup;   // shown only for code-based drills
     [SerializeField] private TMP_Text   analysisLabel;
+    [SerializeField] private TMP_Text[] analysisValueLabels;
     [SerializeField] private TMP_Dropdown attemptDropdown;
     [SerializeField] private TMP_Text   attemptStatusLabel;
     [SerializeField] private GameObject codeCompareGroup;
@@ -69,6 +70,7 @@ public class MinigameResultsPanel : MonoBehaviour
         bool hasAnalysis = analysis != null;
         if (analysisGroup != null) analysisGroup.SetActive(hasAnalysis);
         if (hasAnalysis && analysisLabel != null) analysisLabel.text = BuildAnalysis(analysis);
+        PopulateAnalysisValues(hasAnalysis ? analysis : null);
         if (statsLabel != null) statsLabel.gameObject.SetActive(!hasAnalysis);
         if (codeStatsLabel != null)
         {
@@ -115,6 +117,29 @@ public class MinigameResultsPanel : MonoBehaviour
     {
         return $"EFFICIENCY {a.EfficiencyScore}/100   ·   {a.ComplexityClass}   ·   {a.Summary}   " +
                $"·   statements {a.StatementCount}   ·   nesting {a.MaxNesting}   ·   loop depth {a.LoopDepth}";
+    }
+
+    void PopulateAnalysisValues(CodeAnalysis analysis)
+    {
+        if (analysisValueLabels == null) return;
+        string[] values = analysis == null
+            ? new[] { "—", "—", "—", "—", "—", "—", "—", "—", "—" }
+            : new[]
+            {
+                $"{analysis.EfficiencyScore}/100",
+                string.IsNullOrWhiteSpace(analysis.ComplexityClass) ? "—" : analysis.ComplexityClass,
+                analysis.Steps.ToString(),
+                $"{analysis.RetryScore}/20",
+                $"{analysis.ElapsedSeconds:0.0}s",
+                $"{analysis.StructureScore}/15",
+                analysis.AttemptCount.ToString(),
+                analysis.StatementCount.ToString(),
+                analysis.MaxNesting.ToString(),
+            };
+
+        int count = Math.Min(analysisValueLabels.Length, values.Length);
+        for (int i = 0; i < count; i++)
+            if (analysisValueLabels[i] != null) analysisValueLabels[i].text = values[i];
     }
 
     void ConfigureAttempts(IReadOnlyList<CodeRunAttempt> attempts)

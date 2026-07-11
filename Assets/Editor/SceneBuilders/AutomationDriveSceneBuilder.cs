@@ -293,7 +293,14 @@ public static class AutomationDriveSceneBuilder
                                               out EditorWindowController windowCtrl, bool closeable = true)
     {
         var window = UIFactory.CreatePanel(parent, name, Vector2.zero, Vector2.one, UIFactory.PanelDark);
-        ApplyHudArt(window.GetComponent<Image>(), LugarithmUiSkin.JeepneyEditorShell);
+        // editor_shell is a flattened composition reference with painted tabs and
+        // workspace. Use the reusable nine-sliced frame so live controls do not
+        // appear on top of duplicate artwork.
+        Image windowImage = window.GetComponent<Image>();
+        windowImage.sprite = LugarithmUiSkin.MinigameEditorFrame;
+        windowImage.type = Image.Type.Simple;
+        windowImage.preserveAspect = false;
+        windowImage.color = Color.white;
         window.offsetMin = Vector2.zero;
         window.offsetMax = Vector2.zero;
 
@@ -301,10 +308,16 @@ public static class AutomationDriveSceneBuilder
                                          new Color(0.06f, 0.07f, 0.10f, 1f));
         titleBar.offsetMin = new Vector2(0f, -34f);
         titleBar.offsetMax = Vector2.zero;
+        Image titleBarImage = titleBar.GetComponent<Image>();
+        titleBarImage.sprite = LugarithmUiSkin.MinigameRoadTitleRibbon;
+        titleBarImage.type = Image.Type.Simple;
+        titleBarImage.color = Color.white;
         var titleText = UIFactory.CreateText(titleBar, "Title", title, 18f, UIFactory.Accent,
-                                              TextAlignmentOptions.MidlineLeft);
-        titleText.rectTransform.offsetMin = new Vector2(14f, 0f);
-        titleText.rectTransform.offsetMax = new Vector2(-150f, 0f);   // room for the window buttons
+                                              TextAlignmentOptions.Center);
+        // Symmetric clear space keeps the title optically centered while preserving
+        // the window controls on the right.
+        titleText.rectTransform.offsetMin = new Vector2(96f, 0f);
+        titleText.rectTransform.offsetMax = new Vector2(-96f, 0f);
 
         // Window buttons (top-right of the title bar): minimize, and optionally close.
         float minX = closeable ? -44f : -12f;
@@ -395,8 +408,8 @@ public static class AutomationDriveSceneBuilder
         var paletteFrame = UIFactory.CreatePanel(content, "Palette",
                                                  new Vector2(0f, 0f), new Vector2(0f, 1f),
                                                  UIFactory.PanelDarker);
-        paletteFrame.offsetMin = new Vector2(8f, 8f);
-        paletteFrame.offsetMax = new Vector2(222f, -8f - toolbarHeight);
+        paletteFrame.offsetMin = new Vector2(16f, 16f);
+        paletteFrame.offsetMax = new Vector2(224f, -16f - toolbarHeight);
 
         var paletteHeader = UIFactory.CreateText(paletteFrame, "Header", "PALETTE", 18f, UIFactory.TextDim);
         UIFactory.Place(paletteHeader, new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(190f, 26f));
@@ -410,11 +423,11 @@ public static class AutomationDriveSceneBuilder
                                                               out RectTransform paletteContent);
         var paletteScrollRt = (RectTransform)paletteScroll.transform;
         paletteScrollRt.offsetMin = new Vector2(8f, 8f);
-        paletteScrollRt.offsetMax = new Vector2(-8f, -36f);
+        paletteScrollRt.offsetMax = new Vector2(-8f, -40f);
         UIFactory.AddVerticalScrollbar(paletteScroll);
 
         Button paletteTemplate = UIFactory.CreateButton(paletteContent, "PaletteButtonTemplate",
-                                                        "block", new Vector2(190f, 46f), 21f);
+                                                        "block", new Vector2(176f, 48f), 20f);
         paletteTemplate.gameObject.SetActive(false);
 
         palette = paletteFrame.gameObject.AddComponent<BlockPaletteController>();
@@ -423,7 +436,7 @@ public static class AutomationDriveSceneBuilder
 
         var canvasArea = UIFactory.CreateRect(content, "BlockCanvasArea",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(230f, 8f), new Vector2(-8f, -8f - toolbarHeight));
+                                              new Vector2(240f, 16f), new Vector2(-16f, -16f - toolbarHeight));
         canvas = BuildBlockCanvas(canvasArea, dragLayer);
 
         return window;
@@ -734,28 +747,28 @@ public static class AutomationDriveSceneBuilder
                                                        Vector2.zero, Vector2.one,
                                                        out RectTransform content);
         // Leave a strip at the bottom for the trash zone.
-        ((RectTransform)scroll.transform).offsetMin = new Vector2(0f, 44f);
+        ((RectTransform)scroll.transform).offsetMin = new Vector2(0f, 56f);
 
         // Scratch-style canvas: blocks hug their content and stack flush-left so
         // the stack reads as connected puzzle pieces rather than a full-width grid.
         var contentLayout = content.GetComponent<VerticalLayoutGroup>();
         if (contentLayout != null)
         {
-            contentLayout.spacing              = 0f;
+            contentLayout.spacing              = 4f;
             contentLayout.childForceExpandWidth = false;
             contentLayout.childControlWidth     = true;
             contentLayout.childAlignment        = TextAnchor.UpperLeft;
-            contentLayout.padding               = new RectOffset(10, 10, 10, 10);
+            contentLayout.padding               = new RectOffset(16, 16, 16, 16);
         }
 
         // Trash zone (drag a block here to delete it).
         var trash = UIFactory.CreatePanel(parent, "TrashZone",
                                           new Vector2(0f, 0f), new Vector2(1f, 0f),
                                           new Color(0.30f, 0.12f, 0.12f, 0.92f));
-        trash.offsetMin = new Vector2(0f, 4f);
-        trash.offsetMax = new Vector2(0f, 40f);
+        trash.offsetMin = new Vector2(0f, 0f);
+        trash.offsetMax = new Vector2(0f, 48f);
         var trashLabel = UIFactory.CreateText(trash, "Label", "drag a block here to delete",
-                                              18f, new Color(0.92f, 0.6f, 0.55f),
+                                              17f, new Color(0.92f, 0.6f, 0.55f),
                                               TextAlignmentOptions.Center);
         trashLabel.rectTransform.offsetMin = Vector2.zero;
         trashLabel.rectTransform.offsetMax = Vector2.zero;

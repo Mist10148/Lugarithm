@@ -81,6 +81,8 @@ public class AiIntegrationTests
         Assert.AreEqual(20, result.RetryScore);
         Assert.AreEqual(15, result.TimeScore);
         Assert.AreEqual(15, result.StructureScore);
+        Assert.AreEqual(10, result.Steps);
+        Assert.AreEqual(20f, result.ElapsedSeconds);
     }
 
     [Test]
