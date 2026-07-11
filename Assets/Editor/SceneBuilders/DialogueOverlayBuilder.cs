@@ -85,17 +85,17 @@ public static class DialogueOverlayBuilder
                                          new Vector2(1f, 0f), new Vector2(1f, 0f),
                                          new Color(0.06f, 0.07f, 0.10f, 0.92f));
         UIFactory.Place(root, new Vector2(1f, 0f), dlgPos, dlgSize);
+        // Flat plum card + gold outline for every variant. The old dialogue_card
+        // sprite used preserveAspect, which letterboxed the visible card inside
+        // the rect while children laid out against the full rect — portrait and
+        // text appeared to float outside the box.
         var rootImage = root.GetComponent<Image>();
-        rootImage.sprite = tutorialPixelTheme ? null : LugarithmUiSkin.JeepneyDialogue;
+        rootImage.sprite = null;
         rootImage.type = Image.Type.Simple;
-        rootImage.preserveAspect = !tutorialPixelTheme;
-        rootImage.color = tutorialPixelTheme ? LugarithmUiSkin.PlumDeep : Color.white;
-        if (tutorialPixelTheme)
-        {
-            var rootOutline = root.gameObject.AddComponent<Outline>();
-            rootOutline.effectColor = LugarithmUiSkin.Gold;
-            rootOutline.effectDistance = new Vector2(3f, -3f);
-        }
+        rootImage.color = LugarithmUiSkin.PlumDeep;
+        var rootOutline = root.gameObject.AddComponent<Outline>();
+        rootOutline.effectColor = LugarithmUiSkin.Gold;
+        rootOutline.effectDistance = new Vector2(3f, -3f);
 
         // Accent bar across the top edge of the box.
         var accentBar = UIFactory.CreatePanel(root, "AccentBar",
@@ -108,14 +108,14 @@ public static class DialogueOverlayBuilder
         var portraitFrame = UIFactory.CreatePanel(root, "PortraitFrame",
                                                   new Vector2(0f, 1f), new Vector2(0f, 1f),
                                                   new Color(0.40f, 0.45f, 0.55f, 1f));
-        UIFactory.Place(portraitFrame, new Vector2(0f, 1f), new Vector2(18f, -16f), new Vector2(68f, 68f));
+        UIFactory.Place(portraitFrame, new Vector2(0f, 1f), new Vector2(16f, -16f), new Vector2(60f, 60f));
         var portraitImg = portraitFrame.GetComponent<Image>();
         portraitImg.sprite = null;
         portraitImg.color = LugarithmUiSkin.Plum;
         var portraitOutline = portraitFrame.gameObject.AddComponent<Outline>();
         portraitOutline.effectColor = LugarithmUiSkin.Gold;
         portraitOutline.effectDistance = new Vector2(2f, -2f);
-        var speakerInitials = UIFactory.CreateText(portraitFrame, "Initials", "", 30f,
+        var speakerInitials = UIFactory.CreateText(portraitFrame, "Initials", "", 26f,
                                                    UIFactory.TextBright, TextAlignmentOptions.Center);
         speakerInitials.rectTransform.offsetMin = Vector2.zero;
         speakerInitials.rectTransform.offsetMax = Vector2.zero;
@@ -124,13 +124,13 @@ public static class DialogueOverlayBuilder
         // Speaker name (accent) to the right of the portrait, with an underline.
         var speakerLabel = UIFactory.CreateText(root, "SpeakerLabel", "", 24f, UIFactory.Accent,
                                                 TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(speakerLabel, new Vector2(0f, 1f), new Vector2(98f, -18f),
-                        new Vector2(Mathf.Min(700f, dlgSize.x - 120f), 34f));
+        UIFactory.Place(speakerLabel, new Vector2(0f, 1f), new Vector2(88f, -16f),
+                        new Vector2(Mathf.Min(700f, dlgSize.x - 240f), 32f));
         speakerLabel.fontStyle = FontStyles.Bold;
 
         var nameUnderline = UIFactory.CreatePanel(root, "NameUnderline",
                                                   new Vector2(0f, 1f), new Vector2(0f, 1f), UIFactory.Accent);
-        UIFactory.Place(nameUnderline, new Vector2(0f, 1f), new Vector2(98f, -54f), new Vector2(240f, 3f));
+        UIFactory.Place(nameUnderline, new Vector2(0f, 1f), new Vector2(88f, -50f), new Vector2(240f, 3f));
         nameUnderline.GetComponent<Image>().raycastTarget = false;
 
         // Body text fills the box below the name, right of the portrait.
@@ -138,8 +138,8 @@ public static class DialogueOverlayBuilder
                                              UIFactory.TextBright, TextAlignmentOptions.TopLeft);
         bodyLabel.rectTransform.anchorMin = new Vector2(0f, 0f);
         bodyLabel.rectTransform.anchorMax = new Vector2(1f, 1f);
-        bodyLabel.rectTransform.offsetMin = new Vector2(98f, 18f);
-        bodyLabel.rectTransform.offsetMax = new Vector2(-170f, -62f);
+        bodyLabel.rectTransform.offsetMin = new Vector2(88f, 16f);
+        bodyLabel.rectTransform.offsetMax = new Vector2(-150f, -58f);
         bodyLabel.enableWordWrapping = true;
         bodyLabel.enableAutoSizing = true;
         bodyLabel.fontSizeMin = 14f;

@@ -163,4 +163,19 @@ public static class SceneBuilderUtil
 
         so.ApplyModifiedPropertiesWithoutUndo();
     }
+
+    /// <summary>Fills a serialized string-array field.</summary>
+    public static void WireStringArray(Component target, string fieldName, string[] values)
+    {
+        var so = new SerializedObject(target);
+        SerializedProperty prop = so.FindProperty(fieldName);
+        if (prop == null)
+            throw new Exception($"{target.GetType().Name} has no serialized field '{fieldName}'");
+
+        prop.arraySize = values.Length;
+        for (int i = 0; i < values.Length; i++)
+            prop.GetArrayElementAtIndex(i).stringValue = values[i];
+
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
 }

@@ -9,6 +9,13 @@ using UnityEngine.UI;
 /// </summary>
 public static class AlmanacOverlayBuilder
 {
+    // Parchment-friendly ink palette — the book pages are light, so all chrome
+    // text must be dark to read. Mirrored in AlmanacController for runtime states.
+    static readonly Color32 Ink    = new Color32(66, 42, 30, 255);
+    static readonly Color32 InkDim = new Color32(120, 92, 68, 255);
+    static readonly Color32 Amber  = new Color32(155, 90, 12, 255);
+    static readonly Color32 CardNormal = new Color32(214, 190, 150, 255);
+
     public static AlmanacManager Build(Transform parent)
     {
         var root = new GameObject("AlmanacManager");
@@ -58,12 +65,12 @@ public static class AlmanacOverlayBuilder
         Button codingTab = UIFactory.CreateButton(tabBar, "CodingTab", "Coding Reference",
                                                   new Vector2(190f, 120f), 20f);
         UIFactory.Place(codingTab, new Vector2(0f, 0.5f), new Vector2(205f, 0f), new Vector2(190f, 120f));
-        SetLabelColor(codingTab, UIFactory.TextDim);
+        SetLabelColor(codingTab, InkDim);
 
         Button oracleTab = UIFactory.CreateButton(tabBar, "OracleTab", "Oracle",
                                                   new Vector2(170f, 120f), 22f);
         UIFactory.Place(oracleTab, new Vector2(0f, 0.5f), new Vector2(402f, 0f), new Vector2(170f, 120f));
-        SetLabelColor(oracleTab, UIFactory.TextDim);
+        SetLabelColor(oracleTab, InkDim);
         heritageTab.image.sprite = null;
         codingTab.image.sprite = null;
         oracleTab.image.sprite = null;
@@ -96,22 +103,24 @@ public static class AlmanacOverlayBuilder
         grid.childAlignment  = TextAnchor.UpperCenter;
 
         // Thumbnail card template.
+        // Flat clean card — a tinted builtin 9-slice; the controller tints per
+        // state (normal / selected / locked) instead of swapping sprites.
         Button sidebarEntryTemplate = UIFactory.CreateButton(sidebarContent,
                                                              "SidebarEntryTemplate",
                                                              "Town", new Vector2(270f, 130f), 18f);
-        sidebarEntryTemplate.image.sprite = LugarithmUiSkin.JournalHeritageCard;
+        sidebarEntryTemplate.image.sprite = UIFactory.BuiltinSprite("UISprite.psd");
         sidebarEntryTemplate.image.type = Image.Type.Sliced;
-        sidebarEntryTemplate.image.color = Color.white;
+        sidebarEntryTemplate.image.color = CardNormal;
         var entryTemplLabel = sidebarEntryTemplate.GetComponentInChildren<TMP_Text>();
         if (entryTemplLabel != null)
         {
-            entryTemplLabel.alignment = TextAlignmentOptions.MidlineRight;
+            entryTemplLabel.alignment = TextAlignmentOptions.Center;
             entryTemplLabel.textWrappingMode = TextWrappingModes.Normal;
-            entryTemplLabel.color = new Color32(66, 42, 30, 255);
-            entryTemplLabel.margin = new Vector4(92f, 12f, 12f, 12f);
+            entryTemplLabel.color = Ink;
+            entryTemplLabel.margin = new Vector4(12f, 10f, 12f, 10f);
         }
         var entryIcon = AddSprite(sidebarEntryTemplate.transform, "EntryIcon", null,
-                                  new Vector2(0f, 0.5f), new Vector2(52f, 0f), new Vector2(78f, 78f));
+                                  new Vector2(0f, 0.5f), new Vector2(38f, 0f), new Vector2(44f, 44f));
         entryIcon.GetComponent<Image>().raycastTarget = false;
         sidebarEntryTemplate.gameObject.SetActive(false);
 
@@ -146,12 +155,12 @@ public static class AlmanacOverlayBuilder
                                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
                                                               out RectTransform contentBodyRect);
         ClearScrollChrome(contentScroll);
-        ((RectTransform)contentScroll.transform).offsetMin = new Vector2(44f, 48f);
+        ((RectTransform)contentScroll.transform).offsetMin = new Vector2(44f, 70f);
         ((RectTransform)contentScroll.transform).offsetMax = new Vector2(-44f, -382f);
         UIFactory.AddVerticalScrollbar(contentScroll);
 
-        var contentBody = UIFactory.CreateText(contentBodyRect, "Body", "", 18f,
-                                               new Color32(66, 42, 30, 255), TextAlignmentOptions.TopLeft);
+        var contentBody = UIFactory.CreateText(contentBodyRect, "Body", "", 19f,
+                                               Ink, TextAlignmentOptions.TopLeft);
         contentBody.margin = new Vector4(8f, 8f, 22f, 8f);
         contentBody.textWrappingMode = TextWrappingModes.Normal;
         // Size the body to its actual text so long reference entries scroll instead of
@@ -170,34 +179,73 @@ public static class AlmanacOverlayBuilder
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
                                               new Vector2(135f, 88f), new Vector2(-135f, -155f));
 
+        // Left page: quick-ask topics — flat buttons that drop a starter question
+        // into the chat (wired to ChatController below).
         var oracleTopics = UIFactory.CreateRect(oraclePane, "OracleTopics",
                                                 new Vector2(0f, 0f), new Vector2(0.39f, 1f),
                                                 new Vector2(18f, 38f), new Vector2(-22f, -38f));
+        var topicsHeader = UIFactory.CreateText(oracleTopics, "TopicsHeader", "Ask the Oracle", 22f,
+                                                Amber, TextAlignmentOptions.MidlineLeft);
+        topicsHeader.fontStyle = FontStyles.Bold;
+        topicsHeader.rectTransform.anchorMin = new Vector2(0f, 1f);
+        topicsHeader.rectTransform.anchorMax = new Vector2(1f, 1f);
+        topicsHeader.rectTransform.offsetMin = new Vector2(8f, -44f);
+        topicsHeader.rectTransform.offsetMax = new Vector2(-8f, -6f);
+
         string[] topicTitles = { "Town History", "Landmarks", "Culture", "Coding Help", "Commands", "Tips" };
         string[] topicSubtitles = { "Discover our past", "Explore key places", "Traditions & stories", "Get coding guidance", "In-game commands", "Helpful advice" };
+        string[] topicPrompts =
+        {
+            "Tell me about this town's history.",
+            "What landmarks should I know about here?",
+            "What traditions and festivals is this town known for?",
+            "Can you explain how coding the jeepney works?",
+            "What commands can I use in the game?",
+            "Any tips for my current level?"
+        };
+        string inkDimHex = ColorUtility.ToHtmlStringRGB(InkDim);
+        var topicButtons = new Button[topicTitles.Length];
         for (int i = 0; i < topicTitles.Length; i++)
         {
-            var row = UIFactory.CreatePanel(oracleTopics, $"Topic_{i}", Vector2.up, Vector2.one, Color.white);
-            row.GetComponent<Image>().sprite = LugarithmUiSkin.JournalOracleTopicRow;
-            row.GetComponent<Image>().type = Image.Type.Sliced;
-            row.offsetMin = new Vector2(0f, -100f - i * 102f);
-            row.offsetMax = new Vector2(0f, -12f - i * 102f);
-            var label = UIFactory.CreateText(row, "Label", topicTitles[i] + "\n<size=75%>" + topicSubtitles[i] + "</size>",
-                                             19f, new Color32(66, 42, 30, 255), TextAlignmentOptions.MidlineLeft);
-            label.rectTransform.offsetMin = new Vector2(82f, 8f);
-            label.rectTransform.offsetMax = new Vector2(-12f, -8f);
+            Button row = UIFactory.CreateButton(oracleTopics, $"Topic_{i}", "", new Vector2(0f, 76f), 19f);
+            row.image.sprite = UIFactory.BuiltinSprite("UISprite.psd");
+            row.image.type = Image.Type.Sliced;
+            row.image.color = CardNormal;
+            var rowRt = (RectTransform)row.transform;
+            rowRt.anchorMin = Vector2.up;
+            rowRt.anchorMax = Vector2.one;
+            rowRt.offsetMin = new Vector2(0f, -130f - i * 82f);
+            rowRt.offsetMax = new Vector2(0f, -54f - i * 82f);
+            var label = row.GetComponentInChildren<TMP_Text>();
+            if (label != null)
+            {
+                label.text = "<b>" + topicTitles[i] + "</b>\n<size=75%><color=#" + inkDimHex + ">"
+                             + topicSubtitles[i] + "</color></size>";
+                label.alignment = TextAlignmentOptions.MidlineLeft;
+                label.color = Ink;
+                label.margin = new Vector4(16f, 6f, 12f, 6f);
+            }
+            topicButtons[i] = row;
         }
 
+        // Right page: minimal header — title, one-line subtitle, thin rule.
         var oracleRight = UIFactory.CreateRect(oraclePane, "OracleRight",
                                                new Vector2(0.41f, 0f), Vector2.one,
                                                new Vector2(20f, 0f), Vector2.zero);
-        AddSprite(oracleRight, "OracleBanner", LugarithmUiSkin.JournalOracleBanner,
-                  new Vector2(0.5f, 1f), new Vector2(0f, -92f), new Vector2(620f, 190f));
-        AddSprite(oracleRight, "AssistantRibbon", LugarithmUiSkin.JournalAssistantRibbon,
-                  new Vector2(0.5f, 1f), new Vector2(0f, -188f), new Vector2(390f, 70f));
-        var assistantLabel = UIFactory.CreateText(oracleRight, "AssistantLabel", "ORACLE ASSISTANT", 22f,
-                                                  new Color32(239, 169, 18, 255), TextAlignmentOptions.Center);
-        UIFactory.Place(assistantLabel.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -188f), new Vector2(350f, 54f));
+        var oracleTitle = UIFactory.CreateText(oracleRight, "OracleTitle", "Oracle", 26f,
+                                               Amber, TextAlignmentOptions.Center);
+        oracleTitle.fontStyle = FontStyles.Bold;
+        UIFactory.Place(oracleTitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(400f, 40f));
+        var oracleSubtitle = UIFactory.CreateText(oracleRight, "OracleSubtitle",
+                                                  "Ask about the towns, culture, or coding.", 17f,
+                                                  InkDim, TextAlignmentOptions.Center);
+        UIFactory.Place(oracleSubtitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -60f), new Vector2(560f, 26f));
+        var headerRule = UIFactory.CreatePanel(oracleRight, "HeaderRule",
+                                               new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                               new Color32(120, 92, 68, 110));
+        headerRule.offsetMin = new Vector2(40f, -82f);
+        headerRule.offsetMax = new Vector2(-40f, -80f);
+        headerRule.GetComponent<Image>().raycastTarget = false;
 
         var oracleFlavour = UIFactory.CreateText(oraclePane, "OracleFlavour",
                                                  "Ask the Oracle about any town or coding concept.",
@@ -208,8 +256,8 @@ public static class AlmanacOverlayBuilder
         Button clearChatButton = UIFactory.CreateButton(oracleRight, "ClearChatButton", "Clear",
                                                         new Vector2(90f, 30f), 16f);
         clearChatButton.image.color = Color.clear;
-        UIFactory.Place(clearChatButton, new Vector2(1f, 1f), new Vector2(-18f, -212f), new Vector2(76f, 28f));
-        SetLabelColor(clearChatButton, new Color32(83, 55, 91, 255));
+        UIFactory.Place(clearChatButton, new Vector2(1f, 1f), new Vector2(-18f, -30f), new Vector2(76f, 28f));
+        SetLabelColor(clearChatButton, InkDim);
 
         ScrollRect chatScroll = UIFactory.CreateScrollView(oracleRight, "ChatScroll",
                                                            new Vector2(0f, 0f), new Vector2(1f, 1f),
@@ -217,7 +265,7 @@ public static class AlmanacOverlayBuilder
         var chatScrollRt = (RectTransform)chatScroll.transform;
         ClearScrollChrome(chatScroll);
         chatScrollRt.offsetMin = new Vector2(20f, 92f);
-        chatScrollRt.offsetMax = new Vector2(-20f, -238f);
+        chatScrollRt.offsetMax = new Vector2(-20f, -100f);
         UIFactory.AddVerticalScrollbar(chatScroll, permanent: true);
 
         var bubbleTemplate = UIFactory.CreateText(chatContent, "BubbleTemplate", "", 16f,
@@ -237,16 +285,17 @@ public static class AlmanacOverlayBuilder
         TMP_InputField chatInput = CreateSinglelineInput(inputRow, "ChatInput", "Ask the Oracle…");
         var inputRt = chatInput.GetComponent<RectTransform>();
         inputRt.anchorMin = new Vector2(0f, 0f);
-        chatInput.GetComponent<Image>().sprite = LugarithmUiSkin.JournalInput;
-        chatInput.GetComponent<Image>().color = Color.white;
+        chatInput.GetComponent<Image>().color = new Color32(240, 226, 194, 255);
         inputRt.anchorMax = new Vector2(0.82f, 1f);
         inputRt.offsetMin = new Vector2(4f, 4f);
         inputRt.offsetMax = new Vector2(-4f, -4f);
 
         Button sendButton = UIFactory.CreateButton(inputRow, "SendButton", "Send",
                                                    new Vector2(0f, 52f), 22f);
-        sendButton.image.sprite = LugarithmUiSkin.JournalSendSeal;
-        sendButton.image.color = Color.white;
+        sendButton.image.sprite = UIFactory.BuiltinSprite("UISprite.psd");
+        sendButton.image.type = Image.Type.Sliced;
+        sendButton.image.color = LugarithmUiSkin.Gold;
+        SetLabelColor(sendButton, LugarithmUiSkin.PlumDeep);
         var sendRt = sendButton.GetComponent<RectTransform>();
         sendRt.anchorMin = new Vector2(0.83f, 0f);
         sendRt.anchorMax = new Vector2(1f, 1f);
@@ -297,11 +346,6 @@ public static class AlmanacOverlayBuilder
         SceneBuilderUtil.Wire(controller, "contentBody",          contentBody);
         SceneBuilderUtil.Wire(controller, "entryArt",             entryArt);
         SceneBuilderUtil.Wire(controller, "entryArtLabel",        entryArtLabel);
-        SceneBuilderUtil.Wire(controller, "heritageCardSprite", LugarithmUiSkin.JournalHeritageCard);
-        SceneBuilderUtil.Wire(controller, "heritageSelectedSprite", LugarithmUiSkin.JournalHeritageCardSelected);
-        SceneBuilderUtil.Wire(controller, "heritageLockedSprite", LugarithmUiSkin.JournalPart("heritage_card_locked"));
-        SceneBuilderUtil.Wire(controller, "codingRowSprite", LugarithmUiSkin.JournalCodingRow);
-        SceneBuilderUtil.Wire(controller, "codingSelectedSprite", LugarithmUiSkin.JournalCodingRowSelected);
         SceneBuilderUtil.WireArray(controller, "landmarkSprites", new UnityEngine.Object[]
         {
             LugarithmUiSkin.JournalPart("landmark_tutorial_jaro"), LugarithmUiSkin.JournalPart("landmark_iloilo_molo"),
@@ -327,6 +371,8 @@ public static class AlmanacOverlayBuilder
         SceneBuilderUtil.Wire(chatController, "clearButton",    clearChatButton);
         SceneBuilderUtil.Wire(chatController, "playerBubbleSprite", LugarithmUiSkin.JournalPlayerMessage);
         SceneBuilderUtil.Wire(chatController, "oracleBubbleSprite", LugarithmUiSkin.JournalOracleMessage);
+        SceneBuilderUtil.WireArray(chatController, "quickTopicButtons", topicButtons);
+        SceneBuilderUtil.WireStringArray(chatController, "quickTopicPrompts", topicPrompts);
 
         UIFactory.ApplyBlueprintSkin(backdrop);
         backdrop.gameObject.SetActive(false);
@@ -395,8 +441,8 @@ public static class AlmanacOverlayBuilder
         textArea.gameObject.AddComponent<RectMask2D>();
 
         var text = UIFactory.CreateText(textArea, "Text", "", 18f,
-                                        UIFactory.TextBright,
-                                        TextAlignmentOptions.TopLeft);
+                                        Ink,
+                                        TextAlignmentOptions.MidlineLeft);
         text.rectTransform.anchorMin = Vector2.zero;
         text.rectTransform.anchorMax = Vector2.one;
         text.rectTransform.offsetMin = Vector2.zero;
@@ -405,8 +451,8 @@ public static class AlmanacOverlayBuilder
         text.raycastTarget = false;
 
         var placeholder = UIFactory.CreateText(textArea, "Placeholder", placeholderText,
-                                               18f, UIFactory.TextDim,
-                                               TextAlignmentOptions.TopLeft);
+                                               18f, InkDim,
+                                               TextAlignmentOptions.MidlineLeft);
         placeholder.rectTransform.anchorMin = Vector2.zero;
         placeholder.rectTransform.anchorMax = Vector2.one;
         placeholder.rectTransform.offsetMin = Vector2.zero;

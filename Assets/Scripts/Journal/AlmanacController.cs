@@ -39,21 +39,21 @@ public class AlmanacController : MonoBehaviour
     [SerializeField] private Button     oracleTabButton;
     [SerializeField] private Image      entryArt;
     [SerializeField] private TMP_Text   entryArtLabel;
-    [SerializeField] private Sprite heritageCardSprite;
-    [SerializeField] private Sprite heritageSelectedSprite;
-    [SerializeField] private Sprite heritageLockedSprite;
-    [SerializeField] private Sprite codingRowSprite;
-    [SerializeField] private Sprite codingSelectedSprite;
     [SerializeField] private Sprite[] landmarkSprites;
     [SerializeField] private Sprite[] codingIconSprites;
 
     enum Tab { Heritage, Coding, Oracle }
 
     // Local palette copy — runtime scripts must not reference editor UIFactory.
-    static readonly Color Accent     = new Color(0.95f, 0.65f, 0.15f, 1f);
-    static readonly Color PanelDark  = new Color(0.10f, 0.12f, 0.16f, 0.96f);
-    static readonly Color TextBright = new Color(0.93f, 0.93f, 0.88f, 1f);
-    static readonly Color TextDim    = new Color(0.62f, 0.64f, 0.66f, 1f);
+    // Parchment-friendly ink tones: the book pages are light, so labels and body
+    // text must stay dark to remain legible.
+    static readonly Color Accent       = new Color(0.95f, 0.65f, 0.15f, 1f);
+    static readonly Color32 Ink        = new Color32(66, 42, 30, 255);
+    static readonly Color32 InkDim     = new Color32(120, 92, 68, 255);
+    static readonly Color32 Amber      = new Color32(155, 90, 12, 255);
+    static readonly Color32 CardNormal   = new Color32(214, 190, 150, 255);
+    static readonly Color32 CardSelected = new Color32(232, 196, 120, 255);
+    static readonly Color32 CardLocked   = new Color32(196, 180, 152, 140);
 
     Tab _currentTab = Tab.Heritage;
     int _selectedPageId;      // Heritage selection (town / level)
@@ -148,7 +148,7 @@ public class AlmanacController : MonoBehaviour
         if (button == null) return;
         var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label != null)
-            label.color = active ? Accent : TextDim;
+            label.color = active ? Accent : (Color)InkDim;
     }
 
     // -------------------------------------------------------------------------
@@ -200,19 +200,31 @@ public class AlmanacController : MonoBehaviour
         Button entry = Instantiate(sidebarEntryTemplate, sidebarContent);
         entry.gameObject.SetActive(true);
         entry.name = name;
+        bool coding = _currentTab == Tab.Coding;
         var text = entry.GetComponentInChildren<TMP_Text>(true);
-        if (text != null) text.text = label;
+        if (text != null)
+        {
+            text.text = label;
+            // Heritage cards are text-only (centered); Coding rows keep their
+            // concept icon on the left with the label beside it.
+            text.alignment = coding ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.Center;
+            text.margin = coding ? new Vector4(70f, 8f, 12f, 8f) : new Vector4(12f, 10f, 12f, 10f);
+            text.fontSize = coding ? 18f : 20f;
+        }
         var icon = entry.transform.Find("EntryIcon");
         if (icon != null)
         {
-            int index = _currentTab == Tab.Coding ? _sidebarEntries.Count : _sidebarEntries.Count;
+            int index = _sidebarEntries.Count;
             var iconImage = icon.GetComponent<Image>();
-            if (iconImage != null)
+            bool showIcon = coding && iconImage != null && index < codingIconSprites.Length;
+            icon.gameObject.SetActive(showIcon);
+            if (showIcon)
             {
-                iconImage.sprite = _currentTab == Tab.Coding && index < codingIconSprites.Length
-                    ? codingIconSprites[index]
-                    : index < landmarkSprites.Length ? landmarkSprites[index] : null;
+                iconImage.sprite = codingIconSprites[index];
                 iconImage.color = Color.white;
+                var iconRt = (RectTransform)icon;
+                iconRt.sizeDelta = new Vector2(44f, 44f);
+                iconRt.anchoredPosition = new Vector2(38f, 0f);
             }
         }
         return entry;
@@ -239,18 +251,17 @@ public class AlmanacController : MonoBehaviour
             var label = entry.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
             {
-                if (isSelected)    label.color = Accent;
-                else if (unlocked) label.color = TextBright;
-                else               label.color = TextDim;
+                if (isSelected)    label.color = Amber;
+                else if (unlocked) label.color = Ink;
+                else               label.color = InkDim;
+                label.fontStyle = isSelected ? FontStyles.Bold : FontStyles.Normal;
             }
 
             var image = entry.image;
             if (image != null)
             {
-                image.color = Color.white;
-                image.sprite = coding
-                    ? (isSelected ? codingSelectedSprite : codingRowSprite)
-                    : (!unlocked ? heritageLockedSprite : isSelected ? heritageSelectedSprite : heritageCardSprite);
+                // Flat tinted panels — state is conveyed by tint, not sprite swaps.
+                image.color = !unlocked ? CardLocked : isSelected ? CardSelected : CardNormal;
                 image.type = Image.Type.Sliced;
             }
         }
@@ -317,7 +328,7 @@ public class AlmanacController : MonoBehaviour
             contentBody.text =
                 $"<b>{LevelLibrary.Names[pageId]}</b>\n\n" +
                 $"{page.heritageBody}\n\n" +
-                $"<color=#{ColorUtility.ToHtmlStringRGB(TextDim)}><i>{page.artifactCardDescription}</i></color>" +
+                $"<color=#{ColorUtility.ToHtmlStringRGB(InkDim)}><i>{page.artifactCardDescription}</i></color>" +
                 BuildDiscoveredFacts(pageId);
         }
 
@@ -358,7 +369,7 @@ public class AlmanacController : MonoBehaviour
             contentBody.text =
                 $"<b>{concept.title}</b>\n\n" +
                 $"{concept.body}\n\n" +
-                $"<color=#{ColorUtility.ToHtmlStringRGB(Accent)}>{concept.codeExample}</color>";
+                $"<color=#{ColorUtility.ToHtmlStringRGB(Amber)}>{concept.codeExample}</color>";
         }
 
         RefreshBodyHeight();
@@ -413,8 +424,8 @@ public class AlmanacController : MonoBehaviour
         HeritageEntry town = HeritageLibrary.ForLevel(pageId);
         if (town == null || town.keyFacts == null) return "";
 
-        string accent = ColorUtility.ToHtmlStringRGB(Accent);
-        string dim    = ColorUtility.ToHtmlStringRGB(TextDim);
+        string accent = ColorUtility.ToHtmlStringRGB(Amber);
+        string dim    = ColorUtility.ToHtmlStringRGB(InkDim);
         const string rule = "────────────────────";
 
         // Each discovered fact becomes its own framed "field note" — a rule, a bold

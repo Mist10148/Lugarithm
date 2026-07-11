@@ -23,6 +23,11 @@ public class ChatController : MonoBehaviour
     [SerializeField] private Sprite         playerBubbleSprite;
     [SerializeField] private Sprite         oracleBubbleSprite;
 
+    // Quick-ask topics on the left journal page — each button drops its starter
+    // prompt straight into the conversation (arrays are index-aligned).
+    [SerializeField] private Button[] quickTopicButtons;
+    [SerializeField] private string[] quickTopicPrompts;
+
     // Messenger-style palette: warm amber for the player, neutral grey for the Oracle.
     static readonly Color PlayerBubble = Color.white;
     static readonly Color PlayerText   = new Color32(66, 42, 30, 255);
@@ -45,7 +50,26 @@ public class ChatController : MonoBehaviour
         if (clearButton != null) clearButton.onClick.AddListener(ClearChat);
         if (chatInput   != null) chatInput.onSubmit.AddListener(_ => OnSend());
 
+        if (quickTopicButtons != null && quickTopicPrompts != null)
+        {
+            for (int i = 0; i < quickTopicButtons.Length && i < quickTopicPrompts.Length; i++)
+            {
+                string prompt = quickTopicPrompts[i];
+                if (quickTopicButtons[i] != null)
+                    quickTopicButtons[i].onClick.AddListener(() => Ask(prompt));
+            }
+        }
+
         ChatBubbleFactory.PrepareContent(chatContent);
+    }
+
+    /// <summary>Sends a canned question as if the player typed it. Ignored while
+    /// a previous question is still being answered.</summary>
+    public void Ask(string prompt)
+    {
+        if (chatInput == null || !chatInput.interactable) return;
+        chatInput.text = prompt;
+        OnSend();
     }
 
     void OnSend()
