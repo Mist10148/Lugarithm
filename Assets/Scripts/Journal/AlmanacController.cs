@@ -48,10 +48,10 @@ public class AlmanacController : MonoBehaviour
     // Parchment-friendly ink tones: the book pages are light, so labels and body
     // text must stay dark to remain legible.
     static readonly Color Accent       = new Color(0.95f, 0.65f, 0.15f, 1f);
-    static readonly Color32 Ink        = new Color32(66, 42, 30, 255);
-    static readonly Color32 InkDim     = new Color32(120, 92, 68, 255);
+    static readonly Color32 Ink        = new Color32(48, 30, 18, 255);
+    static readonly Color32 InkDim     = new Color32(96, 66, 44, 255);
     static readonly Color32 Amber      = new Color32(155, 90, 12, 255);
-    static readonly Color32 CardNormal   = new Color32(214, 190, 150, 255);
+    static readonly Color32 CardNormal   = new Color32(196, 168, 120, 255);
     static readonly Color32 CardSelected = new Color32(232, 196, 120, 255);
     static readonly Color32 CardLocked   = new Color32(196, 180, 152, 140);
 
@@ -136,19 +136,28 @@ public class AlmanacController : MonoBehaviour
         RefreshNavigation();
     }
 
+    // Tab labels sit on baked banners: slot 1 is gold (dark text reads), slots 2-3
+    // are purple (light text reads). Active state adds brightness + bold.
+    static readonly Color32 TabActiveGold     = new Color32(74, 40, 92, 255);
+    static readonly Color32 TabInactiveGold   = new Color32(70, 46, 30, 255);
+    static readonly Color32 TabActivePurple   = new Color32(246, 210, 120, 255);
+    static readonly Color32 TabInactivePurple = new Color32(214, 198, 162, 255);
+
     void RefreshTabVisuals()
     {
-        SetTabColor(heritageTabButton, _currentTab == Tab.Heritage);
-        SetTabColor(codingTabButton,   _currentTab == Tab.Coding);
-        SetTabColor(oracleTabButton,   _currentTab == Tab.Oracle);
+        SetTabColor(heritageTabButton, _currentTab == Tab.Heritage, false);
+        SetTabColor(codingTabButton,   _currentTab == Tab.Coding,   true);
+        SetTabColor(oracleTabButton,   _currentTab == Tab.Oracle,   true);
     }
 
-    void SetTabColor(Button button, bool active)
+    void SetTabColor(Button button, bool active, bool onPurple)
     {
         if (button == null) return;
         var label = button.GetComponentInChildren<TMP_Text>(true);
-        if (label != null)
-            label.color = active ? Accent : (Color)InkDim;
+        if (label == null) return;
+        if (onPurple) label.color = active ? TabActivePurple : TabInactivePurple;
+        else          label.color = active ? TabActiveGold   : TabInactiveGold;
+        label.fontStyle = active ? FontStyles.Bold : FontStyles.Normal;
     }
 
     // -------------------------------------------------------------------------
@@ -208,8 +217,8 @@ public class AlmanacController : MonoBehaviour
             // Heritage cards are text-only (centered); Coding rows keep their
             // concept icon on the left with the label beside it.
             text.alignment = coding ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.Center;
-            text.margin = coding ? new Vector4(70f, 8f, 12f, 8f) : new Vector4(12f, 10f, 12f, 10f);
-            text.fontSize = coding ? 18f : 20f;
+            text.margin = coding ? new Vector4(96f, 8f, 16f, 8f) : new Vector4(16f, 10f, 16f, 10f);
+            text.fontSize = coding ? 20f : 22f;
         }
         var icon = entry.transform.Find("EntryIcon");
         if (icon != null)
@@ -224,7 +233,7 @@ public class AlmanacController : MonoBehaviour
                 iconImage.color = Color.white;
                 var iconRt = (RectTransform)icon;
                 iconRt.sizeDelta = new Vector2(44f, 44f);
-                iconRt.anchoredPosition = new Vector2(38f, 0f);
+                iconRt.anchoredPosition = new Vector2(44f, 0f);
             }
         }
         return entry;
@@ -234,7 +243,7 @@ public class AlmanacController : MonoBehaviour
     {
         bool coding = _currentTab == Tab.Coding;
         var grid = sidebarContent != null ? sidebarContent.GetComponent<GridLayoutGroup>() : null;
-        if (grid != null) grid.cellSize = coding ? new Vector2(275f, 82f) : new Vector2(270f, 130f);
+        if (grid != null) grid.cellSize = coding ? new Vector2(500f, 76f) : new Vector2(500f, 96f);
         int  selected = coding ? _selectedConceptId : _selectedPageId;
 
         for (int i = 0; i < _sidebarEntries.Count; i++)

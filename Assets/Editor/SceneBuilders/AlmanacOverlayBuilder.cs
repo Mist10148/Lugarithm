@@ -11,10 +11,10 @@ public static class AlmanacOverlayBuilder
 {
     // Parchment-friendly ink palette — the book pages are light, so all chrome
     // text must be dark to read. Mirrored in AlmanacController for runtime states.
-    static readonly Color32 Ink    = new Color32(66, 42, 30, 255);
-    static readonly Color32 InkDim = new Color32(120, 92, 68, 255);
+    static readonly Color32 Ink    = new Color32(48, 30, 18, 255);
+    static readonly Color32 InkDim = new Color32(96, 66, 44, 255);
     static readonly Color32 Amber  = new Color32(155, 90, 12, 255);
-    static readonly Color32 CardNormal = new Color32(214, 190, 150, 255);
+    static readonly Color32 CardNormal = new Color32(196, 168, 120, 255);
 
     public static AlmanacManager Build(Transform parent)
     {
@@ -39,13 +39,13 @@ public static class AlmanacOverlayBuilder
                                                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                                Color.clear);
         UIFactory.Place(bookBorder, new Vector2(0.5f, 0.5f), Vector2.zero,
-                        new Vector2(1696f, 870f));
+                        new Vector2(1506f, 870f));
 
         var bookPanel = UIFactory.CreatePanel(bookBorder, "BookPanel",
                                               new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                               Color.clear);
         UIFactory.Place(bookPanel, new Vector2(0.5f, 0.5f), Vector2.zero,
-                        new Vector2(1690f, 864f));
+                        new Vector2(1500f, 864f));
         var bookImage = bookPanel.GetComponent<Image>();
         bookImage.sprite = LugarithmUiSkin.JournalBook;
         bookImage.type = Image.Type.Simple;
@@ -55,22 +55,25 @@ public static class AlmanacOverlayBuilder
         // ---- Tab bar (top, full width): Heritage / Coding / Oracle -----------
         var tabBar = UIFactory.CreateRect(bookPanel, "TabBar",
                                           new Vector2(0f, 1f), new Vector2(1f, 1f),
-                                          new Vector2(150f, -145f), new Vector2(-790f, 28f));
+                                          new Vector2(90f, -205f), new Vector2(-790f, -32f));
 
+        // Per-banner contrast: the leftmost banner is gold (wants dark text), the
+        // other two are purple (want light text). Heritage is the default active tab.
         Button heritageTab = UIFactory.CreateButton(tabBar, "HeritageTab", "Heritage Pages",
-                                                    new Vector2(190f, 120f), 22f);
-        UIFactory.Place(heritageTab, new Vector2(0f, 0.5f), new Vector2(8f, 0f), new Vector2(190f, 120f));
-        SetLabelColor(heritageTab, UIFactory.Accent);
+                                                    new Vector2(190f, 120f), 20f);
+        UIFactory.Place(heritageTab, new Vector2(0f, 0.5f), new Vector2(12f, 0f), new Vector2(190f, 120f));
+        SetLabelColor(heritageTab, new Color32(74, 40, 92, 255));
+        SetLabelBold(heritageTab, true);
 
         Button codingTab = UIFactory.CreateButton(tabBar, "CodingTab", "Coding Reference",
-                                                  new Vector2(190f, 120f), 20f);
-        UIFactory.Place(codingTab, new Vector2(0f, 0.5f), new Vector2(205f, 0f), new Vector2(190f, 120f));
-        SetLabelColor(codingTab, InkDim);
+                                                  new Vector2(190f, 120f), 18f);
+        UIFactory.Place(codingTab, new Vector2(0f, 0.5f), new Vector2(164f, 0f), new Vector2(190f, 120f));
+        SetLabelColor(codingTab, new Color32(214, 198, 162, 255));
 
         Button oracleTab = UIFactory.CreateButton(tabBar, "OracleTab", "Oracle",
-                                                  new Vector2(170f, 120f), 22f);
-        UIFactory.Place(oracleTab, new Vector2(0f, 0.5f), new Vector2(402f, 0f), new Vector2(170f, 120f));
-        SetLabelColor(oracleTab, InkDim);
+                                                  new Vector2(170f, 120f), 20f);
+        UIFactory.Place(oracleTab, new Vector2(0f, 0.5f), new Vector2(315f, 0f), new Vector2(170f, 120f));
+        SetLabelColor(oracleTab, new Color32(214, 198, 162, 255));
         heritageTab.image.sprite = null;
         codingTab.image.sprite = null;
         oracleTab.image.sprite = null;
@@ -79,27 +82,30 @@ public static class AlmanacOverlayBuilder
         oracleTab.image.color = Color.clear;
 
         // ==== Detail pane (PvZ two-pane: thumbnail grid + entry detail) =======
+        // Pane fills the whole book so its children can be anchored to each page
+        // by fraction — the panel size now matches the painted book art (no gutters).
         var detailPane = UIFactory.CreateRect(bookPanel, "DetailPane",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(135f, 88f), new Vector2(-135f, -155f));
+                                              Vector2.zero, Vector2.zero);
 
-        // Left: scrollable grid of entry thumbnails.
+        // Left page: scrollable single-column list of entry cards.
         ScrollRect sidebarScroll = UIFactory.CreateScrollView(detailPane, "EntryGrid",
-                                                              new Vector2(0f, 0f), new Vector2(0.4f, 1f),
+                                                              new Vector2(0.10f, 0.14f), new Vector2(0.46f, 0.83f),
                                                               out RectTransform sidebarContent);
         ClearScrollChrome(sidebarScroll);
-        ((RectTransform)sidebarScroll.transform).offsetMax = new Vector2(-4f, 0f);
+        ((RectTransform)sidebarScroll.transform).offsetMin = Vector2.zero;
+        ((RectTransform)sidebarScroll.transform).offsetMax = Vector2.zero;
         UIFactory.AddVerticalScrollbar(sidebarScroll);
 
         // Swap the default vertical list for a PvZ-style grid of cards.
         var defaultLayout = sidebarContent.GetComponent<VerticalLayoutGroup>();
         if (defaultLayout != null) Object.DestroyImmediate(defaultLayout);
         var grid = sidebarContent.gameObject.AddComponent<GridLayoutGroup>();
-        grid.cellSize        = new Vector2(270f, 130f);
-        grid.spacing         = new Vector2(14f, 14f);
-        grid.padding         = new RectOffset(8, 8, 8, 8);
+        grid.cellSize        = new Vector2(500f, 96f);
+        grid.spacing         = new Vector2(0f, 12f);
+        grid.padding         = new RectOffset(10, 10, 10, 10);
         grid.constraint      = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = 2;
+        grid.constraintCount = 1;
         grid.childAlignment  = TextAnchor.UpperCenter;
 
         // Thumbnail card template.
@@ -124,19 +130,21 @@ public static class AlmanacOverlayBuilder
         entryIcon.GetComponent<Image>().raycastTarget = false;
         sidebarEntryTemplate.gameObject.SetActive(false);
 
-        // Right: entry detail — art banner + title + body.
+        // Right page: entry detail — art banner + title + body.
         var detailArea = UIFactory.CreateRect(detailPane, "DetailArea",
-                                              new Vector2(0.4f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(42f, 0f), new Vector2(0f, 0f));
+                                              new Vector2(0.54f, 0.14f), new Vector2(0.90f, 0.86f),
+                                              Vector2.zero, Vector2.zero);
 
         var titleRibbon = AddSprite(detailArea, "TitleRibbon", LugarithmUiSkin.JournalTitleRibbon,
-                                    new Vector2(0.5f, 1f), new Vector2(0f, -44f), new Vector2(560f, 74f));
+                                    new Vector2(0.5f, 1f), new Vector2(0f, -34f), new Vector2(500f, 64f));
 
+        // Landmark / concept art — a compact banner near the top so the body text
+        // below it gets the majority of the page.
         var entryArtFrame = UIFactory.CreatePanel(detailArea, "EntryArt",
-                                                  new Vector2(0f, 1f), new Vector2(1f, 1f),
+                                                  new Vector2(0.08f, 0.62f), new Vector2(0.92f, 0.87f),
                                                   Color.clear);
-        entryArtFrame.offsetMin = new Vector2(54f, -360f);
-        entryArtFrame.offsetMax = new Vector2(-54f, -92f);
+        entryArtFrame.offsetMin = Vector2.zero;
+        entryArtFrame.offsetMax = Vector2.zero;
         var entryArt = entryArtFrame.GetComponent<Image>();
         var entryArtLabel = UIFactory.CreateText(entryArtFrame, "ArtInitials", "", 42f,
                                                  UIFactory.TextBright, TextAlignmentOptions.Center);
@@ -144,24 +152,35 @@ public static class AlmanacOverlayBuilder
         entryArtLabel.rectTransform.offsetMax = Vector2.zero;
         entryArtLabel.fontStyle = FontStyles.Bold;
 
-        var contentTitle = UIFactory.CreateText(detailArea, "ContentTitle", "", 28f,
+        var contentTitle = UIFactory.CreateText(detailArea, "ContentTitle", "", 26f,
                                                 new Color32(239, 169, 18, 255), TextAlignmentOptions.Center);
-        contentTitle.rectTransform.anchorMin = new Vector2(0f, 1f);
-        contentTitle.rectTransform.anchorMax = new Vector2(1f, 1f);
-        contentTitle.rectTransform.offsetMin = new Vector2(36f, -80f);
-        contentTitle.rectTransform.offsetMax = new Vector2(-36f, -18f);
+        contentTitle.fontStyle = FontStyles.Bold;
+        contentTitle.rectTransform.anchorMin = new Vector2(0.05f, 0.55f);
+        contentTitle.rectTransform.anchorMax = new Vector2(0.95f, 0.61f);
+        contentTitle.rectTransform.offsetMin = Vector2.zero;
+        contentTitle.rectTransform.offsetMax = Vector2.zero;
+
+        // Solid cream backdrop behind the body so dark ink reads cleanly instead of
+        // fighting the textured parchment. Created before the scroll so it sits behind.
+        var bodyBackdrop = UIFactory.CreatePanel(detailArea, "BodyBackdrop",
+                                                 new Vector2(0.04f, 0.10f), new Vector2(0.96f, 0.53f),
+                                                 new Color32(238, 224, 190, 235));
+        var bodyBackdropImg = bodyBackdrop.GetComponent<Image>();
+        bodyBackdropImg.sprite = UIFactory.BuiltinSprite("UISprite.psd");
+        bodyBackdropImg.type = Image.Type.Sliced;
+        bodyBackdropImg.raycastTarget = false;
 
         ScrollRect contentScroll = UIFactory.CreateScrollView(detailArea, "ContentScroll",
-                                                              new Vector2(0f, 0f), new Vector2(1f, 1f),
+                                                              new Vector2(0.04f, 0.10f), new Vector2(0.96f, 0.53f),
                                                               out RectTransform contentBodyRect);
         ClearScrollChrome(contentScroll);
-        ((RectTransform)contentScroll.transform).offsetMin = new Vector2(44f, 70f);
-        ((RectTransform)contentScroll.transform).offsetMax = new Vector2(-44f, -382f);
+        ((RectTransform)contentScroll.transform).offsetMin = Vector2.zero;
+        ((RectTransform)contentScroll.transform).offsetMax = Vector2.zero;
         UIFactory.AddVerticalScrollbar(contentScroll);
 
         var contentBody = UIFactory.CreateText(contentBodyRect, "Body", "", 19f,
                                                Ink, TextAlignmentOptions.TopLeft);
-        contentBody.margin = new Vector4(8f, 8f, 22f, 8f);
+        contentBody.margin = new Vector4(14f, 20f, 22f, 12f);
         contentBody.textWrappingMode = TextWrappingModes.Normal;
         // Size the body to its actual text so long reference entries scroll instead of
         // clipping at a fixed height (the scroll content fitter grows to match).
@@ -171,19 +190,20 @@ public static class AlmanacOverlayBuilder
         Button previousButton = CreateJournalNavButton(detailArea, "PreviousButton", "nav_prev", new Vector2(70f, 24f));
         Button nextButton = CreateJournalNavButton(detailArea, "NextButton", "nav_next", new Vector2(-70f, 24f));
         var pageIndicator = UIFactory.CreateText(detailArea, "PageIndicator", "1 / 1", 18f,
-                                                 new Color32(66, 42, 30, 255), TextAlignmentOptions.Center);
+                                                 new Color32(48, 30, 18, 255), TextAlignmentOptions.Center);
         UIFactory.Place(pageIndicator.rectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(150f, 40f));
 
         // ==== Oracle pane (its own tab) =======================================
+        // Fills the whole book; children anchor per page by fraction, like DetailPane.
         var oraclePane = UIFactory.CreateRect(bookPanel, "OraclePane",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(135f, 88f), new Vector2(-135f, -155f));
+                                              Vector2.zero, Vector2.zero);
 
         // Left page: quick-ask topics — flat buttons that drop a starter question
         // into the chat (wired to ChatController below).
         var oracleTopics = UIFactory.CreateRect(oraclePane, "OracleTopics",
-                                                new Vector2(0f, 0f), new Vector2(0.39f, 1f),
-                                                new Vector2(18f, 38f), new Vector2(-22f, -38f));
+                                                new Vector2(0.10f, 0.14f), new Vector2(0.46f, 0.83f),
+                                                Vector2.zero, Vector2.zero);
         var topicsHeader = UIFactory.CreateText(oracleTopics, "TopicsHeader", "Ask the Oracle", 22f,
                                                 Amber, TextAlignmentOptions.MidlineLeft);
         topicsHeader.fontStyle = FontStyles.Bold;
@@ -230,8 +250,8 @@ public static class AlmanacOverlayBuilder
 
         // Right page: minimal header — title, one-line subtitle, thin rule.
         var oracleRight = UIFactory.CreateRect(oraclePane, "OracleRight",
-                                               new Vector2(0.41f, 0f), Vector2.one,
-                                               new Vector2(20f, 0f), Vector2.zero);
+                                               new Vector2(0.54f, 0.14f), new Vector2(0.90f, 0.86f),
+                                               Vector2.zero, Vector2.zero);
         var oracleTitle = UIFactory.CreateText(oracleRight, "OracleTitle", "Oracle", 26f,
                                                Amber, TextAlignmentOptions.Center);
         oracleTitle.fontStyle = FontStyles.Bold;
@@ -239,10 +259,10 @@ public static class AlmanacOverlayBuilder
         var oracleSubtitle = UIFactory.CreateText(oracleRight, "OracleSubtitle",
                                                   "Ask about the towns, culture, or coding.", 17f,
                                                   InkDim, TextAlignmentOptions.Center);
-        UIFactory.Place(oracleSubtitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -60f), new Vector2(560f, 26f));
+        UIFactory.Place(oracleSubtitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -60f), new Vector2(480f, 26f));
         var headerRule = UIFactory.CreatePanel(oracleRight, "HeaderRule",
                                                new Vector2(0f, 1f), new Vector2(1f, 1f),
-                                               new Color32(120, 92, 68, 110));
+                                               new Color32(96, 66, 44, 150));
         headerRule.offsetMin = new Vector2(40f, -82f);
         headerRule.offsetMax = new Vector2(-40f, -80f);
         headerRule.GetComponent<Image>().raycastTarget = false;
@@ -256,7 +276,7 @@ public static class AlmanacOverlayBuilder
         Button clearChatButton = UIFactory.CreateButton(oracleRight, "ClearChatButton", "Clear",
                                                         new Vector2(90f, 30f), 16f);
         clearChatButton.image.color = Color.clear;
-        UIFactory.Place(clearChatButton, new Vector2(1f, 1f), new Vector2(-18f, -30f), new Vector2(76f, 28f));
+        UIFactory.Place(clearChatButton, new Vector2(1f, 1f), new Vector2(-34f, -30f), new Vector2(76f, 28f));
         SetLabelColor(clearChatButton, InkDim);
 
         ScrollRect chatScroll = UIFactory.CreateScrollView(oracleRight, "ChatScroll",
@@ -386,6 +406,13 @@ public static class AlmanacOverlayBuilder
         if (button == null) return;
         var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label != null) label.color = color;
+    }
+
+    static void SetLabelBold(Button button, bool bold)
+    {
+        if (button == null) return;
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null) label.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
     }
 
     static RectTransform AddSprite(Transform parent, string name, Sprite sprite,
