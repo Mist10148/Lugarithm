@@ -82,7 +82,9 @@ public static class MainMenuSceneBuilder
             UIFactory.FontOverride = previousFontOverride;
         }
 
+        UIFactory.FontOverride = SproutLandsMenuFont.EnsureFontAsset();
         SettingsPanel settingsPanel = SettingsPanelBuilder.Build(canvas.transform);
+        UIFactory.FontOverride = previousFontOverride;
 
         var manager = canvas.gameObject.AddComponent<MainMenuManager>();
         SceneBuilderUtil.Wire(manager, "newGameButton", newGame);
@@ -98,6 +100,13 @@ public static class MainMenuSceneBuilder
         UIFactory.AddPressFlash(settings);
         UIFactory.AddPressFlash(journal);
         UIFactory.AddPressFlash(quit);
+
+        // MainMenu is also a supported direct-entry scene in the editor.  Bootstrap
+        // normally supplies the persistent AlmanacManager, but without this local
+        // fallback the Journal button silently did nothing when MainMenu was opened
+        // directly. AlmanacManager's singleton guard destroys this copy when the
+        // Bootstrap instance already exists, so normal scene routing is unchanged.
+        AlmanacOverlayBuilder.Build(null);
 
         SceneBuilderUtil.SaveScene(scene, "MainMenu");
     }

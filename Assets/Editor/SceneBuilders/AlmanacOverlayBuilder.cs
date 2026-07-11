@@ -39,31 +39,42 @@ public static class AlmanacOverlayBuilder
                                               UIFactory.PanelDark);
         UIFactory.Place(bookPanel, new Vector2(0.5f, 0.5f), Vector2.zero,
                         new Vector2(1690f, 864f));
+        var bookImage = bookPanel.GetComponent<Image>();
+        bookImage.sprite = LugarithmUiSkin.JournalBook;
+        bookImage.type = Image.Type.Simple;
+        bookImage.preserveAspect = true;
+        bookImage.color = Color.white;
 
         // ---- Tab bar (top, full width): Heritage / Coding / Oracle -----------
         var tabBar = UIFactory.CreateRect(bookPanel, "TabBar",
                                           new Vector2(0f, 1f), new Vector2(1f, 1f),
-                                          new Vector2(8f, -52f), new Vector2(-8f, -4f));
+                                          new Vector2(145f, -125f), new Vector2(-780f, 18f));
 
         Button heritageTab = UIFactory.CreateButton(tabBar, "HeritageTab", "Heritage Pages",
-                                                    new Vector2(190f, 40f), 20f);
-        UIFactory.Place(heritageTab, new Vector2(0f, 0.5f), new Vector2(8f, 0f), new Vector2(190f, 40f));
+                                                    new Vector2(210f, 104f), 20f);
+        UIFactory.Place(heritageTab, new Vector2(0f, 0.5f), new Vector2(8f, 0f), new Vector2(210f, 104f));
         SetLabelColor(heritageTab, UIFactory.Accent);
 
         Button codingTab = UIFactory.CreateButton(tabBar, "CodingTab", "Coding Reference",
-                                                  new Vector2(190f, 40f), 20f);
-        UIFactory.Place(codingTab, new Vector2(0f, 0.5f), new Vector2(206f, 0f), new Vector2(190f, 40f));
+                                                  new Vector2(210f, 104f), 20f);
+        UIFactory.Place(codingTab, new Vector2(0f, 0.5f), new Vector2(226f, 0f), new Vector2(210f, 104f));
         SetLabelColor(codingTab, UIFactory.TextDim);
 
         Button oracleTab = UIFactory.CreateButton(tabBar, "OracleTab", "Oracle",
-                                                  new Vector2(160f, 40f), 20f);
-        UIFactory.Place(oracleTab, new Vector2(0f, 0.5f), new Vector2(404f, 0f), new Vector2(160f, 40f));
+                                                  new Vector2(190f, 104f), 20f);
+        UIFactory.Place(oracleTab, new Vector2(0f, 0.5f), new Vector2(444f, 0f), new Vector2(190f, 104f));
         SetLabelColor(oracleTab, UIFactory.TextDim);
+        heritageTab.image.sprite = null;
+        codingTab.image.sprite = null;
+        oracleTab.image.sprite = null;
+        heritageTab.image.color = Color.clear;
+        codingTab.image.color = Color.clear;
+        oracleTab.image.color = Color.clear;
 
         // ==== Detail pane (PvZ two-pane: thumbnail grid + entry detail) =======
         var detailPane = UIFactory.CreateRect(bookPanel, "DetailPane",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(8f, 8f), new Vector2(-8f, -56f));
+                                              new Vector2(110f, 80f), new Vector2(-110f, -115f));
 
         // Left: scrollable grid of entry thumbnails.
         ScrollRect sidebarScroll = UIFactory.CreateScrollView(detailPane, "EntryGrid",
@@ -137,7 +148,7 @@ public static class AlmanacOverlayBuilder
         // ==== Oracle pane (its own tab) =======================================
         var oraclePane = UIFactory.CreateRect(bookPanel, "OraclePane",
                                               new Vector2(0f, 0f), new Vector2(1f, 1f),
-                                              new Vector2(8f, 8f), new Vector2(-8f, -56f));
+                                              new Vector2(110f, 80f), new Vector2(-110f, -115f));
 
         var oracleFlavour = UIFactory.CreateText(oraclePane, "OracleFlavour",
                                                  "Ask the Oracle about any town or coding concept.",
@@ -194,6 +205,21 @@ public static class AlmanacOverlayBuilder
 
         oraclePane.gameObject.SetActive(false);
 
+        var turnOverlay = UIFactory.CreateRect(bookPanel, "PageTurnOverlay",
+                                               new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+        UIFactory.Place(turnOverlay, new Vector2(0.5f, 0.5f), new Vector2(0f, -18f),
+                        new Vector2(760f, 700f));
+        var turnImage = turnOverlay.gameObject.AddComponent<RawImage>();
+        turnImage.texture = LugarithmUiSkin.JournalPageTurns;
+        turnImage.color = Color.white;
+        turnImage.raycastTarget = false;
+        turnOverlay.gameObject.SetActive(false);
+        var turnAnimator = turnOverlay.gameObject.AddComponent<JournalPageTurnAnimator>();
+        SceneBuilderUtil.Wire(turnAnimator, "overlay", turnImage);
+        SceneBuilderUtil.Wire(turnAnimator, "heritageTab", heritageTab);
+        SceneBuilderUtil.Wire(turnAnimator, "codingTab", codingTab);
+        SceneBuilderUtil.Wire(turnAnimator, "oracleTab", oracleTab);
+
         // ---- Close button -----------------------------------------------------
         Button closeButton = UIFactory.CreateButton(bookPanel, "CloseButton", "✕",
                                                     new Vector2(48f, 48f), 28f);
@@ -231,6 +257,7 @@ public static class AlmanacOverlayBuilder
         SceneBuilderUtil.Wire(chatController, "sendButton",     sendButton);
         SceneBuilderUtil.Wire(chatController, "clearButton",    clearChatButton);
 
+        UIFactory.ApplyBlueprintSkin(backdrop);
         backdrop.gameObject.SetActive(false);
         return manager;
     }

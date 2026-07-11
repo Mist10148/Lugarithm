@@ -96,6 +96,7 @@ public static class BadgeUnlockBuilder
         SceneBuilderUtil.Wire(manager, "panel", panel);
 
         // Start hidden
+        UIFactory.ApplyBlueprintSkin(backdrop);
         backdrop.gameObject.SetActive(false);
 
         return manager;

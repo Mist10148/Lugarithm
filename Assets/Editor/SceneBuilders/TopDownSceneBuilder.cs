@@ -123,13 +123,31 @@ public static class TopDownSceneBuilder
         var statusBackdrop = UIFactory.CreatePanel(canvas.transform, "StatusBackdrop",
                                                    new Vector2(0f, 1f), new Vector2(0f, 1f),
                                                    UIFactory.TutorialPlum);
-        UIFactory.Place(statusBackdrop, new Vector2(0f, 1f), new Vector2(16f, -16f), new Vector2(252f, 92f));
-        statusBackdrop.GetComponent<Image>().raycastTarget = false;
+        UIFactory.Place(statusBackdrop, new Vector2(0f, 1f), new Vector2(22f, -24f), new Vector2(360f, 220f));
+        var statusImage = statusBackdrop.GetComponent<Image>();
+        statusImage.sprite = LugarithmUiSkin.TutorialObjective;
+        statusImage.type = Image.Type.Simple;
+        statusImage.preserveAspect = true;
+        statusImage.color = Color.white;
+        statusImage.raycastTarget = false;
 
-        // Level name (top-left)
-        var levelName = UIFactory.CreateText(canvas.transform, "LevelName", "Tutorial",
-                                             28f, UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(levelName, new Vector2(0f, 1f), new Vector2(18f, -18f), new Vector2(300f, 40f));
+        // Blueprint location ribbon (top-center).
+        var locationBanner = UIFactory.CreatePanel(canvas.transform, "LocationBanner",
+                                                   new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), Color.white);
+        var locationImage = locationBanner.GetComponent<Image>();
+        locationImage.sprite = LugarithmUiSkin.TutorialBanner;
+        locationImage.type = Image.Type.Simple;
+        locationImage.color = Color.white;
+        UIFactory.Place(locationBanner, new Vector2(0.5f, 1f), new Vector2(0f, -22f), new Vector2(570f, 90f));
+        locationImage.preserveAspect = true;
+        var levelName = UIFactory.CreateText(locationBanner, "LevelName", "Tutorial",
+                                             30f, UIFactory.Accent, TextAlignmentOptions.Center);
+        levelName.rectTransform.offsetMin = new Vector2(36f, 8f);
+        levelName.rectTransform.offsetMax = new Vector2(-36f, -8f);
+
+        var objectiveTitle = UIFactory.CreateText(statusBackdrop, "ObjectiveTitle", "TUTORIAL",
+                                                  27f, UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
+        UIFactory.Place(objectiveTitle, new Vector2(0f, 1f), new Vector2(74f, -20f), new Vector2(250f, 38f));
 
         // Interaction prompt (bottom-center) — hidden until player approaches an entity
         var promptBg = UIFactory.CreatePanel(canvas.transform, "PromptBg",
@@ -145,12 +163,15 @@ public static class TopDownSceneBuilder
         // Side-objectives counter (top-left, under the level name)
         var objectives = UIFactory.CreateText(canvas.transform, "Objectives", "",
                                               20f, UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(objectives, new Vector2(0f, 1f), new Vector2(18f, -58f), new Vector2(300f, 30f));
+        objectives.transform.SetParent(statusBackdrop, false);
+        UIFactory.Place(objectives, new Vector2(0f, 1f), new Vector2(74f, -62f), new Vector2(250f, 30f));
 
         // Main quest label (top-left, under the side-objectives counter, gold + bigger)
         var mainQuest = UIFactory.CreateText(canvas.transform, "MainQuest", "",
                                              22f, UIFactory.TutorialGold, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(mainQuest, new Vector2(0f, 1f), new Vector2(18f, -86f), new Vector2(400f, 30f));
+        mainQuest.transform.SetParent(statusBackdrop, false);
+        mainQuest.enableWordWrapping = true;
+        UIFactory.Place(mainQuest, new Vector2(0f, 1f), new Vector2(34f, -116f), new Vector2(292f, 100f));
 
         // Optional artifact tracker. It stays hidden until all five side objectives
         // and the main objective are complete, then reads X until the pickup is found.
@@ -194,12 +215,32 @@ public static class TopDownSceneBuilder
         var hintBackdrop = UIFactory.CreatePanel(canvas.transform, "HintBackdrop",
                                                  new Vector2(0f, 0f), new Vector2(0f, 0f),
                                                  UIFactory.TutorialPlum);
-        UIFactory.Place(hintBackdrop, new Vector2(0f, 0f), new Vector2(16f, 14f), new Vector2(500f, 38f));
-        hintBackdrop.GetComponent<Image>().raycastTarget = false;
+        UIFactory.Place(hintBackdrop, new Vector2(0f, 0f), new Vector2(22f, 20f), new Vector2(625f, 96f));
+        var hintImage = hintBackdrop.GetComponent<Image>();
+        hintImage.sprite = LugarithmUiSkin.TutorialFooter;
+        hintImage.type = Image.Type.Simple;
+        hintImage.preserveAspect = true;
+        hintImage.color = Color.white;
+        hintImage.raycastTarget = false;
 
         var hint = UIFactory.CreateText(canvas.transform, "Hint", "WASD / Arrows: Move  |  E: Interact",
                                         16f, UIFactory.TextDim);
-        UIFactory.Place(hint, new Vector2(0f, 0f), new Vector2(18f, 18f), new Vector2(460f, 30f));
+        hint.transform.SetParent(hintBackdrop, false);
+        UIFactory.Place(hint, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700f, 70f));
+
+        var modeCard = UIFactory.CreatePanel(canvas.transform, "ModeCard",
+                                             new Vector2(1f, 0f), new Vector2(1f, 0f), UIFactory.PanelDark);
+        UIFactory.Place(modeCard, new Vector2(1f, 0f), new Vector2(-24f, 20f), new Vector2(350f, 100f));
+        var modeImage = modeCard.GetComponent<Image>();
+        modeImage.sprite = LugarithmUiSkin.TutorialModeCard;
+        modeImage.type = Image.Type.Simple;
+        modeImage.preserveAspect = true;
+        modeImage.color = Color.white;
+        var modeText = UIFactory.CreateText(modeCard, "ModeText",
+                                            "DRIVE MODE     |     CODE MODE\nManual                 Blocks",
+                                            20f, UIFactory.TextBright, TextAlignmentOptions.Center);
+        modeText.rectTransform.offsetMin = new Vector2(18f, 12f);
+        modeText.rectTransform.offsetMax = new Vector2(-18f, -12f);
 
         // Minigame-station access card (placeholder, for kinds with no game yet).
         MinigamePlaceholderPanel minigamePanel =
@@ -213,10 +254,34 @@ public static class TopDownSceneBuilder
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform, true);
         MazeRepairMinigame  codingMaze = MinigameOverlayBuilder.BuildMazeRepair(canvas.transform, true);
 
-        // Exit button (top-right)
-        Button exitButton = UIFactory.CreateButton(canvas.transform, "ExitButton", "Exit",
-                                                    new Vector2(120f, 44f));
-        UIFactory.Place(exitButton, new Vector2(1f, 1f), new Vector2(-18f, -18f), new Vector2(120f, 44f));
+        SettingsPanel settingsPanel = SettingsPanelBuilder.Build(canvas.transform);
+
+        // Blueprint action rail (top-right).
+        Button settingsButton = CreateTutorialRailButton(canvas.transform, "SettingsButton", "SETTINGS",
+                                                          LugarithmUiSkin.TutorialRailSettings);
+        UIFactory.Place(settingsButton, new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(132f, 98f));
+        var openSettings = settingsButton.gameObject.AddComponent<SettingsPanelOpenButton>();
+        SceneBuilderUtil.Wire(openSettings, "button", settingsButton);
+        SceneBuilderUtil.Wire(openSettings, "settingsPanel", settingsPanel);
+
+        Button codeButton = CreateTutorialRailButton(canvas.transform, "CodeButton", "CODE",
+                                                      LugarithmUiSkin.TutorialRailCode);
+        UIFactory.Place(codeButton, new Vector2(1f, 1f), new Vector2(-24f, -132f), new Vector2(132f, 98f));
+
+        Button oracleButton = CreateTutorialRailButton(canvas.transform, "OracleButton", "ORACLE",
+                                                        LugarithmUiSkin.TutorialRailOracle);
+        UIFactory.Place(oracleButton, new Vector2(1f, 1f), new Vector2(-24f, -240f), new Vector2(132f, 98f));
+        oracleButton.gameObject.AddComponent<AlmanacToggleButton>();
+
+        Button journalButton = CreateTutorialRailButton(canvas.transform, "JournalButton", "JOURNAL",
+                                                         LugarithmUiSkin.TutorialRailJournal);
+        UIFactory.Place(journalButton, new Vector2(1f, 1f), new Vector2(-24f, -348f), new Vector2(132f, 98f));
+        journalButton.gameObject.AddComponent<AlmanacToggleButton>();
+
+        // Preserve the existing exit callback while matching the fifth reference rail slot.
+        Button exitButton = CreateTutorialRailButton(canvas.transform, "ExitButton", "EXIT",
+                                                      LugarithmUiSkin.TutorialRailPause);
+        UIFactory.Place(exitButton, new Vector2(1f, 1f), new Vector2(-24f, -456f), new Vector2(132f, 98f));
 
         // Branching dialogue overlay for talking to town NPCs (reuses the same
         // controller as the drive scenes). Compact card pinned bottom-right so it
@@ -285,7 +350,38 @@ public static class TopDownSceneBuilder
 
         // --- Save -------------------------------------------------------------------
 
+        UIFactory.ApplyBlueprintSkin(canvas.transform);
         SceneBuilderUtil.SaveScene(scene, "TopDownLevel");
+    }
+
+    static Button CreateTutorialRailButton(Transform parent, string name, string label, Sprite sprite)
+    {
+        var rt = UIFactory.CreateRect(parent, name, new Vector2(1f, 1f), new Vector2(1f, 1f));
+        rt.sizeDelta = new Vector2(132f, 98f);
+        var image = rt.gameObject.AddComponent<Image>();
+        image.sprite = sprite;
+        image.type = Image.Type.Simple;
+        image.preserveAspect = true;
+        image.color = Color.white;
+        var button = rt.gameObject.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.ColorTint;
+        var colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1.12f, 1.08f, 1.02f, 1f);
+        colors.pressedColor = new Color(0.82f, 0.76f, 0.88f, 1f);
+        button.colors = colors;
+        var text = UIFactory.CreateText(rt, "Label", label, 14f, UIFactory.TutorialCream,
+                                        TextAlignmentOptions.Center);
+        text.rectTransform.anchorMin = new Vector2(0f, 0f);
+        text.rectTransform.anchorMax = new Vector2(1f, 0f);
+        text.rectTransform.pivot = new Vector2(0.5f, 0f);
+        text.rectTransform.anchoredPosition = new Vector2(0f, 8f);
+        text.rectTransform.sizeDelta = new Vector2(-12f, 24f);
+        text.enableAutoSizing = true;
+        text.fontSizeMin = 10f;
+        text.fontSizeMax = 14f;
+        return button;
     }
 
     static GameObject BuildTutorialEnvironment()

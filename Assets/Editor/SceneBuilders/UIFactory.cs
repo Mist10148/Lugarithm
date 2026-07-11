@@ -12,12 +12,12 @@ using UnityEngine.UI;
 public static class UIFactory
 {
     // Palette
-    public static readonly Color PanelDark   = new Color(0.10f, 0.12f, 0.16f, 0.96f);
-    public static readonly Color PanelDarker = new Color(0.06f, 0.07f, 0.10f, 0.98f);
-    public static readonly Color ButtonFace  = new Color(0.18f, 0.22f, 0.30f, 1f);
-    public static readonly Color Accent      = new Color(0.95f, 0.65f, 0.15f, 1f);
-    public static readonly Color TextBright  = new Color(0.93f, 0.93f, 0.88f, 1f);
-    public static readonly Color TextDim     = new Color(0.62f, 0.64f, 0.66f, 1f);
+    public static readonly Color PanelDark   = LugarithmUiSkin.Plum;
+    public static readonly Color PanelDarker = LugarithmUiSkin.PlumDeep;
+    public static readonly Color ButtonFace  = Color.white;
+    public static readonly Color Accent      = LugarithmUiSkin.Gold;
+    public static readonly Color TextBright  = LugarithmUiSkin.Cream;
+    public static readonly Color TextDim     = LugarithmUiSkin.MutedCream;
     public static readonly Color TutorialPlum = new Color(0.025f, 0.065f, 0.055f, 0.97f);
     public static readonly Color TutorialCream = new Color(0.93f, 0.94f, 0.82f, 1f);
     public static readonly Color TutorialMuted = new Color(0.68f, 0.75f, 0.67f, 1f);
@@ -158,25 +158,46 @@ public static class UIFactory
         rt.sizeDelta = size;
 
         var image = rt.gameObject.AddComponent<Image>();
-        image.sprite = BuiltinSprite("UISprite.psd");
+        image.sprite = LugarithmUiSkin.ButtonNormal != null
+            ? LugarithmUiSkin.ButtonNormal
+            : BuiltinSprite("UISprite.psd");
         image.type   = Image.Type.Sliced;
-        image.color  = ButtonFace;
+        image.color  = Color.white;
 
         var button = rt.gameObject.AddComponent<Button>();
-        ColorBlock colors = button.colors;
-        colors.normalColor      = Color.white;
-        colors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
-        colors.pressedColor     = new Color(0.8f, 0.8f, 0.8f, 1f);
-        colors.disabledColor    = new Color(0.55f, 0.55f, 0.55f, 0.6f);
+        button.transition = Selectable.Transition.SpriteSwap;
+        var spriteState = button.spriteState;
+        spriteState.highlightedSprite = LugarithmUiSkin.ButtonPrimary;
+        spriteState.pressedSprite = LugarithmUiSkin.ButtonPrimary;
+        spriteState.selectedSprite = LugarithmUiSkin.ButtonPrimary;
+        spriteState.disabledSprite = LugarithmUiSkin.ButtonDisabled;
+        button.spriteState = spriteState;
+        var colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1.15f, 0.86f, 0.34f, 1f);
+        colors.pressedColor = new Color(0.85f, 0.58f, 0.16f, 1f);
+        colors.disabledColor = new Color(0.45f, 0.40f, 0.48f, 0.65f);
         button.colors = colors;
+        var outline = rt.gameObject.AddComponent<Outline>();
+        outline.effectColor = Accent;
+        outline.effectDistance = new Vector2(2f, -2f);
 
         var text = CreateText(rt, "Label", label, fontSize, TextBright);
         text.textWrappingMode = TextWrappingModes.NoWrap;
-        text.overflowMode = TextOverflowModes.Overflow;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        text.enableAutoSizing = true;
+        text.fontSizeMax = fontSize;
+        text.fontSizeMin = Mathf.Max(8f, fontSize * 0.50f);
         text.rectTransform.offsetMin = new Vector2(8f, 4f);
         text.rectTransform.offsetMax = new Vector2(-8f, -4f);
 
         return button;
+    }
+
+    static bool Approximately(Color a, Color b)
+    {
+        return Mathf.Abs(a.r - b.r) < 0.01f && Mathf.Abs(a.g - b.g) < 0.01f &&
+               Mathf.Abs(a.b - b.b) < 0.01f && Mathf.Abs(a.a - b.a) < 0.08f;
     }
 
     /// <summary>
@@ -225,6 +246,8 @@ public static class UIFactory
             Image image = button.targetGraphic as Image ?? button.GetComponent<Image>();
             if (image != null)
             {
+                if (image.sprite != null && image.sprite.name.StartsWith("rail_", StringComparison.OrdinalIgnoreCase))
+                    continue;
                 image.sprite = BuiltinSprite("UISprite.psd");
                 image.type = Image.Type.Sliced;
                 image.preserveAspect = false;
@@ -258,6 +281,13 @@ public static class UIFactory
                 name != "PromptBg" && name != "AnalysisGroup" && name != "MazePanel")
                 continue;
 
+            if (image.sprite != null &&
+                (image.sprite.name == "garage_maze" || image.sprite.name == "capiz_window" ||
+                 image.sprite.name == "route_links" || image.sprite.name == "capiz_route" ||
+                 image.sprite.name == "first_route" || image.sprite.name == "straight_road" ||
+                 image.sprite.name == "results_chroma"))
+                continue;
+
             image.sprite = BuiltinSprite("UISprite.psd");
             image.type = Image.Type.Sliced;
             image.preserveAspect = false;
@@ -270,6 +300,15 @@ public static class UIFactory
             outline.effectDistance = new Vector2(2f, -2f);
             outline.useGraphicAlpha = true;
         }
+
+    }
+
+    /// <summary>Final presentation pass shared by all in-game canvases.</summary>
+    public static void ApplyBlueprintSkin(Transform root)
+    {
+        // Deliberately empty. Decorative sprites are assigned by the owning builder
+        // only when their authored aspect ratio matches the target RectTransform.
+        // A global pass previously stretched one atlas cell across every control.
     }
 
     public static TMP_Dropdown CreateDropdown(Transform parent, string name,
@@ -495,7 +534,10 @@ public static class UIFactory
         label.rectTransform.anchoredPosition = new Vector2(0f, 12f);
         label.rectTransform.sizeDelta = new Vector2(buttonSize.x + 48f, 24f);
         label.textWrappingMode = TextWrappingModes.NoWrap;
-        label.overflowMode = TextOverflowModes.Overflow;
+        label.overflowMode = TextOverflowModes.Ellipsis;
+        label.enableAutoSizing = true;
+        label.fontSizeMax = captionFontSize;
+        label.fontSizeMin = Mathf.Max(9f, captionFontSize * 0.6f);
         label.raycastTarget = false;
 
         return button;
@@ -513,6 +555,20 @@ public static class UIFactory
         return flash;
     }
 
+    /// <summary>Adds a blueprint icon above/left of a button label without baking text into art.</summary>
+    public static Image AddButtonIcon(Button button, Sprite sprite, Vector2 size, Vector2 anchoredPosition)
+    {
+        if (button == null || sprite == null) return null;
+        var rt = CreateRect(button.transform, "Icon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+        rt.sizeDelta = size;
+        rt.anchoredPosition = anchoredPosition;
+        var image = rt.gameObject.AddComponent<Image>();
+        image.sprite = sprite;
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        return image;
+    }
+
     // -------------------------------------------------------------------------
     // Toggle
 
@@ -527,14 +583,17 @@ public static class UIFactory
         bg.pivot = new Vector2(0f, 0.5f);
         bg.sizeDelta = new Vector2(size.y, size.y);
         var bgImage = bg.gameObject.AddComponent<Image>();
-        bgImage.sprite = BuiltinSprite("UISprite.psd");
+        bgImage.sprite = LugarithmUiSkin.CheckboxOff != null
+            ? LugarithmUiSkin.CheckboxOff : BuiltinSprite("UISprite.psd");
         bgImage.type   = Image.Type.Sliced;
         bgImage.color  = PanelDarker;
 
         var check = CreateRect(bg, "Checkmark", Vector2.zero, Vector2.one,
                                new Vector2(5f, 5f), new Vector2(-5f, -5f));
         var checkImage = check.gameObject.AddComponent<Image>();
-        checkImage.color = Accent;
+        checkImage.sprite = LugarithmUiSkin.CheckboxOn;
+        checkImage.preserveAspect = true;
+        checkImage.color = Color.white;
 
         toggle.targetGraphic = bgImage;
         toggle.graphic       = checkImage;
@@ -554,7 +613,10 @@ public static class UIFactory
         var slider = rt.gameObject.AddComponent<Slider>();
 
         var bg = CreateRect(rt, "Background", new Vector2(0f, 0.35f), new Vector2(1f, 0.65f));
-        bg.gameObject.AddComponent<Image>().color = PanelDarker;
+        var bgImage = bg.gameObject.AddComponent<Image>();
+        bgImage.sprite = LugarithmUiSkin.SliderTrack;
+        bgImage.type = Image.Type.Sliced;
+        bgImage.color = Color.white;
 
         var fillArea = CreateRect(rt, "Fill Area", new Vector2(0f, 0.35f), new Vector2(1f, 0.65f));
         var fill = CreateRect(fillArea, "Fill", Vector2.zero, new Vector2(0.8f, 1f));
@@ -562,6 +624,16 @@ public static class UIFactory
 
         slider.fillRect = fill;
         slider.value    = 0.8f;
+
+        var handleArea = CreateRect(rt, "Handle Slide Area", Vector2.zero, Vector2.one,
+                                    new Vector2(10f, 0f), new Vector2(-10f, 0f));
+        var handle = CreateRect(handleArea, "Handle", new Vector2(0.8f, 0.5f), new Vector2(0.8f, 0.5f));
+        handle.sizeDelta = new Vector2(size.y * 1.5f, size.y * 1.5f);
+        var handleImage = handle.gameObject.AddComponent<Image>();
+        handleImage.sprite = LugarithmUiSkin.SliderKnob;
+        handleImage.preserveAspect = true;
+        slider.handleRect = handle;
+        slider.targetGraphic = handleImage;
 
         return slider;
     }
@@ -697,7 +769,9 @@ public static class UIFactory
                               new Vector2(1f, 0f), new Vector2(1f, 1f),
                               new Vector2(-width - 2f, 4f), new Vector2(-2f, -4f));
         var track = sbRt.gameObject.AddComponent<Image>();
-        track.color = new Color(PanelDarker.r, PanelDarker.g, PanelDarker.b, 0.9f);
+        track.sprite = LugarithmUiSkin.ScrollbarTrack;
+        track.type = Image.Type.Sliced;
+        track.color = Color.white;
 
         var scrollbar = sbRt.gameObject.AddComponent<Scrollbar>();
         scrollbar.direction = Scrollbar.Direction.BottomToTop;
@@ -706,7 +780,8 @@ public static class UIFactory
                                      new Vector2(1f, 1f), new Vector2(-1f, -1f));
         var handle = CreateRect(slidingArea, "Handle", Vector2.zero, Vector2.one);
         var handleImage = handle.gameObject.AddComponent<Image>();
-        handleImage.sprite = BuiltinSprite("UISprite.psd");
+        handleImage.sprite = LugarithmUiSkin.ScrollbarHandle != null
+            ? LugarithmUiSkin.ScrollbarHandle : BuiltinSprite("UISprite.psd");
         handleImage.type   = Image.Type.Sliced;
         handleImage.color  = Accent;
 
@@ -740,7 +815,9 @@ public static class UIFactory
                               new Vector2(0f, 0f), new Vector2(1f, 0f),
                               new Vector2(4f, 2f), new Vector2(-2f, height + 2f));
         var track = sbRt.gameObject.AddComponent<Image>();
-        track.color = new Color(PanelDarker.r, PanelDarker.g, PanelDarker.b, 0.9f);
+        track.sprite = LugarithmUiSkin.ScrollbarTrack;
+        track.type = Image.Type.Sliced;
+        track.color = Color.white;
 
         var scrollbar = sbRt.gameObject.AddComponent<Scrollbar>();
         scrollbar.direction = Scrollbar.Direction.LeftToRight;
@@ -749,7 +826,8 @@ public static class UIFactory
                                      new Vector2(1f, 1f), new Vector2(-1f, -1f));
         var handle = CreateRect(slidingArea, "Handle", Vector2.zero, Vector2.one);
         var handleImage = handle.gameObject.AddComponent<Image>();
-        handleImage.sprite = BuiltinSprite("UISprite.psd");
+        handleImage.sprite = LugarithmUiSkin.ScrollbarHandle != null
+            ? LugarithmUiSkin.ScrollbarHandle : BuiltinSprite("UISprite.psd");
         handleImage.type   = Image.Type.Sliced;
         handleImage.color  = Accent;
 

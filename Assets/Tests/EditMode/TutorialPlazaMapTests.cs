@@ -37,6 +37,7 @@ public class TutorialPlazaMapTests
             new[] { "il_vendor", "il_student", "il_tindera" },
             npcIds);
 
+        // gridY counts map-string rows top-down (Parse does not flip the axis).
         List<MapEntity> npcs = map.entities.FindAll(entity => entity.type == EntityType.Npc);
         Assert.AreEqual(new Vector2Int(8, 8), new Vector2Int(npcs[0].gridX, npcs[0].gridY));
         Assert.AreEqual(new Vector2Int(16, 8), new Vector2Int(npcs[1].gridX, npcs[1].gridY));

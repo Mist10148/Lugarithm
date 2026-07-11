@@ -52,6 +52,8 @@ public static class ManualDriveSceneBuilder
         var jeepneySr = jeepneyGo.AddComponent<SpriteRenderer>();
         jeepneySr.sprite       = SceneBuilderUtil.LoadPlaceholder("jeepney_top");
         jeepneySr.sortingOrder = 10;
+        var jeepneyAnimator = jeepneyGo.AddComponent<VehicleSpriteAnimator>();
+        SceneBuilderUtil.Wire(jeepneyAnimator, "body", jeepneySr);
 
         var jeepney = jeepneyGo.AddComponent<JeepneyController>();
         SceneBuilderUtil.Wire(jeepney, "fuelDrainPerSecond", RefuelMath.FuelDrainPerSecond);
@@ -93,6 +95,7 @@ public static class ManualDriveSceneBuilder
         UIFactory.LocalizeButton(journalToggle, "hud.journal");
         UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-24f, -136f),
                         new Vector2(130f, 44f));
+        AutomationDriveSceneBuilder.ApplyHudArt(journalToggle.image, LugarithmUiSkin.JeepneyActionJournal);
         journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
 
         // Front-seat story-passenger card (top-left): who you're carrying + talking to.
@@ -100,6 +103,7 @@ public static class ManualDriveSceneBuilder
                                               new Vector2(0f, 1f), new Vector2(0f, 1f),
                                               new Color(0.10f, 0.12f, 0.16f, 0.92f));
         UIFactory.Place(frontSeat, new Vector2(0f, 1f), new Vector2(24f, -24f), new Vector2(320f, 58f));
+        AutomationDriveSceneBuilder.ApplyHudArt(frontSeat.GetComponent<Image>(), LugarithmUiSkin.JeepneyFrontSeat);
         TMP_Text frontSeatLabel = UIFactory.CreateText(frontSeat, "Label", "", 22f,
                                                        UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
         frontSeatLabel.rectTransform.offsetMin = new Vector2(16f, 0f);
@@ -145,6 +149,7 @@ public static class ManualDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "frontSeatCard",  frontSeat.gameObject);
         SceneBuilderUtil.Wire(controller, "frontSeatLabel", frontSeatLabel);
 
+        UIFactory.ApplyBlueprintSkin(canvas.transform);
         SceneBuilderUtil.SaveScene(scene, "ManualDrive");
     }
 

@@ -39,6 +39,7 @@ public static class MinigameOverlayBuilder
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), UIFactory.PanelDark);
         UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1240f, 850f));
+        ApplyShell(window, LugarithmUiSkin.MinigameResults);
 
         var category = UIFactory.CreateText(window, "Category", "MINIGAME", 18f,
                                             UIFactory.TextDim, TextAlignmentOptions.Center);
@@ -232,6 +233,7 @@ public static class MinigameOverlayBuilder
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
         UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700f, 760f));
+        if (tutorialPixelTheme) ApplyShell(window, LugarithmUiSkin.MinigameGarageMaze);
 
         var title = UIFactory.CreateText(window, "Title", "", 28f, UIFactory.Accent, TextAlignmentOptions.Center);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(640f, 40f));
@@ -271,6 +273,7 @@ public static class MinigameOverlayBuilder
             img.sprite = UIFactory.BuiltinSprite("UISprite.psd");
             img.type   = Image.Type.Sliced;
             img.color  = new Color(0.24f, 0.26f, 0.32f);
+            if (tutorialPixelTheme) AddPixelOutline(img, LugarithmUiSkin.PlumMuted);
             var btn = cellRt.gameObject.AddComponent<Button>();
             btn.targetGraphic = img;
             // The game controls cell colour directly, so don't let the button's
@@ -346,6 +349,9 @@ public static class MinigameOverlayBuilder
         SceneBuilderUtil.Wire(game, "replayButton",     replay);
         SceneBuilderUtil.Wire(game, "quitButton",       quit);
         SceneBuilderUtil.Wire(game, "timerFill",        timerFill);
+        SceneBuilderUtil.Wire(game, "shellImage",       window.GetComponent<Image>());
+        SceneBuilderUtil.Wire(game, "mazeShell",        LugarithmUiSkin.MinigameGarageMaze);
+        SceneBuilderUtil.Wire(game, "blockFillShell",   LugarithmUiSkin.MinigameCapizWindow);
         if (tutorialPixelTheme)
         {
             UIFactory.Place(window, new Vector2(0.5f, 0.5f),
@@ -384,6 +390,7 @@ public static class MinigameOverlayBuilder
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
         UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(720f, 820f));
+        if (tutorialPixelTheme) ApplyShell(window, LugarithmUiSkin.MinigameFirstRoute);
 
         var title = UIFactory.CreateText(window, "Title", "", 26f, UIFactory.Accent, TextAlignmentOptions.Center);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(680f, 40f));
@@ -412,6 +419,7 @@ public static class MinigameOverlayBuilder
             bg.sprite = UIFactory.BuiltinSprite("UISprite.psd");
             bg.type   = Image.Type.Sliced;
             bg.color  = new Color(0.22f, 0.30f, 0.42f);
+            if (tutorialPixelTheme) AddPixelOutline(bg, LugarithmUiSkin.PlumMuted);
             var drag = row.gameObject.AddComponent<VerticalReorderHandle>();
             drag.index = i;
             drag.rowStep = 64f;
@@ -508,6 +516,7 @@ public static class MinigameOverlayBuilder
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
         UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(720f, 780f));
+        if (tutorialPixelTheme) ApplyShell(window, LugarithmUiSkin.MinigameRouteLinks);
 
         var title = UIFactory.CreateText(window, "Title", "", 26f, UIFactory.Accent);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(680f, 44f));
@@ -540,6 +549,7 @@ public static class MinigameOverlayBuilder
                 bg.sprite        = UIFactory.BuiltinSprite("UISprite.psd");
                 bg.type          = Image.Type.Sliced;
                 bg.color         = new Color(0.16f, 0.18f, 0.22f);
+                if (tutorialPixelTheme) AddPixelOutline(bg, LugarithmUiSkin.PlumMuted);
                 bg.raycastTarget = true;
 
                 var dotRt = UIFactory.CreateRect(cellRt, "Dot",
@@ -597,6 +607,7 @@ public static class MinigameOverlayBuilder
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
         UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(720f, 820f));
+        if (tutorialPixelTheme) ApplyShell(window, LugarithmUiSkin.MinigameCapizRoute);
 
         var title = UIFactory.CreateText(window, "Title", "", 26f, UIFactory.Accent);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(680f, 44f));
@@ -621,6 +632,7 @@ public static class MinigameOverlayBuilder
             bg.sprite = UIFactory.BuiltinSprite("UISprite.psd");
             bg.type   = Image.Type.Sliced;
             bg.color  = new Color(0.45f, 0.33f, 0.20f);
+            if (tutorialPixelTheme) AddPixelOutline(bg, LugarithmUiSkin.Gold);
             var drag = row.gameObject.AddComponent<VerticalReorderHandle>();
             drag.index = i;
             drag.rowStep = 68f;
@@ -912,6 +924,7 @@ public static class MinigameOverlayBuilder
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
         UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1340f, 780f));
+        ApplyShell(window, LugarithmUiSkin.MinigameStraightRoad);
 
         var title = UIFactory.CreateText(window, "Title", "", 26f, UIFactory.Accent);
         UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -14f), new Vector2(1280f, 40f));
@@ -949,20 +962,20 @@ public static class MinigameOverlayBuilder
                                          TextAlignmentOptions.MidlineLeft);
         UIFactory.Place(timer, new Vector2(0f, 0f), new Vector2(8f, 78f), new Vector2(180f, 32f));
 
-        Button run = UIFactory.CreateButton(left, "RunButton", "▶ RUN", new Vector2(160f, 56f));
+        Button run = UIFactory.CreateButton(left, "RunButton", "RUN", new Vector2(160f, 56f));
         UIFactory.Place(run, new Vector2(0.5f, 0f), new Vector2(-170f, 16f), new Vector2(160f, 56f));
         run.image.color = new Color(0.20f, 0.55f, 0.25f);
 
-        Button reset = UIFactory.CreateButton(left, "ResetButton", "↺ Reset", new Vector2(160f, 56f));
+        Button reset = UIFactory.CreateButton(left, "ResetButton", "Reset", new Vector2(160f, 56f));
         UIFactory.Place(reset, new Vector2(0.5f, 0f), new Vector2(0f, 16f), new Vector2(160f, 56f));
 
         // Autopilot (testing): loads a known-good solver into the active surface and runs it.
-        Button autopilot = UIFactory.CreateButton(left, "AutopilotButton", "🤖 Autopilot", new Vector2(160f, 56f), 18f);
+        Button autopilot = UIFactory.CreateButton(left, "AutopilotButton", "Autopilot", new Vector2(160f, 56f), 18f);
         UIFactory.Place(autopilot, new Vector2(0.5f, 0f), new Vector2(170f, 16f), new Vector2(160f, 56f));
         autopilot.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         // Co-Pilot hint (shared flow, minigame voice) — hidden until the player struggles.
-        Button hintBtn = UIFactory.CreateButton(left, "HintButton", "💡 Hint", new Vector2(150f, 44f), 18f);
+        Button hintBtn = UIFactory.CreateButton(left, "HintButton", "Hint", new Vector2(150f, 44f), 18f);
         UIFactory.Place(hintBtn, new Vector2(1f, 0f), new Vector2(-10f, 78f), new Vector2(150f, 44f));
         hintBtn.image.color = UIFactory.Accent;
         hintBtn.gameObject.SetActive(false);
@@ -1037,6 +1050,27 @@ public static class MinigameOverlayBuilder
     /// left disabled; <see cref="MazeRepairMinigame"/> enables it (and assigns the
     /// runtime RenderTexture) while the puzzle is on screen.
     /// </summary>
+    static void ApplyShell(RectTransform window, Sprite sprite)
+    {
+        if (window == null || sprite == null) return;
+        var image = window.GetComponent<Image>();
+        if (image == null) return;
+        image.sprite = sprite;
+        image.type = Image.Type.Simple;
+        image.preserveAspect = true;
+        image.color = Color.white;
+    }
+
+    static void AddPixelOutline(Image image, Color color)
+    {
+        if (image == null) return;
+        var outline = image.gameObject.GetComponent<Outline>();
+        if (outline == null) outline = image.gameObject.AddComponent<Outline>();
+        outline.effectColor = color;
+        outline.effectDistance = new Vector2(2f, -2f);
+        outline.useGraphicAlpha = true;
+    }
+
     static void BuildMazeWorld(out GridWorldView worldView, out JeepneyAgentView agentView, out Camera cam)
     {
         Vector3 origin = new Vector3(5000f, 5000f, 0f);

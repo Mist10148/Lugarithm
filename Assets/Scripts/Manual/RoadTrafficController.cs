@@ -37,6 +37,7 @@ public class RoadTrafficController : MonoBehaviour
     readonly List<TrafficVehicle> _vehicles = new List<TrafficVehicle>();
     readonly Stack<TrafficVehicle> _pool = new Stack<TrafficVehicle>();
     static Sprite _carSprite;
+    static Sprite[] _trafficSprites;
     readonly List<float> _stopAlong = new List<float>();
     readonly HashSet<Vector2Int> _trafficCells = new HashSet<Vector2Int>();
     readonly HashSet<Vector2Int> _lastSyncedTrafficCells = new HashSet<Vector2Int>();
@@ -434,6 +435,13 @@ public class RoadTrafficController : MonoBehaviour
         return _carSprite;
     }
 
+    static Sprite[] TrafficSprites()
+    {
+        if (_trafficSprites == null || _trafficSprites.Length == 0)
+            _trafficSprites = Resources.LoadAll<Sprite>("Vehicles/filipino_traffic_sheet");
+        return _trafficSprites ?? System.Array.Empty<Sprite>();
+    }
+
     void SpawnVehicle(float along, float side, float cruiseSpeed, int direction = 1)
     {
         TrafficVehicle v = null;
@@ -451,6 +459,14 @@ public class RoadTrafficController : MonoBehaviour
 
         v.go.transform.SetParent(_root != null ? _root : transform, false);
         v.go.SetActive(true);
+        if (v.renderer != null)
+        {
+            Sprite[] variants = TrafficSprites();
+            v.renderer.sprite = variants.Length > 0
+                ? variants[Mathf.Abs(_spawnSerial) % variants.Length]
+                : CarSprite();
+            v.renderer.color = Color.white;
+        }
         v.along = along;
         v.side = side;
         v.direction = direction < 0 ? -1 : 1;
