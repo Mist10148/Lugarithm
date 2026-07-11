@@ -7,8 +7,8 @@ not drop a GDD promise. Authority: [`AGENTS.md`](../AGENTS.md) → README (GDD) 
 
 | Field | Value |
 |---|---|
-| Version | 0.4 |
-| Last updated | 2026-06-27 |
+| Version | 0.5 |
+| Last updated | 2026-07-11 |
 | Engine | Unity 2D (C#) |
 | Platforms | PC — Windows & macOS |
 | Save | Local JSON, auto-save on town completion |
@@ -57,6 +57,14 @@ no-syntax blocks to a text editor.
   **and** their conversation has finished — in *either* order. This triggers the heritage reveal,
   completion card, and results.
 - **LOOP-R5** `[x]` The player cannot "lose"; mistakes only reduce a leg's earnings.
+- **LOOP-R6** `[x]` **Optional secret Artifact hunt (100% completion).** Clearing *every* town
+  objective (the main coding quest **and** all side objectives) spawns a hidden heritage **Artifact**
+  at a randomized reachable, walkable, unoccupied, interior-preferred cell near the jeep stop
+  (`OverworldArtifactPlacement.TryChooseCell`; a fresh seed per session, so placement varies each
+  time). The player locates it via a **Cultural Echo** proximity-audio cue that strengthens with
+  nearness (`ArtifactProximityAudio`, smoothstep volume curve, silent beyond ~24 units, full within
+  ~1.5), then presses **E** to collect. Unit-tested (`OverworldArtifactPlacementTests`,
+  `ArtifactProximityAudioTests`).
 
 ## 5. Mode Parity Requirements (MODE) — the headline invariant
 
@@ -138,8 +146,10 @@ has a deterministic authored fallback** and per-feature timeouts/token budgets. 
 - **AI-R4** `[x]` **Co-Pilot** gives tiered, spoiler-free hints; **Vibe-Coding** offers
   Ask/Plan/Agent/Refactor — Agent/Refactor output is validated and must solve the puzzle before it
   touches the editor (`CopilotHintService`, `VibeCodingService`, `VibeIntentRouter`).
-- **AI-R5** `[-]` **Context-aware placement** of heritage collectibles by skill/playstyle.
-  *Verify adaptation logic.*
+- **AI-R5** `[ ]` **Context-aware (skill-adaptive) placement** of the heritage Artifact.
+  *Not implemented / future.* The shipped Artifact placement is **deterministic-random**
+  (`OverworldArtifactPlacement`, LOOP-R6), not Gemini- or skill-driven; adapting placement to
+  player skill/playstyle remains a possible future extension.
 - **AI-R6** `[x]` No keys, provider URLs, or prompt-secrets in scripts; config is synced from `.env`
   to a generated `ai_config.json` by `EnvConfigSync`. Usage is tracked (`AiUsageTracker`).
 - **AI-R7** `[ ]` *Follow-up:* the Vibe-Coding action-graph generator may emit user-defined `def`
@@ -158,8 +168,10 @@ has a deterministic authored fallback** and per-feature timeouts/token budgets. 
 
 - **PROG-R1** `[x]` Currency earned by leg efficiency, puzzle accuracy, and learning; the Code editor
   carries a small scoring multiplier over Blocks.
-- **PROG-R2** `[x]` **Gacha** pulls grant per-town badges, jeepney cosmetics, performance upgrades,
-  and vehicles; towns are replayable for more pulls.
+- **PROG-R2** `[x]` Rewards for progress: a per-town **badge** on completion (with unlock overlay),
+  unlockable **code editor themes**, and a peso **wallet** with a debt mechanic; **best scores** are
+  tracked and towns are replayable. *(The GDD's **gacha** economy is **not implemented** — future
+  extension only; the shipped rewards are badges, themes, and the wallet.)*
 - **PROG-R3** `[x]` Progress, currency, unlocks, and journal state persist via local JSON save.
 
 ## 12. Settings & Accessibility (SET)
@@ -187,10 +199,10 @@ has a deterministic authored fallback** and per-feature timeouts/token budgets. 
 
 | Level | Town | Heritage | Coding concept | Town puzzle |
 |---|---|---|---|---|
-| Tutorial | Intro | Sequencing intro | Linear sequencing | guided drills |
-| 1 | Iloilo City (Molo) | Molo Church, textile trade | Conditionals | (heritage-tied) |
-| 2 | Oton | Oton Gold Mask, river trade | Lists & indexing | assemble the mask |
-| 3 | Tigbauan | Hablon weaving, WWII markers | Functions + loops | reconstruct a weave |
+| Tutorial | Intro | Sequencing intro | Conditionals (`if`/`else`) | guided drills |
+| 1 | Iloilo City (Molo) | Molo Church, textile trade | Loops (`while`/`for`) + conditionals | (heritage-tied) |
+| 2 | Oton | Oton Gold Mask, river trade | Functions (`def`) | assemble the mask |
+| 3 | Tigbauan | Hablon weaving, WWII markers | Helper functions + loops | reconstruct a weave |
 | 4 | Miag-ao | Miag-ao Church (UNESCO) | Nested conditionals | restore the facade |
 | 5 | San Joaquin | Rendicion de Tetuan, Campo Santo | Multi-variable constraints | reach the Campo Santo |
 
@@ -205,7 +217,8 @@ features (lambdas, classes, exceptions, imports beyond seeded `random`).
 ## 16. Open Questions
 
 - **Q1** Final currency name. `[ ]`
-- **Q2** Gacha pity threshold / drop rates. `[ ]`
+- **Q2** Gacha pity threshold / drop rates. `[!]` Deferred — gacha is not in v1 (PROG-R2); revisit
+  only if the gacha economy is picked up as a future extension.
 - **Q3** Mid-program streaming approach for Automation (MODE-R7) vs. the pre-grow compromise. `[!]`
 - **Q4** Whether the Vibe-Coding generator should emit user-defined functions (AI-R7). `[ ]`
 - **Q5** Team member names/roles for the submission package. `[x]` Resolved — Carlos John

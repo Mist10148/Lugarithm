@@ -1,7 +1,16 @@
 # Lugarithm Language Plan
 
-> Status: **design / planning only — no implementation yet.**
+> Status: **implemented.** The design below shipped — the full pipeline
+> (`Lexer → Parser → Ast → Interpreter`, values, user-defined functions,
+> lists/dicts/tuples, and built-ins) lives in `Assets/Scripts/Automation/Lang/`,
+> with the block front-end in `Assets/Scripts/Automation/Blocks/`.
 > Scope decision: full Python basics **minus OOP**, expressed in **both** play modes.
+>
+> **Authoritative live command list:** [`AutomationCommands.md`](AutomationCommands.md)
+> is the source of truth for the *shipped* domain verbs (it reflects later additions
+> such as `avoidTraffic`, `giveChange`, `driveToTerminal`, `routeComplete`,
+> `cashTendered`, `changeOwed`). This document is the original **design rationale**;
+> where its API tables (§4) differ from `AutomationCommands.md`, the latter wins.
 
 The language that powers both **Automation Mode** (write an algorithm that drives the
 jeepney for you) and the **puzzle mini-games** (e.g. escape a maze). It is a
@@ -42,20 +51,26 @@ never drift apart.
 
 ---
 
-## 2. Where we are today (the MVP surface)
+## 2. What shipped (current surface)
+
+The value layer described in §3 is **built and in use** — the interpreter is no
+longer command-only. Current state:
 
 | Aspect | Current state |
 |---|---|
-| Calls | **zero-argument only** — `moveForward()`, never `moveForward(3)` |
-| Values | **none** — no variables, numbers, strings; conditions are bool-only |
-| Actions | `moveForward turnLeft turnRight moveLeft moveRight pickUp dropOff collectFare driveToNextStop driveToDestination` |
-| Queries | `frontIsClear leftIsClear rightIsClear carInFront atStop atDestination hasPassengerAboard atRequestedStop` |
-| Control flow | `if / else`, `while`, `not`, Python-style indentation |
+| Calls | **arguments supported** — `moveForward(3)`, `wait(2)`, `giveChange(changeOwed())` |
+| Values | int/float/string/bool/`None`, variables, expressions, comparisons |
+| Data | lists, dicts, tuples (literals, indexing, mutation, iteration) |
+| Functions | user-defined `def` / `return` / params; reference solutions are written this way |
+| Actions | see [`AutomationCommands.md`](AutomationCommands.md) — incl. `avoidTraffic`, `driveToTerminal`, `giveChange` |
+| Queries | `frontIsClear … routeComplete atDestination` (live list in `AutomationCommands.md`) |
+| Reporters | `fareOwed cashTendered changeOwed seatsLeft passengerCount distanceTraveled distanceToDestination` |
+| Control flow | `if / elif / else`, `while`, `for … in range`, `repeat`, `break`, `continue`, `and/or/not` |
 | Interpreter | stepping VM, one action per `Step()`, frame stack, guard limits |
 
-Honest framing: today this is a **command-and-control-flow language**, not "Python
-with some basics missing." Everything in §3 is a net-new **value layer** the
-interpreter does not have yet.
+Historical note: this began as a **command-and-control-flow language** (zero-arg
+calls, bool-only conditions). The tiers in §3 were the planned value layer; they
+are now implemented, so §3 documents the *shipped* surface rather than a roadmap.
 
 ---
 
@@ -76,6 +91,17 @@ comprehensions, imports beyond a curated `random`.
 ---
 
 ## 4. Domain API — scoped per mode/level (LOCKED tables)
+
+> **Reconcile with the shipped list.** The tables below are the original design
+> vocabulary. The **shipped** verbs are in [`AutomationCommands.md`](AutomationCommands.md)
+> and differ in a few places: the live build added `avoidTraffic()`,
+> `driveToTerminal()`, `giveChange(amount)`, `routeComplete()`, and the
+> `cashTendered()` / `changeOwed()` reporters; `driveToDestination()` remains as a
+> backward-compatible alias. Some design-only entries below (`openDoor`/`closeDoor`,
+> `announceStop`, `honk`, the `board`/`alight` aliases, `position()`, `markCell`)
+> were **not** shipped as separate verbs — boarding/alighting are `pickUp()` /
+> `dropOff()`. Treat `AutomationCommands.md` as authoritative for what the player
+> can actually type.
 
 Three categories. `Actions` cause side effects and may **return a value**;
 `Queries` return bool; `Reporters` return a value (int/string/tuple). Reporters
@@ -315,8 +341,10 @@ hollow out the mode. Controlled by `LevelDefinition.starterFunctions` /
 - **Block ↔ text round-tripping:** **v1 = one-way blocks→text** ("View as code" via
   an extended `AstPrinter`). **text→blocks (auto-layout) deferred.**
 
-The plan is now fully locked. Implementation guidance: see **Appendix A** (build-step
-1 spec) and `docs/IMPLEMENTATION_PROMPT.md` (the full handoff prompt for an LLM).
+The plan was fully locked and has since been implemented. The build-step-1 spec is
+preserved in **Appendix A** below for historical reference; the live code is in
+`Assets/Scripts/Automation/Lang/` and the shipped verbs in
+[`AutomationCommands.md`](AutomationCommands.md).
 
 ---
 
