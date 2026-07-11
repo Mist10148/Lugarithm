@@ -20,12 +20,14 @@ public class ChatController : MonoBehaviour
     [SerializeField] private TMP_InputField chatInput;
     [SerializeField] private Button         sendButton;
     [SerializeField] private Button         clearButton;
+    [SerializeField] private Sprite         playerBubbleSprite;
+    [SerializeField] private Sprite         oracleBubbleSprite;
 
     // Messenger-style palette: warm amber for the player, neutral grey for the Oracle.
-    static readonly Color PlayerBubble = new Color(0.95f, 0.65f, 0.15f, 0.95f);
-    static readonly Color PlayerText   = new Color(0.10f, 0.09f, 0.06f, 1f);
-    static readonly Color OracleBubble = new Color(0.16f, 0.18f, 0.22f, 0.98f);
-    static readonly Color OracleText   = new Color(0.93f, 0.93f, 0.88f, 1f);
+    static readonly Color PlayerBubble = Color.white;
+    static readonly Color PlayerText   = new Color32(66, 42, 30, 255);
+    static readonly Color OracleBubble = Color.white;
+    static readonly Color OracleText   = new Color32(66, 42, 30, 255);
 
     readonly List<GameObject> _rows    = new List<GameObject>();
     readonly List<string> _history = new List<string>();
@@ -167,7 +169,8 @@ public class ChatController : MonoBehaviour
     TMP_Text AddBubble(string text, bool player)
     {
         TMP_Text label = ChatBubbleFactory.Add(chatContent, bubbleTemplate, text, player,
-            player ? PlayerBubble : OracleBubble, player ? PlayerText : OracleText, out GameObject row);
+            player ? PlayerBubble : OracleBubble, player ? PlayerText : OracleText,
+            player ? playerBubbleSprite : oracleBubbleSprite, out GameObject row);
         if (row != null) _rows.Add(row);
         ChatBubbleFactory.ScrollToBottom(chatContent);
         return label;

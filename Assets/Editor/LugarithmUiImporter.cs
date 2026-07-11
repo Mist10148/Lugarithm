@@ -28,10 +28,15 @@ public sealed class LugarithmUiImporter : AssetPostprocessor
 
         string name = Path.GetFileNameWithoutExtension(assetPath);
         if (assetPath.Contains("/Settings/") || assetPath.Contains("/TutorialHud/") ||
-            assetPath.Contains("/TutorialMinigames/") || assetPath.Contains("/JeepneyHud/"))
+            assetPath.Contains("/TutorialMinigames/") || assetPath.Contains("/JeepneyHud/") ||
+            assetPath.Contains("/Journal/"))
         {
             importer.spritePixelsPerUnit = 1f;
             importer.spriteBorder = Vector4.zero;
+            if (assetPath.Contains("/Journal/Parts/") &&
+                (name.Contains("card") || name.Contains("row") || name.Contains("ribbon") ||
+                 name.Contains("frame") || name.Contains("input")))
+                importer.spriteBorder = new Vector4(18, 18, 18, 18);
             return;
         }
         if (assetPath.Contains("/Icons/"))

@@ -29,6 +29,9 @@ public class AlmanacController : MonoBehaviour
 
     [Header("Navigation")]
     [SerializeField] private Button closeButton;
+    [SerializeField] private Button previousButton;
+    [SerializeField] private Button nextButton;
+    [SerializeField] private TMP_Text pageIndicator;
 
     [Header("PvZ layout")]
     [SerializeField] private GameObject detailPane;
@@ -36,6 +39,13 @@ public class AlmanacController : MonoBehaviour
     [SerializeField] private Button     oracleTabButton;
     [SerializeField] private Image      entryArt;
     [SerializeField] private TMP_Text   entryArtLabel;
+    [SerializeField] private Sprite heritageCardSprite;
+    [SerializeField] private Sprite heritageSelectedSprite;
+    [SerializeField] private Sprite heritageLockedSprite;
+    [SerializeField] private Sprite codingRowSprite;
+    [SerializeField] private Sprite codingSelectedSprite;
+    [SerializeField] private Sprite[] landmarkSprites;
+    [SerializeField] private Sprite[] codingIconSprites;
 
     enum Tab { Heritage, Coding, Oracle }
 
@@ -105,6 +115,10 @@ public class AlmanacController : MonoBehaviour
 
         if (closeButton != null)
             closeButton.onClick.AddListener(Close);
+        if (previousButton != null)
+            previousButton.onClick.AddListener(() => StepSelection(-1));
+        if (nextButton != null)
+            nextButton.onClick.AddListener(() => StepSelection(1));
     }
 
     // -------------------------------------------------------------------------
@@ -119,6 +133,7 @@ public class AlmanacController : MonoBehaviour
         if (detailPane != null) detailPane.SetActive(!oracle);
 
         if (!oracle) RebuildSidebar();
+        RefreshNavigation();
     }
 
     void RefreshTabVisuals()
@@ -155,6 +170,7 @@ public class AlmanacController : MonoBehaviour
 
         if (_currentTab == Tab.Coding) ShowConcept(_selectedConceptId);
         else                           ShowPage(_selectedPageId);
+        RefreshNavigation();
     }
 
     void BuildPlaceEntries()
@@ -186,12 +202,27 @@ public class AlmanacController : MonoBehaviour
         entry.name = name;
         var text = entry.GetComponentInChildren<TMP_Text>(true);
         if (text != null) text.text = label;
+        var icon = entry.transform.Find("EntryIcon");
+        if (icon != null)
+        {
+            int index = _currentTab == Tab.Coding ? _sidebarEntries.Count : _sidebarEntries.Count;
+            var iconImage = icon.GetComponent<Image>();
+            if (iconImage != null)
+            {
+                iconImage.sprite = _currentTab == Tab.Coding && index < codingIconSprites.Length
+                    ? codingIconSprites[index]
+                    : index < landmarkSprites.Length ? landmarkSprites[index] : null;
+                iconImage.color = Color.white;
+            }
+        }
         return entry;
     }
 
     void RefreshSidebarLockStates()
     {
         bool coding = _currentTab == Tab.Coding;
+        var grid = sidebarContent != null ? sidebarContent.GetComponent<GridLayoutGroup>() : null;
+        if (grid != null) grid.cellSize = coding ? new Vector2(275f, 82f) : new Vector2(270f, 130f);
         int  selected = coding ? _selectedConceptId : _selectedPageId;
 
         for (int i = 0; i < _sidebarEntries.Count; i++)
@@ -215,7 +246,13 @@ public class AlmanacController : MonoBehaviour
 
             var image = entry.image;
             if (image != null)
-                image.color = isSelected ? new Color(Accent.r, Accent.g, Accent.b, 0.25f) : PanelDark;
+            {
+                image.color = Color.white;
+                image.sprite = coding
+                    ? (isSelected ? codingSelectedSprite : codingRowSprite)
+                    : (!unlocked ? heritageLockedSprite : isSelected ? heritageSelectedSprite : heritageCardSprite);
+                image.type = Image.Type.Sliced;
+            }
         }
     }
 
@@ -224,6 +261,7 @@ public class AlmanacController : MonoBehaviour
         _selectedPageId = pageId;
         RefreshSidebarLockStates();
         ShowPage(pageId);
+        RefreshNavigation();
     }
 
     void SelectConcept(int conceptId)
@@ -231,6 +269,26 @@ public class AlmanacController : MonoBehaviour
         _selectedConceptId = conceptId;
         RefreshSidebarLockStates();
         ShowConcept(conceptId);
+        RefreshNavigation();
+    }
+
+    void StepSelection(int delta)
+    {
+        if (_currentTab == Tab.Oracle) return;
+        int count = _currentTab == Tab.Coding ? CodingConceptLibrary.Concepts.Count : JournalPageLibrary.Pages.Count;
+        int current = _currentTab == Tab.Coding ? _selectedConceptId : _selectedPageId;
+        int next = Mathf.Clamp(current + delta, 0, Mathf.Max(0, count - 1));
+        if (_currentTab == Tab.Coding) SelectConcept(next); else SelectPage(next);
+    }
+
+    void RefreshNavigation()
+    {
+        bool oracle = _currentTab == Tab.Oracle;
+        int count = _currentTab == Tab.Coding ? CodingConceptLibrary.Concepts.Count : JournalPageLibrary.Pages.Count;
+        int current = _currentTab == Tab.Coding ? _selectedConceptId : _selectedPageId;
+        if (previousButton != null) previousButton.interactable = !oracle && current > 0;
+        if (nextButton != null) nextButton.interactable = !oracle && current + 1 < count;
+        if (pageIndicator != null) pageIndicator.text = oracle ? "" : $"{current + 1} / {count}";
     }
 
     // -------------------------------------------------------------------------
@@ -310,17 +368,26 @@ public class AlmanacController : MonoBehaviour
     // greyed with "?" while the entry is still locked.
     void SetEntryArt(int pageId, bool unlocked)
     {
-        string name = LevelLibrary.Names[pageId];
         if (entryArt != null)
-            entryArt.color = unlocked ? ArtColor(name) : new Color(0.20f, 0.20f, 0.23f, 1f);
+        {
+            entryArt.sprite = pageId >= 0 && pageId < landmarkSprites.Length ? landmarkSprites[pageId] : null;
+            entryArt.preserveAspect = true;
+            entryArt.color = unlocked ? Color.white : new Color(0.35f, 0.30f, 0.26f, 0.55f);
+        }
         if (entryArtLabel != null)
-            entryArtLabel.text = unlocked ? Initials(name) : "?";
+            entryArtLabel.text = unlocked ? "" : "🔒";
     }
 
     void SetConceptArt()
     {
-        if (entryArt != null)      entryArt.color = new Color(0.18f, 0.30f, 0.42f, 1f);
-        if (entryArtLabel != null) entryArtLabel.text = "</>";
+        if (entryArt != null)
+        {
+            entryArt.sprite = _selectedConceptId >= 0 && _selectedConceptId < codingIconSprites.Length
+                ? codingIconSprites[_selectedConceptId] : null;
+            entryArt.preserveAspect = true;
+            entryArt.color = Color.white;
+        }
+        if (entryArtLabel != null) entryArtLabel.text = "";
     }
 
     static Color ArtColor(string s)

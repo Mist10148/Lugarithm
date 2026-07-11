@@ -3,6 +3,7 @@
     "rootNamespace": "",
     "references": [
         "Lugarithm.Runtime",
+        "Unity.TextMeshPro",
         "UnityEngine.TestRunner"
     ],
     "includePlatforms": [],

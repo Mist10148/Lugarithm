@@ -18,6 +18,10 @@ public static class ChatBubbleFactory
     /// GameObject is returned via <paramref name="row"/> for later destruction.</summary>
     public static TMP_Text Add(RectTransform content, TMP_Text template, string text, bool rightAligned,
                                Color bubbleColor, Color textColor, out GameObject row)
+        => Add(content, template, text, rightAligned, bubbleColor, textColor, null, out row);
+
+    public static TMP_Text Add(RectTransform content, TMP_Text template, string text, bool rightAligned,
+                               Color bubbleColor, Color textColor, Sprite frameSprite, out GameObject row)
     {
         row = null;
         if (content == null || template == null) return null;
@@ -41,6 +45,8 @@ public static class ChatBubbleFactory
         var bubbleRt = (RectTransform)bubble.transform;
         bubbleRt.SetParent(rowRt, false);
         var bubbleImg = bubble.AddComponent<Image>();
+        bubbleImg.sprite = frameSprite;
+        bubbleImg.type = frameSprite != null ? Image.Type.Sliced : Image.Type.Simple;
         bubbleImg.color = bubbleColor;
         var bubbleLayout = bubble.AddComponent<HorizontalLayoutGroup>();
         bubbleLayout.padding = new RectOffset((int)PadX, (int)PadX, (int)PadY, (int)PadY);

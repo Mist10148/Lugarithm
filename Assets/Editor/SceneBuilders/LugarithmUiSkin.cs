@@ -101,6 +101,27 @@ public static class LugarithmUiSkin
     public static Sprite JeepneyDialogue => LoadJeepney("dialogue_card");
     public static Sprite JournalBook => AssetDatabase.LoadAssetAtPath<Sprite>($"{JournalRoot}/journal_book.png");
     public static Texture2D JournalPageTurns => AssetDatabase.LoadAssetAtPath<Texture2D>($"{JournalRoot}/page_turn_sheet.png");
+    public static Sprite JournalPart(string name) =>
+        AssetDatabase.LoadAssetAtPath<Sprite>($"{JournalRoot}/Parts/{name}.png");
+
+    public static Sprite JournalHeritageCard => JournalPart("heritage_card");
+    public static Sprite JournalHeritageCardSelected => JournalPart("heritage_card_selected");
+    public static Sprite JournalHeritageCardLocked => JournalPart("heritage_card_locked");
+    public static Sprite JournalCodingRow => JournalPart("coding_row");
+    public static Sprite JournalCodingRowSelected => JournalPart("coding_row_selected");
+    public static Sprite JournalOracleTopicRow => JournalPart("oracle_topic_row");
+    public static Sprite JournalTitleRibbon => JournalPart("title_ribbon");
+    public static Sprite JournalAssistantRibbon => JournalPart("assistant_ribbon");
+    public static Sprite JournalSeparator => JournalPart("separator");
+    public static Sprite JournalOracleBanner => JournalPart("oracle_banner");
+    public static Sprite JournalPlayerMessage => JournalPart("player_message_frame");
+    public static Sprite JournalOracleMessage => JournalPart("oracle_message_frame");
+    public static Sprite JournalInput => JournalPart("input_frame");
+    public static Sprite JournalSendSeal => JournalPart("send_seal");
+    public static Sprite JournalFeather => JournalPart("feather");
+    public static Sprite JournalClose => JournalPart("close_button");
+    public static Sprite JournalScrollbarTrack => JournalPart("scrollbar_track");
+    public static Sprite JournalScrollbarThumb => JournalPart("scrollbar_thumb");
 
     static Sprite Load(string name)
     {
