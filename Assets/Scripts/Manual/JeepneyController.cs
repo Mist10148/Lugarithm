@@ -203,7 +203,7 @@ public class JeepneyController : MonoBehaviour
         // a stop) keep the last heading so the body doesn't spin or face sideways.
         float targetAngle = _rb.rotation;
         if (_routeSpeed > 0.02f && motion.sqrMagnitude > 1e-8f)
-            targetAngle = Vector2.SignedAngle(Vector2.up, motion);
+            targetAngle = VehicleFacing.FacingAngleDegrees(motion, VehicleFacing.ArtBaseFacing);
         float angle = Mathf.LerpAngle(_rb.rotation, targetAngle,
                                       rotationFollowSpeed * Time.fixedDeltaTime);
         _rb.MoveRotation(angle);
@@ -250,7 +250,15 @@ public class JeepneyController : MonoBehaviour
         }
 
         if (!InputLocked && !braking)
-            _rb.AddForce(transform.up * acceleration);
+        {
+            // Thrust along the art's nose, not local +Y: the body is oriented so
+            // the authored front (ArtBaseFacing) points along travel, so forward
+            // is TransformDirection of that base-facing vector (magnitude/rules
+            // unchanged — only the direction tracks the facing convention).
+            Vector3 nose = transform.TransformDirection(
+                VehicleFacing.DirectionOf(VehicleFacing.ArtBaseFacing));
+            _rb.AddForce((Vector2)nose * acceleration);
+        }
 
         if ((braking || InputLocked) && _rb.linearVelocity.magnitude > 0.01f)
         {

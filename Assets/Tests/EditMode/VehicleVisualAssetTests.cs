@@ -32,4 +32,24 @@ public class VehicleVisualAssetTests
             Object.DestroyImmediate(go);
         }
     }
+
+    [Test]
+    public void PlayerJeepneySheet_ExposesRequiredFrameGroups()
+    {
+        // The runtime load path the animator uses. A renamed/missing sheet or
+        // frame group should fail here with a clear message, not a null-ref at play.
+        var all = Resources.LoadAll<Sprite>("Vehicles/player_jeepney_sheet");
+        Assert.IsNotEmpty(all, "player_jeepney_sheet missing from Resources/Vehicles");
+        foreach (var prefix in new[] { "idle_", "drive_" })
+            Assert.IsTrue(System.Array.Exists(all, s => s.name.StartsWith(prefix)),
+                $"player jeepney sheet has no '{prefix}' frames");
+    }
+
+    [Test]
+    public void TrafficSheet_ProvidesEveryEnabledDesign()
+    {
+        var variants = Resources.LoadAll<Sprite>("Vehicles/filipino_traffic_sheet");
+        Assert.GreaterOrEqual(variants.Length, 8,
+            "filipino_traffic_sheet must slice into the 8 traffic designs the spawner cycles through");
+    }
 }

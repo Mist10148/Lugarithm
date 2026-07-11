@@ -509,7 +509,7 @@ public class RoadTrafficController : MonoBehaviour
         Vector2 pos = center + left * v.visualSide;
 
         v.go.transform.position = new Vector3(pos.x, pos.y, 0f);
-        float rawAngle = Vector2.SignedAngle(Vector2.up, dir);
+        float rawAngle = VehicleFacing.FacingAngleDegrees(dir, VehicleFacing.ArtBaseFacing);
         float targetAngle = rawAngle;
         if (v.placed)
         {
@@ -518,7 +518,7 @@ public class RoadTrafficController : MonoBehaviour
             {
                 Vector2 motionDir = motion.normalized;
                 targetAngle = Vector2.Dot(motionDir, dir) > 0f
-                    ? Vector2.SignedAngle(Vector2.up, motionDir)
+                    ? VehicleFacing.FacingAngleDegrees(motionDir, VehicleFacing.ArtBaseFacing)
                     : rawAngle;
             }
             else

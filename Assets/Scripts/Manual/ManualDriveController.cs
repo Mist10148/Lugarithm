@@ -147,7 +147,7 @@ public class ManualDriveController : MonoBehaviour
 
         Vector2 start     = driveLine[0];
         Vector2 direction = RouteMath.DirectionAt(driveLine, 0.1f);
-        float angle = Vector2.SignedAngle(Vector2.up, direction);
+        float angle = VehicleFacing.FacingAngleDegrees(direction, VehicleFacing.ArtBaseFacing);
         jeepney.TeleportTo(start, angle);
         jeepney.ConfigureLaneMetrics(_ctx.LaneOffset);
         jeepney.SetDriveLine(driveLine);

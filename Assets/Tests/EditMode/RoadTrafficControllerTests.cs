@@ -119,7 +119,9 @@ public class RoadTrafficControllerTests
 
             Assert.Greater(afterAngle, beforeAngle,
                 "rotation should begin turning toward the new segment instead of staying locked to the old heading");
-            Assert.Less(afterAngle, -5f,
+            // ArtBaseFacing is South, so eastbound rounds to +90 and the northbound
+            // target is 180; a smooth ease lands between those, never snapping to 180.
+            Assert.Less(afterAngle, 175f,
                 "rotation should ease through the turn instead of snapping all the way to the new heading in one tick");
         }
         finally

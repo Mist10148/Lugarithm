@@ -475,7 +475,8 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
     Quaternion BodyRotationFromDir(Vector3 dir)
     {
-        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
+        float angle = VehicleFacing.FacingAngleDegrees(
+            new Vector2(dir.x, dir.y), VehicleFacing.ArtBaseFacing);
         return Quaternion.Euler(0f, 0f, angle);
     }
 
@@ -621,7 +622,7 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     Quaternion BodyRotation(int facing)
     {
         Vector2 dir = _space.FacingDirection(facing);
-        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
+        float angle = VehicleFacing.FacingAngleDegrees(dir, VehicleFacing.ArtBaseFacing);
         return Quaternion.Euler(0f, 0f, angle);
     }
 }

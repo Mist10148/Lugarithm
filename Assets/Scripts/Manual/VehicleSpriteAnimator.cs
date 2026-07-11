@@ -41,7 +41,11 @@ public sealed class VehicleSpriteAnimator : MonoBehaviour
 
         var smokeGo = new GameObject("ExhaustSmoke");
         smokeGo.transform.SetParent(transform, false);
-        smokeGo.transform.localPosition = new Vector3(0.34f, -1.02f, 0f);
+        // Anchor at the art's rear (opposite ArtBaseFacing) so smoke trails behind
+        // travel. The child rotates with the body, so "behind" is fixed in art space;
+        // for the South-facing sheet this resolves to +Y (top of the cell).
+        smokeGo.transform.localPosition =
+            VehicleFacing.RearAnchorLocal(VehicleFacing.ArtBaseFacing, 0.34f, 1.02f);
         _smokeRenderer = smokeGo.AddComponent<SpriteRenderer>();
         _smokeRenderer.sortingOrder = body != null ? body.sortingOrder - 1 : 9;
         _smokeRenderer.enabled = false;
