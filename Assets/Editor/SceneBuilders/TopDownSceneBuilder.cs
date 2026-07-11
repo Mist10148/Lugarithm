@@ -223,10 +223,25 @@ public static class TopDownSceneBuilder
         hintImage.color = Color.white;
         hintImage.raycastTarget = false;
 
-        var hint = UIFactory.CreateText(canvas.transform, "Hint", "WASD / Arrows: Move  |  E: Interact",
-                                        16f, UIFactory.TextDim);
-        hint.transform.SetParent(hintBackdrop, false);
-        UIFactory.Place(hint, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700f, 70f));
+        // The footer art has two vertical divider lines baked in (sprite x ≈ 580
+        // and 955 of 1536 → 236 / 389 at the 625-wide rect), splitting the bar
+        // into three cells. One label per cell — a single string with literal "|"
+        // separators never lines up with the painted dividers.
+        var hintSegments = new TMPro.TextMeshProUGUI[3];
+        var hintCells = new[]
+        {
+            (text: "WASD / Arrows", x: 8f,   width: 220f),
+            (text: "Move",          x: 244f, width: 137f),
+            (text: "E: Interact",   x: 397f, width: 220f),
+        };
+        for (int i = 0; i < hintCells.Length; i++)
+        {
+            var segment = UIFactory.CreateText(hintBackdrop, "Hint" + i, hintCells[i].text,
+                                               16f, UIFactory.TextDim);
+            UIFactory.Place(segment.rectTransform, new Vector2(0f, 0.5f),
+                            new Vector2(hintCells[i].x, 0f), new Vector2(hintCells[i].width, 60f));
+            hintSegments[i] = segment;
+        }
 
         var modeCard = UIFactory.CreatePanel(canvas.transform, "ModeCard",
                                              new Vector2(1f, 0f), new Vector2(1f, 0f), UIFactory.PanelDark);
@@ -259,28 +274,28 @@ public static class TopDownSceneBuilder
         // from Resources on direct entry) — no per-scene Settings panel is baked.
         Button settingsButton = CreateTutorialRailButton(canvas.transform, "SettingsButton", "SETTINGS",
                                                           LugarithmUiSkin.TutorialRailSettings);
-        UIFactory.Place(settingsButton, new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(132f, 98f));
+        UIFactory.Place(settingsButton, new Vector2(1f, 1f), new Vector2(-24f, -24f), RailButtonSize);
         var openSettings = settingsButton.gameObject.AddComponent<SettingsPanelOpenButton>();
         SceneBuilderUtil.Wire(openSettings, "button", settingsButton);
 
         Button codeButton = CreateTutorialRailButton(canvas.transform, "CodeButton", "CODE",
                                                       LugarithmUiSkin.TutorialRailCode);
-        UIFactory.Place(codeButton, new Vector2(1f, 1f), new Vector2(-24f, -132f), new Vector2(132f, 98f));
+        UIFactory.Place(codeButton, new Vector2(1f, 1f), new Vector2(-24f, -157f), RailButtonSize);
 
         Button oracleButton = CreateTutorialRailButton(canvas.transform, "OracleButton", "ORACLE",
                                                         LugarithmUiSkin.TutorialRailOracle);
-        UIFactory.Place(oracleButton, new Vector2(1f, 1f), new Vector2(-24f, -240f), new Vector2(132f, 98f));
+        UIFactory.Place(oracleButton, new Vector2(1f, 1f), new Vector2(-24f, -290f), RailButtonSize);
         oracleButton.gameObject.AddComponent<AlmanacToggleButton>();
 
         Button journalButton = CreateTutorialRailButton(canvas.transform, "JournalButton", "JOURNAL",
                                                          LugarithmUiSkin.TutorialRailJournal);
-        UIFactory.Place(journalButton, new Vector2(1f, 1f), new Vector2(-24f, -348f), new Vector2(132f, 98f));
+        UIFactory.Place(journalButton, new Vector2(1f, 1f), new Vector2(-24f, -423f), RailButtonSize);
         journalButton.gameObject.AddComponent<AlmanacToggleButton>();
 
         // Preserve the existing exit callback while matching the fifth reference rail slot.
         Button exitButton = CreateTutorialRailButton(canvas.transform, "ExitButton", "EXIT",
                                                       LugarithmUiSkin.TutorialRailPause);
-        UIFactory.Place(exitButton, new Vector2(1f, 1f), new Vector2(-24f, -456f), new Vector2(132f, 98f));
+        UIFactory.Place(exitButton, new Vector2(1f, 1f), new Vector2(-24f, -556f), RailButtonSize);
 
         // Branching dialogue overlay for talking to town NPCs (reuses the same
         // controller as the drive scenes). Compact card pinned bottom-right so it
@@ -295,7 +310,7 @@ public static class TopDownSceneBuilder
         levelName.color = UIFactory.TutorialGold;
         objectives.color = UIFactory.TutorialCream;
         mainQuest.color = UIFactory.TutorialGold;
-        hint.color = UIFactory.TutorialMuted;
+        foreach (var segment in hintSegments) segment.color = UIFactory.TutorialMuted;
         UIFactory.FontOverride = previousFont;
 
         // --- Orchestrator -----------------------------------------------------------
@@ -353,10 +368,16 @@ public static class TopDownSceneBuilder
         SceneBuilderUtil.SaveScene(scene, "TopDownLevel");
     }
 
+    // The rail plaque art is PORTRAIT (312×426: icon in the upper body, an empty
+    // label zone in the lower body). The rect must match that aspect — with
+    // preserveAspect a landscape rect shrinks the drawn plaque and leaves the
+    // label spilling past its gold borders.
+    static readonly Vector2 RailButtonSize = new Vector2(90f, 123f);
+
     static Button CreateTutorialRailButton(Transform parent, string name, string label, Sprite sprite)
     {
         var rt = UIFactory.CreateRect(parent, name, new Vector2(1f, 1f), new Vector2(1f, 1f));
-        rt.sizeDelta = new Vector2(132f, 98f);
+        rt.sizeDelta = RailButtonSize;
         var image = rt.gameObject.AddComponent<Image>();
         image.sprite = sprite;
         image.type = Image.Type.Simple;
@@ -370,15 +391,17 @@ public static class TopDownSceneBuilder
         colors.highlightedColor = new Color(1.12f, 1.08f, 1.02f, 1f);
         colors.pressedColor = new Color(0.82f, 0.76f, 0.88f, 1f);
         button.colors = colors;
+        // Label band centered in the plaque's empty lower zone (sprite y ≈ 230–390
+        // of 426), inset from the gold borders so autosized text stays inside.
         var text = UIFactory.CreateText(rt, "Label", label, 14f, UIFactory.TutorialCream,
                                         TextAlignmentOptions.Center);
         text.rectTransform.anchorMin = new Vector2(0f, 0f);
         text.rectTransform.anchorMax = new Vector2(1f, 0f);
         text.rectTransform.pivot = new Vector2(0.5f, 0f);
-        text.rectTransform.anchoredPosition = new Vector2(0f, 8f);
-        text.rectTransform.sizeDelta = new Vector2(-12f, 24f);
+        text.rectTransform.anchoredPosition = new Vector2(0f, 12f);
+        text.rectTransform.sizeDelta = new Vector2(-20f, 40f);
         text.enableAutoSizing = true;
-        text.fontSizeMin = 10f;
+        text.fontSizeMin = 8f;
         text.fontSizeMax = 14f;
         return button;
     }

@@ -253,7 +253,12 @@ public class AutomationDriveController : MonoBehaviour
         if (useProceduralTopDown)
         {
             // Retire iso for procedural levels: render the same top-down road as
-            // Manual mode and drive a top-down jeepney sprite over it.
+            // Manual mode and drive a top-down jeepney sprite over it. The baked
+            // iso agent/world stay in the scene for authored mazes — hide them here
+            // or the iso jeepney lingers at world origin over the road.
+            if (agentView != null) agentView.gameObject.SetActive(false);
+            if (worldView != null) worldView.gameObject.SetActive(false);
+
             if (topDownWorldRoot == null)
             {
                 var rootGo = new GameObject("TopDownWorldRoot");
@@ -303,8 +308,10 @@ public class AutomationDriveController : MonoBehaviour
         else
         {
             // Iso fallback for authored mazes (Oton and tests).
+            if (agentView != null) agentView.gameObject.SetActive(true);
             if (worldView != null)
             {
+                worldView.gameObject.SetActive(true);
                 worldView.Build(grid);
                 if (_rides != null) ColorRideStops();
                 worldView.FrameCamera(worldCamera);

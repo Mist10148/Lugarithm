@@ -472,21 +472,21 @@ public class AgentSim : IAgentApi
                 Vector2Int front = Position + FacingDeltas[Facing];
                 if (LaneMode)
                 {
-                    if (!SameLaneCarWithin(SameLaneLookAheadCells))
+                    // LaneSide is the overtake state machine: +1 home lane (cruise),
+                    // -1 passing lane (an overtake is in progress).
+                    if (LaneSide == 1)
                     {
-                        // Road ahead is clear. If a dodge left us in the oncoming
-                        // (left) lane, merge back home as soon as it's clear.
-                        if (LaneSide != 1)
+                        if (SameLaneCarWithin(SameLaneLookAheadCells))
                         {
-                            if (LaneClearAhead(1, SameLaneLookAheadCells))
+                            if (LaneClearAhead(-1, OncomingScanCells))
                             {
-                                ApplyLaneSwitch(r, 1, "right");
-                                r.Action = "moveRight";
+                                ApplyLaneSwitch(r, -1, "left");
+                                r.Action = "moveLeft";
                             }
                             else
                             {
                                 r.Action = "wait";
-                                r.Warning = "holding the left lane until the right lane is clear to merge back.";
+                                r.Warning = "boxed in — waiting for traffic to clear.";
                             }
                         }
                         else
@@ -496,17 +496,30 @@ public class AgentSim : IAgentApi
                     }
                     else
                     {
-                        int otherSide = -LaneSide;
-                        int scan = otherSide < 0 ? OncomingScanCells : SameLaneLookAheadCells;
-                        if (LaneClearAhead(otherSide, scan))
+                        // Merge back the moment the home lane is clear beside us and
+                        // one cell ahead — right past the passed car's bumper, not
+                        // two cells later. Until then keep driving forward in the
+                        // passing lane so the pass actually completes.
+                        if (LaneClearAhead(1, 1))
                         {
-                            ApplyLaneSwitch(r, otherSide, otherSide < 0 ? "left" : "right");
-                            r.Action = otherSide < 0 ? "moveLeft" : "moveRight";
+                            ApplyLaneSwitch(r, 1, "right");
+                            r.Action = "moveRight";
                         }
                         else
                         {
-                            r.Action = "wait";
-                            r.Warning = "boxed in — waiting for traffic to clear.";
+                            Vector2Int passFwd = Position + FacingDeltas[Facing];
+                            if (_grid.IsWalkable(passFwd) && !TrafficPresent(passFwd, LaneCardinal))
+                            {
+                                Position = passFwd;
+                                r.To = passFwd;
+                                r.LaneAfter = LaneCardinal;
+                                r.Action = "moveForward";
+                            }
+                            else
+                            {
+                                r.Action = "wait";
+                                r.Warning = "holding the left lane until the right lane is clear to merge back.";
+                            }
                         }
                     }
                     break;

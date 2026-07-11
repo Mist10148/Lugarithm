@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Trigger area around a passenger stop. Tracks whether the jeepney is inside
-/// and owns the placeholder peeps waiting at the sign. Spawned at runtime by
+/// and owns the townsfolk figures waiting at the sign. Spawned at runtime by
 /// <see cref="RouteVisualBuilder"/>.
 /// </summary>
 [RequireComponent(typeof(BoxCollider2D))]
@@ -25,49 +25,48 @@ public class StopZone : MonoBehaviour
 
     // -------------------------------------------------------------------------
 
-    /// <summary>Spawns placeholder peeps lined up beside the stop sign.</summary>
+    /// <summary>Spawns waiting townsfolk lined up beside the stop sign.</summary>
     public void SpawnWaitingPeeps(int count, Vector2 startLocal, Vector2 stepDirection)
     {
-        Sprite peepSprite = Resources.Load<Sprite>("Placeholders/peep");
-
         for (int i = 0; i < count; i++)
-        {
-            var peep = new GameObject($"Peep_{i}");
-            peep.transform.SetParent(transform, false);
-            peep.transform.localPosition = (Vector3)(startLocal + stepDirection * (0.75f * i));
-
-            var sr = peep.AddComponent<SpriteRenderer>();
-            sr.sprite = peepSprite;
-            sr.sortingOrder = 5;
-            sr.color = PeepColor(StopIndex * 7 + i);
-
-            _waitingPeeps.Add(peep);
-        }
+            AddPeep(i, PeepColor(StopIndex * 7 + i), startLocal, stepDirection);
     }
 
     /// <summary>
-    /// Spawns waiting peeps tinted by the committed rider colors (procedural
+    /// Spawns waiting townsfolk tinted by the committed rider colors (procedural
     /// town), so a waiting passenger, their ribbon chip, and their dulog marker
     /// all share a color. Peeps are taken last-in-first-out, so the colors are
     /// laid out in order and popped from the end to stay matched.
     /// </summary>
     public void SpawnWaitingPeeps(IReadOnlyList<Color> colors, Vector2 startLocal, Vector2 stepDirection)
     {
-        Sprite peepSprite = Resources.Load<Sprite>("Placeholders/peep");
-
         for (int i = 0; i < colors.Count; i++)
-        {
-            var peep = new GameObject($"Peep_{i}");
-            peep.transform.SetParent(transform, false);
-            peep.transform.localPosition = (Vector3)(startLocal + stepDirection * (0.75f * i));
+            AddPeep(i, colors[i], startLocal, stepDirection);
+    }
 
-            var sr = peep.AddComponent<SpriteRenderer>();
-            sr.sprite = peepSprite;
-            sr.sortingOrder = 5;
-            sr.color = colors[i];
+    /// <summary>
+    /// One waiting person: a real top-down townsperson figure (reused from the
+    /// town NPC art) standing on a small color-coded ground dot. The root keeps a
+    /// tinted SpriteRenderer so the dot both marks the passenger's color (matching
+    /// their ribbon chip / dulog marker) and remains the tint that
+    /// <see cref="PassengerManager"/> reads when they board.
+    /// </summary>
+    void AddPeep(int i, Color tint, Vector2 startLocal, Vector2 stepDirection)
+    {
+        var peep = new GameObject($"Peep_{i}");
+        peep.transform.SetParent(transform, false);
+        peep.transform.localPosition = (Vector3)(startLocal + stepDirection * (0.75f * i));
 
-            _waitingPeeps.Add(peep);
-        }
+        // Ground dot: carries the color code and the boarding tint.
+        var sr = peep.AddComponent<SpriteRenderer>();
+        sr.sprite = Resources.Load<Sprite>("Placeholders/circle");
+        sr.sortingOrder = 4;
+        sr.color = tint;
+
+        // Reused town NPC figure standing on the dot, facing the camera.
+        TownNpcVisuals.BuildIdleFigure(peep.transform, StopIndex * 7 + i, sortingOrder: 6);
+
+        _waitingPeeps.Add(peep);
     }
 
     /// <summary>Removes and returns one waiting peep (boards the jeepney).</summary>

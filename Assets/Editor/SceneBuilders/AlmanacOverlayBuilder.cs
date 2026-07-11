@@ -52,34 +52,46 @@ public static class AlmanacOverlayBuilder
         bookImage.preserveAspect = true;
         bookImage.color = Color.white;
 
-        // ---- Tab bar (top, full width): Heritage / Coding / Oracle -----------
-        var tabBar = UIFactory.CreateRect(bookPanel, "TabBar",
-                                          new Vector2(0f, 1f), new Vector2(1f, 1f),
-                                          new Vector2(90f, -205f), new Vector2(-790f, -32f));
-
+        // ---- Bookmark tabs: Heritage / Coding / Oracle ------------------------
+        // The bookmark banners are BAKED into journal_book.png (gold at sprite
+        // x 205–320, purple at 350–460 and 495–610, y 15–165 of 1672×941). The
+        // book draws at scale ≈0.897 inside the 1500×864 panel (y-inset 10), so
+        // the invisible hit-areas must sit exactly on those pixels — anything
+        // wider leaves the labels spilling outside the painted bookmarks.
         // Per-banner contrast: the leftmost banner is gold (wants dark text), the
         // other two are purple (want light text). Heritage is the default active tab.
-        Button heritageTab = UIFactory.CreateButton(tabBar, "HeritageTab", "Heritage Pages",
-                                                    new Vector2(190f, 120f), 20f);
-        UIFactory.Place(heritageTab, new Vector2(0f, 0.5f), new Vector2(12f, 0f), new Vector2(190f, 120f));
+        Button heritageTab = UIFactory.CreateButton(bookPanel, "HeritageTab", "Heritage Pages",
+                                                    new Vector2(103f, 134f), 18f);
+        UIFactory.Place(heritageTab, new Vector2(0f, 1f), new Vector2(184f, -24f), new Vector2(103f, 134f));
         SetLabelColor(heritageTab, new Color32(74, 40, 92, 255));
         SetLabelBold(heritageTab, true);
 
-        Button codingTab = UIFactory.CreateButton(tabBar, "CodingTab", "Coding Reference",
-                                                  new Vector2(190f, 120f), 18f);
-        UIFactory.Place(codingTab, new Vector2(0f, 0.5f), new Vector2(164f, 0f), new Vector2(190f, 120f));
+        Button codingTab = UIFactory.CreateButton(bookPanel, "CodingTab", "Coding Reference",
+                                                  new Vector2(99f, 134f), 18f);
+        UIFactory.Place(codingTab, new Vector2(0f, 1f), new Vector2(314f, -24f), new Vector2(99f, 134f));
         SetLabelColor(codingTab, new Color32(214, 198, 162, 255));
 
-        Button oracleTab = UIFactory.CreateButton(tabBar, "OracleTab", "Oracle",
-                                                  new Vector2(170f, 120f), 20f);
-        UIFactory.Place(oracleTab, new Vector2(0f, 0.5f), new Vector2(315f, 0f), new Vector2(170f, 120f));
+        Button oracleTab = UIFactory.CreateButton(bookPanel, "OracleTab", "Oracle",
+                                                  new Vector2(103f, 134f), 18f);
+        UIFactory.Place(oracleTab, new Vector2(0f, 1f), new Vector2(444f, -24f), new Vector2(103f, 134f));
         SetLabelColor(oracleTab, new Color32(214, 198, 162, 255));
-        heritageTab.image.sprite = null;
-        codingTab.image.sprite = null;
-        oracleTab.image.sprite = null;
-        heritageTab.image.color = Color.clear;
-        codingTab.image.color = Color.clear;
-        oracleTab.image.color = Color.clear;
+
+        foreach (Button tab in new[] { heritageTab, codingTab, oracleTab })
+        {
+            tab.image.sprite = null;
+            tab.image.color = Color.clear;
+            // Center the label in the banner body ABOVE the pointed bottom notch,
+            // wrapped to the banner's width (the banners are narrow ribbons —
+            // "Heritage Pages" / "Coding Reference" read as two centered lines).
+            var label = tab.GetComponentInChildren<TMP_Text>(true);
+            label.enableWordWrapping = true;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 10f;
+            label.fontSizeMax = 18f;
+            label.rectTransform.offsetMin = new Vector2(8f, 28f);
+            label.rectTransform.offsetMax = new Vector2(-8f, -10f);
+        }
 
         // ==== Detail pane (PvZ two-pane: thumbnail grid + entry detail) =======
         // Pane fills the whole book so its children can be anchored to each page

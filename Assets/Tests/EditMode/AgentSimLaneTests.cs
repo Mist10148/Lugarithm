@@ -215,7 +215,7 @@ public class AgentSimLaneTests
     }
 
     [Test]
-    public void AvoidTraffic_HoldsLeftLane_UntilHomeLaneClears()
+    public void AvoidTraffic_PassesWhileAlongside_ThenMergesBack()
     {
         var sim = NewLaneSim();
         Vector2Int front = sim.Position + East;
@@ -225,18 +225,105 @@ public class AgentSimLaneTests
         Assert.AreEqual("moveLeft", sim.Apply("avoidTraffic").Action);
         Assert.AreEqual(EastLeft, sim.LaneCardinal);
 
-        // The overtaken car now sits in the home lane right beside me → hold the left lane.
-        sim.SetTrafficOccupancy(new Dictionary<Vector2Int, int> { [sim.Position] = 1 << EastRight });
-        AgentActionResult hold = sim.Apply("avoidTraffic");
-        Assert.AreEqual("wait", hold.Action);
-        StringAssert.Contains("merge back", hold.Warning);
-        Assert.AreEqual(EastLeft, sim.LaneCardinal, "must not merge into an occupied lane");
+        // The overtaken car sits in the home lane right beside me → keep DRIVING
+        // in the passing lane so the pass completes (not an idle hold).
+        Vector2Int alongside = sim.Position;
+        sim.SetTrafficOccupancy(new Dictionary<Vector2Int, int> { [alongside] = 1 << EastRight });
+        AgentActionResult pass = sim.Apply("avoidTraffic");
+        Assert.AreEqual("moveForward", pass.Action);
+        Assert.IsFalse(pass.Blocked);
+        Assert.AreEqual(alongside + East, sim.Position, "the pass advances a cell");
+        Assert.AreEqual(EastLeft, sim.LaneCardinal, "still out in the passing lane");
 
-        // Home lane clears → merge back.
-        sim.ClearTraffic();
+        // Past the car's bumper (it is behind us now) → merge back home.
         AgentActionResult merge = sim.Apply("avoidTraffic");
         Assert.AreEqual("moveRight", merge.Action);
+        Assert.IsFalse(merge.Blocked);
         Assert.AreEqual(EastRight, sim.LaneCardinal);
+    }
+
+    [Test]
+    public void AvoidTraffic_FullOvertake_StaticCar()
+    {
+        var sim = NewLaneSim();
+        Vector2Int start = sim.Position;
+        Vector2Int car = start + East + East;   // static car 2 cells out, home lane
+        sim.SetTrafficOccupancy(new Dictionary<Vector2Int, int> { [car] = 1 << EastRight });
+
+        var actions = new List<string>();
+        for (int i = 0; i < 10 && (actions.Count == 0 || sim.LaneSide != 1); i++)
+        {
+            AgentActionResult r = sim.Apply("avoidTraffic");
+            Assert.IsFalse(r.Blocked, $"overtake step {i} must not bump ({r.Action})");
+            actions.Add(r.Action);
+        }
+
+        CollectionAssert.AreEqual(
+            new[] { "moveLeft", "moveForward", "moveForward", "moveRight" }, actions,
+            "pull out → drive past → merge one cell past the bumper");
+        Assert.AreEqual(1, sim.LaneSide, "back in the home lane");
+        Assert.AreEqual(EastRight, sim.LaneCardinal);
+        Assert.Greater(sim.Position.x, car.x, "finished strictly past the overtaken car");
+    }
+
+    [Test]
+    public void AvoidTraffic_MergesBackBesidePlusOneAhead_NotTwo()
+    {
+        var sim = NewLaneSim();
+        sim.Apply("moveLeft");                       // out in the passing lane
+        Vector2Int pos = sim.Position;
+
+        // Home lane occupied TWO cells ahead but clear beside + one ahead: that is
+        // enough room — merge now (the old 2-cell scan would have held the lane).
+        sim.SetTrafficOccupancy(new Dictionary<Vector2Int, int>
+        {
+            [pos + East + East] = 1 << EastRight,
+        });
+        AgentActionResult merge = sim.Apply("avoidTraffic");
+        Assert.AreEqual("moveRight", merge.Action);
+        Assert.IsFalse(merge.Blocked);
+        Assert.AreEqual(EastRight, sim.LaneCardinal);
+    }
+
+    [Test]
+    public void AvoidTraffic_HoldsWhenOncomingBlocksForward()
+    {
+        var sim = NewLaneSim();
+        sim.Apply("moveLeft");                       // out in the passing lane
+        Vector2Int pos = sim.Position;
+
+        // Car beside me in the home lane AND an oncoming car dead ahead in the
+        // passing lane: no pass-through, no merge — hold.
+        sim.SetTrafficOccupancy(new Dictionary<Vector2Int, int>
+        {
+            [pos] = 1 << EastRight,
+            [pos + East] = 1 << EastLeft,
+        });
+        AgentActionResult hold = sim.Apply("avoidTraffic");
+        Assert.AreEqual("wait", hold.Action);
+        StringAssert.Contains("holding the left lane", hold.Warning);
+        Assert.AreEqual(pos, sim.Position);
+        Assert.AreEqual(EastLeft, sim.LaneCardinal);
+    }
+
+    [Test]
+    public void AvoidTraffic_OvertakeIsDeterministic()
+    {
+        var runs = new List<List<string>>();
+        for (int run = 0; run < 2; run++)
+        {
+            var sim = NewLaneSim();
+            sim.SetTrafficOccupancy(new Dictionary<Vector2Int, int>
+            {
+                [sim.Position + East + East] = 1 << EastRight,
+            });
+            var actions = new List<string>();
+            for (int i = 0; i < 10 && (actions.Count == 0 || sim.LaneSide != 1); i++)
+                actions.Add(sim.Apply("avoidTraffic").Action);
+            runs.Add(actions);
+        }
+        CollectionAssert.AreEqual(runs[0], runs[1],
+            "two fresh sims must produce the identical overtake sequence");
     }
 
     [Test]

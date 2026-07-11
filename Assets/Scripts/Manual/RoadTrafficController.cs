@@ -620,7 +620,11 @@ public class RoadTrafficController : MonoBehaviour
 
     /// <summary>Which lane (bit per world cardinal) this car occupies, from the
     /// dominant direction of its lateral offset off the route centerline. Near a
-    /// corner the offset eases toward zero — mark BOTH lanes then (safe default).</summary>
+    /// corner the visual offset eases toward zero, so fall back to the car's
+    /// LOGICAL lane assignment there — marking every lane (old behavior) made the
+    /// sim read the oncoming lane as occupied through the whole bend, stalling
+    /// overtakes near corners. All-lanes stays the fallback only when the car has
+    /// no lane assignment.</summary>
     int LaneMaskFor(TrafficVehicle v)
     {
         RouteCursor cursor = Cursor;
@@ -630,7 +634,11 @@ public class RoadTrafficController : MonoBehaviour
         Vector2 lateral = left * v.visualSide;
 
         if (lateral.magnitude < _laneOffset * 0.22f)
-            return 0xF;   // ambiguous mid-corner — occupy every lane
+        {
+            if (Mathf.Approximately(v.side, 0f))
+                return 0xF;   // no lane assignment — occupy every lane (safe default)
+            lateral = left * (_laneOffset * Mathf.Sign(v.side));
+        }
 
         int best = 0;
         float bestDot = float.NegativeInfinity;

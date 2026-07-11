@@ -11,6 +11,11 @@ public sealed class VehicleSpriteAnimator : MonoBehaviour
     [SerializeField] SpriteRenderer body;
     [SerializeField] float framesPerSecond = 8f;
     [SerializeField] float movingThreshold = 0.04f;
+    // The turn_left_/turn_right_ frames have the lean rotation baked into the art.
+    // Both driving stacks already rotate the transform, so showing them double-rotates
+    // the jeepney and it reads as a second vehicle mid-corner. Off unless the body
+    // transform is kept upright by the consumer.
+    [SerializeField] bool useTurnFrames = false;
 
     Sprite[] _idle = Array.Empty<Sprite>();
     Sprite[] _drive = Array.Empty<Sprite>();
@@ -60,7 +65,7 @@ public sealed class VehicleSpriteAnimator : MonoBehaviour
         float speed = Vector3.Distance(transform.position, _lastPosition) / dt;
         float turn = Mathf.DeltaAngle(_lastAngle, transform.eulerAngles.z) / dt;
         float acceleration = (speed - _lastSpeed) / dt;
-        Sprite[] state = Mathf.Abs(turn) > 12f ? (turn > 0f ? _left : _right)
+        Sprite[] state = useTurnFrames && Mathf.Abs(turn) > 12f ? (turn > 0f ? _left : _right)
                        : speed <= movingThreshold ? _idle
                        : acceleration < -0.7f ? _brake
                        : acceleration > 0.7f ? _accelerate : _drive;

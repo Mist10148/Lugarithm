@@ -38,14 +38,25 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     // route's metrics (RouteContext.LaneOffset — scene art ±3, placeholder ±1.35).
     [System.NonSerialized] public float LaneVisualOffset = RoadMetrics.PlaceholderLaneOffset;
 
-    // Smoothed lane-offset channel (the traffic-car visualSide pattern): animation
-    // writes the CENTERLINE position and composes this world-space lateral offset on
-    // top each frame — so lane switches drift at cruise speed, in-place switches
-    // glide, and the corner lane-cardinal flip swings instead of jumping 2×1.35.
-    Vector3 _laneOffsetVisual;
-    Vector3 _laneOffsetVel;
-    int     _laneTargetCardinal = -1;
+    // Smoothed lane-offset channel, mirroring JeepneyController's model: a signed
+    // lateral SCALAR (SmoothDamped at Manual's laneSmoothTime) composed along a
+    // smoothed "left of travel" BASIS (RouteMath.SmoothedLeft over the batch
+    // centerline). Keeping the same lane side through a turn holds a constant
+    // scalar while the basis sweeps the corner arc — the old world-cardinal
+    // vector channel swung across the road on a straight chord every corner and
+    // jumped 2×offset on rebinds.
+    float   _laneScalar;          // current signed offset (world units along _laneLeft)
+    float   _laneScalarVel;       // SmoothDamp velocity
+    float   _laneScalarTarget;    // ±LaneVisualOffset (0 outside lane mode)
+    Vector2 _laneLeft = Vector2.up;   // smoothed left-of-travel basis, persistent across beats/batches
     const float LaneSmoothTime = 0.28f;   // matches JeepneyController.laneSmoothTime
+
+    // Rolling tail of the previous batch's centerline (~2×basis half-length) so
+    // the smoothing window reaches back across batch seams; without it a corner
+    // at a streaming boundary kinks the basis. Cleared on genuine teleports.
+    readonly List<Vector2> _lineTail = new List<Vector2>();
+
+    Vector3 LaneOffsetVector => (Vector3)(_laneLeft * _laneScalar);
 
     // True while an animation coroutine owns transform.position. Between beats
     // (wait/service/logic steps) Update keeps the lane channel drifting instead —
@@ -70,8 +81,8 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
     // Decaying away-from-the-car nudge composed into the lane channel while a
     // soft contact is live (mirrors JeepneyController.ApplySoftTrafficContact).
-    Vector3 _contactNudge;
-    float   _contactNudgeUntil;
+    float _contactNudgeScalar;
+    float _contactNudgeUntil;
 
     // Distance the jeepney may still advance before rear-ending the same-lane
     // car ahead — pushed every traffic tick, +inf when the lane is clear.
@@ -91,10 +102,12 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         _cruiseSpeed *= 0.55f;
         _speedVel = 0f;
 
+        // Project the away-direction onto the lane basis (Manual's pattern): the
+        // nudge is a lateral lean, so only its cross-road component matters.
         Vector3 away = transform.position - (Vector3)vehiclePosition;
-        away.z = 0f;
-        away = away.sqrMagnitude > 1e-6f ? away.normalized : Vector3.right;
-        _contactNudge = away * (LaneVisualOffset * 0.35f);
+        float side = Vector2.Dot(new Vector2(away.x, away.y), _laneLeft);
+        float sign = Mathf.Abs(side) > 1e-4f ? Mathf.Sign(side) : 1f;
+        _contactNudgeScalar = sign * (LaneVisualOffset * 0.35f);
         _contactNudgeUntil = Time.time + 0.35f;
     }
 
@@ -107,25 +120,40 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         _followGateRemaining = remaining;
     }
 
-    Vector3 LaneOffsetWorld(int laneCardinal)
+    /// <summary>Signed lane side for a world-cardinal lane direction against the
+    /// travel direction: +1 when the lane sits on the LEFT of travel, -1 on the
+    /// right. On straights the dot is ±1; on chamfer diagonals ±0.707 — the sign
+    /// still resolves the correct side.</summary>
+    public static float LaneSign(Vector2 laneDir, Vector2 travelDir)
     {
-        if (laneCardinal < 0 || _space == null) return Vector3.zero;
-        return (Vector3)(_space.FacingDirection(laneCardinal) * LaneVisualOffset);
+        float dot = Vector2.Dot(laneDir, new Vector2(-travelDir.y, travelDir.x));
+        return dot >= 0f ? 1f : -1f;
     }
 
-    void SetLaneTarget(int laneCardinal) => _laneTargetCardinal = laneCardinal;
+    float LaneScalarFor(int laneCardinal, Vector2 travelDir)
+    {
+        if (laneCardinal < 0 || _space == null) return 0f;
+        return LaneVisualOffset * LaneSign(_space.FacingDirection(laneCardinal), travelDir);
+    }
+
+    void SetLaneTarget(int laneCardinal, Vector2 travelDir)
+        => _laneScalarTarget = LaneScalarFor(laneCardinal, travelDir);
+
+    // Half-window of the smoothed lateral basis. Must exceed |offset|·π/4 (see
+    // RouteMath.SmoothedLeft) — mirrors JeepneyController's basisHalf.
+    float LaneBasisHalf() => Mathf.Max(CornerCut(), LaneVisualOffset * 1.2f);
 
     /// <summary>Advances the lane-offset channel one frame toward its target and
     /// returns the current offset. Every animation frame composes position as
-    /// centerline + this, so lateral motion is always SmoothDamp-continuous.</summary>
+    /// centerline + this, so lateral motion is always SmoothDamp-continuous —
+    /// at Manual's pace, independent of the beat duration.</summary>
     Vector3 StepLaneOffset()
     {
-        Vector3 target = LaneOffsetWorld(_laneTargetCardinal);
+        float target = _laneScalarTarget;
         if (Time.time < _contactNudgeUntil)
-            target += _contactNudge;
-        _laneOffsetVisual = Vector3.SmoothDamp(_laneOffsetVisual, target,
-                                               ref _laneOffsetVel, LaneSmoothTime);
-        return _laneOffsetVisual;
+            target += _contactNudgeScalar;
+        _laneScalar = Mathf.SmoothDamp(_laneScalar, target, ref _laneScalarVel, LaneSmoothTime);
+        return LaneOffsetVector;
     }
 
     void Update()
@@ -133,7 +161,7 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         if (_animating || _space == null) return;
         // Recover the centerline from the current pose and re-compose with the stepped
         // offset so lateral drift stays alive across the gaps between animation beats.
-        Vector3 center = transform.position - _laneOffsetVisual;
+        Vector3 center = transform.position - LaneOffsetVector;
         transform.position = center + StepLaneOffset();
     }
 
@@ -148,11 +176,14 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
     public void SnapTo(Vector2Int cell, int facing)
     {
+        Vector2 heading = _space.FacingDirection(facing);
+        _laneLeft = new Vector2(-heading.y, heading.x);
+        _lineTail.Clear();   // a teleport breaks centerline continuity
         int lane = LaneCardinalSource != null ? LaneCardinalSource() : -1;
-        SetLaneTarget(lane);
-        _laneOffsetVisual = LaneOffsetWorld(lane);   // teleports stay teleports — no drift-in
-        _laneOffsetVel    = Vector3.zero;
-        transform.position = _space.CellToWorld(cell) + _laneOffsetVisual;
+        SetLaneTarget(lane, heading);
+        _laneScalar    = _laneScalarTarget;   // teleports stay teleports — no drift-in
+        _laneScalarVel = 0f;
+        transform.position = _space.CellToWorld(cell) + LaneOffsetVector;
         SetSortOrder(cell);
         SetBodyFacing(facing);
 
@@ -364,6 +395,31 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
         for (int i = 0; i < segCount; i++) { segLen[i] = Vector3.Distance(pts[i], pts[i + 1]); total += segLen[i]; }
         if (total < 1e-4f) yield break;
 
+        // Per-segment signed lane targets: the sign comes from the segment's own
+        // travel direction, so the scalar is CONSTANT while the lane side is —
+        // through corners included. Only genuine lane changes move it.
+        var laneTargets = new float[segCount];
+        for (int i = 0; i < segCount; i++)
+            laneTargets[i] = LaneScalarFor(lanes[i], new Vector2(dirs[i].x, dirs[i].y));
+
+        // Smoothing line for the lateral basis: previous batch's tail + this
+        // batch's centerline, so the back half-window doesn't clamp at a batch
+        // seam. (The FORWARD window still clamps at the batch's last point, so a
+        // corner in the final half-window eases in slightly early — same as
+        // Manual's cursor at route end.)
+        float basisHalf = LaneBasisHalf();
+        if (_lineTail.Count > 0 &&
+            (_lineTail[_lineTail.Count - 1] - new Vector2(pts[0].x, pts[0].y)).sqrMagnitude > 1e-4f)
+            _lineTail.Clear();   // discontinuity — never smooth across it
+        int tailPts = Mathf.Max(0, _lineTail.Count - 1);   // tail's last point IS pts[0]
+        var line = new Vector2[tailPts + pts.Count];
+        float tailArc = 0f;
+        for (int i = 0; i < tailPts; i++) line[i] = _lineTail[i];
+        for (int i = 1; i < _lineTail.Count; i++)
+            tailArc += Vector2.Distance(_lineTail[i - 1], _lineTail[i]);
+        for (int i = 0; i < pts.Count; i++)
+            line[tailPts + i] = new Vector2(pts[i].x, pts[i].y);
+
         // Constant cruise speed pinned to the ORIGINAL cell count, so chamfered corners
         // (slightly shorter path) don't change the pace between batches ("pumping").
         float duration    = Mathf.Max(0.04f, secondsPerStep * travelSegs);
@@ -413,12 +469,14 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
                 traveled    += step;
                 float dist   = Mathf.Min(traveled, total);
+                float along  = tailArc + dist;
 
                 int s = 0;
                 while (s < segCount - 1 && dist > segLen[s]) { dist -= segLen[s]; s++; }
                 float u = segLen[s] > 1e-4f ? Mathf.Clamp01(dist / segLen[s]) : 1f;
 
-                SetLaneTarget(lanes[s]);
+                _laneScalarTarget = laneTargets[s];
+                _laneLeft = RouteMath.SmoothedLeft(line, along, basisHalf);
                 transform.position = Vector3.Lerp(pts[s], pts[s + 1], u) + StepLaneOffset();
 
                 Vector3 dir = dirs[s];
@@ -437,11 +495,30 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
             // Land on the centerline endpoint plus the channel's CURRENT offset — a
             // half-finished lane drift keeps drifting through the next batch, never snaps.
-            transform.position = pts[pts.Count - 1] + _laneOffsetVisual;
-            if (trailingLane != int.MinValue) SetLaneTarget(trailingLane);
+            _laneLeft = RouteMath.SmoothedLeft(line, tailArc + total, basisHalf);
+            transform.position = pts[pts.Count - 1] + LaneOffsetVector;
+            if (trailingLane != int.MinValue)
+                SetLaneTarget(trailingLane, new Vector2(dirs[dirs.Count - 1].x, dirs[dirs.Count - 1].y));
             SetSortOrder(cells[cells.Count - 1]);
+            KeepLineTail(line, basisHalf);
         }
         finally { _animating = false; }
+    }
+
+    /// <summary>Retains the last ~2×<paramref name="basisHalf"/> of centerline so the
+    /// next batch's smoothing window reaches back across the seam.</summary>
+    void KeepLineTail(Vector2[] line, float basisHalf)
+    {
+        _lineTail.Clear();
+        float want = basisHalf * 2f;
+        float kept = 0f;
+        _lineTail.Add(line[line.Length - 1]);
+        for (int i = line.Length - 2; i >= 0 && kept < want; i--)
+        {
+            kept += Vector2.Distance(line[i], line[i + 1]);
+            _lineTail.Add(line[i]);
+        }
+        _lineTail.Reverse();
     }
 
     /// <summary>Chamfers every interior vertex where the heading changes: the sharp
@@ -483,9 +560,11 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     IEnumerator LaneGlide(AgentActionResult result, float duration)
     {
         // In-place lane switch (wall/corner ahead): the cell doesn't change — retarget
-        // the lane channel and let it drift over the beat. Cruise momentum is left
-        // alone so a following drive resumes at speed.
-        SetLaneTarget(result.LaneAfter);
+        // the lane scalar (basis frozen — the vehicle isn't travelling) and let it
+        // drift over the beat. The beat may end mid-drift at high playback speed;
+        // Update() finishes the drift between beats, so there is never a snap.
+        // Cruise momentum is left alone so a following drive resumes at speed.
+        SetLaneTarget(result.LaneAfter, _space.FacingDirection(result.FacingAfter));
         Vector3 center = _space.CellToWorld(result.To);
 
         _animating = true;
@@ -498,7 +577,7 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
                 transform.position = center + StepLaneOffset();
                 yield return null;
             }
-            transform.position = center + _laneOffsetVisual;
+            transform.position = center + LaneOffsetVector;
             SetSortOrder(result.To);
         }
         finally { _animating = false; }
@@ -543,7 +622,11 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
             ? _bodyRot
             : BodyRotation(result.FacingBefore);
         Quaternion b = BodyRotation(result.FacingAfter);
-        SetLaneTarget(result.LaneAfter);
+        Vector2 headingA = _space.FacingDirection(result.FacingBefore);
+        Vector2 headingB = _space.FacingDirection(result.FacingAfter);
+        // Same lane side before and after a turn ⇒ same scalar; the basis rotating
+        // with the pivot is what sweeps the offset point around the corner arc.
+        SetLaneTarget(result.LaneAfter, headingB);
         Vector3 center = _space.CellToWorld(result.From);
 
         _animating = true;
@@ -556,6 +639,9 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
                 float t = Mathf.Clamp01(elapsed / duration);
                 _bodyRot = Quaternion.Slerp(a, b, t);
                 if (body != null) body.transform.localRotation = _bodyRot;
+                Vector2 heading = Vector2.Lerp(headingA, headingB, t);
+                if (heading.sqrMagnitude > 1e-4f)
+                    _laneLeft = new Vector2(-heading.y, heading.x).normalized;
                 transform.position = center + StepLaneOffset();
                 yield return null;
             }
@@ -563,7 +649,8 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
             _bodyRot = b;
             _hasBodyRot = true;
             if (body != null) body.transform.localRotation = b;
-            transform.position = center + _laneOffsetVisual;
+            _laneLeft = new Vector2(-headingB.y, headingB.x);
+            transform.position = center + LaneOffsetVector;
         }
         finally { _animating = false; }
     }

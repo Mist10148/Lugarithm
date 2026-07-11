@@ -498,6 +498,71 @@ public class RoadTrafficControllerTests
         }
     }
 
+    [Test]
+    public void LaneMaskFor_FallsBackToLogicalLane_MidCorner()
+    {
+        GameObject root = new GameObject("TrafficLaneMaskRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            TownLayout layout = StraightEastTown();
+            var space = new TopDownGridSpace(layout, cellSize: 6f, roadHalfWidth: 3f, root.transform);
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            traffic.InitAutomation(space.RouteContext, root.transform, target.transform, space, null);
+
+            const int southMask = 1 << 2;   // lateral toward South on an east-west road
+
+            // Fully eased into its lane: mask from the visual offset, as before.
+            Assert.AreEqual(southMask, InvokeLaneMaskFor(traffic, side: -1f, visualSide: -1f));
+
+            // Mid-corner the visual offset eases through ~0: fall back to the car's
+            // LOGICAL lane — marking every lane here stalled overtakes near bends.
+            Assert.AreEqual(southMask, InvokeLaneMaskFor(traffic, side: -1f, visualSide: 0f));
+            Assert.AreEqual(1 << 0, InvokeLaneMaskFor(traffic, side: 1f, visualSide: 0f),
+                "opposite logical side resolves to the opposite (North) lane");
+
+            // No lane assignment at all: keep the all-lanes safe default.
+            Assert.AreEqual(0xF, InvokeLaneMaskFor(traffic, side: 0f, visualSide: 0f));
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    static int InvokeLaneMaskFor(RoadTrafficController traffic, float side, float visualSide)
+    {
+        var vehicleType = typeof(RoadTrafficController).GetNestedType("TrafficVehicle",
+            System.Reflection.BindingFlags.NonPublic);
+        Assert.IsNotNull(vehicleType, "TrafficVehicle");
+        object vehicle = System.Activator.CreateInstance(vehicleType);
+        vehicleType.GetField("along").SetValue(vehicle, 20f);
+        vehicleType.GetField("side").SetValue(vehicle, side);
+        vehicleType.GetField("visualSide").SetValue(vehicle, visualSide);
+
+        var method = typeof(RoadTrafficController).GetMethod("LaneMaskFor",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.IsNotNull(method, "LaneMaskFor");
+        return (int)method.Invoke(traffic, new[] { vehicle });
+    }
+
+    static TownLayout StraightEastTown()
+    {
+        var layout = new TownLayout { seed = 7, startNodeId = 0, destNodeId = 1 };
+        layout.nodes.Add(new TownNode
+        {
+            id = 0, pos = Vector2.zero, kind = NodeKind.TerminalStart, name = "Start", alongTrunk = 0f,
+        });
+        layout.nodes.Add(new TownNode
+        {
+            id = 1, pos = new Vector2(60f, 0f), kind = NodeKind.TerminalEnd, name = "Dest", alongTrunk = 60f,
+        });
+        layout.trunkNodeIds.AddRange(new[] { 0, 1 });
+        layout.edges.Add(new TownEdge(0, 1, true));
+        return layout;
+    }
+
     static RouteContext RouteWithStops(Transform parent, params Vector2[] stops)
     {
         var route = new RouteContext
