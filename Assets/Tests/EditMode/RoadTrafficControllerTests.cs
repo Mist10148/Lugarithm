@@ -87,7 +87,7 @@ public class RoadTrafficControllerTests
     }
 
     [Test]
-    public void Cornering_EasesLaneTowardCenter_AndRotatesThroughTurn()
+    public void Cornering_KeepsLaneOffsetThroughTurn_AndRotatesSmoothly()
     {
         GameObject root = new GameObject("TrafficCornerRoot");
         GameObject target = new GameObject("Target");
@@ -96,14 +96,20 @@ public class RoadTrafficControllerTests
             target.transform.position = Vector3.zero;
             RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
             RouteContext route = LRoute();
+            float laneOffset = route.LaneOffset;
             traffic.InitManual(route, root.transform, target.transform, null);
             Assert.IsTrue(traffic.ForceSpawnAtForTests(37f, 1f, 3f));
 
-            float beforeSide = Mathf.Abs(traffic.VehicleSideOffsetForTests(0));
-            traffic.Tick(0.5f);
-
-            Assert.Less(Mathf.Abs(traffic.VehicleSideOffsetForTests(0)), beforeSide,
-                "traffic cars should tuck toward the centerline near corners like the manual jeepney");
+            // The smoothed-tangent lateral basis holds the full lane offset all
+            // the way through the 90° vertex at along=40 — a car must never ease
+            // onto (or across) the centerline mid-corner.
+            for (int i = 0; i < 20; i++)
+            {
+                traffic.Tick(0.1f);
+                float side = traffic.VehicleSideOffsetForTests(0);
+                Assert.Greater(side, laneOffset * 0.5f,
+                    $"lane offset must keep its sign and stay wide through the corner (tick {i})");
+            }
 
             traffic.Clear();
             Assert.IsTrue(traffic.ForceSpawnAtForTests(39.8f, 1f, 3f));
@@ -121,6 +127,67 @@ public class RoadTrafficControllerTests
             Object.DestroyImmediate(root);
             Object.DestroyImmediate(target);
         }
+    }
+
+    [Test]
+    public void BindRoute_AdoptsRouteLaneOffset_ForLanePlacement()
+    {
+        GameObject root = new GameObject("TrafficLaneMetricsRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
+            route.LaneOffset = RoadMetrics.SceneLaneOffset;
+            traffic.InitManual(route, root.transform, target.transform, null);
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(30f, 1f, 3f));
+
+            // Route runs along +x, so route-left is +y: a side=+1 car must sit at
+            // the painted lane center (+3), not the serialized placeholder 1.35.
+            Assert.AreEqual(RoadMetrics.SceneLaneOffset, traffic.VehicleSideOffsetForTests(0), 0.01f);
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void AutomationSoftContact_BleedsAgentViewCruiseSpeed()
+    {
+        GameObject root = new GameObject("TrafficAutomationContactRoot");
+        GameObject target = new GameObject("Target");
+        try
+        {
+            var view = target.AddComponent<TopDownAgentView>();
+            RoadTrafficController traffic = root.AddComponent<RoadTrafficController>();
+            RouteContext route = RouteWithStops(root.transform, new Vector2(100f, 100f));
+            traffic.InitAutomation(route, root.transform, target.transform, null, null);
+
+            // Park the jeepney view exactly on a same-lane car (side -1 → y=-1.35).
+            target.transform.position = new Vector3(30f, -1.35f, 0f);
+            Assert.IsTrue(traffic.ForceSpawnAtForTests(30f, -1f, 0.1f));
+            SetPrivateFloat(view, "_cruiseSpeed", 3f);
+
+            traffic.Tick(0.01f);
+
+            Assert.Less(view.CurrentSpeed, 3f,
+                "overlapping a traffic car must bleed the automation view's cruise speed (soft contact)");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+        }
+    }
+
+    static void SetPrivateFloat(object obj, string field, float value)
+    {
+        var f = obj.GetType().GetField(field,
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.IsNotNull(f, field);
+        f.SetValue(obj, value);
     }
 
     [Test]

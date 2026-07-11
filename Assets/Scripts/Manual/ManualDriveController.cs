@@ -128,9 +128,14 @@ public class ManualDriveController : MonoBehaviour
             if (initialDest != null) initialDest.kind = NodeKind.Junction;
             ManualLayoutResult projected = ManualLayoutProjector.Project(layout);
 
+            // Warm the template sprites behind the scene transition — the first
+            // load of each large background otherwise hitches mid-drive.
+            SceneChunkVisualBuilder.Preload();
+
             _ctx       = RouteVisualBuilder.BuildProcedural(root, projected, _def.manual.roadHalfWidth);
             _segments  = _ctx.Segments;
             driveLine  = projected.trunk;
+            SceneChunkVisualBuilder.SwapGround();
 
             BuildProceduralPassengers(layout, projected);
         }
@@ -144,6 +149,7 @@ public class ManualDriveController : MonoBehaviour
         Vector2 direction = RouteMath.DirectionAt(driveLine, 0.1f);
         float angle = Vector2.SignedAngle(Vector2.up, direction);
         jeepney.TeleportTo(start, angle);
+        jeepney.ConfigureLaneMetrics(_ctx.LaneOffset);
         jeepney.SetDriveLine(driveLine);
         if (traffic != null)
             traffic.InitManual(_ctx, root, jeepney.transform, jeepney);
@@ -225,7 +231,7 @@ public class ManualDriveController : MonoBehaviour
             var colors = new List<Color>();
             foreach (PassengerManager.PendingBoard b in kv.Value) colors.Add(b.color);
             zone.SpawnWaitingPeeps(colors,
-                new Vector2(_def.manual.roadHalfWidth + 2.1f, -0.8f), Vector2.right);
+                new Vector2(_ctx.RoadHalfWidth + 2.1f, -0.8f), Vector2.right);
             _peepsSpawned.Add(kv.Key);
         }
     }
@@ -279,7 +285,7 @@ public class ManualDriveController : MonoBehaviour
             var colors = new List<Color>();
             foreach (PassengerManager.PendingBoard b in _pendingBoarding[o]) colors.Add(b.color);
             zone.SpawnWaitingPeeps(colors,
-                new Vector2(_def.manual.roadHalfWidth + 2.1f, -0.8f), Vector2.right);
+                new Vector2(_ctx.RoadHalfWidth + 2.1f, -0.8f), Vector2.right);
         }
 
         if (_passengers != null)
@@ -428,11 +434,17 @@ public class ManualDriveController : MonoBehaviour
         // Progress (and the breakdown point) is always measured along the trunk;
         // off-road, for the procedural town, is distance to the nearest road
         // segment so a short detour onto a branch stub still counts as on-road.
+        // Both queries are hinted — the polyline/segment lists grow without
+        // bound on the endless road, so full scans here scaled with distance
+        // driven (the post-scene-art frame drops).
         float offRoute;
-        float along = RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out offRoute);
+        RouteCursor cursor = _ctx.Cursor;
+        float along = cursor != null
+            ? cursor.Project(jeepney.transform.position, out offRoute)
+            : RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out offRoute);
         if (_proceduralActive && _segments != null)
-            offRoute = RouteMath.NearestDistanceToGraph(_segments, jeepney.transform.position);
-        jeepney.OffRoad = offRoute > _def.manual.roadHalfWidth + 0.8f;
+            offRoute = OffRoadGraphDistance(jeepney.transform.position);
+        jeepney.OffRoad = offRoute > _ctx.RoadHalfWidth + 0.8f;
 
         if (_breakdown != null)
             _breakdown.Tick(along);
@@ -480,6 +492,29 @@ public class ManualDriveController : MonoBehaviour
             RefreshChunkWindow();
     }
 
+    /// <summary>
+    /// Distance from the jeepney to the nearest road segment, with a hinted
+    /// O(1) common case: while the last-nearest segment is still within the
+    /// on-road threshold the exact minimum doesn't matter (the OffRoad flag is
+    /// false either way), so the full O(segments) scan only runs while actually
+    /// off-road or crossing between segments.
+    /// </summary>
+    int _offRoadSegHint = -1;
+
+    float OffRoadGraphDistance(Vector2 position)
+    {
+        if (_segments == null || _segments.Count == 0) return float.MaxValue;
+
+        if (_offRoadSegHint >= 0 && _offRoadSegHint < _segments.Count)
+        {
+            float hinted = RouteMath.DistanceToSegment(_segments[_offRoadSegHint], position);
+            if (hinted <= _ctx.RoadHalfWidth + 0.8f) return hinted;
+        }
+
+        float best = RouteMath.NearestDistanceToGraph(_segments, position, out _offRoadSegHint);
+        return best;
+    }
+
     void AppendChunk()
     {
         if (_streaming == null || _ctx == null) return;
@@ -513,7 +548,7 @@ public class ManualDriveController : MonoBehaviour
 
         if (toast != null && _ctx.DestinationZone != null)
             toast.Show($"Keep driving to {_ctx.DestinationZone.StopName}");
-        RefreshChunkWindow();
+        RefreshChunkWindow(force: true);
     }
 
     StreamedChunkView CreateChunkView(TownChunk chunk)
@@ -548,12 +583,22 @@ public class ManualDriveController : MonoBehaviour
         return view;
     }
 
-    void RefreshChunkWindow()
+    float _nextWindowRefresh;
+
+    void RefreshChunkWindow(bool force = false)
     {
         if (_streamedChunkViews.Count == 0 || jeepney == null || _ctx == null || _ctx.Waypoints == null)
             return;
 
-        float currentAlong = RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out _);
+        // Chunk activation only matters at chunk granularity — scanning every
+        // view (plus the pending-ride dictionaries) every frame is waste.
+        if (!force && Time.time < _nextWindowRefresh) return;
+        _nextWindowRefresh = Time.time + 0.25f;
+
+        RouteCursor cursor = _ctx.Cursor;
+        float currentAlong = cursor != null
+            ? cursor.Project(jeepney.transform.position, out _)
+            : RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out _);
         int currentChunkIndex = _streamedChunkViews[0].chunkIndex;
         foreach (StreamedChunkView view in _streamedChunkViews)
         {
@@ -617,8 +662,13 @@ public class ManualDriveController : MonoBehaviour
         yield return new WaitForSeconds(StoryDropoffBufferSeconds);
         if (_storyComplete || _ctx == null || _ctx.Waypoints == null || jeepney == null) yield break;
 
-        float along = RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out _);
-        _storyDropoffWorld = RouteMath.PointAt(_ctx.Waypoints, along + StoryDropoffBufferUnits);
+        RouteCursor dropCursor = _ctx.Cursor;
+        float along = dropCursor != null
+            ? dropCursor.Project(jeepney.transform.position, out _)
+            : RouteMath.NearestDistanceAlong(_ctx.Waypoints, jeepney.transform.position, out _);
+        _storyDropoffWorld = dropCursor != null
+            ? dropCursor.PointAt(along + StoryDropoffBufferUnits)
+            : RouteMath.PointAt(_ctx.Waypoints, along + StoryDropoffBufferUnits);
         _storyDropoffArmed = true;
         SpawnStoryMarker(_storyDropoffWorld);
         if (toast != null)

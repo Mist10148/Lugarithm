@@ -11,7 +11,7 @@ public class TopDownGridSpace : IGridSpace, IStopView
     GridTransform _transform;
     readonly RouteContext  _routeContext;
     readonly Transform     _worldRoot;
-    readonly float         _roadHalfWidth;
+    readonly float         _roadHalfWidth;   // from the built RouteContext (scene art may widen it)
 
     readonly Dictionary<Vector2Int, bool> _occupied = new Dictionary<Vector2Int, bool>();
     readonly Dictionary<Vector2Int, StopZone> _zonesByCell = new Dictionary<Vector2Int, StopZone>();
@@ -27,12 +27,12 @@ public class TopDownGridSpace : IGridSpace, IStopView
     public TopDownGridSpace(TownLayout layout, float cellSize, float roadHalfWidth,
                             Transform worldRoot)
     {
-        _worldRoot     = worldRoot;
-        _roadHalfWidth = roadHalfWidth;
+        _worldRoot = worldRoot;
 
         GridLayoutProjector.ToGridMap(layout, cellSize, out _transform, out _, out _);
         _routeContext = RouteVisualBuilder.BuildProcedural(
             worldRoot, ManualLayoutProjector.Project(layout), roadHalfWidth);
+        _roadHalfWidth = _routeContext.RoadHalfWidth;
 
         RefreshFromLayout(layout);
     }

@@ -332,8 +332,9 @@ public class PassengerManager : MonoBehaviour
 
     void SpawnExitingPeep(StopZone zone, Color tint)
     {
+        float halfWidth = _ctx != null ? _ctx.RoadHalfWidth : _route.roadHalfWidth;
         Vector2 logicalWorld = (Vector2)(zone.transform.position +
-                                         zone.transform.right * (_route.roadHalfWidth + 1.6f));
+                                         zone.transform.right * (halfWidth + 1.6f));
         var peep = new GameObject("ExitingPeep");
         peep.transform.position = logicalWorld;
         var sr = peep.AddComponent<SpriteRenderer>();

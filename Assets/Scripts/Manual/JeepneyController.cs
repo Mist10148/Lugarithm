@@ -30,8 +30,8 @@ public class JeepneyController : MonoBehaviour
     [Tooltip("Seconds to drift into the selected lane. Higher = heavier, lazier lane changes.")]
     [SerializeField] private float laneSmoothTime = 0.28f;
 
-    [Tooltip("Within this many meters of a 90° corner, the jeep eases to the lane " +
-             "center so it tracks the turn cleanly instead of cutting/reversing.")]
+    [Tooltip("Floor of the tangent-smoothing half-window used for the lateral lane " +
+             "basis through 90° corners (the effective window also scales with laneWidth).")]
     [SerializeField] private float cornerEaseDistance = 2.5f;
 
     [Header("Lane Assist")]
@@ -53,6 +53,7 @@ public class JeepneyController : MonoBehaviour
     private Rigidbody2D _rb;
     private float _fuel = 1f;
     private Vector2[] _driveLine;
+    private RouteCursor _driveCursor;   // O(log n) sampling — the streamed polyline grows forever
     private float _routeDistance;
     private float _routeLength;
     private float _routeSpeed;
@@ -97,7 +98,7 @@ public class JeepneyController : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (_driveLine != null && _driveLine.Length >= 2)
+        if (_driveLine != null && _driveLine.Length >= 2 && _driveCursor != null)
         {
             FixedUpdateRouteFollow();
             return;
@@ -171,23 +172,20 @@ public class JeepneyController : MonoBehaviour
             _speedVel   = 0f;
         }
 
-        // Lane changes drift in rather than snapping. Near a 90° corner the lane
-        // target eases to the centerline so the jeep tracks the turn cleanly — the
-        // perpendicular lane offset flips basis at the vertex, and holding an offset
-        // there throws the jeep sideways/backward.
-        float distToCorner = RouteMath.DistanceToNearestCorner(_driveLine, _routeDistance);
-        float cornerFactor = cornerEaseDistance > 0f
-            ? Mathf.Clamp01(distToCorner / cornerEaseDistance)
-            : 1f;
-        float laneTarget = _targetLane * laneWidth * cornerFactor;
+        // Lane changes drift in rather than snapping. The lateral basis is the
+        // smoothed tangent, which stays continuous through 90° vertices — the
+        // jeep holds its lane offset around the corner on its own arc instead of
+        // easing to the centerline (which visibly swung it across the road on
+        // the wide painted lanes).
+        float laneTarget = _targetLane * laneWidth;
         if (Time.time < _trafficNudgeUntil)
-            laneTarget += _trafficLaneNudge * cornerFactor;
+            laneTarget += _trafficLaneNudge;
         _laneOffset = Mathf.SmoothDamp(_laneOffset, laneTarget, ref _laneVel,
                                        laneSmoothTime, Mathf.Infinity, Time.fixedDeltaTime);
 
-        Vector2 center = RouteMath.PointAt(_driveLine, _routeDistance);
-        Vector2 direction = RouteMath.DirectionAt(_driveLine, _routeDistance + 0.1f);
-        Vector2 left = new Vector2(-direction.y, direction.x);
+        float basisHalf = Mathf.Max(cornerEaseDistance, laneWidth * 1.2f);
+        Vector2 center = _driveCursor.PointAt(_routeDistance);
+        Vector2 left = _driveCursor.SmoothedLeft(_routeDistance, basisHalf);
         Vector2 targetPosition = center + left * _laneOffset;
 
         Vector2 previous = _rb.position;
@@ -269,13 +267,24 @@ public class JeepneyController : MonoBehaviour
 
     // -------------------------------------------------------------------------
 
+    /// <summary>
+    /// Lane spacing of the built world (scene art ±3, placeholder ±1.35), pushed
+    /// by the drive controller so the serialized default can't misplace the jeep
+    /// on wider painted roads.
+    /// </summary>
+    public void ConfigureLaneMetrics(float width)
+    {
+        if (width > 0f) laneWidth = width;
+    }
+
     /// <summary>Sets the route the jeepney follows automatically.</summary>
     public void SetDriveLine(Vector2[] waypoints, bool preserveLane = false)
     {
         _driveLine = waypoints;
-        _routeLength = waypoints != null && waypoints.Length >= 2
-            ? RouteMath.TotalLength(waypoints)
-            : 0f;
+        _driveCursor = waypoints != null && waypoints.Length >= 2
+            ? new RouteCursor(waypoints)
+            : null;
+        _routeLength = _driveCursor != null ? _driveCursor.TotalLength : 0f;
 
         if (_rb == null) _rb = GetComponent<Rigidbody2D>();
 
@@ -289,7 +298,7 @@ public class JeepneyController : MonoBehaviour
         else
         {
             _routeDistance = _routeLength > 0f
-                ? RouteMath.NearestDistanceAlong(waypoints, _rb.position, out _)
+                ? _driveCursor.Project(_rb.position, out _)
                 : 0f;
             _targetLane = 0;
             _laneOffset = 0f;
@@ -337,10 +346,10 @@ public class JeepneyController : MonoBehaviour
     public void ApplySoftTrafficContact(Vector2 vehiclePosition)
     {
         _trafficSlowUntil = Time.time + 0.45f;
-        if (_driveLine != null && _driveLine.Length >= 2)
+        if (_driveCursor != null)
         {
-            Vector2 dir = RouteMath.DirectionAt(_driveLine, _routeDistance + 0.1f);
-            Vector2 left = new Vector2(-dir.y, dir.x);
+            Vector2 left = _driveCursor.SmoothedLeft(_routeDistance,
+                                                     Mathf.Max(cornerEaseDistance, laneWidth * 1.2f));
             float side = Vector2.Dot((Vector2)transform.position - vehiclePosition, left);
             _trafficLaneNudge = Mathf.Sign(Mathf.Abs(side) < 0.01f ? 1f : side) * laneWidth * 0.35f;
             _trafficNudgeUntil = Time.time + 0.35f;

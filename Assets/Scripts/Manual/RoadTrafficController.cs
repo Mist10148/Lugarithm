@@ -32,6 +32,7 @@ public class RoadTrafficController : MonoBehaviour
     [SerializeField] private float rotationFollowSpeed = 4f;
     [SerializeField] private float softCollisionRadius = 1.4f;
     [SerializeField] private bool enableManualSoftContacts = true;
+    [SerializeField] private bool enableAutomationSoftContacts = true;
 
     readonly List<TrafficVehicle> _vehicles = new List<TrafficVehicle>();
     readonly Stack<TrafficVehicle> _pool = new Stack<TrafficVehicle>();
@@ -45,9 +46,14 @@ public class RoadTrafficController : MonoBehaviour
     RouteContext _route;
     Vector2[] _line;
     float _routeLength;
+    // Live lane offset: the built route's metrics (scene art uses ±3, placeholder
+    // ±1.35). The serialized laneOffset is only the no-route fallback, so stale
+    // values baked into generated scenes can't misplace cars.
+    float _laneOffset = RoadMetrics.PlaceholderLaneOffset;
     Transform _root;
     Transform _target;
     JeepneyController _manualJeepney;
+    TopDownAgentView _automationAgentView;
     TopDownGridSpace _automationSpace;
     AgentSim _automationSim;
     float _nextSpawnTime;
@@ -123,6 +129,7 @@ public class RoadTrafficController : MonoBehaviour
         _root = root != null ? root : transform;
         _target = target;
         _manualJeepney = jeepney;
+        _automationAgentView = null;
         _automationSpace = null;
         _automationSim = null;
         _manualMode = true;
@@ -139,6 +146,7 @@ public class RoadTrafficController : MonoBehaviour
         _root = root != null ? root : transform;
         _target = target;
         _manualJeepney = null;
+        _automationAgentView = target != null ? target.GetComponent<TopDownAgentView>() : null;
         _automationSpace = space;
         _automationSim = sim;
         _manualMode = false;
@@ -189,12 +197,19 @@ public class RoadTrafficController : MonoBehaviour
         Tick(Time.deltaTime);
     }
 
+    // Fast sampler over the bound route; auto-rebuilds when streaming replaces
+    // the polyline. Null while no usable route is bound.
+    RouteCursor Cursor => _route != null ? _route.Cursor : null;
+
     public void Tick(float dt)
     {
         if (_line == null || _line.Length < 2 || _target == null)
             return;
 
-        float targetAlong = RouteMath.NearestDistanceAlong(_line, _target.position, out _);
+        RouteCursor cursor = Cursor;
+        float targetAlong = cursor != null
+            ? cursor.Project(_target.position, out _)
+            : RouteMath.NearestDistanceAlong(_line, _target.position, out _);
         float targetLateral = TargetLateralOffset(targetAlong);
         UpdateTargetSpeed(targetAlong, dt);
         MoveVehicles(dt, targetAlong, targetLateral);
@@ -215,7 +230,15 @@ public class RoadTrafficController : MonoBehaviour
                     PlayerFollowLimit(targetAlong, targetLateral));
         }
         if (_automationMode)
+        {
+            // Manual-style collision feel for the self-driving jeepney: the grid
+            // sim already blocks moves cell-by-cell, but between cells the view
+            // could slide through a car unbothered. Soft contacts give the bump,
+            // the follow gate queues the view at the car's tail.
+            TickAutomationSoftContacts();
+            PushAutomationFollowGate(targetAlong, targetLateral);
             SyncAutomationCells();
+        }
     }
 
     void MoveVehicles(float dt, float targetAlong, float targetLateral)
@@ -273,9 +296,11 @@ public class RoadTrafficController : MonoBehaviour
     }
 
     // The jeepney only blocks a car when it actually occupies that car's lane.
+    // The match window scales with the lane spacing (≈0.88 on the placeholder
+    // road, ≈1.95 on the painted scene road).
     bool TargetSharesLane(TrafficVehicle v, float targetLateral)
     {
-        return Mathf.Abs(targetLateral - laneOffset * v.side) < 0.9f;
+        return Mathf.Abs(targetLateral - _laneOffset * v.side) < _laneOffset * 0.65f;
     }
 
     float FindFollowLimit(TrafficVehicle v, float targetAlong, float targetLateral)
@@ -330,22 +355,30 @@ public class RoadTrafficController : MonoBehaviour
         foreach (TrafficVehicle v in _vehicles)
         {
             if (v.along <= targetAlong) continue;
-            if (Mathf.Abs(targetLateral - laneOffset * v.side) >= 0.9f) continue;
+            if (!TargetSharesLane(v, targetLateral)) continue;
             limit = Mathf.Min(limit, v.along - followDistance);
         }
         return limit;
     }
 
     // Projects the followed target (jeepney) onto the route-left axis so we
-    // know which lane it currently occupies.
+    // know which lane it currently occupies. Uses the same smoothed basis as
+    // PlaceVehicle so lane detection agrees with car placement through corners.
     float TargetLateralOffset(float targetAlong)
     {
-        if (_target == null) return 0f;
-        Vector2 center = RouteMath.PointAt(_line, targetAlong);
-        Vector2 roadDir = RouteMath.DirectionAt(_line, targetAlong + 0.1f);
-        if (roadDir.sqrMagnitude < 1e-6f) roadDir = Vector2.up;
-        Vector2 left = new Vector2(-roadDir.y, roadDir.x);
+        RouteCursor cursor = Cursor;
+        if (_target == null || cursor == null) return 0f;
+        Vector2 center = cursor.PointAt(targetAlong);
+        Vector2 left = cursor.SmoothedLeft(targetAlong, LaneBasisHalfLength());
         return Vector2.Dot((Vector2)_target.position - center, left);
+    }
+
+    // Half-length of the tangent-smoothing window. Must exceed offset·π/4 so an
+    // offset lane keeps moving forward through a sharp 90° vertex; the serialized
+    // cornerEaseDistance acts as the placeholder-mode floor.
+    float LaneBasisHalfLength()
+    {
+        return Mathf.Max(cornerEaseDistance, _laneOffset * 1.2f);
     }
 
     bool TrySpawn(float targetAlong)
@@ -434,16 +467,19 @@ public class RoadTrafficController : MonoBehaviour
 
     void PlaceVehicle(TrafficVehicle v, float dt)
     {
-        Vector2 center = RouteMath.PointAt(_line, v.along);
-        Vector2 roadDir = RouteMath.DirectionAt(_line, v.along + 0.1f);
+        RouteCursor cursor = Cursor;
+        if (cursor == null) return;
+
+        Vector2 center = cursor.PointAt(v.along);
+        Vector2 roadDir = cursor.DirectionAt(v.along + 0.1f);
         if (roadDir.sqrMagnitude < 1e-6f) roadDir = Vector2.up;
         Vector2 dir = v.direction >= 0 ? roadDir : -roadDir;
-        Vector2 left = new Vector2(-roadDir.y, roadDir.x);
-        float distToCorner = RouteMath.DistanceToNearestCorner(_line, v.along);
-        float cornerFactor = cornerEaseDistance > 0f
-            ? Mathf.Clamp01(distToCorner / cornerEaseDistance)
-            : 1f;
-        float sideTarget = laneOffset * v.side * cornerFactor;
+        // The smoothed-tangent basis stays continuous through corners, so the
+        // car holds its full lane offset and sweeps its own arc (inside lane
+        // tighter, outside wider) instead of easing onto the centerline and
+        // swinging across the oncoming side.
+        Vector2 left = cursor.SmoothedLeft(v.along, LaneBasisHalfLength());
+        float sideTarget = _laneOffset * v.side;
         if (!v.placed || dt <= 0f)
         {
             v.visualSide = sideTarget;
@@ -496,6 +532,39 @@ public class RoadTrafficController : MonoBehaviour
         }
     }
 
+    void TickAutomationSoftContacts()
+    {
+        if (!enableAutomationSoftContacts) return;
+        if (_automationAgentView == null || _target == null) return;
+        float radiusSqr = softCollisionRadius * softCollisionRadius;
+        foreach (TrafficVehicle v in _vehicles)
+        {
+            if (v.go == null) continue;
+            if (((Vector2)v.go.transform.position - (Vector2)_target.position).sqrMagnitude <= radiusSqr)
+                _automationAgentView.ApplySoftTrafficContact(v.go.transform.position);
+        }
+    }
+
+    // PlayerFollowLimit for the automation view, restricted to same-direction
+    // cars (head-ons stay the sim's job: occupancy blocking + avoidTraffic),
+    // expressed as remaining forward distance.
+    void PushAutomationFollowGate(float targetAlong, float targetLateral)
+    {
+        if (_automationAgentView == null) return;
+
+        float limit = float.PositiveInfinity;
+        foreach (TrafficVehicle v in _vehicles)
+        {
+            if (v.direction < 0) continue;
+            if (v.along <= targetAlong) continue;
+            if (!TargetSharesLane(v, targetLateral)) continue;
+            limit = Mathf.Min(limit, v.along - followDistance);
+        }
+
+        _automationAgentView.SetTrafficFollowGate(
+            float.IsPositiveInfinity(limit) ? float.PositiveInfinity : limit - targetAlong);
+    }
+
     void SyncAutomationCells()
     {
         _trafficCells.Clear();
@@ -538,12 +607,13 @@ public class RoadTrafficController : MonoBehaviour
     /// corner the offset eases toward zero — mark BOTH lanes then (safe default).</summary>
     int LaneMaskFor(TrafficVehicle v)
     {
-        Vector2 roadDir = RouteMath.DirectionAt(_line, v.along + 0.1f);
-        if (roadDir.sqrMagnitude < 1e-6f) roadDir = Vector2.up;
-        Vector2 left = new Vector2(-roadDir.y, roadDir.x);
+        RouteCursor cursor = Cursor;
+        Vector2 left = cursor != null
+            ? cursor.SmoothedLeft(v.along, LaneBasisHalfLength())
+            : RouteMath.SmoothedLeft(_line, v.along, LaneBasisHalfLength());
         Vector2 lateral = left * v.visualSide;
 
-        if (lateral.magnitude < 0.3f)
+        if (lateral.magnitude < _laneOffset * 0.22f)
             return 0xF;   // ambiguous mid-corner — occupy every lane
 
         int best = 0;
@@ -636,6 +706,7 @@ public class RoadTrafficController : MonoBehaviour
         _route = route;
         _line = route != null ? route.Waypoints : null;
         _routeLength = _line != null && _line.Length >= 2 ? RouteMath.TotalLength(_line) : 0f;
+        _laneOffset = route != null && route.LaneOffset > 0f ? route.LaneOffset : laneOffset;
         CacheStops();
         _trafficCellsDirty = true;
     }

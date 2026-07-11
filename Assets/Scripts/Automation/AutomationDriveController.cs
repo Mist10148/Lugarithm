@@ -260,6 +260,10 @@ public class AutomationDriveController : MonoBehaviour
                 topDownWorldRoot = rootGo.transform;
             }
 
+            // Warm the template sprites behind the scene transition — the first
+            // load of each large background otherwise hitches mid-drive.
+            SceneChunkVisualBuilder.Preload();
+
             float roadHalfWidth = _level.manual != null ? _level.manual.roadHalfWidth : 3f;
             _topDownSpace = new TopDownGridSpace(proceduralLayout, _level.procedural.gen.gridCellSize,
                                                  roadHalfWidth, topDownWorldRoot);
@@ -282,6 +286,7 @@ public class AutomationDriveController : MonoBehaviour
             // Lane-mode poses that don't come from an action result (reset snaps)
             // still need the sim's current lane for the lateral offset.
             topDownAgentView.LaneCardinalSource = () => sim.LaneCardinal;
+            topDownAgentView.LaneVisualOffset = _topDownSpace.RouteContext.LaneOffset;
             activeAgent = topDownAgentView;
 
             if (cameraFollow == null && worldCamera != null)
@@ -1144,6 +1149,8 @@ public class AutomationDriveController : MonoBehaviour
         UpdateProceduralGroundPosition();
     }
 
+    float _groundTiledSize = -1f;
+
     void UpdateProceduralGroundPosition()
     {
         if (topDownWorldRoot == null) return;
@@ -1173,8 +1180,15 @@ public class AutomationDriveController : MonoBehaviour
         float size = Mathf.Max(width, height) + 120f;
         if (sr.drawMode == SpriteDrawMode.Tiled)
         {
-            ground.localScale = Vector3.one;
-            sr.size = new Vector2(size, size);
+            // Resizing a tiled sprite regenerates its quad mesh; the size only
+            // actually changes when the camera aspect/ortho does, so skip the
+            // per-frame reassignment.
+            if (Mathf.Abs(size - _groundTiledSize) > 0.5f)
+            {
+                ground.localScale = Vector3.one;
+                sr.size = new Vector2(size, size);
+                _groundTiledSize = size;
+            }
             return;
         }
         Vector2 spriteSize = sr.sprite.bounds.size;
@@ -1604,7 +1618,7 @@ public class AutomationDriveController : MonoBehaviour
         if (vibeCtrl != null) vibeCtrl.SetWorldContext(_grid, exec.Sim, _def);
         if (ghost != null) ghost.Bind(_def);
         if (monitor != null) monitor.Refresh(exec.Sim, _lastExecutedLine);
-        RefreshChunkWindow();
+        RefreshChunkWindow(force: true);
     }
 
     /// <summary>
@@ -1625,6 +1639,8 @@ public class AutomationDriveController : MonoBehaviour
         {
             _topDownSpace = new TopDownGridSpace(_streamingTown.Layout, _streamingTown.CellSize,
                                                  roadHalfWidth, topDownWorldRoot);
+            if (topDownAgentView != null)
+                topDownAgentView.LaneVisualOffset = _topDownSpace.RouteContext.LaneOffset;
             return;
         }
 
@@ -1671,15 +1687,25 @@ public class AutomationDriveController : MonoBehaviour
         return view;
     }
 
-    void RefreshChunkWindow()
+    float _nextWindowRefresh;
+
+    void RefreshChunkWindow(bool force = false)
     {
         if (_streamedChunkViews.Count == 0 || topDownAgentView == null ||
             _topDownSpace == null || _topDownSpace.RouteContext == null ||
             _topDownSpace.RouteContext.Waypoints == null)
             return;
 
-        float currentAlong = RouteMath.NearestDistanceAlong(
-            _topDownSpace.RouteContext.Waypoints, topDownAgentView.transform.position, out _);
+        // Chunk activation only matters at chunk granularity — scanning every
+        // view (plus the per-ride checks) every frame is waste.
+        if (!force && Time.time < _nextWindowRefresh) return;
+        _nextWindowRefresh = Time.time + 0.25f;
+
+        RouteCursor cursor = _topDownSpace.RouteContext.Cursor;
+        float currentAlong = cursor != null
+            ? cursor.Project(topDownAgentView.transform.position, out _)
+            : RouteMath.NearestDistanceAlong(
+                _topDownSpace.RouteContext.Waypoints, topDownAgentView.transform.position, out _);
 
         int currentChunkIndex = _streamedChunkViews[0].chunkIndex;
         foreach (StreamedChunkView view in _streamedChunkViews)

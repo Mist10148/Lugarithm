@@ -41,6 +41,66 @@ public class TopDownAgentViewTests
         }
     }
 
+    [Test]
+    public void LaneVisualOffset_DefaultsToPlaceholderMetrics()
+    {
+        var go = new GameObject("TopDownAgentViewLaneDefault");
+        try
+        {
+            var view = go.AddComponent<TopDownAgentView>();
+            Assert.AreEqual(RoadMetrics.PlaceholderLaneOffset, view.LaneVisualOffset, 0.001f,
+                "bare views (tests, authored scenes) must keep the placeholder lane spacing");
+        }
+        finally
+        {
+            Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void ApplySoftTrafficContact_BleedsCruiseSpeed()
+    {
+        var go = new GameObject("TopDownAgentViewContact");
+        try
+        {
+            var view = go.AddComponent<TopDownAgentView>();
+            SetPrivateFloat(view, "_cruiseSpeed", 4f);
+
+            view.ApplySoftTrafficContact(new Vector2(0.5f, 0f));
+
+            Assert.AreEqual(4f * 0.55f, view.CurrentSpeed, 0.001f,
+                "a traffic contact must bleed cruise speed like the manual jeepney bump");
+        }
+        finally
+        {
+            Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void SnapTo_ClearsTrafficGateAndContactState()
+    {
+        var go = new GameObject("TopDownAgentViewSnap");
+        try
+        {
+            var view = go.AddComponent<TopDownAgentView>();
+            view.Init(new FakeGridSpace(Vector3.zero, 10), new Vector2Int(1, 2), facing: 1);
+            view.SetTrafficFollowGate(1.5f);
+
+            view.SnapTo(new Vector2Int(4, 4), 0);
+
+            FieldInfo gate = typeof(TopDownAgentView).GetField("_followGateRemaining",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(gate);
+            Assert.IsTrue(float.IsPositiveInfinity((float)gate.GetValue(view)),
+                "a teleport must release the traffic follow gate — it belongs to the old position");
+        }
+        finally
+        {
+            Object.DestroyImmediate(go);
+        }
+    }
+
     static void SetPrivateFloat(object target, string fieldName, float value)
     {
         FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);

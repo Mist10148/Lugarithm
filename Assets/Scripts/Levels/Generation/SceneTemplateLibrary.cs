@@ -118,6 +118,17 @@ public static class SceneTemplateLibrary
         return Vector2.zero;
     }
 
+    /// <summary>Sprite names of every template, for preloading (see
+    /// <see cref="SceneChunkVisualBuilder.Preload"/>).</summary>
+    public static IEnumerable<string> TemplateSpriteNames
+    {
+        get
+        {
+            foreach (Template t in Templates)
+                yield return t.sprite;
+        }
+    }
+
     // -------------------------------------------------------------------------
 
     /// <summary>

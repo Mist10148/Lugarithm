@@ -33,9 +33,10 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     public float CurrentSpeed => _cruiseSpeed;
     public float CurrentSpeed01 => SpeedGauge.Normalize(_cruiseSpeed);
 
-    // Two-lane rendering: matches RoadTrafficController.laneOffset so the jeepney
-    // lines up with the traffic lanes, inside the existing road art.
-    const float LaneVisualOffset = 1.35f;
+    // Two-lane rendering: must match the traffic lane spacing so the jeepney
+    // lines up with the cars. Pushed by the drive controller from the built
+    // route's metrics (RouteContext.LaneOffset — scene art ±3, placeholder ±1.35).
+    [System.NonSerialized] public float LaneVisualOffset = RoadMetrics.PlaceholderLaneOffset;
 
     // Smoothed lane-offset channel (the traffic-car visualSide pattern): animation
     // writes the CENTERLINE position and composes this world-space lateral offset on
@@ -51,14 +52,60 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     // a half-finished lane change must never freeze mid-drift like Manual never does.
     bool _animating;
 
-    // Corners get chamfered by this much on each leg so the jeepney sweeps a turn at
-    // constant speed (with the lagged body heading) instead of pivoting on a vertex.
+    // Floor of the corner chamfer on each leg so the jeepney sweeps a turn at
+    // constant speed (with the lagged body heading) instead of pivoting on a
+    // vertex. The effective cut scales with the lane offset — on the wide scene
+    // road a 0.9 chamfer is far too short and the lane swing would visibly pass
+    // through the centerline mid-corner.
     const float CornerCutDistance = 0.9f;
+
+    float CornerCut() => Mathf.Max(CornerCutDistance, LaneVisualOffset);
 
     /// <summary>Supplies the sim's current world-cardinal lane (or -1 outside lane
     /// mode) for poses that don't come from an action result (SnapTo after a reset).
     /// Wired by the drive controller.</summary>
     public System.Func<int> LaneCardinalSource;
+
+    // ---- Traffic collision (view layer — the deterministic sim is untouched) ----
+
+    // Decaying away-from-the-car nudge composed into the lane channel while a
+    // soft contact is live (mirrors JeepneyController.ApplySoftTrafficContact).
+    Vector3 _contactNudge;
+    float   _contactNudgeUntil;
+
+    // Distance the jeepney may still advance before rear-ending the same-lane
+    // car ahead — pushed every traffic tick, +inf when the lane is clear.
+    // Expressed as remaining distance because the view doesn't track arc-length.
+    float _followGateRemaining = float.PositiveInfinity;
+    float _gateStallSince = -1f;
+    float _gateSuppressedUntil;
+    const float GateStallTimeout = 2.5f;
+
+    /// <summary>
+    /// Traffic contact: bleeds cruise speed and leans the lane channel away from
+    /// the car for a beat — the same bump feel Manual has. Purely visual pacing;
+    /// the program's step results are unchanged.
+    /// </summary>
+    public void ApplySoftTrafficContact(Vector2 vehiclePosition)
+    {
+        _cruiseSpeed *= 0.55f;
+        _speedVel = 0f;
+
+        Vector3 away = transform.position - (Vector3)vehiclePosition;
+        away.z = 0f;
+        away = away.sqrMagnitude > 1e-6f ? away.normalized : Vector3.right;
+        _contactNudge = away * (LaneVisualOffset * 0.35f);
+        _contactNudgeUntil = Time.time + 0.35f;
+    }
+
+    /// <summary>Remaining forward distance before the same-lane car ahead
+    /// (+inf = clear). Enforced by the cruise loop so the jeepney queues at the
+    /// car's tail instead of passing through it between grid cells.</summary>
+    public void SetTrafficFollowGate(float remaining)
+    {
+        if (Time.time < _gateSuppressedUntil) return;
+        _followGateRemaining = remaining;
+    }
 
     Vector3 LaneOffsetWorld(int laneCardinal)
     {
@@ -74,6 +121,8 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     Vector3 StepLaneOffset()
     {
         Vector3 target = LaneOffsetWorld(_laneTargetCardinal);
+        if (Time.time < _contactNudgeUntil)
+            target += _contactNudge;
         _laneOffsetVisual = Vector3.SmoothDamp(_laneOffsetVisual, target,
                                                ref _laneOffsetVel, LaneSmoothTime);
         return _laneOffsetVisual;
@@ -109,8 +158,13 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
         // A teleport breaks motion continuity: drop cruise momentum and re-pin the
         // lagged heading to the snapped facing so the next drive eases in cleanly.
+        // Traffic gate/contact state belongs to the old position — clear it.
         _cruiseSpeed = 0f;
         _speedVel    = 0f;
+        _followGateRemaining = float.PositiveInfinity;
+        _gateStallSince      = -1f;
+        _gateSuppressedUntil = 0f;
+        _contactNudgeUntil   = 0f;
         _bodyRot     = body != null ? body.transform.localRotation : Quaternion.identity;
         _hasBodyRot  = true;
     }
@@ -330,7 +384,34 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
                 // Ease the speed up only when launching from rest (_cruiseSpeed near 0); mid-drive
                 // batches start already at targetSpeed, so there's no per-batch slowdown.
                 _cruiseSpeed = Mathf.SmoothDamp(_cruiseSpeed, targetSpeed, ref _speedVel, AccelSmoothTime);
-                traveled    += Mathf.Max(_cruiseSpeed, 0.0001f) * Time.deltaTime;
+                float step   = Mathf.Max(_cruiseSpeed, 0.0001f) * Time.deltaTime;
+
+                // Same-lane car ahead: queue at its tail instead of passing through.
+                if (step > _followGateRemaining)
+                {
+                    if (_gateStallSince < 0f) _gateStallSince = Time.time;
+                    if (Time.time - _gateStallSince > GateStallTimeout)
+                    {
+                        // Deadlock safety: a frozen program is worse than a
+                        // moment of overlap — release the gate for a while.
+                        _gateStallSince = -1f;
+                        _gateSuppressedUntil = Time.time + 3f;
+                        _followGateRemaining = float.PositiveInfinity;
+                    }
+                    else
+                    {
+                        step = Mathf.Max(0f, _followGateRemaining);
+                        _cruiseSpeed *= 0.5f;
+                        _speedVel = 0f;
+                    }
+                }
+                else if (_gateStallSince >= 0f)
+                    _gateStallSince = -1f;
+
+                if (!float.IsPositiveInfinity(_followGateRemaining))
+                    _followGateRemaining = Mathf.Max(0f, _followGateRemaining - step);
+
+                traveled    += step;
                 float dist   = Mathf.Min(traveled, total);
 
                 int s = 0;
@@ -368,8 +449,8 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
     /// to half the shorter leg), and the inserted diagonal blends heading + starts the
     /// outgoing lane swing early — a swept corner at constant speed, matching Manual's
     /// cornerEaseDistance feel.</summary>
-    static void ApplyCornerCuts(List<Vector3> pts, List<Vector3> dirs,
-                                List<int> lanes, List<Vector2Int> cells)
+    void ApplyCornerCuts(List<Vector3> pts, List<Vector3> dirs,
+                         List<int> lanes, List<Vector2Int> cells)
     {
         for (int i = dirs.Count - 1; i >= 1; i--)
         {
@@ -379,7 +460,7 @@ public class TopDownAgentView : MonoBehaviour, IPathAgentView, IStreamingAgentVi
 
             float lenPrev = Vector3.Distance(pts[i - 1], pts[i]);
             float lenNext = Vector3.Distance(pts[i], pts[i + 1]);
-            float cut = Mathf.Min(CornerCutDistance, lenPrev * 0.5f, lenNext * 0.5f);
+            float cut = Mathf.Min(CornerCut(), lenPrev * 0.5f, lenNext * 0.5f);
             if (cut < 0.05f) continue;
 
             Vector3 entry = pts[i] - dPrev * cut;

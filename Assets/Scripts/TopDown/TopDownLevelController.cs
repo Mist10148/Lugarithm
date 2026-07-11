@@ -83,6 +83,9 @@ public class TopDownLevelController : MonoBehaviour
         = new Dictionary<InteractionTrigger, MinigameStationDef>();
     private readonly Dictionary<InteractionTrigger, SpriteRenderer> _stationBodies
         = new Dictionary<InteractionTrigger, SpriteRenderer>();
+    // Always-visible "!" beacon per unsolved minigame station (hidden on solve).
+    private readonly Dictionary<InteractionTrigger, GameObject> _stationBeacons
+        = new Dictionary<InteractionTrigger, GameObject>();
     private readonly HashSet<string> _solvedStations = new HashSet<string>();
     private int _stationCount;
     private string _mainQuestId;
@@ -334,6 +337,24 @@ public class TopDownLevelController : MonoBehaviour
             _stationDefs[trigger] = def;
             if (body != null) _stationBodies[trigger] = body;
             _stationCount++;
+
+            // Always-visible "!" beacon so open objectives read from across the
+            // hub (unlike the proximity Indicator, which only shows in range).
+            // The main quest's beacon is gold and larger, matching its marker.
+            if (interactionIndicatorSprite != null)
+            {
+                var beaconGo = new GameObject("Beacon");
+                beaconGo.transform.SetParent(triggerGo.transform, false);
+                beaconGo.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+                beaconGo.transform.localScale = Vector3.one * (def.isMainQuest ? 2.1f : 1.75f);
+                var beaconSr = beaconGo.AddComponent<SpriteRenderer>();
+                beaconSr.sprite = interactionIndicatorSprite;
+                beaconSr.sortingOrder = 11;
+                if (def.isMainQuest) beaconSr.color = def.markerColor;
+                beaconGo.AddComponent<StationBeacon>().Init(beaconSr);
+                _stationBeacons[trigger] = beaconGo;
+            }
+
             if (def.isMainQuest)
             {
                 _mainQuestId = def.id;
@@ -683,6 +704,10 @@ public class TopDownLevelController : MonoBehaviour
             Color c = body.color;
             body.color = new Color(c.r, c.g, c.b, 0.4f);
         }
+
+        // Solved stations no longer need attention — drop the "!" beacon.
+        if (_stationBeacons.TryGetValue(trigger, out GameObject beacon) && beacon != null)
+            beacon.SetActive(false);
 
         if (isNew)
         {

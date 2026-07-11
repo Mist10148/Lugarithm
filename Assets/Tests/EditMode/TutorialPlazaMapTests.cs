@@ -42,10 +42,23 @@ public class TutorialPlazaMapTests
         Assert.AreEqual(new Vector2Int(16, 8), new Vector2Int(npcs[1].gridX, npcs[1].gridY));
         Assert.AreEqual(new Vector2Int(12, 24), new Vector2Int(npcs[2].gridX, npcs[2].gridY));
 
+        // Stations sit on the benches painted into the plaza art
+        // (TutorialHeritagePlaza.png, 1 cell = 16 px) — pinned per bench cell.
         List<MapEntity> puzzles = map.entities.FindAll(
             entity => entity.type == EntityType.PuzzleStation);
-        Assert.AreEqual(new Vector2Int(8, 6), new Vector2Int(puzzles[0].gridX, puzzles[0].gridY));
+        Assert.AreEqual(4, puzzles.Count);
+        Assert.AreEqual(new Vector2Int(7, 6), new Vector2Int(puzzles[0].gridX, puzzles[0].gridY));
         Assert.AreEqual(new Vector2Int(16, 6), new Vector2Int(puzzles[1].gridX, puzzles[1].gridY));
+        Assert.AreEqual(new Vector2Int(8, 13), new Vector2Int(puzzles[2].gridX, puzzles[2].gridY));
+        Assert.AreEqual(new Vector2Int(15, 13), new Vector2Int(puzzles[3].gridX, puzzles[3].gridY));
+
+        // Coding stations: row-major first = side objective, second = main quest.
+        List<MapEntity> coding = map.entities.FindAll(
+            entity => entity.type == EntityType.CodeChallenge);
+        Assert.AreEqual(2, coding.Count);
+        Assert.AreEqual(new Vector2Int(16, 28), new Vector2Int(coding[0].gridX, coding[0].gridY));
+        Assert.AreEqual(new Vector2Int(9, 31), new Vector2Int(coding[1].gridX, coding[1].gridY));
+
         Assert.AreEqual("Garage Maze", TownMinigameLibrary.ForLevel(0)[0].title);
         Assert.AreEqual("Capiz Window", TownMinigameLibrary.ForLevel(0)[1].title);
     }

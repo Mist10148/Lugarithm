@@ -328,6 +328,54 @@ public class RouteVisualBuilderTests
     }
 
     [Test]
+    public void BuildProcedural_SceneWorld_StampsPaintedRoadMetrics_AndKeepsPropsOffTheAsphalt()
+    {
+        var root = new GameObject("RVB_SceneMetricsTest");
+
+        try
+        {
+            var stop = new TownNode { id = 1, pos = new Vector2(20f, 0f), kind = NodeKind.Stop, name = "Sitio" };
+            var dest = new TownNode { id = 2, pos = new Vector2(40f, 0f), kind = NodeKind.TerminalEnd, name = "Dest" };
+            var layout = new ManualLayoutResult
+            {
+                trunk = new[] { Vector2.zero, dest.pos },
+                dest  = dest,
+                segments = new List<RoadSegment> { new RoadSegment(Vector2.zero, dest.pos, true) },
+                stops = new List<TownNode> { stop, dest },
+            };
+            layout.scenePlacements.Add(new ScenePlacement
+            {
+                sprite = "town_horizontal_0", center = new Vector2(20f, 0f), order = 0,
+            });
+
+            // Any scene placement means the painted 12-unit road drives the
+            // metrics, regardless of the placeholder half-width passed in.
+            RouteContext ctx = RouteVisualBuilder.BuildProcedural(root.transform, layout, 3f);
+
+            Assert.AreEqual(RoadMetrics.SceneRoadHalfWidth, ctx.RoadHalfWidth, 0.001f);
+            Assert.AreEqual(RoadMetrics.SceneLaneOffset, ctx.LaneOffset, 0.001f);
+
+            StopZone zone = ctx.ZoneByNode[stop.id];
+            zone.SpawnWaitingPeeps(1, new Vector2(ctx.RoadHalfWidth + 2.1f, -0.8f), Vector2.right);
+
+            Transform sign = zone.transform.Find("Sign");
+            Transform peep = zone.transform.Find("Peep_0");
+            Assert.IsNotNull(sign);
+            Assert.IsNotNull(peep);
+            Assert.Greater(RouteMath.NearestDistanceToGraph(layout.segments, sign.position),
+                RoadMetrics.SceneRoadHalfWidth,
+                "the stop sign must sit beyond the painted road's 6-unit half-width, not on the asphalt");
+            Assert.Greater(RouteMath.NearestDistanceToGraph(layout.segments, peep.position),
+                RoadMetrics.SceneRoadHalfWidth,
+                "waiting passengers must sit beyond the painted road's 6-unit half-width");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    [Test]
     public void RoadsideDecorator_StraightTrunk_PlacesFrontageOffRoadAndClearOfStops()
     {
         if (Resources.Load<Sprite>("Placeholders/bldg_sari_sari") == null)

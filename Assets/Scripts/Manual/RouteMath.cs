@@ -114,6 +114,27 @@ public static class RouteMath
     }
 
     /// <summary>
+    /// Lateral ("left") basis at an arc position, from the smoothed tangent over
+    /// ±<paramref name="halfLength"/> of arc length. Unlike the raw segment
+    /// perpendicular this is continuous through vertices, so a lane offset rides
+    /// its own arc through a corner (inside lane tighter, outside lane wider)
+    /// instead of collapsing to — or crossing — the centerline. For the offset
+    /// point to keep moving forward through a sharp 90° vertex, callers must use
+    /// halfLength &gt; |offset|·π/4.
+    /// </summary>
+    public static Vector2 SmoothedLeft(Vector2[] points, float along, float halfLength)
+    {
+        Vector2 tangent = PointAt(points, along + halfLength) - PointAt(points, along - halfLength);
+        if (tangent.sqrMagnitude < 1e-6f)
+        {
+            tangent = DirectionAt(points, along);
+            if (tangent.sqrMagnitude < 1e-6f) tangent = Vector2.up;
+        }
+        tangent.Normalize();
+        return new Vector2(-tangent.y, tangent.x);
+    }
+
+    /// <summary>
     /// Shortest distance from a world position to any road segment in the graph
     /// (trunk + branches). Off-road detection for the procedural town uses this
     /// instead of <see cref="NearestDistanceAlong"/> so a brief detour onto a
@@ -121,20 +142,40 @@ public static class RouteMath
     /// </summary>
     public static float NearestDistanceToGraph(IReadOnlyList<RoadSegment> segments, Vector2 position)
     {
+        return NearestDistanceToGraph(segments, position, out _);
+    }
+
+    /// <summary>As above, also reporting which segment was nearest so callers can
+    /// hint their next query (see ManualDriveController's off-road check).</summary>
+    public static float NearestDistanceToGraph(IReadOnlyList<RoadSegment> segments, Vector2 position,
+                                               out int nearestIndex)
+    {
+        nearestIndex = -1;
         if (segments == null || segments.Count == 0) return float.MaxValue;
 
         float bestSqr = float.MaxValue;
-        foreach (RoadSegment s in segments)
+        for (int i = 0; i < segments.Count; i++)
         {
+            RoadSegment s = segments[i];
             Vector2 ab = s.b - s.a;
             float lenSqr = ab.sqrMagnitude;
             float t = lenSqr <= 0.0001f ? 0f : Mathf.Clamp01(Vector2.Dot(position - s.a, ab) / lenSqr);
             Vector2 closest = s.a + ab * t;
             float sqr = (position - closest).sqrMagnitude;
-            if (sqr < bestSqr) bestSqr = sqr;
+            if (sqr < bestSqr) { bestSqr = sqr; nearestIndex = i; }
         }
 
         return Mathf.Sqrt(bestSqr);
+    }
+
+    /// <summary>Distance from a position to a single road segment.</summary>
+    public static float DistanceToSegment(RoadSegment s, Vector2 position)
+    {
+        Vector2 ab = s.b - s.a;
+        float lenSqr = ab.sqrMagnitude;
+        float t = lenSqr <= 0.0001f ? 0f : Mathf.Clamp01(Vector2.Dot(position - s.a, ab) / lenSqr);
+        Vector2 closest = s.a + ab * t;
+        return Vector2.Distance(position, closest);
     }
 
     /// <summary>

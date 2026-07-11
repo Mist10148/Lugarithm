@@ -59,10 +59,12 @@ public static class StreamingTownGenerator
             BranchCountMin = def.gen.branchCountMin,
             BranchCountMax = def.gen.branchCountMax,
             Fares = fares ?? new FareTable(),
-            // Scene templates paint a fixed-width road (6 units), so the authored
-            // vertex spacing must not be misread as a road width there.
-            RoadHalfWidth = SceneTemplateLibrary.Active ? 3f
-                : def.trunk.Length >= 2 ? Vector2.Distance(def.trunk[0], def.trunk[1]) * 0.5f : 3f,
+            // Scene templates paint a fixed-width road (12 units wide, half-width
+            // 6 — see RoadMetrics), so the authored vertex spacing must not be
+            // misread as a road width there.
+            RoadHalfWidth = SceneTemplateLibrary.Active ? RoadMetrics.SceneRoadHalfWidth
+                : def.trunk.Length >= 2 ? Vector2.Distance(def.trunk[0], def.trunk[1]) * 0.5f
+                : RoadMetrics.PlaceholderRoadHalfWidth,
         };
 
         TownNode dest = s.Layout.Node(s.Layout.destNodeId);

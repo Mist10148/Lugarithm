@@ -20,6 +20,32 @@ public class RouteContext
 
     /// <summary>Maps a procedural town node id to its spawned stop zone.</summary>
     public Dictionary<int, StopZone> ZoneByNode;
+
+    /// <summary>
+    /// Road geometry of the built world. Scene-template worlds get the painted
+    /// road's metrics stamped by the builder; everything else keeps the
+    /// placeholder tuning, so bare contexts (tests, authored routes) behave
+    /// exactly as before.
+    /// </summary>
+    public float RoadHalfWidth = RoadMetrics.PlaceholderRoadHalfWidth;
+    public float LaneOffset    = RoadMetrics.PlaceholderLaneOffset;
+
+    RouteCursor _cursor;
+
+    /// <summary>
+    /// Fast sampler over <see cref="Waypoints"/>. Rebuilt automatically whenever
+    /// streaming replaces the polyline array; null while there is no usable line.
+    /// </summary>
+    public RouteCursor Cursor
+    {
+        get
+        {
+            if (Waypoints == null || Waypoints.Length < 2) return null;
+            if (_cursor == null || !_cursor.Covers(Waypoints))
+                _cursor = new RouteCursor(Waypoints);
+            return _cursor;
+        }
+    }
 }
 
 /// <summary>
@@ -36,9 +62,10 @@ public static class RouteVisualBuilder
     {
         var ctx = new RouteContext
         {
-            Waypoints   = def.waypoints,
-            TotalLength = RouteMath.TotalLength(def.waypoints),
-            Zones       = new StopZone[def.stops.Length],
+            Waypoints     = def.waypoints,
+            TotalLength   = RouteMath.TotalLength(def.waypoints),
+            Zones         = new StopZone[def.stops.Length],
+            RoadHalfWidth = def.roadHalfWidth,
         };
 
         BuildRoad(parent, def, ctx.TotalLength);
@@ -61,6 +88,13 @@ public static class RouteVisualBuilder
     public static RouteContext BuildProcedural(Transform parent, ManualLayoutResult layout,
                                                float roadHalfWidth)
     {
+        // Whole-scene background: the route was generated to follow the roads
+        // painted in the scene chunks, so the visuals are just those chunks.
+        // The painted road is wider than the placeholder tiles, so every
+        // roadside offset must use its metrics, not the level-def tuning.
+        bool sceneWorld = layout.scenePlacements != null && layout.scenePlacements.Count > 0;
+        if (sceneWorld) roadHalfWidth = RoadMetrics.SceneRoadHalfWidth;
+
         var ctx = new RouteContext
         {
             Waypoints       = layout.trunk,
@@ -68,11 +102,11 @@ public static class RouteVisualBuilder
             Zones           = new StopZone[layout.stops.Count],
             Segments        = layout.segments,
             ZoneByNode      = new Dictionary<int, StopZone>(),
+            RoadHalfWidth   = roadHalfWidth,
+            LaneOffset      = sceneWorld ? RoadMetrics.SceneLaneOffset
+                                         : RoadMetrics.PlaceholderLaneOffset,
         };
 
-        // Whole-scene background: the route was generated to follow the roads
-        // painted in the scene chunks, so the visuals are just those chunks.
-        bool sceneWorld = layout.scenePlacements != null && layout.scenePlacements.Count > 0;
         if (sceneWorld)
         {
             SceneChunkVisualBuilder.Spawn(parent, layout.scenePlacements);
@@ -126,6 +160,12 @@ public static class RouteVisualBuilder
         bool sceneWorld = delta.scenePlacements != null && delta.scenePlacements.Count > 0;
         if (sceneWorld)
         {
+            // Streamed chunks are homogeneous with the initial build; re-stamping
+            // the painted-road metrics is idempotent.
+            roadHalfWidth     = RoadMetrics.SceneRoadHalfWidth;
+            ctx.RoadHalfWidth = RoadMetrics.SceneRoadHalfWidth;
+            ctx.LaneOffset    = RoadMetrics.SceneLaneOffset;
+
             foreach (RoadSegment s in delta.segments)
                 ctx.Segments.Add(s);
             SceneChunkVisualBuilder.Spawn(visualParent, delta.scenePlacements);
