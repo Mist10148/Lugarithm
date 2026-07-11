@@ -337,10 +337,16 @@ public class PassengerManager : MonoBehaviour
                                          zone.transform.right * (halfWidth + 1.6f));
         var peep = new GameObject("ExitingPeep");
         peep.transform.position = logicalWorld;
+
+        // Same look as the waiting crowd: a color-coded ground dot (matching the
+        // rider's chip/marker tint) with a reused town NPC figure standing on it.
         var sr = peep.AddComponent<SpriteRenderer>();
-        sr.sprite = Resources.Load<Sprite>("Placeholders/peep");
-        sr.sortingOrder = 5;
+        sr.sprite = Resources.Load<Sprite>("Placeholders/circle");
+        sr.sortingOrder = 4;
         sr.color = tint;
+
+        TownNpcVisuals.BuildIdleFigure(peep.transform, tint.GetHashCode(), sortingOrder: 6);
+
         Destroy(peep, 6f);
     }
 }

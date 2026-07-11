@@ -17,9 +17,9 @@ public static class TownNpcVisuals
     // scaled down so a waiting person reads at a sane size beside the road.
     public const float FigureScale = 0.8f;
 
-    // Sprites are center-pivoted front views, so lift by ~half the scaled height
-    // (1.6 * 0.8 / 2) to plant the character's feet on the color-coded ground dot.
-    public const float FigureLift = 0.62f;
+    // The sprite's transform origin already sits near the character's feet, so
+    // only a hair of lift is needed to plant them on the color-coded ground dot.
+    public const float FigureLift = 0.08f;
 
     /// <summary>Loads the animator override controller for a Townspeople variant (may be null).</summary>
     public static RuntimeAnimatorController LoadController(int variant)
