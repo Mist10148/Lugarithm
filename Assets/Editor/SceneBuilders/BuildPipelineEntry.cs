@@ -24,6 +24,9 @@ public static class BuildPipelineEntry
         PlaceholderArtGenerator.GenerateAll();
         MonospaceFontGenerator.Generate();
 
+        // Build the universal Settings overlay prefab first — Bootstrap instantiates it.
+        SettingsOverlayBuilder.Build();
+
         BootstrapSceneBuilder.Build();
         MainMenuSceneBuilder.Build();
         LevelSelectSceneBuilder.Build();
@@ -43,6 +46,9 @@ public static class BuildPipelineEntry
     {
         PlaceholderArtGenerator.GenerateAll();
     }
+
+    [MenuItem("Lugarithm/Build Scene/SettingsOverlay")]
+    public static void BuildSettingsOverlay() => SettingsOverlayBuilder.Build();
 
     [MenuItem("Lugarithm/Build Scene/Bootstrap")]
     public static void BuildBootstrap() => BootstrapSceneBuilder.Build();

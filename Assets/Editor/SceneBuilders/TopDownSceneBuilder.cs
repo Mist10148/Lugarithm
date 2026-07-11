@@ -254,15 +254,14 @@ public static class TopDownSceneBuilder
         CrateStackMinigame  cratePuzzle = MinigameOverlayBuilder.BuildCrateStack(canvas.transform, true);
         MazeRepairMinigame  codingMaze = MinigameOverlayBuilder.BuildMazeRepair(canvas.transform, true);
 
-        SettingsPanel settingsPanel = SettingsPanelBuilder.Build(canvas.transform);
-
-        // Blueprint action rail (top-right).
+        // Blueprint action rail (top-right). Settings opens the single universal
+        // overlay via UniversalSettingsManager (Bootstrap-owned, or lazily loaded
+        // from Resources on direct entry) — no per-scene Settings panel is baked.
         Button settingsButton = CreateTutorialRailButton(canvas.transform, "SettingsButton", "SETTINGS",
                                                           LugarithmUiSkin.TutorialRailSettings);
         UIFactory.Place(settingsButton, new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(132f, 98f));
         var openSettings = settingsButton.gameObject.AddComponent<SettingsPanelOpenButton>();
         SceneBuilderUtil.Wire(openSettings, "button", settingsButton);
-        SceneBuilderUtil.Wire(openSettings, "settingsPanel", settingsPanel);
 
         Button codeButton = CreateTutorialRailButton(canvas.transform, "CodeButton", "CODE",
                                                       LugarithmUiSkin.TutorialRailCode);

@@ -59,6 +59,16 @@ public static class BootstrapSceneBuilder
         // --- Badge unlock overlay (persistent DontDestroyOnLoad) ----------------
         BadgeUnlockBuilder.Build();
 
+        // --- Universal Settings overlay (persistent DontDestroyOnLoad) ----------
+        // The one authoritative Settings panel for the whole game. Instantiated
+        // from its Resources prefab so the Bootstrap-owned instance and the
+        // direct-scene fallback (UniversalSettingsManager.Ensure) share one source.
+        var settingsPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SettingsOverlayBuilder.PrefabPath);
+        if (settingsPrefab != null)
+            PrefabUtility.InstantiatePrefab(settingsPrefab);
+        else
+            Debug.LogWarning($"[Lugarithm] Settings overlay prefab missing at {SettingsOverlayBuilder.PrefabPath} — run Lugarithm/Build All Scenes.");
+
         // --- Splash --------------------------------------------------------------
 
         var splashCanvas = UIFactory.CreateCanvas("SplashCanvas", 10);

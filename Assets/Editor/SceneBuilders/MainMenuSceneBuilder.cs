@@ -82,17 +82,16 @@ public static class MainMenuSceneBuilder
             UIFactory.FontOverride = previousFontOverride;
         }
 
-        UIFactory.FontOverride = SproutLandsMenuFont.EnsureFontAsset();
-        SettingsPanel settingsPanel = SettingsPanelBuilder.Build(canvas.transform);
-        UIFactory.FontOverride = previousFontOverride;
-
+        // Settings is the single universal overlay (owned by Bootstrap, or lazily
+        // loaded from Resources when MainMenu is opened directly). No per-scene
+        // Settings panel is baked here anymore — MainMenuManager.OnOpenSettings
+        // routes to UniversalSettingsManager.
         var manager = canvas.gameObject.AddComponent<MainMenuManager>();
         SceneBuilderUtil.Wire(manager, "newGameButton", newGame);
         SceneBuilderUtil.Wire(manager, "continueButton", cont);
         SceneBuilderUtil.Wire(manager, "settingsButton", settings);
         SceneBuilderUtil.Wire(manager, "journalButton", journal);
         SceneBuilderUtil.Wire(manager, "quitButton", quit);
-        SceneBuilderUtil.Wire(manager, "settingsPanel", settingsPanel);
         SceneBuilderUtil.Wire(manager, "levelSelectSceneName", "LevelSelect");
 
         UIFactory.AddPressFlash(newGame);

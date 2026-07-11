@@ -89,15 +89,15 @@ public static class LevelSelectSceneBuilder
         Button settings = CreatePixelButton(canvas.transform, "SettingsButton", "SETTINGS", new Vector2(190f, 54f), false);
         UIFactory.Place(settings, new Vector2(1f, 1f), new Vector2(-34f, -32f), new Vector2(190f, 54f));
 
-        // --- Settings panel + manager ----------------------------------------------------
-
-        SettingsPanel settingsPanel = SettingsPanelBuilder.Build(canvas.transform);
+        // --- Manager ----------------------------------------------------------------------
+        // Settings is the single universal overlay; LevelSelectManager routes its
+        // Settings button to UniversalSettingsManager (owned by Bootstrap, or
+        // lazily loaded from Resources on direct entry). No panel is baked here.
 
         var manager = canvas.gameObject.AddComponent<LevelSelectManager>();
         SceneBuilderUtil.WireArray(manager, "entries", entries);
         SceneBuilderUtil.Wire(manager, "backButton",          back);
         SceneBuilderUtil.Wire(manager, "settingsButton",      settings);
-        SceneBuilderUtil.Wire(manager, "settingsPanel",       settingsPanel);
         SceneBuilderUtil.Wire(manager, "walletLabel",         wallet);
         SceneBuilderUtil.Wire(manager, "mainMenuSceneName",   "MainMenu");
         SceneBuilderUtil.Wire(manager, "manualSceneName",     "ManualDrive");

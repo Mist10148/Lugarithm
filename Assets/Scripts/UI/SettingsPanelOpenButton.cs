@@ -1,11 +1,16 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>Binds an in-game HUD button to the shared settings overlay.</summary>
+/// <summary>
+/// Binds a scene's Settings button to the single universal Settings overlay
+/// (<see cref="UniversalSettingsManager"/>). Every entry point uses this same
+/// component so there is one authoritative panel; the manager is created from
+/// its Resources prefab on demand when a scene is played directly in the editor
+/// without Bootstrap.
+/// </summary>
 public class SettingsPanelOpenButton : MonoBehaviour
 {
     [SerializeField] private Button button;
-    [SerializeField] private SettingsPanel settingsPanel;
 
     void Awake()
     {
@@ -20,6 +25,6 @@ public class SettingsPanelOpenButton : MonoBehaviour
 
     void Open()
     {
-        if (settingsPanel != null) settingsPanel.Open();
+        UniversalSettingsManager.Ensure()?.Toggle();
     }
 }

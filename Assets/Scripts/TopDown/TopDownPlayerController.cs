@@ -90,8 +90,14 @@ public class TopDownPlayerController : MonoBehaviour
 
     void Update()
     {
-        if (!_inputLocked)
+        // The universal Settings overlay is a modal: while it's up, gameplay
+        // input must not continue (keyboard walk isn't stopped by UI raycasts).
+        bool modalOpen = UniversalSettingsManager.IsAnyOpen;
+
+        if (!_inputLocked && !modalOpen)
             ReadInput();
+        else if (modalOpen)
+            _moveDir = Vector2.zero;
 
         // Snap the body to face the cardinal we're moving toward, instantly —
         // never rotate smoothly through in-between angles.

@@ -20,9 +20,6 @@ public class LevelSelectManager : MonoBehaviour
     [SerializeField] private Button backButton;
     [SerializeField] private Button settingsButton;
 
-    [Header("Panels")]
-    [SerializeField] private SettingsPanel settingsPanel;
-
     [Header("Wallet")]
     [SerializeField] private TMP_Text walletLabel;
 
@@ -39,10 +36,7 @@ public class LevelSelectManager : MonoBehaviour
             backButton.onClick.AddListener(() => LoadScene(mainMenuSceneName));
 
         if (settingsButton != null)
-            settingsButton.onClick.AddListener(() =>
-            {
-                if (settingsPanel != null) settingsPanel.Open();
-            });
+            settingsButton.onClick.AddListener(() => UniversalSettingsManager.Ensure()?.Open());
 
         RefreshEntries();
 

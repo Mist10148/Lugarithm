@@ -54,6 +54,11 @@ public class SettingsPanel : MonoBehaviour
     // -------------------------------------------------------------------------
     // Public API
 
+    /// <summary>True while the overlay is visible. Robust regardless of whether
+    /// it was shown via <see cref="UniversalSettingsManager"/> or the panel's
+    /// own close button.</summary>
+    public bool IsOpen => root != null && root.activeSelf;
+
     public void Open()
     {
         Bind();

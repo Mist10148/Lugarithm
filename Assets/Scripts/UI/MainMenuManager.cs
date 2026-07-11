@@ -6,8 +6,8 @@ using System;
 /// <summary>
 /// Drives the Main Menu screen.
 /// New Game starts a fresh run (keeping settings) and Continue resumes one —
-/// both land on the Level Select screen. Settings opens the shared
-/// <see cref="SettingsPanel"/>. Scene loads route through
+/// both land on the Level Select screen. Settings opens the single universal
+/// overlay via <see cref="UniversalSettingsManager"/>. Scene loads route through
 /// <see cref="SceneTransitionManager"/>.
 /// </summary>
 public class MainMenuManager : MonoBehaviour
@@ -21,9 +21,6 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField] private Button settingsButton;
     [SerializeField] private Button journalButton;
     [SerializeField] private Button quitButton;
-
-    [Header("Panels")]
-    [SerializeField] private SettingsPanel settingsPanel;
 
     [Header("Scene Names")]
     [SerializeField] private string levelSelectSceneName = "LevelSelect";
@@ -90,8 +87,7 @@ public class MainMenuManager : MonoBehaviour
 
     public void OnOpenSettings()
     {
-        if (settingsPanel != null)
-            settingsPanel.Open();
+        UniversalSettingsManager.Ensure()?.Open();
     }
 
     public void OnOpenJournal()
