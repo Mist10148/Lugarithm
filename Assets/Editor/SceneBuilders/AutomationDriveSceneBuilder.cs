@@ -52,6 +52,8 @@ public static class AutomationDriveSceneBuilder
         var tdBody = topDownAgentGo.AddComponent<SpriteRenderer>();
         tdBody.sprite = SceneBuilderUtil.LoadPlaceholder("jeepney_top");
         tdBody.sortingOrder = 10;
+        var tdAnimator = topDownAgentGo.AddComponent<VehicleSpriteAnimator>();
+        SceneBuilderUtil.Wire(tdAnimator, "body", tdBody);
         var topDownAgent = topDownAgentGo.AddComponent<TopDownAgentView>();
         topDownAgent.body = tdBody;
 
@@ -72,9 +74,10 @@ public static class AutomationDriveSceneBuilder
                                                new Vector2(0f, 1f), new Vector2(0f, 1f),
                                                new Color(0.06f, 0.07f, 0.10f, 0.85f));
         UIFactory.Place(goalBanner, new Vector2(0f, 1f), new Vector2(16f, -12f), new Vector2(640f, 82f));
+        ApplyHudArt(goalBanner.GetComponent<Image>(), LugarithmUiSkin.JeepneyObjective);
         var goalText = UIFactory.CreateText(goalBanner, "GoalText", "", 20f,
                                             UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        goalText.rectTransform.offsetMin = new Vector2(12f, 6f);
+        goalText.rectTransform.offsetMin = new Vector2(76f, 6f);
         goalText.rectTransform.offsetMax = new Vector2(-12f, -6f);
         goalText.enableWordWrapping = true;
 
@@ -102,6 +105,7 @@ public static class AutomationDriveSceneBuilder
         Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
                                                          "Editor: Blocks", new Vector2(190f, 40f), 18f);
         UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-24f, -136f), new Vector2(190f, 40f));
+        ApplyHudArt(editorModeToggle.image, LugarithmUiSkin.JeepneyActionCode);
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         // Reopens/focuses the active editor window after it's been closed or
@@ -111,6 +115,7 @@ public static class AutomationDriveSceneBuilder
                                                         "Reopen Editor", new Vector2(190f, 40f), 18f);
         UIFactory.LocalizeButton(workspaceToggle, "hud.reopen");
         UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-24f, -184f), new Vector2(190f, 40f));
+        ApplyHudArt(workspaceToggle.image, LugarithmUiSkin.JeepneyActionRoute);
         workspaceToggle.image.color = new Color(0.35f, 0.35f, 0.40f);
 
         // Journal toggle (below Reopen Editor)
@@ -118,6 +123,7 @@ public static class AutomationDriveSceneBuilder
                                                       "Journal", new Vector2(190f, 40f), 18f);
         UIFactory.LocalizeButton(journalToggle, "hud.journal");
         UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-24f, -232f), new Vector2(190f, 40f));
+        ApplyHudArt(journalToggle.image, LugarithmUiSkin.JeepneyActionJournal);
         journalToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
         journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
 
@@ -126,6 +132,7 @@ public static class AutomationDriveSceneBuilder
                                               new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                                               new Color(0.10f, 0.12f, 0.16f, 0.92f));
         UIFactory.Place(frontSeat, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(320f, 52f));
+        ApplyHudArt(frontSeat.GetComponent<Image>(), LugarithmUiSkin.JeepneyFrontSeat);
         TMP_Text frontSeatLabel = UIFactory.CreateText(frontSeat, "Label", "", 22f,
                                                        UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
         frontSeatLabel.rectTransform.offsetMin = new Vector2(16f, 0f);
@@ -265,6 +272,7 @@ public static class AutomationDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "codeSpeedLabel",     codeSpeedLabel);
         SceneBuilderUtil.Wire(controller, "codeAutopilotButton", codeAutopilot);
 
+        UIFactory.ApplyBlueprintSkin(canvas.transform);
         SceneBuilderUtil.SaveScene(scene, "AutomationDrive");
     }
 
@@ -285,6 +293,7 @@ public static class AutomationDriveSceneBuilder
                                               out EditorWindowController windowCtrl, bool closeable = true)
     {
         var window = UIFactory.CreatePanel(parent, name, Vector2.zero, Vector2.one, UIFactory.PanelDark);
+        ApplyHudArt(window.GetComponent<Image>(), LugarithmUiSkin.JeepneyEditorShell);
         window.offsetMin = Vector2.zero;
         window.offsetMax = Vector2.zero;
 
@@ -1238,6 +1247,28 @@ public static class AutomationDriveSceneBuilder
     /// readout of the execution-speed slider value — Automation has no throttle to
     /// gauge, so this mirrors the existing speed control rather than inventing a metric.
     /// </summary>
+    internal static void ApplyHudArt(Image image, Sprite sprite)
+    {
+        if (image == null || sprite == null) return;
+        image.sprite = sprite;
+        image.type = Image.Type.Simple;
+        image.preserveAspect = true;
+        image.color = Color.white;
+        if (sprite.name.StartsWith("action_"))
+        {
+            TMP_Text label = image.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                label.alignment = TextAlignmentOptions.Center;
+                label.rectTransform.offsetMin = new Vector2(54f, 4f);
+                label.rectTransform.offsetMax = new Vector2(-8f, -4f);
+                label.enableAutoSizing = true;
+                label.fontSizeMin = 11f;
+                label.fontSizeMax = 18f;
+            }
+        }
+    }
+
     internal static RectTransform BuildAutomationGaugePanel(Transform parent, out Image fuelFill,
                                                              out TMP_Text speedLabel, out RectTransform speedNeedle)
     {

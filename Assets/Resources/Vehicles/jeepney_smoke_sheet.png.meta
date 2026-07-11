@@ -1,0 +1,1022 @@
+fileFormatVersion: 2
+guid: 03d3123112923674fb7569e4b5cc7bab
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -1074986656943200533
+    second: jeepney_smoke_sheet_0
+  - first:
+      213: -1672653151126404788
+    second: jeepney_smoke_sheet_1
+  - first:
+      213: -503894515358143936
+    second: jeepney_smoke_sheet_2
+  - first:
+      213: 4729152387145937456
+    second: jeepney_smoke_sheet_3
+  - first:
+      213: 7451260386121512024
+    second: jeepney_smoke_sheet_4
+  - first:
+      213: -719605696935516327
+    second: jeepney_smoke_sheet_5
+  - first:
+      213: -3000080010459109965
+    second: jeepney_smoke_sheet_6
+  - first:
+      213: 6462570266067395961
+    second: jeepney_smoke_sheet_7
+  - first:
+      213: 4759555989578122410
+    second: jeepney_smoke_sheet_8
+  - first:
+      213: 268202459272806335
+    second: jeepney_smoke_sheet_9
+  - first:
+      213: 4375130855441236148
+    second: jeepney_smoke_sheet_10
+  - first:
+      213: -2838514785816941129
+    second: jeepney_smoke_sheet_11
+  - first:
+      213: -6657293576282751530
+    second: jeepney_smoke_sheet_12
+  - first:
+      213: 4721643615174779071
+    second: jeepney_smoke_sheet_13
+  - first:
+      213: 5372448089024487982
+    second: jeepney_smoke_sheet_14
+  - first:
+      213: 3416191297922426150
+    second: jeepney_smoke_sheet_15
+  - first:
+      213: -6060565869268365104
+    second: jeepney_smoke_sheet_16
+  - first:
+      213: 2936336716469593546
+    second: jeepney_smoke_sheet_17
+  - first:
+      213: 7269636781704478352
+    second: jeepney_smoke_sheet_18
+  - first:
+      213: 1055631116942850480
+    second: jeepney_smoke_sheet_19
+  - first:
+      213: -3025765524913494215
+    second: jeepney_smoke_sheet_20
+  - first:
+      213: -6858262193244528987
+    second: jeepney_smoke_sheet_21
+  - first:
+      213: 5582863964153130976
+    second: jeepney_smoke_sheet_22
+  - first:
+      213: 7672316987641268234
+    second: jeepney_smoke_sheet_23
+  - first:
+      213: 558803378631477378
+    second: jeepney_smoke_sheet_24
+  - first:
+      213: 2770576216340928202
+    second: jeepney_smoke_sheet_25
+  - first:
+      213: -7917232907708510585
+    second: jeepney_smoke_sheet_26
+  - first:
+      213: 219662583302293629
+    second: jeepney_smoke_sheet_27
+  - first:
+      213: 3758765651727491034
+    second: jeepney_smoke_sheet_28
+  - first:
+      213: -6135574186592203833
+    second: jeepney_smoke_sheet_29
+  - first:
+      213: -5186982231834881679
+    second: jeepney_smoke_sheet_30
+  - first:
+      213: 4029232625636733135
+    second: jeepney_smoke_sheet_31
+  - first:
+      213: 5779723727764353827
+    second: jeepney_smoke_sheet_32
+  - first:
+      213: 4768504364056187444
+    second: jeepney_smoke_sheet_33
+  - first:
+      213: -7147597040981703697
+    second: jeepney_smoke_sheet_34
+  - first:
+      213: -1006943615451920368
+    second: jeepney_smoke_sheet_35
+  - first:
+      213: -7536019564464620718
+    second: jeepney_smoke_sheet_36
+  - first:
+      213: -6280348350896217872
+    second: jeepney_smoke_sheet_37
+  - first:
+      213: 6358873922674063955
+    second: jeepney_smoke_sheet_38
+  - first:
+      213: 6213538095143155110
+    second: jeepney_smoke_sheet_39
+  - first:
+      213: 2003971359229733635
+    second: jeepney_smoke_sheet_40
+  - first:
+      213: 1180183384629089296
+    second: jeepney_smoke_sheet_41
+  - first:
+      213: -5052733500321130461
+    second: jeepney_smoke_sheet_42
+  - first:
+      213: 436952099169305344
+    second: jeepney_smoke_sheet_43
+  - first:
+      213: 9058109209289700287
+    second: jeepney_smoke_sheet_44
+  - first:
+      213: -8323860760341658593
+    second: jeepney_smoke_sheet_45
+  - first:
+      213: -4931056153987841559
+    second: jeepney_smoke_sheet_46
+  - first:
+      213: 7507038301548724731
+    second: jeepney_smoke_sheet_47
+  - first:
+      213: -2074960610495542911
+    second: jeepney_smoke_sheet_48
+  - first:
+      213: -6735755946809068152
+    second: jeepney_smoke_sheet_49
+  - first:
+      213: 4496152339721553456
+    second: jeepney_smoke_sheet_50
+  - first:
+      213: -5378634838430294196
+    second: jeepney_smoke_sheet_51
+  - first:
+      213: 3507062349437143123
+    second: jeepney_smoke_sheet_52
+  - first:
+      213: -5220466195988769997
+    second: jeepney_smoke_sheet_53
+  - first:
+      213: 9085971044128645505
+    second: jeepney_smoke_sheet_54
+  - first:
+      213: 3898379105467152718
+    second: jeepney_smoke_sheet_55
+  - first:
+      213: -4143063494743937368
+    second: jeepney_smoke_sheet_56
+  - first:
+      213: -6325893991485951752
+    second: jeepney_smoke_sheet_57
+  - first:
+      213: 7970319877414476847
+    second: jeepney_smoke_sheet_58
+  - first:
+      213: -5065472323051265544
+    second: jeepney_smoke_sheet_59
+  - first:
+      213: 7096088538128202929
+    second: jeepney_smoke_sheet_60
+  - first:
+      213: -1374924941583606125
+    second: jeepney_smoke_sheet_61
+  - first:
+      213: -4321000673644032337
+    second: jeepney_smoke_sheet_62
+  - first:
+      213: -4394747991767644721
+    second: jeepney_smoke_sheet_63
+  - first:
+      213: 6889984372088376
+    second: jeepney_smoke_sheet_64
+  - first:
+      213: -2458086056152743125
+    second: jeepney_smoke_sheet_65
+  - first:
+      213: -472352331955561977
+    second: jeepney_smoke_sheet_66
+  - first:
+      213: -875080517663075334
+    second: jeepney_smoke_sheet_67
+  - first:
+      213: -4190939625125053029
+    second: jeepney_smoke_sheet_68
+  - first:
+      213: 8659467956093631618
+    second: jeepney_smoke_sheet_69
+  - first:
+      213: -7691053971256196331
+    second: jeepney_smoke_sheet_70
+  - first:
+      213: 6251580702090168081
+    second: jeepney_smoke_sheet_71
+  - first:
+      213: -4158316830721344938
+    second: jeepney_smoke_sheet_72
+  - first:
+      213: -4053174803329329809
+    second: jeepney_smoke_sheet_73
+  - first:
+      213: 7945359843066007859
+    second: jeepney_smoke_sheet_74
+  - first:
+      213: 4206888669899481549
+    second: jeepney_smoke_sheet_75
+  - first:
+      213: -8261949939015966044
+    second: jeepney_smoke_sheet_76
+  - first:
+      213: 4000330274883026585
+    second: jeepney_smoke_sheet_77
+  - first:
+      213: 99783903525515675
+    second: jeepney_smoke_sheet_78
+  - first:
+      213: 8554412435242632789
+    second: jeepney_smoke_sheet_79
+  - first:
+      213: -7318960283198569345
+    second: jeepney_smoke_sheet_80
+  - first:
+      213: -8306427160613270158
+    second: jeepney_smoke_sheet_81
+  - first:
+      213: -2016343817284801399
+    second: jeepney_smoke_sheet_82
+  - first:
+      213: 1128746367319958938
+    second: jeepney_smoke_sheet_83
+  - first:
+      213: 4430727844452120423
+    second: jeepney_smoke_sheet_84
+  - first:
+      213: -261315514356211954
+    second: jeepney_smoke_sheet_85
+  - first:
+      213: 4516540350862702425
+    second: jeepney_smoke_sheet_86
+  - first:
+      213: 4296244569996946361
+    second: jeepney_smoke_sheet_87
+  - first:
+      213: 118090746702944097
+    second: jeepney_smoke_sheet_88
+  - first:
+      213: 6978992498530726866
+    second: jeepney_smoke_sheet_89
+  - first:
+      213: 8366102982425467938
+    second: jeepney_smoke_sheet_90
+  - first:
+      213: 144549858797790497
+    second: jeepney_smoke_sheet_91
+  - first:
+      213: 3056661046464093642
+    second: jeepney_smoke_sheet_92
+  - first:
+      213: 3792825117423509727
+    second: jeepney_smoke_sheet_93
+  - first:
+      213: -4901181574982551600
+    second: jeepney_smoke_sheet_94
+  - first:
+      213: 2922392933497977241
+    second: jeepney_smoke_sheet_95
+  - first:
+      213: -4195580463583798256
+    second: jeepney_smoke_sheet_96
+  - first:
+      213: -1905530791266394537
+    second: jeepney_smoke_sheet_97
+  - first:
+      213: -7828208850105760019
+    second: jeepney_smoke_sheet_98
+  - first:
+      213: 2874746115933019981
+    second: jeepney_smoke_sheet_99
+  - first:
+      213: -4154144454477250273
+    second: jeepney_smoke_sheet_100
+  - first:
+      213: 2596718110593801528
+    second: jeepney_smoke_sheet_101
+  - first:
+      213: -4373883849307467208
+    second: jeepney_smoke_sheet_102
+  - first:
+      213: 8102929973129495268
+    second: jeepney_smoke_sheet_103
+  - first:
+      213: 5113703569558642248
+    second: jeepney_smoke_sheet_104
+  - first:
+      213: -5325876407893189960
+    second: jeepney_smoke_sheet_105
+  - first:
+      213: 5258422461406173556
+    second: smoke_00_00
+  - first:
+      213: 8165109661422274176
+    second: smoke_00_01
+  - first:
+      213: 3433704731907244775
+    second: smoke_00_02
+  - first:
+      213: 1820083936341433671
+    second: smoke_00_03
+  - first:
+      213: 8496713739374537649
+    second: smoke_00_04
+  - first:
+      213: -5460644687147438546
+    second: smoke_00_05
+  - first:
+      213: 4119560643198471882
+    second: smoke_01_00
+  - first:
+      213: 30905612600210802
+    second: smoke_01_01
+  - first:
+      213: -8125315605693021385
+    second: smoke_01_02
+  - first:
+      213: -559447534243938068
+    second: smoke_01_03
+  - first:
+      213: -1407458760288313861
+    second: smoke_01_04
+  - first:
+      213: 4583500366671210658
+    second: smoke_01_05
+  - first:
+      213: 1394859830166979195
+    second: smoke_02_00
+  - first:
+      213: 5115801819735561876
+    second: smoke_02_01
+  - first:
+      213: -7042747247426101879
+    second: smoke_02_02
+  - first:
+      213: -2022527445987744187
+    second: smoke_02_03
+  - first:
+      213: -8718854977191793411
+    second: smoke_02_04
+  - first:
+      213: 4042803593283216875
+    second: smoke_02_05
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 128
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: smoke_00_00
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 683
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 479dc0b4e5ba9f840800000000000000
+      internalID: 5258422461406173556
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_00_01
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 683
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0864f29f9fb405170800000000000000
+      internalID: 8165109661422274176
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_00_02
+      rect:
+        serializedVersion: 2
+        x: 512
+        y: 683
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7e2c8e8d248f6af20800000000000000
+      internalID: 3433704731907244775
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_00_03
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 683
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 74d960762bc324910800000000000000
+      internalID: 1820083936341433671
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_00_04
+      rect:
+        serializedVersion: 2
+        x: 1024
+        y: 683
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1bba991e0246ae570800000000000000
+      internalID: 8496713739374537649
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_00_05
+      rect:
+        serializedVersion: 2
+        x: 1280
+        y: 683
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e2ee3f9b694e734b0800000000000000
+      internalID: -5460644687147438546
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_01_00
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 341
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ace4680249e9b2930800000000000000
+      internalID: 4119560643198471882
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_01_01
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 341
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 275f99cad7ccd6000800000000000000
+      internalID: 30905612600210802
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_01_02
+      rect:
+        serializedVersion: 2
+        x: 512
+        y: 341
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 733cab2a1841d3f80800000000000000
+      internalID: -8125315605693021385
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_01_03
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 341
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ce00ce28e617c38f0800000000000000
+      internalID: -559447534243938068
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_01_04
+      rect:
+        serializedVersion: 2
+        x: 1024
+        y: 341
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bfdd00de6b3b77ce0800000000000000
+      internalID: -1407458760288313861
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_01_05
+      rect:
+        serializedVersion: 2
+        x: 1280
+        y: 341
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2a86f4f8c4ddb9f30800000000000000
+      internalID: 4583500366671210658
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_02_00
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: -0
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b72809010a98b5310800000000000000
+      internalID: 1394859830166979195
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_02_01
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: -0
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 49692ae76aafef640800000000000000
+      internalID: 5115801819735561876
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_02_02
+      rect:
+        serializedVersion: 2
+        x: 512
+        y: -0
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 98d9e4a41b2234e90800000000000000
+      internalID: -7042747247426101879
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_02_03
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: -0
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5462c61f00a8ee3e0800000000000000
+      internalID: -2022527445987744187
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_02_04
+      rect:
+        serializedVersion: 2
+        x: 1024
+        y: -0
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dfc265cb797600780800000000000000
+      internalID: -8718854977191793411
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: smoke_02_05
+      rect:
+        serializedVersion: 2
+        x: 1280
+        y: -0
+        width: 256
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: be5a15ac27cea1830800000000000000
+      internalID: 4042803593283216875
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      jeepney_smoke_sheet_0: -1074986656943200533
+      jeepney_smoke_sheet_1: -1672653151126404788
+      jeepney_smoke_sheet_10: 4375130855441236148
+      jeepney_smoke_sheet_100: -4154144454477250273
+      jeepney_smoke_sheet_101: 2596718110593801528
+      jeepney_smoke_sheet_102: -4373883849307467208
+      jeepney_smoke_sheet_103: 8102929973129495268
+      jeepney_smoke_sheet_104: 5113703569558642248
+      jeepney_smoke_sheet_105: -5325876407893189960
+      jeepney_smoke_sheet_11: -2838514785816941129
+      jeepney_smoke_sheet_12: -6657293576282751530
+      jeepney_smoke_sheet_13: 4721643615174779071
+      jeepney_smoke_sheet_14: 5372448089024487982
+      jeepney_smoke_sheet_15: 3416191297922426150
+      jeepney_smoke_sheet_16: -6060565869268365104
+      jeepney_smoke_sheet_17: 2936336716469593546
+      jeepney_smoke_sheet_18: 7269636781704478352
+      jeepney_smoke_sheet_19: 1055631116942850480
+      jeepney_smoke_sheet_2: -503894515358143936
+      jeepney_smoke_sheet_20: -3025765524913494215
+      jeepney_smoke_sheet_21: -6858262193244528987
+      jeepney_smoke_sheet_22: 5582863964153130976
+      jeepney_smoke_sheet_23: 7672316987641268234
+      jeepney_smoke_sheet_24: 558803378631477378
+      jeepney_smoke_sheet_25: 2770576216340928202
+      jeepney_smoke_sheet_26: -7917232907708510585
+      jeepney_smoke_sheet_27: 219662583302293629
+      jeepney_smoke_sheet_28: 3758765651727491034
+      jeepney_smoke_sheet_29: -6135574186592203833
+      jeepney_smoke_sheet_3: 4729152387145937456
+      jeepney_smoke_sheet_30: -5186982231834881679
+      jeepney_smoke_sheet_31: 4029232625636733135
+      jeepney_smoke_sheet_32: 5779723727764353827
+      jeepney_smoke_sheet_33: 4768504364056187444
+      jeepney_smoke_sheet_34: -7147597040981703697
+      jeepney_smoke_sheet_35: -1006943615451920368
+      jeepney_smoke_sheet_36: -7536019564464620718
+      jeepney_smoke_sheet_37: -6280348350896217872
+      jeepney_smoke_sheet_38: 6358873922674063955
+      jeepney_smoke_sheet_39: 6213538095143155110
+      jeepney_smoke_sheet_4: 7451260386121512024
+      jeepney_smoke_sheet_40: 2003971359229733635
+      jeepney_smoke_sheet_41: 1180183384629089296
+      jeepney_smoke_sheet_42: -5052733500321130461
+      jeepney_smoke_sheet_43: 436952099169305344
+      jeepney_smoke_sheet_44: 9058109209289700287
+      jeepney_smoke_sheet_45: -8323860760341658593
+      jeepney_smoke_sheet_46: -4931056153987841559
+      jeepney_smoke_sheet_47: 7507038301548724731
+      jeepney_smoke_sheet_48: -2074960610495542911
+      jeepney_smoke_sheet_49: -6735755946809068152
+      jeepney_smoke_sheet_5: -719605696935516327
+      jeepney_smoke_sheet_50: 4496152339721553456
+      jeepney_smoke_sheet_51: -5378634838430294196
+      jeepney_smoke_sheet_52: 3507062349437143123
+      jeepney_smoke_sheet_53: -5220466195988769997
+      jeepney_smoke_sheet_54: 9085971044128645505
+      jeepney_smoke_sheet_55: 3898379105467152718
+      jeepney_smoke_sheet_56: -4143063494743937368
+      jeepney_smoke_sheet_57: -6325893991485951752
+      jeepney_smoke_sheet_58: 7970319877414476847
+      jeepney_smoke_sheet_59: -5065472323051265544
+      jeepney_smoke_sheet_6: -3000080010459109965
+      jeepney_smoke_sheet_60: 7096088538128202929
+      jeepney_smoke_sheet_61: -1374924941583606125
+      jeepney_smoke_sheet_62: -4321000673644032337
+      jeepney_smoke_sheet_63: -4394747991767644721
+      jeepney_smoke_sheet_64: 6889984372088376
+      jeepney_smoke_sheet_65: -2458086056152743125
+      jeepney_smoke_sheet_66: -472352331955561977
+      jeepney_smoke_sheet_67: -875080517663075334
+      jeepney_smoke_sheet_68: -4190939625125053029
+      jeepney_smoke_sheet_69: 8659467956093631618
+      jeepney_smoke_sheet_7: 6462570266067395961
+      jeepney_smoke_sheet_70: -7691053971256196331
+      jeepney_smoke_sheet_71: 6251580702090168081
+      jeepney_smoke_sheet_72: -4158316830721344938
+      jeepney_smoke_sheet_73: -4053174803329329809
+      jeepney_smoke_sheet_74: 7945359843066007859
+      jeepney_smoke_sheet_75: 4206888669899481549
+      jeepney_smoke_sheet_76: -8261949939015966044
+      jeepney_smoke_sheet_77: 4000330274883026585
+      jeepney_smoke_sheet_78: 99783903525515675
+      jeepney_smoke_sheet_79: 8554412435242632789
+      jeepney_smoke_sheet_8: 4759555989578122410
+      jeepney_smoke_sheet_80: -7318960283198569345
+      jeepney_smoke_sheet_81: -8306427160613270158
+      jeepney_smoke_sheet_82: -2016343817284801399
+      jeepney_smoke_sheet_83: 1128746367319958938
+      jeepney_smoke_sheet_84: 4430727844452120423
+      jeepney_smoke_sheet_85: -261315514356211954
+      jeepney_smoke_sheet_86: 4516540350862702425
+      jeepney_smoke_sheet_87: 4296244569996946361
+      jeepney_smoke_sheet_88: 118090746702944097
+      jeepney_smoke_sheet_89: 6978992498530726866
+      jeepney_smoke_sheet_9: 268202459272806335
+      jeepney_smoke_sheet_90: 8366102982425467938
+      jeepney_smoke_sheet_91: 144549858797790497
+      jeepney_smoke_sheet_92: 3056661046464093642
+      jeepney_smoke_sheet_93: 3792825117423509727
+      jeepney_smoke_sheet_94: -4901181574982551600
+      jeepney_smoke_sheet_95: 2922392933497977241
+      jeepney_smoke_sheet_96: -4195580463583798256
+      jeepney_smoke_sheet_97: -1905530791266394537
+      jeepney_smoke_sheet_98: -7828208850105760019
+      jeepney_smoke_sheet_99: 2874746115933019981
+      smoke_00_00: 5258422461406173556
+      smoke_00_01: 8165109661422274176
+      smoke_00_02: 3433704731907244775
+      smoke_00_03: 1820083936341433671
+      smoke_00_04: 8496713739374537649
+      smoke_00_05: -5460644687147438546
+      smoke_01_00: 4119560643198471882
+      smoke_01_01: 30905612600210802
+      smoke_01_02: -8125315605693021385
+      smoke_01_03: -559447534243938068
+      smoke_01_04: -1407458760288313861
+      smoke_01_05: 4583500366671210658
+      smoke_02_00: 1394859830166979195
+      smoke_02_01: 5115801819735561876
+      smoke_02_02: -7042747247426101879
+      smoke_02_03: -2022527445987744187
+      smoke_02_04: -8718854977191793411
+      smoke_02_05: 4042803593283216875
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

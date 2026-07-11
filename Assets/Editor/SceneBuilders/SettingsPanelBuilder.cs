@@ -14,9 +14,9 @@ using UnityEngine.UI;
 public static class SettingsPanelBuilder
 {
     // Row geometry
-    const float LabelX = 48f;
-    const float CtrlX  = 336f;
-    const float SegH   = 44f;
+    const float LabelX = 88f;
+    const float CtrlX  = 301f;
+    const float SegH   = 30f;
 
     public static SettingsPanel Build(Transform canvasRoot)
     {
@@ -32,46 +32,62 @@ public static class SettingsPanelBuilder
         var window = UIFactory.CreatePanel(overlay, "Window",
                                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                            UIFactory.PanelDark);
-        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(860f, 920f));
+        UIFactory.Place(window, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700f, 665f));
+        var windowImage = window.GetComponent<Image>();
+        windowImage.sprite = LugarithmUiSkin.SettingsWindow;
+        windowImage.type = Image.Type.Simple;
+        windowImage.preserveAspect = false;
+        windowImage.color = Color.white;
 
-        var title = UIFactory.CreateLocalizedText(window, "Title", "settings.title", 42f, UIFactory.Accent);
-        UIFactory.Place(title, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(780f, 56f));
+        var titlePlate = UIFactory.CreatePanel(window, "TitlePlate", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), Color.white);
+        titlePlate.GetComponent<Image>().sprite = null;
+        titlePlate.GetComponent<Image>().color = Color.clear;
+        UIFactory.Place(titlePlate, new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(350f, 44f));
+        var title = UIFactory.CreateLocalizedText(titlePlate, "Title", "settings.title", 34f, UIFactory.Accent);
+        title.rectTransform.offsetMin = new Vector2(40f, 8f);
+        title.rectTransform.offsetMax = new Vector2(-40f, -8f);
 
         // --- GAMEPLAY ----------------------------------------------------------
-        Section(window, -92f, "settings.section.gameplay");
-        SegmentedSelector driveMode = SelectorRow(window, -132f, "settings.drivemode",
-                                                  new[] { "opt.manual", "opt.automation" }, 152f);
-        SegmentedSelector coding    = SelectorRow(window, -190f, "settings.codinginterface",
-                                                  new[] { "opt.blocks", "opt.code" }, 152f);
+        Section(window, -72f, "settings.section.gameplay", LugarithmUiSkin.IconControls);
+        SegmentedSelector driveMode = SelectorRow(window, -100f, "settings.drivemode",
+                                                  new[] { "opt.manual", "opt.automation" }, 138f);
+        SegmentedSelector coding    = SelectorRow(window, -138f, "settings.codinginterface",
+                                                  new[] { "opt.blocks", "opt.code" }, 138f);
+        Divider(window, -178f);
 
         // --- CONTROLS ----------------------------------------------------------
-        Section(window, -252f, "settings.section.controls");
-        SegmentedSelector brake = SelectorRow(window, -292f, "settings.spacebrake",
-                                              new[] { "opt.hold", "opt.toggle" }, 152f);
+        Section(window, -195f, "settings.section.controls", LugarithmUiSkin.IconSteering);
+        SegmentedSelector brake = SelectorRow(window, -222f, "settings.spacebrake",
+                                              new[] { "opt.hold", "opt.toggle" }, 138f);
+        Divider(window, -257f);
 
         // --- AUDIO -------------------------------------------------------------
-        Section(window, -354f, "settings.section.audio");
-        Slider music = SliderRow(window, -394f, "settings.musicvolume");
-        Slider sfx   = SliderRow(window, -442f, "settings.sfxvolume");
+        Section(window, -273f, "settings.section.audio", LugarithmUiSkin.IconAudio);
+        Slider music = SliderRow(window, -304f, "settings.musicvolume");
+        Slider sfx   = SliderRow(window, -337f, "settings.sfxvolume");
+        Divider(window, -365f);
 
         // --- LANGUAGE & TEXT ---------------------------------------------------
-        Section(window, -504f, "settings.section.languagetext");
-        SegmentedSelector language  = SelectorRow(window, -544f, "settings.language",
-                                                  new[] { "opt.english", "opt.filipino" }, 152f);
-        SegmentedSelector subtitles = SelectorRow(window, -602f, "settings.subtitles",
-                                                  new[] { "opt.on", "opt.off" }, 110f);
-        SegmentedSelector dlgSpeed  = SelectorRow(window, -660f, "settings.dialoguespeed",
+        Section(window, -382f, "settings.section.languagetext", LugarithmUiSkin.IconDialogue);
+        SegmentedSelector language  = SelectorRow(window, -410f, "settings.language",
+                                                  new[] { "opt.english", "opt.filipino" }, 138f);
+        SegmentedSelector subtitles = SelectorRow(window, -448f, "settings.subtitles",
+                                                  new[] { "opt.on", "opt.off" }, 98f);
+        SegmentedSelector dlgSpeed  = SelectorRow(window, -486f, "settings.dialoguespeed",
                                                   new[] { "opt.speed.slow", "opt.speed.normal",
-                                                          "opt.speed.fast", "opt.speed.instant" }, 115f, 17f);
+                                                          "opt.speed.fast", "opt.speed.instant" }, 70f, 12f);
+        Divider(window, -515f);
 
         // --- APPEARANCE --------------------------------------------------------
-        Section(window, -722f, "settings.section.appearance");
-        Button themeButton = BuildThemeRow(window, -762f, out TextMeshProUGUI themeValue);
+        Section(window, -535f, "settings.section.appearance", LugarithmUiSkin.IconCode);
+        Button themeButton = BuildThemeRow(window, -565f, out TextMeshProUGUI themeValue);
 
         // --- Close -------------------------------------------------------------
-        Button close = UIFactory.CreateButton(window, "CloseButton", "Close", new Vector2(220f, 54f));
+        Button close = UIFactory.CreateButton(window, "CloseButton", "Close", new Vector2(261f, 47f), 22f);
+        close.image.sprite = null;
+        close.image.color = Color.clear;
         UIFactory.LocalizeButton(close, "common.close");
-        UIFactory.Place(close, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(220f, 54f));
+        UIFactory.Place(close, new Vector2(0.5f, 0f), new Vector2(0f, 15f), new Vector2(261f, 47f));
 
         // --- Wire + hide -------------------------------------------------------
         SceneBuilderUtil.Wire(panel, "root",                  overlay.gameObject);
@@ -87,22 +103,35 @@ public static class SettingsPanelBuilder
         SceneBuilderUtil.Wire(panel, "themeButton",           themeButton);
         SceneBuilderUtil.Wire(panel, "themeLabel",            themeValue);
 
+        UIFactory.ApplyBlueprintSkin(overlay);
         overlay.gameObject.SetActive(false);
         return panel;
     }
 
     // -------------------------------------------------------------------------
 
-    static void Section(RectTransform window, float y, string key)
+    static void Section(RectTransform window, float y, string key, Sprite icon)
     {
+        var iconFrame = UIFactory.CreatePanel(window, ShortName(key) + "IconFrame",
+                                              new Vector2(0f, 1f), new Vector2(0f, 1f), Color.white);
+        var iconFrameImage = iconFrame.GetComponent<Image>();
+        iconFrameImage.sprite = SettingsControlSprite(ShortName(key) == "gameplay" ? "icon_gameplay" :
+                                                     ShortName(key) == "controls" ? "icon_controls" :
+                                                     ShortName(key) == "audio" ? "icon_audio" :
+                                                     ShortName(key) == "languagetext" ? "icon_dialogue" : "icon_code");
+        iconFrameImage.type = Image.Type.Simple;
+        iconFrameImage.preserveAspect = true;
+        UIFactory.Place(iconFrame, new Vector2(0f, 1f), new Vector2(31f, y + 4f), new Vector2(38f, 38f));
+        var iconRect = UIFactory.CreateRect(iconFrame, "Icon", Vector2.zero, Vector2.one,
+                                            new Vector2(10f, 10f), new Vector2(-10f, -10f));
+        var iconImage = iconRect.gameObject.AddComponent<Image>();
+        iconImage.sprite = null;
+        iconImage.color = Color.clear;
+        iconImage.raycastTarget = false;
+
         var header = UIFactory.CreateLocalizedText(window, ShortName(key) + "Header", key, 22f,
                                                    UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(header, new Vector2(0f, 1f), new Vector2(36f, y), new Vector2(700f, 32f));
-
-        var rule = UIFactory.CreatePanel(window, ShortName(key) + "Rule",
-                                         new Vector2(0f, 1f), new Vector2(0f, 1f),
-                                         new Color(1f, 1f, 1f, 0.10f));
-        UIFactory.Place(rule, new Vector2(0f, 1f), new Vector2(36f, y - 30f), new Vector2(788f, 2f));
+        UIFactory.Place(header, new Vector2(0f, 1f), new Vector2(80f, y), new Vector2(550f, 24f));
     }
 
     static SegmentedSelector SelectorRow(RectTransform window, float y, string labelKey,
@@ -117,14 +146,23 @@ public static class SettingsPanelBuilder
         SegmentedSelector sel = UIFactory.CreateSegmentedSelector(
             window, ShortName(labelKey) + "Selector", options, segWidth, SegH, 6f, fontSize, optionKeys);
         ((RectTransform)sel.transform).anchoredPosition = new Vector2(CtrlX, y - 2f);
+        foreach (Button button in sel.GetComponentsInChildren<Button>(true))
+        {
+            button.image.sprite = SettingsControlSprite("selector_normal");
+            button.image.type = Image.Type.Simple;
+            button.image.preserveAspect = false;
+            button.image.color = Color.white;
+        }
+        SceneBuilderUtil.Wire(sel, "activeSprite", SettingsControlSprite("selector_selected"));
+        SceneBuilderUtil.Wire(sel, "idleSprite", SettingsControlSprite("selector_normal"));
         return sel;
     }
 
     static Slider SliderRow(RectTransform window, float y, string labelKey)
     {
         RowLabel(window, y, labelKey);
-        Slider slider = UIFactory.CreateSlider(window, ShortName(labelKey) + "Slider", new Vector2(320f, 30f));
-        UIFactory.Place(slider, new Vector2(0f, 1f), new Vector2(CtrlX, y - 9f), new Vector2(320f, 30f));
+        Slider slider = UIFactory.CreateSlider(window, ShortName(labelKey) + "Slider", new Vector2(280f, 20f));
+        UIFactory.Place(slider, new Vector2(0f, 1f), new Vector2(CtrlX, y - 4f), new Vector2(280f, 20f));
         slider.minValue = 0f;
         slider.maxValue = 1f;
         slider.interactable = true;
@@ -135,23 +173,23 @@ public static class SettingsPanelBuilder
     {
         RowLabel(window, y, "settings.codetheme");
 
-        Button button = UIFactory.CreateButton(window, "ThemeButton", "Cycle", new Vector2(120f, 44f), 22f);
+        Button button = UIFactory.CreateButton(window, "ThemeButton", "Cycle", new Vector2(105f, 38f), 18f);
         UIFactory.LocalizeButton(button, "settings.theme.cycle");
-        UIFactory.Place(button, new Vector2(0f, 1f), new Vector2(CtrlX, y - 2f), new Vector2(120f, 44f));
+        UIFactory.Place(button, new Vector2(0f, 1f), new Vector2(CtrlX, y - 2f), new Vector2(105f, 38f));
 
         // Value is set at runtime from the theme name (not a fixed UI string), so it
         // is not localized.
         valueLabel = UIFactory.CreateText(window, "ThemeValue", "", 22f,
                                           UIFactory.Accent, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(valueLabel, new Vector2(0f, 1f), new Vector2(CtrlX + 140f, y), new Vector2(380f, 50f));
+        UIFactory.Place(valueLabel, new Vector2(0f, 1f), new Vector2(CtrlX + 120f, y), new Vector2(180f, 38f));
         return button;
     }
 
     static void RowLabel(RectTransform window, float y, string labelKey)
     {
-        var rowLabel = UIFactory.CreateLocalizedText(window, ShortName(labelKey) + "Label", labelKey, 25f,
+        var rowLabel = UIFactory.CreateLocalizedText(window, ShortName(labelKey) + "Label", labelKey, 16f,
                                                      UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
-        UIFactory.Place(rowLabel, new Vector2(0f, 1f), new Vector2(LabelX, y), new Vector2(280f, 50f));
+        UIFactory.Place(rowLabel, new Vector2(0f, 1f), new Vector2(LabelX, y), new Vector2(190f, 30f));
     }
 
     // Last dot-segment of a key, for readable GameObject names.
@@ -159,5 +197,19 @@ public static class SettingsPanelBuilder
     {
         int dot = key.LastIndexOf('.');
         return dot >= 0 && dot < key.Length - 1 ? key.Substring(dot + 1) : key;
+    }
+
+    static void Divider(RectTransform window, float y)
+    {
+        var rule = UIFactory.CreatePanel(window, "SectionDivider", new Vector2(0f, 1f),
+                                         new Vector2(0f, 1f), new Color32(92, 58, 94, 255));
+        UIFactory.Place(rule, new Vector2(0f, 1f), new Vector2(28f, y), new Vector2(644f, 2f));
+        rule.GetComponent<Image>().raycastTarget = false;
+    }
+
+    static Sprite SettingsControlSprite(string name)
+    {
+        return UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+            $"Assets/UI/Sprites/LugarithmUi/Settings/Controls/{name}.png");
     }
 }

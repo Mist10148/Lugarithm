@@ -17,15 +17,15 @@ public class TutorialTreeOccluderPlayModeTests
 
         TopDownPlayerController player =
             UnityEngine.Object.FindAnyObjectByType<TopDownPlayerController>();
-        GameObject rosa = GameObject.Find("NPC_8_8");
-        GameObject toto = GameObject.Find("NPC_16_8");
-        GameObject bising = GameObject.Find("NPC_12_24");
+        GameObject rosa = GameObject.Find("NPC_8_27");
+        GameObject toto = GameObject.Find("NPC_16_27");
+        GameObject bising = GameObject.Find("NPC_12_11");
         Assert.IsNotNull(player);
         Assert.IsNotNull(rosa);
         Assert.IsNotNull(toto);
         Assert.IsNotNull(bising);
 
-        GameObject jeepStop = GameObject.Find("JeepStop_12_32");
+        GameObject jeepStop = GameObject.Find("JeepStop_12_3");
         Assert.IsNotNull(jeepStop);
         Assert.That(Vector2.Distance(player.transform.position, jeepStop.transform.position),
             Is.LessThan(0.01f), "Player must begin at the jeep boarding trigger.");
@@ -95,6 +95,7 @@ public class TutorialTreeOccluderPlayModeTests
     {
         GameObject tree = CreateTree(out SpriteRenderer renderer);
         GameObject player = CreatePlayer(new Vector2(0f, 1f));
+        DisableOtherPlayers(player);
 
         Physics2D.SyncTransforms();
         yield return new WaitForFixedUpdate();
@@ -138,6 +139,19 @@ public class TutorialTreeOccluderPlayModeTests
         Assert.AreEqual(6, stationDefs.Count);
         foreach (System.Collections.DictionaryEntry entry in stationDefs)
             markSolved.Invoke(controller, new[] { entry.Key, entry.Value });
+
+        var solvedField = typeof(TopDownLevelController).GetField(
+            "_solvedStations", BindingFlags.Instance | BindingFlags.NonPublic);
+        var mainField = typeof(TopDownLevelController).GetField(
+            "_mainQuestId", BindingFlags.Instance | BindingFlags.NonPublic);
+        var sideCountField = typeof(TopDownLevelController).GetField(
+            "_sideObjectiveCount", BindingFlags.Instance | BindingFlags.NonPublic);
+        object solved = solvedField?.GetValue(controller);
+        Assert.IsNotNull(solved);
+        Assert.AreEqual(6, solved.GetType().GetProperty("Count")?.GetValue(solved),
+            "Every tutorial station must contribute a unique solved id.");
+        Assert.AreEqual("tut_coding_maze", mainField?.GetValue(controller));
+        Assert.AreEqual(5, sideCountField?.GetValue(controller));
 
         yield return null;
 
@@ -202,10 +216,11 @@ public class TutorialTreeOccluderPlayModeTests
     {
         GameObject tree = CreateTree(out SpriteRenderer renderer);
         GameObject player = CreatePlayer(new Vector2(0f, -0.5f));
+        DisableOtherPlayers(player);
 
         Physics2D.SyncTransforms();
         yield return new WaitForFixedUpdate();
-        yield return null;
+        yield return new WaitForSecondsRealtime(0.2f);
 
         Assert.That(renderer.color.a, Is.EqualTo(1f).Within(0.01f));
         Assert.AreEqual(4, renderer.sortingOrder);
@@ -240,5 +255,16 @@ public class TutorialTreeOccluderPlayModeTests
         player.AddComponent<BoxCollider2D>();
         player.AddComponent<TopDownPlayerController>();
         return player;
+    }
+
+    static void DisableOtherPlayers(GameObject fixturePlayer)
+    {
+        foreach (TopDownPlayerController controller in
+                 UnityEngine.Object.FindObjectsByType<TopDownPlayerController>(
+                     FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+        {
+            if (controller.gameObject != fixturePlayer)
+                controller.gameObject.SetActive(false);
+        }
     }
 }

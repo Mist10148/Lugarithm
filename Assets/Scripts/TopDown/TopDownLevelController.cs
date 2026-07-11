@@ -686,8 +686,13 @@ public class TopDownLevelController : MonoBehaviour
         if (isNew)
         {
             UpdateObjectives();
-            TryUnlockArtifact();
         }
+
+        // Idempotent by design: repeated completion callbacks can occur when an
+        // overlay closes and its result panel resolves in the same frame. Always
+        // re-evaluate the aggregate objective state so the artifact cannot be
+        // skipped merely because the last callback repeats an already-recorded id.
+        TryUnlockArtifact();
     }
 
     void TryUnlockArtifact()

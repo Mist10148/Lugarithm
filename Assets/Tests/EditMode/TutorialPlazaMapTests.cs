@@ -38,14 +38,14 @@ public class TutorialPlazaMapTests
             npcIds);
 
         List<MapEntity> npcs = map.entities.FindAll(entity => entity.type == EntityType.Npc);
-        Assert.AreEqual(new Vector2Int(8, 8), new Vector2Int(npcs[0].gridX, npcs[0].gridY));
-        Assert.AreEqual(new Vector2Int(16, 8), new Vector2Int(npcs[1].gridX, npcs[1].gridY));
-        Assert.AreEqual(new Vector2Int(12, 24), new Vector2Int(npcs[2].gridX, npcs[2].gridY));
+        Assert.AreEqual(new Vector2Int(8, 27), new Vector2Int(npcs[0].gridX, npcs[0].gridY));
+        Assert.AreEqual(new Vector2Int(16, 27), new Vector2Int(npcs[1].gridX, npcs[1].gridY));
+        Assert.AreEqual(new Vector2Int(12, 11), new Vector2Int(npcs[2].gridX, npcs[2].gridY));
 
         List<MapEntity> puzzles = map.entities.FindAll(
             entity => entity.type == EntityType.PuzzleStation);
-        Assert.AreEqual(new Vector2Int(8, 6), new Vector2Int(puzzles[0].gridX, puzzles[0].gridY));
-        Assert.AreEqual(new Vector2Int(16, 6), new Vector2Int(puzzles[1].gridX, puzzles[1].gridY));
+        Assert.AreEqual(new Vector2Int(8, 29), new Vector2Int(puzzles[0].gridX, puzzles[0].gridY));
+        Assert.AreEqual(new Vector2Int(16, 29), new Vector2Int(puzzles[1].gridX, puzzles[1].gridY));
         Assert.AreEqual("Garage Maze", TownMinigameLibrary.ForLevel(0)[0].title);
         Assert.AreEqual("Capiz Window", TownMinigameLibrary.ForLevel(0)[1].title);
     }

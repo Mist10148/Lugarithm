@@ -33,6 +33,9 @@ public class GridPuzzleMinigame : MonoBehaviour
     [SerializeField] Button replayButton;
     [SerializeField] Button quitButton;
     [SerializeField] Image timerFill;
+    [SerializeField] Image shellImage;
+    [SerializeField] Sprite mazeShell;
+    [SerializeField] Sprite blockFillShell;
 
     static readonly Color Hidden = new Color(0f, 0f, 0f, 0f);
     static readonly Color Wall = new Color(0.12f, 0.13f, 0.16f);
@@ -115,6 +118,11 @@ public class GridPuzzleMinigame : MonoBehaviour
         _timedOut = false;
         _running = true;
         if (titleLabel != null) titleLabel.text = def.title;
+        if (shellImage != null)
+        {
+            Sprite shell = _kind == MinigamePuzzleKind.BlockFill ? blockFillShell : mazeShell;
+            if (shell != null) shellImage.sprite = shell;
+        }
 
         GenerateLayout();
         Restart();

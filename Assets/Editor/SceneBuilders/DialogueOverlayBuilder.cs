@@ -85,6 +85,17 @@ public static class DialogueOverlayBuilder
                                          new Vector2(1f, 0f), new Vector2(1f, 0f),
                                          new Color(0.06f, 0.07f, 0.10f, 0.92f));
         UIFactory.Place(root, new Vector2(1f, 0f), dlgPos, dlgSize);
+        var rootImage = root.GetComponent<Image>();
+        rootImage.sprite = tutorialPixelTheme ? null : LugarithmUiSkin.JeepneyDialogue;
+        rootImage.type = Image.Type.Simple;
+        rootImage.preserveAspect = !tutorialPixelTheme;
+        rootImage.color = tutorialPixelTheme ? LugarithmUiSkin.PlumDeep : Color.white;
+        if (tutorialPixelTheme)
+        {
+            var rootOutline = root.gameObject.AddComponent<Outline>();
+            rootOutline.effectColor = LugarithmUiSkin.Gold;
+            rootOutline.effectDistance = new Vector2(3f, -3f);
+        }
 
         // Accent bar across the top edge of the box.
         var accentBar = UIFactory.CreatePanel(root, "AccentBar",
@@ -99,6 +110,11 @@ public static class DialogueOverlayBuilder
                                                   new Color(0.40f, 0.45f, 0.55f, 1f));
         UIFactory.Place(portraitFrame, new Vector2(0f, 1f), new Vector2(18f, -16f), new Vector2(68f, 68f));
         var portraitImg = portraitFrame.GetComponent<Image>();
+        portraitImg.sprite = null;
+        portraitImg.color = LugarithmUiSkin.Plum;
+        var portraitOutline = portraitFrame.gameObject.AddComponent<Outline>();
+        portraitOutline.effectColor = LugarithmUiSkin.Gold;
+        portraitOutline.effectDistance = new Vector2(2f, -2f);
         var speakerInitials = UIFactory.CreateText(portraitFrame, "Initials", "", 30f,
                                                    UIFactory.TextBright, TextAlignmentOptions.Center);
         speakerInitials.rectTransform.offsetMin = Vector2.zero;
@@ -126,8 +142,9 @@ public static class DialogueOverlayBuilder
         bodyLabel.rectTransform.offsetMax = new Vector2(-170f, -62f);
         bodyLabel.enableWordWrapping = true;
         bodyLabel.enableAutoSizing = true;
-        bodyLabel.fontSizeMin = 17f;
+        bodyLabel.fontSizeMin = 14f;
         bodyLabel.fontSizeMax = 22f;
+        bodyLabel.overflowMode = TextOverflowModes.Ellipsis;
 
         var continueIndicator = UIFactory.CreateText(root, "ContinueIndicator", "▼", 28f, UIFactory.Accent);
         UIFactory.Place(continueIndicator, new Vector2(1f, 0f), new Vector2(-154f, 14f), new Vector2(32f, 36f));
@@ -138,6 +155,9 @@ public static class DialogueOverlayBuilder
         UIFactory.Place(skipBtn, new Vector2(1f, 1f), new Vector2(-14f, -12f), new Vector2(116f, 36f));
 
         var nextBtn = UIFactory.CreateButton(root, "NextButton", "Next ▶", new Vector2(116f, 38f), 18f);
+        nextBtn.image.color = LugarithmUiSkin.Gold;
+        var nextLabel = nextBtn.GetComponentInChildren<TMP_Text>();
+        if (nextLabel != null) nextLabel.color = LugarithmUiSkin.PlumDeep;
         UIFactory.Place(nextBtn, new Vector2(1f, 0f), new Vector2(-14f, 14f), new Vector2(116f, 38f));
 
         // DialogBox drives the typewriter reveal on the bar.
@@ -185,7 +205,7 @@ public static class DialogueOverlayBuilder
 
             bodyLabel.rectTransform.offsetMin = new Vector2(126f, 30f);
             bodyLabel.rectTransform.offsetMax = new Vector2(-184f, -78f);
-            bodyLabel.fontSizeMin = 16f;
+            bodyLabel.fontSizeMin = 14f;
             bodyLabel.fontSizeMax = 21f;
             bodyLabel.lineSpacing = 2f;
 

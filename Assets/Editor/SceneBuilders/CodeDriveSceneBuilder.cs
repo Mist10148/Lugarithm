@@ -53,6 +53,8 @@ public static class CodeDriveSceneBuilder
         var tdBody = topDownAgentGo.AddComponent<SpriteRenderer>();
         tdBody.sprite = SceneBuilderUtil.LoadPlaceholder("jeepney_top");
         tdBody.sortingOrder = 10;
+        var tdAnimator = topDownAgentGo.AddComponent<VehicleSpriteAnimator>();
+        SceneBuilderUtil.Wire(tdAnimator, "body", tdBody);
         var topDownAgent = topDownAgentGo.AddComponent<TopDownAgentView>();
         topDownAgent.body = tdBody;
 
@@ -66,9 +68,10 @@ public static class CodeDriveSceneBuilder
                                                new Vector2(0f, 1f), new Vector2(0f, 1f),
                                                new Color(0.06f, 0.07f, 0.10f, 0.85f));
         UIFactory.Place(goalBanner, new Vector2(0f, 1f), new Vector2(16f, -12f), new Vector2(640f, 82f));
+        AutomationDriveSceneBuilder.ApplyHudArt(goalBanner.GetComponent<Image>(), LugarithmUiSkin.JeepneyObjective);
         var goalText = UIFactory.CreateText(goalBanner, "GoalText", "", 20f,
                                             UIFactory.TextBright, TextAlignmentOptions.TopLeft);
-        goalText.rectTransform.offsetMin = new Vector2(12f, 6f);
+        goalText.rectTransform.offsetMin = new Vector2(76f, 6f);
         goalText.rectTransform.offsetMax = new Vector2(-12f, -6f);
         goalText.enableWordWrapping = true;
 
@@ -115,15 +118,18 @@ public static class CodeDriveSceneBuilder
         Button editorModeToggle = UIFactory.CreateButton(canvas.transform, "EditorModeToggle",
                                                          "Editor: Blocks", new Vector2(170f, 42f), 18f);
         UIFactory.Place(editorModeToggle, new Vector2(1f, 1f), new Vector2(-24f, -240f), new Vector2(170f, 42f));
+        AutomationDriveSceneBuilder.ApplyHudArt(editorModeToggle.image, LugarithmUiSkin.JeepneyActionCode);
         editorModeToggle.image.color = new Color(0.30f, 0.45f, 0.75f);
 
         Button workspaceToggle = UIFactory.CreateButton(canvas.transform, "WorkspaceToggle",
                                                         "▤ Workspace", new Vector2(170f, 42f), 20f);
         UIFactory.Place(workspaceToggle, new Vector2(1f, 1f), new Vector2(-24f, -136f), new Vector2(170f, 42f));
+        AutomationDriveSceneBuilder.ApplyHudArt(workspaceToggle.image, LugarithmUiSkin.JeepneyActionRoute);
 
         Button journalToggle = UIFactory.CreateButton(canvas.transform, "JournalToggle",
                                                       "Journal", new Vector2(170f, 42f), 20f);
         UIFactory.Place(journalToggle, new Vector2(1f, 1f), new Vector2(-24f, -188f), new Vector2(170f, 42f));
+        AutomationDriveSceneBuilder.ApplyHudArt(journalToggle.image, LugarithmUiSkin.JeepneyActionJournal);
         journalToggle.gameObject.AddComponent<AlmanacToggleButton>();
 
         // Front-seat story-passenger card (top-center): who you're coding for + talking to.
@@ -131,6 +137,7 @@ public static class CodeDriveSceneBuilder
                                               new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                                               new Color(0.10f, 0.12f, 0.16f, 0.92f));
         UIFactory.Place(frontSeat, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(320f, 52f));
+        AutomationDriveSceneBuilder.ApplyHudArt(frontSeat.GetComponent<Image>(), LugarithmUiSkin.JeepneyFrontSeat);
         TMP_Text frontSeatLabel = UIFactory.CreateText(frontSeat, "Label", "", 22f,
                                                        UIFactory.TextBright, TextAlignmentOptions.MidlineLeft);
         frontSeatLabel.rectTransform.offsetMin = new Vector2(16f, 0f);
@@ -259,6 +266,7 @@ public static class CodeDriveSceneBuilder
         SceneBuilderUtil.Wire(controller, "frontSeatCard",  frontSeat.gameObject);
         SceneBuilderUtil.Wire(controller, "frontSeatLabel", frontSeatLabel);
 
+        UIFactory.ApplyBlueprintSkin(canvas.transform);
         SceneBuilderUtil.SaveScene(scene, "CodeDrive");
     }
 

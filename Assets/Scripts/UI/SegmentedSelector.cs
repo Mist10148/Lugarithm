@@ -18,6 +18,8 @@ public class SegmentedSelector : MonoBehaviour
 
     Button[] _segments;
     bool _wired;
+    [SerializeField] Sprite activeSprite;
+    [SerializeField] Sprite idleSprite;
 
     /// <summary>Index of the selected option.</summary>
     public int Value { get; private set; }
@@ -67,6 +69,14 @@ public class SegmentedSelector : MonoBehaviour
         if (_segments == null) return;
         for (int i = 0; i < _segments.Length; i++)
             if (_segments[i] != null && _segments[i].image != null)
-                _segments[i].image.color = i == Value ? Active : Idle;
+            {
+                if (activeSprite != null && idleSprite != null)
+                {
+                    _segments[i].image.sprite = i == Value ? activeSprite : idleSprite;
+                    _segments[i].image.color = Color.white;
+                }
+                else
+                    _segments[i].image.color = i == Value ? Active : Idle;
+            }
     }
 }
